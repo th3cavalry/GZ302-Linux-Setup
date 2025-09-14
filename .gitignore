@@ -1,0 +1,35 @@
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Log files
+*.log
+
+# Backup files
+*.bak
+*.backup
+
+# Test files
+test_*
+*_test
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Build artifacts (if any)
+build/
+dist/
