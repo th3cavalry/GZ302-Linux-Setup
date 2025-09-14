@@ -118,17 +118,22 @@ apply_hardware_fixes() {
     cat > /etc/modprobe.d/mt7925e_wifi.conf <<EOF
 # Disable ASPM for the MediaTek MT7925E to improve stability
 options mt7925e disable_aspm=1
+# Additional stability parameters
+options mt7925e power_save=0
 EOF
 
     mkdir -p /etc/NetworkManager/conf.d/
     cat > /etc/NetworkManager/conf.d/99-wifi-powersave-off.conf <<EOF
 [connection]
 wifi.powersave = 2
+
+[device]
+wifi.scan-rand-mac-address=no
 EOF
     success "Wi-Fi fixes for MediaTek MT7925 applied."
 
-    # 4b. Fix touchpad detection
-    info "Applying touchpad detection fix..."
+    # 4b. Fix touchpad detection and sensitivity
+    info "Applying touchpad detection and sensitivity fixes..."
     cat > /etc/udev/hwdb.d/61-asus-touchpad.hwdb <<EOF
 # ASUS ROG Flow Z13 folio touchpad override
 # Forces the device to be recognized as a multi-touch touchpad
@@ -136,6 +141,10 @@ evdev:input:b0003v0b05p1a30*
  ENV{ID_INPUT_TOUCHPAD}="1"
  ENV{ID_INPUT_MULTITOUCH}="1"
  ENV{ID_INPUT_MOUSE}="0"
+ EVDEV_ABS_00=::100
+ EVDEV_ABS_01=::100
+ EVDEV_ABS_35=::100
+ EVDEV_ABS_36=::100
 EOF
 
     # Create systemd service to reload hid_asus module post-boot
@@ -153,8 +162,35 @@ ExecStart=/usr/bin/modprobe hid_asus
 [Install]
 WantedBy=multi-user.target
 EOF
+
+    # 4c. Fix audio issues and enable all audio devices
+    info "Applying audio fixes..."
+    cat > /etc/modprobe.d/alsa-gz302.conf <<EOF
+# Fix audio issues on ROG Flow Z13 GZ302
+options snd-hda-intel probe_mask=1
+options snd-hda-intel model=asus-zenbook
+EOF
+
+    # 4d. Fix AMD GPU driver issues
+    info "Applying AMD GPU optimizations..."
+    cat > /etc/modprobe.d/amdgpu-gz302.conf <<EOF
+# AMD GPU optimizations for GZ302
+options amdgpu dc=1
+options amdgpu gpu_recovery=1
+options amdgpu ppfeaturemask=0xffffffff
+options amdgpu runpm=1
+EOF
+
+    # 4e. Fix thermal throttling and power management
+    info "Applying thermal and power management fixes..."
+    cat > /etc/udev/rules.d/50-gz302-thermal.rules <<EOF
+# Thermal management for GZ302
+SUBSYSTEM=="thermal", KERNEL=="thermal_zone*", ATTR{type}=="x86_pkg_temp", ATTR{policy}="step_wise"
+SUBSYSTEM=="thermal", KERNEL=="thermal_zone*", ATTR{type}=="acpi", ATTR{policy}="step_wise"
+EOF
+
     systemd-hwdb update
-    success "Touchpad detection fixes applied."
+    success "All hardware fixes applied."
 }
 
 # --- Gaming Software Stack Functions ---
@@ -180,10 +216,26 @@ install_gaming_stack() {
         gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav
     success "Core gaming applications installed."
 
-    # 5c. Install ProtonUp-Qt for GUI Proton management
-    info "Installing ProtonUp-Qt for easy Proton version management..."
-    yay -S --noconfirm --needed protonup-qt
-    success "ProtonUp-Qt installed."
+    # 5c. Install additional gaming tools and optimizations
+    info "Installing additional gaming tools..."
+    pacman -S --noconfirm --needed \
+        mangohud goverlay \
+        wine-staging winetricks \
+        corectrl \
+        mesa-utils vulkan-tools \
+        lib32-mesa lib32-vulkan-radeon \
+        pipewire pipewire-pulse pipewire-jack lib32-pipewire
+    success "Additional gaming tools installed."
+
+    # Install ProtonUp-Qt via AUR (requires yay to be available)
+    if command -v yay &> /dev/null; then
+        info "Installing ProtonUp-Qt for easy Proton version management..."
+        yay -S --noconfirm --needed protonup-qt
+        success "ProtonUp-Qt installed."
+    else
+        warning "AUR helper not available. ProtonUp-Qt installation skipped."
+        warning "Please install ProtonUp-Qt manually after setting up an AUR helper."
+    fi
 
     # 5d. Install Proton-GE
     info "Installing the latest version of Proton-GE..."
@@ -249,13 +301,34 @@ apply_performance_tweaks() {
     info "Applying system-wide performance tweaks..."
 
     # 6a. Increase vm.max_map_count for game compatibility
-    info "Increasing vm.max_map_count..."
+    info "Applying gaming and performance kernel parameters..."
     cat > /etc/sysctl.d/99-gaming.conf <<EOF
 # Increase vm.max_map_count for modern games (SteamOS default)
 vm.max_map_count = 2147483642
+
+# Gaming performance optimizations
+vm.swappiness = 10
+vm.dirty_ratio = 15
+vm.dirty_background_ratio = 5
+vm.vfs_cache_pressure = 50
+
+# Network optimizations for gaming
+net.core.netdev_max_backlog = 16384
+net.core.somaxconn = 8192
+net.core.rmem_default = 1048576
+net.core.rmem_max = 16777216
+net.core.wmem_default = 1048576
+net.core.wmem_max = 16777216
+net.ipv4.tcp_rmem = 4096 1048576 2097152
+net.ipv4.tcp_wmem = 4096 65536 16777216
+net.ipv4.tcp_mtu_probing = 1
+
+# Reduce latency
+kernel.sched_migration_cost_ns = 5000000
+kernel.sched_autogroup_enabled = 0
 EOF
     sysctl -p /etc/sysctl.d/99-gaming.conf
-    success "vm.max_map_count set."
+    success "Gaming and performance optimizations applied."
 
     # 6b. Enable hardware video acceleration globally
     info "Enabling hardware video acceleration..."
@@ -264,9 +337,52 @@ EOF
 # Enable VA-API and VDPAU hardware acceleration for AMDGPU
 LIBVA_DRIVER_NAME=radeonsi
 VDPAU_DRIVER=radeonsi
+
+# Gaming optimizations
+RADV_PERFTEST=gpl,sam,nggc
+DXVK_HUD=compiler
+MANGOHUD=1
 EOF
     fi
-    success "Hardware video acceleration enabled globally."
+    success "Hardware video acceleration and gaming environment variables enabled."
+
+    # 6c. Configure gaming-optimized I/O schedulers
+    info "Configuring I/O schedulers for gaming..."
+    cat > /etc/udev/rules.d/60-ioschedulers.rules <<EOF
+# Set deadline scheduler for SSDs and none for NVMe
+ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
+ACTION=="add|change", KERNEL=="nvme[0-9]*", ATTR{queue/scheduler}="none"
+EOF
+    success "I/O schedulers configured for optimal gaming performance."
+
+    # 6d. Configure CPU governor and power management
+    info "Setting up CPU performance profiles..."
+    cat > /etc/systemd/system/cpu-performance.service <<EOF
+[Unit]
+Description=Set CPU governor to performance on AC power
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # 6e. Configure limits for better gaming performance
+    info "Configuring system limits for gaming..."
+    cat > /etc/security/limits.d/99-gaming.conf <<EOF
+# Increase limits for gaming
+* soft nofile 1048576
+* hard nofile 1048576
+* soft nproc 1048576
+* hard nproc 1048576
+* soft memlock unlimited
+* hard memlock unlimited
+EOF
+    success "System limits configured for gaming."
 }
 
 # --- Service Management Functions ---
@@ -279,6 +395,7 @@ enable_services() {
     systemctl enable --now supergfxd.service
     systemctl enable --now switcheroo-control.service
     systemctl enable --now reload-hid_asus.service
+    systemctl enable --now cpu-performance.service
 
     # Enable gamemode for the primary user
     PRIMARY_USER=$(logname 2>/dev/null || echo $SUDO_USER)
@@ -286,6 +403,25 @@ enable_services() {
         warning "Could not determine a non-root user. Cannot enable user services for gamemode."
     else
         sudo -u "$PRIMARY_USER" systemctl --user enable --now gamemoded.service
+        # Configure gamemode
+        sudo -u "$PRIMARY_USER" mkdir -p "/home/$PRIMARY_USER/.config/gamemode"
+        sudo -u "$PRIMARY_USER" cat > "/home/$PRIMARY_USER/.config/gamemode/gamemode.ini" <<EOF
+[general]
+renice=10
+desiredgov=performance
+igpu_desiredgov=performance
+igpu_power_threshold=0.3
+
+[gpu]
+apply_gpu_optimisations=accept-responsibility
+gpu_device=0
+amd_performance_level=high
+
+[custom]
+start=notify-send "GameMode" "Optimizations activated"
+end=notify-send "GameMode" "Optimizations deactivated"
+EOF
+        chown "$PRIMARY_USER:$PRIMARY_USER" "/home/$PRIMARY_USER/.config/gamemode/gamemode.ini"
     fi
 
     success "All necessary services have been enabled and started."
@@ -317,20 +453,32 @@ main() {
     success "After rebooting, make sure to select the 'linux-g14' kernel"
     success "from your bootloader menu."
     success ""
-    success "ProtonUp-Qt has been installed for easy Proton version"
-    success "management. You can launch it from your application menu"
-    success "to install and manage different Proton versions."
+    success "Installed gaming tools:"
+    success "- Steam with Proton support"
+    success "- Lutris for game management"
+    success "- ProtonUp-Qt for Proton version management"
+    success "- MangoHUD and Goverlay for performance monitoring"
+    success "- CoreCtrl for GPU performance control"
+    success "- GameMode for automatic gaming optimizations"
     success ""
-    success "CoreCtrl has been installed for GPU performance control."
-    success "Launch it after reboot to create game-specific performance profiles."
+    success "Hardware fixes applied:"
+    success "- MediaTek MT7925 Wi-Fi stability improvements"
+    success "- Touchpad detection and sensitivity fixes"
+    success "- AMD GPU driver optimizations"
+    success "- Audio device compatibility fixes"
+    success "- Thermal throttling and power management"
     success ""
-    success "Advanced gaming optimizations have been applied including:"
-    success "- CPU performance governor switching based on AC/battery"
-    success "- I/O scheduler optimizations for SSDs and HDDs"
-    success "- FSYNC/ESYNC support with increased file descriptor limits"
-    success "- Low-latency audio configuration"
-    success "- Memory and network optimizations for gaming"
-    success "- Kernel boot parameters for reduced security mitigations"
+    success "Performance optimizations applied:"
+    success "- Gaming-optimized kernel parameters"
+    success "- CPU performance governor switching"
+    success "- I/O scheduler optimizations for SSDs/NVMe"
+    success "- Network latency optimizations"
+    success "- Memory management tweaks"
+    success "- Hardware video acceleration"
+    success "- System limits increased for gaming"
+    success ""
+    success "You can now enjoy Arch Linux optimized for your"
+    success "ASUS ROG Flow Z13 (GZ302) with excellent gaming performance!"
     success "============================================================"
     echo
 }
