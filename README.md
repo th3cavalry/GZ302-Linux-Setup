@@ -146,7 +146,7 @@ Just answer yes (y) or no (n) for each one!
 
 ## Useful Commands (After Setup)
 
-### Power Management (Arch Linux Only)
+### Power Management
 ```bash
 gz302-tdp gaming      # Maximum performance
 gz302-tdp balanced    # Normal use (default)

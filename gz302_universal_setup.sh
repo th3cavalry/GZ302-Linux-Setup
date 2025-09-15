@@ -234,6 +234,9 @@ EOF
     # Apply hardware fixes
     apply_arch_hardware_fixes "$distro"
     
+    # Setup TDP management (always install for all systems)
+    setup_tdp_management "arch"
+    
     # Install optional software based on user choices
     if [[ "${INSTALL_GAMING,,}" == "y" || "${INSTALL_GAMING,,}" == "yes" ]]; then
         install_arch_gaming_software
@@ -268,6 +271,9 @@ setup_debian_based() {
     # Apply hardware fixes
     apply_debian_hardware_fixes "$distro"
     
+    # Setup TDP management (always install for all systems)
+    setup_tdp_management "debian"
+    
     # Install optional software based on user choices
     if [[ "${INSTALL_GAMING,,}" == "y" || "${INSTALL_GAMING,,}" == "yes" ]]; then
         install_debian_gaming_software
@@ -301,6 +307,9 @@ setup_fedora_based() {
     # Apply hardware fixes
     apply_fedora_hardware_fixes "$distro"
     
+    # Setup TDP management (always install for all systems)
+    setup_tdp_management "fedora"
+    
     # Install optional software based on user choices
     if [[ "${INSTALL_GAMING,,}" == "y" || "${INSTALL_GAMING,,}" == "yes" ]]; then
         install_fedora_gaming_software
@@ -332,6 +341,9 @@ setup_opensuse() {
     
     # Apply hardware fixes
     apply_opensuse_hardware_fixes
+    
+    # Setup TDP management (always install for all systems)
+    setup_tdp_management "opensuse"
     
     # Install optional software based on user choices
     if [[ "${INSTALL_GAMING,,}" == "y" || "${INSTALL_GAMING,,}" == "yes" ]]; then
@@ -862,6 +874,235 @@ install_opensuse_llm_software() {
     success "LLM/AI software installation completed"
 }
 
+# TDP Management functions
+install_ryzenadj_arch() {
+    info "Installing ryzenadj for Arch-based system..."
+    if command -v yay >/dev/null 2>&1; then
+        sudo -u "$SUDO_USER" yay -S --noconfirm ryzenadj-git
+    elif command -v paru >/dev/null 2>&1; then
+        sudo -u "$SUDO_USER" paru -S --noconfirm ryzenadj-git
+    else
+        warning "AUR helper (yay/paru) not found. Installing yay first..."
+        pacman -S --noconfirm git base-devel
+        cd /tmp
+        sudo -u "$SUDO_USER" git clone https://aur.archlinux.org/yay.git
+        cd yay
+        sudo -u "$SUDO_USER" makepkg -si --noconfirm
+        sudo -u "$SUDO_USER" yay -S --noconfirm ryzenadj-git
+    fi
+    success "ryzenadj installed"
+}
+
+install_ryzenadj_debian() {
+    info "Installing ryzenadj for Debian-based system..."
+    apt-get update
+    apt-get install -y build-essential cmake libpci-dev git
+    cd /tmp
+    git clone https://github.com/FlyGoat/RyzenAdj.git
+    cd RyzenAdj
+    mkdir build && cd build
+    cmake -DCMAKE_BUILD_TYPE=Release ..
+    make -j$(nproc)
+    make install
+    ldconfig
+    success "ryzenadj compiled and installed"
+}
+
+install_ryzenadj_fedora() {
+    info "Installing ryzenadj for Fedora-based system..."
+    dnf install -y gcc gcc-c++ cmake pciutils-devel git
+    cd /tmp
+    git clone https://github.com/FlyGoat/RyzenAdj.git
+    cd RyzenAdj
+    mkdir build && cd build
+    cmake -DCMAKE_BUILD_TYPE=Release ..
+    make -j$(nproc)
+    make install
+    ldconfig
+    success "ryzenadj compiled and installed"
+}
+
+install_ryzenadj_opensuse() {
+    info "Installing ryzenadj for OpenSUSE..."
+    zypper install -y gcc gcc-c++ cmake pciutils-devel git
+    cd /tmp
+    git clone https://github.com/FlyGoat/RyzenAdj.git
+    cd RyzenAdj
+    mkdir build && cd build
+    cmake -DCMAKE_BUILD_TYPE=Release ..
+    make -j$(nproc)
+    make install
+    ldconfig
+    success "ryzenadj compiled and installed"
+}
+
+setup_tdp_management() {
+    local distro_family="$1"
+    
+    info "Setting up TDP management for GZ302..."
+    
+    # Install ryzenadj based on distribution
+    case "$distro_family" in
+        "arch")
+            install_ryzenadj_arch
+            ;;
+        "debian")
+            install_ryzenadj_debian
+            ;;
+        "fedora")
+            install_ryzenadj_fedora
+            ;;
+        "opensuse")
+            install_ryzenadj_opensuse
+            ;;
+    esac
+    
+    # Create universal TDP management script
+    cat > /usr/local/bin/gz302-tdp <<'EOF'
+#!/bin/bash
+# GZ302 TDP Management Script - Universal Version
+# Based on research from Shahzebqazi's Asus-Z13-Flow-2025-PCMR
+
+TDP_CONFIG_DIR="/etc/gz302-tdp"
+CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
+
+# TDP Profiles (in mW)
+declare -A TDP_PROFILES
+TDP_PROFILES[gaming]="54000"      # Maximum performance for gaming
+TDP_PROFILES[performance]="45000" # High performance
+TDP_PROFILES[balanced]="35000"    # Balanced performance/efficiency
+TDP_PROFILES[efficient]="15000"   # Maximum efficiency
+
+# Create config directory
+mkdir -p "$TDP_CONFIG_DIR"
+
+show_usage() {
+    echo "Usage: gz302-tdp [PROFILE|status|list]"
+    echo ""
+    echo "Profiles:"
+    echo "  gaming       - 54W maximum performance (AC power recommended)"
+    echo "  performance  - 45W high performance"
+    echo "  balanced     - 35W balanced (default)"
+    echo "  efficient    - 15W maximum efficiency"
+    echo ""
+    echo "Commands:"
+    echo "  status       - Show current TDP and power source"
+    echo "  list         - List available profiles"
+}
+
+get_battery_status() {
+    if [ -f /sys/class/power_supply/ADP1/online ]; then
+        if [ "$(cat /sys/class/power_supply/ADP1/online)" = "1" ]; then
+            echo "AC"
+        else
+            echo "Battery"
+        fi
+    else
+        echo "Unknown"
+    fi
+}
+
+get_battery_percentage() {
+    if [ -f /sys/class/power_supply/BAT0/capacity ]; then
+        cat /sys/class/power_supply/BAT0/capacity
+    else
+        echo "N/A"
+    fi
+}
+
+set_tdp_profile() {
+    local profile="$1"
+    local tdp_value="${TDP_PROFILES[$profile]}"
+    
+    if [ -z "$tdp_value" ]; then
+        echo "Error: Unknown profile '$profile'"
+        return 1
+    fi
+    
+    echo "Setting TDP profile: $profile ($(($tdp_value / 1000))W)"
+    
+    # Apply TDP settings using ryzenadj
+    ryzenadj --stapm-limit="$tdp_value" --fast-limit="$tdp_value" --slow-limit="$tdp_value"
+    
+    if [ $? -eq 0 ]; then
+        echo "$profile" > "$CURRENT_PROFILE_FILE"
+        echo "TDP profile '$profile' applied successfully"
+    else
+        echo "Error: Failed to apply TDP profile"
+        return 1
+    fi
+}
+
+show_status() {
+    local power_source=$(get_battery_status)
+    local battery_pct=$(get_battery_percentage)
+    local current_profile="Unknown"
+    
+    if [ -f "$CURRENT_PROFILE_FILE" ]; then
+        current_profile=$(cat "$CURRENT_PROFILE_FILE")
+    fi
+    
+    echo "GZ302 Power Status:"
+    echo "  Power Source: $power_source"
+    echo "  Battery: $battery_pct%"
+    echo "  Current Profile: $current_profile"
+    
+    if [ "$current_profile" != "Unknown" ] && [ -n "${TDP_PROFILES[$current_profile]}" ]; then
+        echo "  TDP Limit: $(( ${TDP_PROFILES[$current_profile]} / 1000 ))W"
+    fi
+}
+
+list_profiles() {
+    echo "Available TDP profiles:"
+    for profile in "${!TDP_PROFILES[@]}"; do
+        local tdp_watts=$(( ${TDP_PROFILES[$profile]} / 1000 ))
+        echo "  $profile: ${tdp_watts}W"
+    done
+}
+
+# Main script logic
+case "$1" in
+    gaming|performance|balanced|efficient)
+        set_tdp_profile "$1"
+        ;;
+    status)
+        show_status
+        ;;
+    list)
+        list_profiles
+        ;;
+    "")
+        show_usage
+        ;;
+    *)
+        echo "Error: Unknown command '$1'"
+        show_usage
+        exit 1
+        ;;
+esac
+EOF
+
+    chmod +x /usr/local/bin/gz302-tdp
+    
+    # Create systemd service for automatic TDP management
+    cat > /etc/systemd/system/gz302-tdp-auto.service <<EOF
+[Unit]
+Description=GZ302 Automatic TDP Management
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gz302-tdp balanced
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    systemctl enable gz302-tdp-auto.service
+    success "TDP management installed. Use 'gz302-tdp' command to manage power profiles."
+}
+
 # Placeholder functions for snapshots
 setup_arch_snapshots() {
     info "Setting up snapshots for Arch-based system..."
@@ -1016,6 +1257,7 @@ main() {
     success "- Touchpad detection and functionality"
     success "- Audio fixes for ASUS hardware"
     success "- GPU and thermal optimizations"
+    success "- TDP management: Use 'gz302-tdp' command"
     success ""
     
     # Show what was installed based on user choices
@@ -1035,6 +1277,9 @@ main() {
         success "System snapshots configured"
     fi
     
+    success ""
+    success "Available TDP profiles: gaming, performance, balanced, efficient"
+    success "Check power status with: gz302-tdp status"
     success ""
     success "Your ROG Flow Z13 (GZ302) is now optimized for $detected_distro!"
     success "============================================================"
