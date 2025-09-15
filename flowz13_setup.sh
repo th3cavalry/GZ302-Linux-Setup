@@ -328,8 +328,7 @@ net.ipv4.tcp_rmem = 4096 1048576 2097152
 net.ipv4.tcp_wmem = 4096 65536 16777216
 net.ipv4.tcp_mtu_probing = 1
 
-# Reduce latency
-kernel.sched_migration_cost_ns = 5000000
+# Reduce latency and improve responsiveness
 kernel.sched_autogroup_enabled = 0
 EOF
     sysctl -p /etc/sysctl.d/99-gaming.conf
