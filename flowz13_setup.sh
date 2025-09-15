@@ -3,8 +3,8 @@
 # ==============================================================================
 # Comprehensive Arch Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
-# Author: Senior Systems Integration Engineer
-# Version: 1.2 (Added ProtonUp-Qt)
+# Author: th3cavalry using Copilot
+# Version: 1.3
 #
 # This script automates the post-installation setup for Arch Linux on the
 # ASUS ROG Flow Z13 (GZ302) with an AMD Ryzen AI 395+ processor.

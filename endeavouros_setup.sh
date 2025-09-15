@@ -3,8 +3,8 @@
 # ==============================================================================
 # Comprehensive EndeavourOS Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
-# Author: Senior Systems Integration Engineer
-# Version: 1.0
+# Author: th3cavalry using Copilot
+# Version: 1.3
 #
 # This script automates the post-installation setup for EndeavourOS on the
 # ASUS ROG Flow Z13 (GZ302) with an AMD Ryzen AI 395+ processor.
@@ -487,7 +487,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) EndeavourOS Setup Script"
-    echo "  Version 1.0 - Gaming Performance Optimization"
+    echo "  Version 1.3 - Gaming Performance Optimization"
     echo "============================================================"
     echo
     
