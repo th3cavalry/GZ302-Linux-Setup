@@ -3,8 +3,8 @@
 # ==============================================================================
 # Comprehensive Manjaro Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
-# Author: Senior Systems Integration Engineer
-# Version: 1.0
+# Author: th3cavalry using Copilot
+# Version: 1.3
 #
 # This script automates the post-installation setup for Manjaro on the
 # ASUS ROG Flow Z13 (GZ302) with an AMD Ryzen AI 395+ processor.
@@ -486,6 +486,144 @@ EOF
     success "All necessary services have been enabled and started."
 }
 
+# --- LLM Installation Functions ---
+
+# User choice function for installation options
+ask_installation_options() {
+    echo ""
+    info "Installation Configuration:"
+    echo "This script can install gaming software and LLM frameworks."
+    echo ""
+    
+    # Ask about gaming installation
+    echo "Gaming Software includes:"
+    echo "- Steam, Lutris, ProtonUp-Qt"
+    echo "- MangoHUD, GameMode, Wine"
+    echo "- Gaming optimizations and performance tweaks"
+    echo ""
+    read -p "Do you want to install gaming software? (y/n): " install_gaming
+    
+    # Ask about LLM installation
+    echo ""
+    echo "LLM (AI/ML) Software includes:"
+    echo "- Ollama for local LLM inference"
+    echo "- ROCm for AMD GPU acceleration"
+    echo "- PyTorch and Transformers libraries"
+    echo ""
+    read -p "Do you want to install LLM/AI software? (y/n): " install_llm
+    
+    echo ""
+}
+
+# User choice function for LLM installations
+choose_llm_options() {
+    info "LLM (Large Language Model) Installation Options:"
+    echo "Please select which LLM frameworks you would like to install:"
+    echo ""
+    echo "1. Ollama - Local LLM runner (lightweight, easy to use)"
+    echo "2. ROCm - AMD GPU acceleration for ML/AI workloads"
+    echo "3. PyTorch with ROCm - Deep learning framework with AMD GPU support"
+    echo "4. Transformers - Hugging Face transformers library"
+    echo "5. All of the above"
+    echo "6. Skip LLM installation"
+    echo ""
+    
+    local choices=""
+    read -p "Enter your choices (comma-separated, e.g., 1,3,4): " choices
+    echo "$choices"
+}
+
+# Install Ollama for local LLM inference
+install_ollama() {
+    info "Installing Ollama for local LLM inference..."
+    
+    # Download and install Ollama
+    curl -fsSL https://ollama.ai/install.sh | sh
+    
+    # Enable and start Ollama service
+    systemctl enable ollama.service
+    systemctl start ollama.service
+    
+    success "Ollama installed successfully. You can now run: ollama run llama2"
+}
+
+# Install ROCm for AMD GPU acceleration (Arch-based)
+install_rocm() {
+    info "Installing ROCm for AMD GPU acceleration..."
+    
+    # Install ROCm packages from AUR  
+    sudo -u "$PRIMARY_USER" yay -S --noconfirm rocm-dev rocm-opencl-runtime hip-runtime-amd
+    
+    # Add user to render group for GPU access
+    if [ -n "$PRIMARY_USER" ]; then
+        usermod -a -G render "$PRIMARY_USER"
+        info "User $PRIMARY_USER added to render group for GPU access."
+    fi
+    
+    success "ROCm installed successfully. Reboot required for full functionality."
+}
+
+# Install PyTorch with ROCm support
+install_pytorch_rocm() {
+    info "Installing PyTorch with ROCm support..."
+    
+    # Install pip if not present
+    pacman -S --noconfirm python-pip
+    
+    # Install PyTorch with ROCm support
+    sudo -u "$PRIMARY_USER" pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+    
+    success "PyTorch with ROCm support installed successfully."
+}
+
+# Install Hugging Face Transformers
+install_transformers() {
+    info "Installing Hugging Face Transformers library..."
+    
+    # Install pip if not present
+    pacman -S --noconfirm python-pip
+    
+    # Install transformers and related packages
+    sudo -u "$PRIMARY_USER" pip install transformers accelerate datasets tokenizers
+    
+    success "Hugging Face Transformers library installed successfully."
+}
+
+# Main LLM installation function
+install_llm_stack() {
+    info "Setting up LLM (Large Language Model) environment..."
+    
+    local choices=$(choose_llm_options)
+    
+    if [[ "$choices" == *"6"* ]] || [[ -z "$choices" ]]; then
+        info "Skipping LLM installation as requested."
+        return 0
+    fi
+    
+    if [[ "$choices" == *"5"* ]]; then
+        info "Installing all LLM options..."
+        install_ollama
+        install_rocm
+        install_pytorch_rocm
+        install_transformers
+    else
+        if [[ "$choices" == *"1"* ]]; then
+            install_ollama
+        fi
+        if [[ "$choices" == *"2"* ]]; then
+            install_rocm
+        fi
+        if [[ "$choices" == *"3"* ]]; then
+            install_pytorch_rocm
+        fi
+        if [[ "$choices" == *"4"* ]]; then
+            install_transformers
+        fi
+    fi
+    
+    success "LLM environment setup completed."
+}
+
 # --- Main Execution Logic ---
 main() {
     check_root
@@ -493,34 +631,51 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Manjaro Setup Script"
-    echo "  Version 1.0 - Gaming Performance Optimization"
+    echo "  Version 1.3 - Gaming Performance Optimization"
     echo "============================================================"
     echo
     
     info "Starting comprehensive setup process..."
     info "This script will configure your Manjaro system for optimal ROG Flow Z13 performance"
     info "Estimated time: 10-30 minutes depending on internet speed and AUR builds"
-    echo
-
-    info "Step 1/7: Updating system and installing base dependencies..."
+    
+    # Ask user for installation preferences
+    ask_installation_options
+    
+    info "Step 1/8: Updating system and installing base dependencies..."
     update_system
     
-    info "Step 2/7: Setting up repositories and AUR access..."
+    info "Step 2/8: Setting up repositories and AUR access..."
     setup_repositories
     
-    info "Step 3/7: Installing hardware support packages..."
+    info "Step 3/8: Installing hardware support packages..."
     install_hardware_support
     
-    info "Step 4/7: Applying hardware-specific fixes..."
+    info "Step 4/8: Applying hardware-specific fixes..."
     apply_hardware_fixes
     
-    info "Step 5/7: Installing gaming software stack..."
-    install_gaming_stack
+    # Conditional gaming installation
+    if [[ "${install_gaming,,}" == "y" || "${install_gaming,,}" == "yes" ]]; then
+        info "Step 5/8: Installing gaming software stack..."
+        install_gaming_stack
+        
+        info "Step 6/8: Applying performance optimizations..."
+        apply_performance_tweaks
+    else
+        info "Step 5/8: Skipping gaming software installation as requested..."
+        info "Step 6/8: Applying basic performance optimizations..."
+        apply_performance_tweaks
+    fi
     
-    info "Step 6/7: Applying performance optimizations..."
-    apply_performance_tweaks
+    # Conditional LLM installation
+    if [[ "${install_llm,,}" == "y" || "${install_llm,,}" == "yes" ]]; then
+        info "Step 7/8: Installing LLM/AI software stack..."
+        install_llm_stack
+    else
+        info "Step 7/8: Skipping LLM/AI software installation as requested..."
+    fi
     
-    info "Step 7/7: Enabling services and finalizing setup..."
+    info "Step 8/8: Enabling services and finalizing setup..."
     enable_services
 
     echo
