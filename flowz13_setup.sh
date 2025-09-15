@@ -248,7 +248,7 @@ install_gaming_stack() {
         warning "Alternatively, you can use ProtonUp-Qt to install Proton versions after rebooting."
     else
         info "Installing Proton-GE for user: $PRIMARY_USER"
-        sudo -u "$PRIMARY_USER" bash <<'EOF'
+        sudo -u "$PRIMARY_USER" -H --set-home env -i HOME="/home/$PRIMARY_USER" USER="$PRIMARY_USER" PATH="/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl" bash <<'EOF'
 set -e
 COMPAT_DIR="$HOME/.steam/root/compatibilitytools.d"
 mkdir -p "$COMPAT_DIR"
@@ -280,7 +280,7 @@ install_aur_helper() {
         if [[ -z "$PRIMARY_USER" ]] || [[ "$PRIMARY_USER" == "root" ]]; then
             warning "Cannot install AUR helper without a non-root user. Skipping."
         else
-            sudo -u "$PRIMARY_USER" bash <<'EOF'
+            sudo -u "$PRIMARY_USER" -H --set-home env -i HOME="/home/$PRIMARY_USER" USER="$PRIMARY_USER" PATH="/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl" bash <<'EOF'
 set -e
 cd /tmp
 git clone https://aur.archlinux.org/yay-bin.git

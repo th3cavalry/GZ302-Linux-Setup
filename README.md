@@ -126,6 +126,11 @@ If you already have Arch Linux installed:
 - Verify services are running: `systemctl status supergfxd asusctl`
 - Try restarting: `sudo systemctl restart supergfxd`
 
+**"running makepkg as root is not allowed" error:**
+- This has been fixed in the latest version of the script
+- The script now properly cleans the environment when switching to non-root user
+- If you encounter this with an older version, update to the latest script
+
 ### Getting Help
 
 If you encounter issues:
