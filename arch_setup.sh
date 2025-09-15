@@ -1298,6 +1298,19 @@ ask_installation_options() {
     echo ""
     read -p "Do you want to install LLM/AI software? (y/n): " install_llm
     
+    # Ask about hypervisor installation
+    echo ""
+    echo "Hypervisor Software allows you to run virtual machines:"
+    echo "Available options:"
+    echo "  1) KVM/QEMU with virt-manager (Open source, excellent performance)"
+    echo "  2) VirtualBox (Oracle, user-friendly)"
+    echo "  3) VMware Workstation Pro (Commercial, feature-rich)"
+    echo "  4) Xen with Xen Orchestra (Enterprise-grade)"
+    echo "  5) Proxmox VE (Complete virtualization platform)"
+    echo "  6) None - skip hypervisor installation"
+    echo ""
+    read -p "Choose a hypervisor to install (1-6): " install_hypervisor
+    
     # Ask about system snapshots
     echo ""
     echo "System Snapshots provide:"
@@ -1449,6 +1462,58 @@ install_llm_stack() {
     success "LLM environment setup completed."
 }
 
+# --- Hypervisor Installation Functions ---
+
+# Install hypervisor stack based on user choice
+install_hypervisor_stack() {
+    local choice="$1"
+    info "Installing hypervisor software for Arch-based system..."
+    
+    case "$choice" in
+        1)
+            info "Installing KVM/QEMU with virt-manager..."
+            pacman -S --noconfirm --needed qemu-full virt-manager libvirt ebtables dnsmasq bridge-utils openbsd-netcat
+            systemctl enable --now libvirtd
+            local primary_user=$(get_real_user)
+            if [[ "$primary_user" != "root" ]]; then
+                usermod -a -G libvirt "$primary_user"
+            fi
+            success "KVM/QEMU with virt-manager installed"
+            ;;
+        2)
+            info "Installing VirtualBox..."
+            pacman -S --noconfirm --needed virtualbox virtualbox-host-modules-arch virtualbox-guest-iso
+            modprobe vboxdrv
+            local primary_user=$(get_real_user)
+            if [[ "$primary_user" != "root" ]]; then
+                usermod -a -G vboxusers "$primary_user"
+            fi
+            success "VirtualBox installed"
+            ;;
+        3)
+            info "Installing VMware Workstation Pro..."
+            if command -v yay >/dev/null 2>&1; then
+                sudo -u "$(get_real_user)" yay -S --noconfirm vmware-workstation
+            else
+                warning "VMware Workstation requires AUR helper. Please install manually."
+            fi
+            success "VMware Workstation installation attempted"
+            ;;
+        4)
+            info "Installing Xen hypervisor..."
+            pacman -S --noconfirm --needed xen xen-docs
+            warning "Xen requires additional configuration. Please refer to Arch Wiki for setup."
+            success "Xen hypervisor installed"
+            ;;
+        5)
+            info "Installing Proxmox VE..."
+            warning "Proxmox VE is typically installed as a dedicated OS. Consider using containers instead."
+            pacman -S --noconfirm --needed lxc lxd
+            success "LXC/LXD containers installed as Proxmox alternative"
+            ;;
+    esac
+}
+
 # --- Main Execution Logic ---
 main() {
     check_root
@@ -1503,7 +1568,15 @@ main() {
         info "Step 8/10: Skipping LLM/AI software installation as requested..."
     fi
     
-    info "Step 9/10: Configuring optional system features..."
+    # Conditional hypervisor installation
+    if [[ "${install_hypervisor}" =~ ^[1-5]$ ]]; then
+        info "Step 9/11: Installing hypervisor software..."
+        install_hypervisor_stack "${install_hypervisor}"
+    else
+        info "Step 9/11: Skipping hypervisor installation as requested..."
+    fi
+    
+    info "Step 10/11: Configuring optional system features..."
     
     # Conditional secure boot installation
     if [[ "${install_secureboot,,}" == "y" || "${install_secureboot,,}" == "yes" ]]; then
@@ -1521,7 +1594,7 @@ main() {
         info "Skipping system snapshots configuration as requested..."
     fi
     
-    info "Step 10/10: Applying performance optimizations and enabling services..."
+    info "Step 11/11: Applying performance optimizations and enabling services..."
     apply_performance_tweaks
     enable_services
 
@@ -1563,6 +1636,19 @@ main() {
         success "- ROCm for AMD GPU acceleration (if selected)"
         success "- PyTorch with ROCm support (if selected)"
         success "- Hugging Face Transformers (if selected)"
+        success ""
+    fi
+    
+    # Show hypervisor if installed
+    if [[ "${install_hypervisor}" =~ ^[1-5]$ ]]; then
+        success "Installed hypervisor:"
+        case "${install_hypervisor}" in
+            1) success "- KVM/QEMU with virt-manager for virtualization" ;;
+            2) success "- VirtualBox for virtualization" ;;
+            3) success "- VMware Workstation Pro for virtualization" ;;
+            4) success "- Xen hypervisor (requires configuration)" ;;
+            5) success "- LXC/LXD containers as Proxmox alternative" ;;
+        esac
         success ""
     fi
     
