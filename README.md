@@ -8,7 +8,7 @@ This repository provides setup scripts for **10 popular Linux gaming distributio
 
 ### Distribution Scripts Available:
 
-1. **`flowz13_setup.sh`** - Arch Linux post-installation setup and optimizations
+1. **`arch_setup.sh`** - Arch Linux post-installation setup and optimizations (formerly flowz13_setup.sh)
 2. **`ubuntu_setup.sh`** - Ubuntu gaming setup with LLM support
 3. **`fedora_setup.sh`** - Fedora gaming setup with RPM Fusion and LLM support
 4. **`popos_setup.sh`** - Pop!_OS enhanced gaming configuration with LLM support
@@ -23,9 +23,10 @@ Each script is tailored to the specific distribution's package management and re
 ## Features
 
 ### Hardware Support
-- **Wi-Fi Stability**: Fixes for MediaTek MT7925 wireless adapter
+- **Wi-Fi Stability**: Enhanced fixes for MediaTek MT7925 wireless adapter
 - **Touchpad**: Proper detection and sensitivity configuration
 - **Audio**: Complete audio device compatibility
+- **Camera**: Hardware-specific camera drivers and configuration for GZ302
 - **AMD GPU**: Optimized driver configuration for integrated graphics
 - **Thermal Management**: Proper throttling and power management
 - **ASUS Controls**: Full integration with ASUS hardware controls
@@ -41,13 +42,26 @@ Each script is tailored to the specific distribution's package management and re
 - **Progress Reporting**: Detailed step-by-step progress with time estimates
 - **User Choice**: Optional gaming installation with user prompts
 
-### LLM/AI Support (New in v1.3)
+### Power Management (New in v1.5)
+- **TDP Management**: Four power profiles (gaming, performance, balanced, efficient)
+- **Smart Profile Switching**: Automatic power source detection
+- **Battery Monitoring**: Real-time battery status and percentage
+- **AC/Battery Optimization**: Optimized settings for each power source
+
+### LLM/AI Support (Enhanced in v1.5)
 - **Ollama**: Local LLM inference for running models like Llama2, Code Llama, etc.
-- **ROCm**: AMD GPU acceleration for machine learning workloads
+- **ROCm**: Enhanced AMD GPU acceleration for machine learning workloads
 - **PyTorch with ROCm**: Deep learning framework with AMD GPU support
 - **Transformers**: Hugging Face transformers library for NLP tasks
 - **User Choice**: Optional LLM/AI installation with user prompts
 - **Flexible Selection**: Choose which LLM frameworks to install
+
+### System Recovery (New in v1.5)
+- **ZFS Snapshots**: Automatic system snapshots for easy recovery (Arch)
+- **Snapshot Management**: Create, list, cleanup, and restore from snapshots (Arch)
+- **Secure Boot**: Automated secure boot configuration with sbctl (Arch)
+- **Enhanced Error Recovery**: Comprehensive troubleshooting and rollback capabilities (Arch)
+- **Camera Support**: Hardware-specific camera fixes applied to all distributions
 
 ## Quick Start
 
@@ -58,7 +72,7 @@ Select the setup script for your Linux distribution:
 #### Arch Linux (Post-Installation Setup)
 ```bash
 # If you already have Arch Linux installed
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/flowz13_setup.sh -o setup.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/arch_setup.sh -o setup.sh
 chmod +x setup.sh
 sudo ./setup.sh
 ```
@@ -121,7 +135,38 @@ sudo ./setup.sh
 
 After running any script, **reboot your system** to apply all changes.
 
-## Installation Options (New in v1.3)
+## New in Version 1.5
+
+### Power Management Commands
+```bash
+# TDP management for optimal performance/battery life
+gz302-tdp gaming      # Maximum performance (54W)
+gz302-tdp performance # High performance (45W)  
+gz302-tdp balanced    # Balanced mode (35W) - default
+gz302-tdp efficient   # Battery saving (15W)
+gz302-tdp status      # Show current power status and profile
+gz302-tdp list        # List all available profiles
+```
+
+### System Recovery Commands
+```bash
+# ZFS snapshot management
+gz302-snapshot create  # Create a system snapshot
+gz302-snapshot list    # List available snapshots
+gz302-snapshot cleanup # Remove old snapshots (keep last 5)
+gz302-snapshot restore # Restore from a snapshot (interactive)
+```
+
+### Secure Boot Management
+```bash
+# Check secure boot status
+sbctl status
+
+# Sign additional kernels if needed
+sbctl sign -s /boot/vmlinuz-linux
+```
+
+## Installation Options (Enhanced in v1.5)
 
 All scripts now include user prompts for optional installations:
 
@@ -286,6 +331,13 @@ This setup is based on the excellent work of:
 - [asus-linux.org](https://asus-linux.org) community
 - ASUS Linux drivers and tools developers
 - Arch Linux community and documentation
+
+### Version 1.5 Enhancements Based On:
+- **Shahzebqazi's Asus-Z13-Flow-2025-PCMR repository** - TDP management, ZFS snapshots, secure boot configuration, and enhanced hardware fixes
+- **Level1Techs Forum Community** - Additional hardware-specific optimizations and troubleshooting techniques
+- **Arch Linux Wiki** - Secure boot implementation and power management best practices
+
+We gratefully acknowledge these community contributions that made the enhanced features in version 1.5 possible.
 
 ## License
 

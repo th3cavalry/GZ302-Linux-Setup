@@ -4,7 +4,7 @@
 # Comprehensive Manjaro Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.3
+# Version: 1.5
 #
 # This script automates the post-installation setup for Manjaro on the
 # ASUS ROG Flow Z13 (GZ302) with an AMD Ryzen AI 395+ processor.
@@ -238,6 +238,23 @@ EOF
 # Thermal management for GZ302
 SUBSYSTEM=="thermal", KERNEL=="thermal_zone*", ATTR{type}=="x86_pkg_temp", ATTR{policy}="step_wise"
 SUBSYSTEM=="thermal", KERNEL=="thermal_zone*", ATTR{type}=="acpi", ATTR{policy}="step_wise"
+EOF
+
+    # 4f. Fix camera issues for GZ302
+    # Based on research from: https://github.com/Shahzebqazi/Asus-Z13-Flow-2025-PCMR
+    info "Applying camera fixes for GZ302..."
+    cat > /etc/modprobe.d/uvcvideo-gz302.conf <<EOF
+# Camera fixes for ASUS ROG Flow Z13 GZ302
+# Improved UVC video driver parameters for better compatibility
+options uvcvideo quirks=0x80
+options uvcvideo nodrop=1
+EOF
+
+    # Add camera permissions for user access
+    cat > /etc/udev/rules.d/99-gz302-camera.rules <<EOF
+# Camera access rules for GZ302
+SUBSYSTEM=="video4linux", GROUP="video", MODE="0664"
+KERNEL=="video[0-9]*", SUBSYSTEM=="video4linux", SUBSYSTEMS=="usb", ATTRS{idVendor}=="*", ATTRS{idProduct}=="*", GROUP="video", MODE="0664"
 EOF
 
     info "Updating system hardware database..."
