@@ -1,62 +1,35 @@
 #!/bin/bash
 
 # ==============================================================================
-# Comprehensive Ubuntu Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
+# Ubuntu Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
-# Author: th3cavalry using Copilot
-# Version: 1.5
+# Simple setup script that fixes hardware issues and installs gaming/AI software.
+# Works with Ubuntu 20.04 LTS or newer.
 #
-# This script automates the post-installation setup for Ubuntu on the
-# ASUS ROG Flow Z13 (GZ302) with an AMD Ryzen AI 395+ processor.
-# It applies critical hardware fixes, installs gaming software,
-# and configures a high-performance gaming environment.
-#
-# PRE-REQUISITES:
-# 1. A base installation of Ubuntu (20.04 LTS or newer).
-# 2. An active internet connection.
-# 3. A user with sudo privileges.
-#
-# USAGE:
-# 1. Download the script:
-#    curl -O https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/ubuntu_setup.sh
-# 2. Make it executable:
-#    chmod +x ubuntu_setup.sh
-# 3. Run with sudo:
-#    sudo ./ubuntu_setup.sh
+# How to use:
+# 1. Download: curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/ubuntu_setup.sh -o setup.sh
+# 2. Make executable: chmod +x setup.sh  
+# 3. Run: sudo ./setup.sh
 # ==============================================================================
 
-# --- Script Configuration and Safety ---
-set -euo pipefail # Exit on error, undefined variable, or pipe failure
+set -euo pipefail # Stop if anything goes wrong
 
-# --- Helper Functions for User Feedback ---
-# Color codes for output
+# Colors for messages
 C_BLUE='\033[0;34m'
 C_GREEN='\033[0;32m'
 C_YELLOW='\033[1;33m'
 C_RED='\033[0;31m'
-C_NC='\033[0m' # No Color
+C_NC='\033[0m'
 
-info() {
-    echo -e "${C_BLUE}[INFO]${C_NC} $1"
-}
+info() { echo -e "${C_BLUE}[INFO]${C_NC} $1"; }
+success() { echo -e "${C_GREEN}[SUCCESS]${C_NC} $1"; }
+warning() { echo -e "${C_YELLOW}[WARNING]${C_NC} $1"; }
+error() { echo -e "${C_RED}[ERROR]${C_NC} $1"; exit 1; }
 
-success() {
-    echo -e "${C_GREEN}[SUCCESS]${C_NC} $1"
-}
-
-warning() {
-    echo -e "${C_YELLOW}[WARNING]${C_NC} $1"
-}
-
-error() {
-    echo -e "${C_RED}[ERROR]${C_NC} $1"
-    exit 1
-}
-
-# --- Check for Root Privileges ---
+# Check if running as root
 check_root() {
     if [[ $EUID -ne 0 ]]; then
-        error "This script must be run as root. Please use sudo."
+        error "This script must be run as root. Use: sudo ./setup.sh"
     fi
 }
 
@@ -69,1180 +42,227 @@ get_real_user() {
     fi
 }
 
-# --- Core System Setup Functions ---
+# Download and load common hardware fixes
+load_common_fixes() {
+    info "Downloading common hardware fixes..."
+    curl -fsSL https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/common-hardware-fixes.sh -o /tmp/common-fixes.sh
+    source /tmp/common-fixes.sh
+}
 
-# 1. Update system and install base dependencies
+# Update system and install basic tools
 update_system() {
-    info "Performing a full system update and installing base dependencies..."
-    info "This may take a few minutes depending on your internet connection..."
-    
-    # Update package lists
-    apt update
-    
-    # Upgrade system
-    apt upgrade -y
-    
-    # Install essential build tools and dependencies
+    info "Updating system and installing basic tools..."
+    apt update && apt upgrade -y
     apt install -y curl wget git build-essential software-properties-common \
         apt-transport-https ca-certificates gnupg lsb-release
-    
-    success "System updated and base dependencies installed."
+    success "System updated."
 }
 
-# 2. Add gaming and hardware repositories
+# Setup gaming repositories
 setup_repositories() {
-    info "Setting up gaming and hardware repositories..."
-    
-    # Add multiverse repository for additional packages
-    add-apt-repository -y multiverse
-    
-    # Add universe repository if not already enabled
-    add-apt-repository -y universe
-    
-    # Update package lists
+    info "Setting up repositories..."
+    add-apt-repository -y multiverse universe
     apt update
-    
-    success "Gaming and hardware repositories configured."
+    success "Repositories configured."
 }
 
-# 3. Install hardware support packages
+# Install hardware support
 install_hardware_support() {
-    info "Installing hardware support packages for AMD and ASUS devices..."
-    
-    # Install AMD GPU drivers and utilities
+    info "Installing hardware support..."
     apt install -y mesa-utils mesa-vulkan-drivers vulkan-tools \
         libvulkan1 libvulkan-dev vainfo libva-dev libva-drm2 \
-        libva-glx2 libva-wayland2 libva2 radeontop
-    
-    # Install firmware and microcode
-    apt install -y linux-firmware amd64-microcode
-    
-    # Install power management tools
-    apt install -y powertop tlp tlp-rdw
-    
-    # Install hardware monitoring tools
-    apt install -y lm-sensors fancontrol
-    
-    success "Hardware support packages installed."
+        libva-glx2 libva-wayland2 libva2 radeontop \
+        linux-firmware amd64-microcode powertop tlp tlp-rdw \
+        lm-sensors fancontrol
+    success "Hardware support installed."
 }
 
-# --- Hardware Fix Functions ---
-
-# 4. Apply hardware-specific fixes
-apply_hardware_fixes() {
-    info "Applying hardware-specific fixes for the ROG Flow Z13..."
-    info "These fixes address known issues with Wi-Fi, touchpad, audio, and graphics..."
-
-    # 4a. Fix Wi-Fi instability (MediaTek MT7925)
-    info "Applying Wi-Fi stability fixes for MediaTek MT7925..."
-    cat > /etc/modprobe.d/mt7925e_wifi.conf <<EOF
-# Disable ASPM for the MediaTek MT7925E to improve stability
-options mt7925e disable_aspm=1
-# Additional stability parameters
-options mt7925e power_save=0
-EOF
-
-    mkdir -p /etc/NetworkManager/conf.d/
-    cat > /etc/NetworkManager/conf.d/99-wifi-powersave-off.conf <<EOF
-[connection]
-wifi.powersave = 2
-
-[device]
-wifi.scan-rand-mac-address=no
-EOF
-    success "Wi-Fi fixes for MediaTek MT7925 applied."
-
-    # 4b. Fix touchpad detection and sensitivity
-    info "Applying touchpad detection and sensitivity fixes..."
-    cat > /etc/udev/hwdb.d/61-asus-touchpad.hwdb <<EOF
-# ASUS ROG Flow Z13 folio touchpad override
-# Forces the device to be recognized as a multi-touch touchpad
-evdev:input:b0003v0b05p1a30*
- ENV{ID_INPUT_TOUCHPAD}="1"
- ENV{ID_INPUT_MULTITOUCH}="1"
- ENV{ID_INPUT_MOUSE}="0"
- EVDEV_ABS_00=::100
- EVDEV_ABS_01=::100
- EVDEV_ABS_35=::100
- EVDEV_ABS_36=::100
-EOF
-
-    # Create systemd service to reload hid_asus module post-boot
-    info "Creating touchpad fix service..."
-    cat > /etc/systemd/system/reload-hid_asus.service <<EOF
-[Unit]
-Description=Reload hid_asus module with correct options for Z13 Touchpad
-After=multi-user.target
-ConditionKernelModule=hid_asus
-
-[Service]
-Type=oneshot
-ExecStart=/usr/sbin/modprobe -r hid_asus
-ExecStart=/usr/sbin/modprobe hid_asus
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    # 4c. Fix audio issues and enable all audio devices
-    info "Applying audio fixes for GZ302..."
-    cat > /etc/modprobe.d/alsa-gz302.conf <<EOF
-# Fix audio issues on ROG Flow Z13 GZ302
-options snd-hda-intel probe_mask=1
-options snd-hda-intel model=asus-zenbook
-EOF
-
-    # 4d. Fix AMD GPU driver issues
-    info "Applying AMD GPU optimizations..."
-    cat > /etc/modprobe.d/amdgpu-gz302.conf <<EOF
-# AMD GPU optimizations for GZ302
-options amdgpu dc=1
-options amdgpu gpu_recovery=1
-options amdgpu ppfeaturemask=0xffffffff
-options amdgpu runpm=1
-EOF
-
-    # 4e. Fix thermal throttling and power management
-    info "Applying thermal and power management fixes..."
-    cat > /etc/udev/rules.d/50-gz302-thermal.rules <<EOF
-# Thermal management for GZ302
-SUBSYSTEM=="thermal", KERNEL=="thermal_zone*", ATTR{type}=="x86_pkg_temp", ATTR{policy}="step_wise"
-SUBSYSTEM=="thermal", KERNEL=="thermal_zone*", ATTR{type}=="acpi", ATTR{policy}="step_wise"
-EOF
-
-    # 4f. Fix camera issues for GZ302
-    # Based on research from: https://github.com/Shahzebqazi/Asus-Z13-Flow-2025-PCMR
-    info "Applying camera fixes for GZ302..."
-    cat > /etc/modprobe.d/uvcvideo-gz302.conf <<EOF
-# Camera fixes for ASUS ROG Flow Z13 GZ302
-# Improved UVC video driver parameters for better compatibility
-options uvcvideo quirks=0x80
-options uvcvideo nodrop=1
-EOF
-
-    # Add camera permissions for user access
-    cat > /etc/udev/rules.d/99-gz302-camera.rules <<EOF
-# Camera access rules for GZ302
-SUBSYSTEM=="video4linux", GROUP="video", MODE="0664"
-KERNEL=="video[0-9]*", SUBSYSTEM=="video4linux", SUBSYSTEMS=="usb", ATTRS{idVendor}=="*", ATTRS{idProduct}=="*", GROUP="video", MODE="0664"
-EOF
-
-    info "Updating system hardware database..."
-    systemd-hwdb update
-    success "All hardware fixes applied."
+# Ask user what to install
+ask_installation_options() {
+    echo ""
+    info "What would you like to install?"
+    echo "1. Gaming Software - Steam, game launchers, performance tools"
+    echo "2. AI Software - Tools for running AI models locally"  
+    echo "3. System Snapshots - Automatic backups for easy recovery"
+    echo "4. Secure Boot - Enhanced security features"
+    echo ""
+    read -p "Install gaming software? (y/n): " install_gaming
+    read -p "Install AI software? (y/n): " install_llm
+    read -p "Enable system snapshots? (y/n): " install_snapshots
+    read -p "Configure secure boot? (y/n): " install_secureboot
+    echo ""
 }
 
-# --- Gaming Software Stack Functions ---
-
-# 5. Install and configure the gaming software stack
+# Install gaming software
 install_gaming_stack() {
-    info "Installing and configuring the gaming software stack..."
-    info "This will install Steam, Lutris, gaming tools, and compatibility layers..."
-
-    # 5a. Enable 32-bit architecture for Steam
-    info "Enabling 32-bit architecture support for Steam..."
+    info "Installing gaming software..."
+    
+    # Enable 32-bit support
     dpkg --add-architecture i386
     apt update
-
-    # 5b. Install Steam
-    info "Installing Steam from official repository..."
     
     # Add Steam repository
     curl -fsSL https://repo.steampowered.com/steam/archive/precise/steam.gpg | apt-key add -
     echo "deb [arch=amd64,i386] https://repo.steampowered.com/steam/ stable steam" > /etc/apt/sources.list.d/steam.list
     apt update
     
-    # Accept Steam license automatically
+    # Install gaming packages
     echo steam steam/question select "I AGREE" | debconf-set-selections
     echo steam steam/license note '' | debconf-set-selections
     
-    apt install -y steam-installer
-
-    # 5c. Install Lutris
-    info "Installing Lutris game manager..."
-    apt install -y lutris
-
-    # 5d. Install gaming libraries and tools
-    info "Installing gaming libraries and performance tools..."
-    apt install -y gamemode libgamemode0 libgamemode-dev \
+    apt install -y steam-installer lutris gamemode libgamemode0 libgamemode-dev \
         vulkan-utils mesa-vulkan-drivers vulkan-validationlayers \
-        libd3dadapter9-mesa libd3dadapter9-mesa-dev \
-        wine winetricks
-    
-    # Install additional 32-bit libraries for Steam
-    apt install -y libc6:i386 libegl1:i386 libgbm1:i386 libgl1-mesa-dri:i386 \
+        wine winetricks mangohud flatpak \
+        libc6:i386 libegl1:i386 libgbm1:i386 libgl1-mesa-dri:i386 \
         libgl1:i386 libglapi-mesa:i386 libglx-mesa0:i386 libglx0:i386 \
         libvulkan1:i386
 
-    success "Core gaming applications and libraries installed."
-
-    # 5e. Install MangoHUD for performance monitoring
-    info "Installing MangoHUD for performance monitoring..."
-    apt install -y mangohud
-
-    # 5f. Install ProtonUp-Qt via Flatpak (most reliable method for Ubuntu)
-    info "Installing ProtonUp-Qt for Proton version management..."
+    # Install ProtonUp-Qt via Flatpak
     if ! command -v flatpak &> /dev/null; then
-        apt install -y flatpak
         flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
     fi
     
     PRIMARY_USER=$(get_real_user)
     if [[ "$PRIMARY_USER" != "root" ]]; then
-        sudo -u "$PRIMARY_USER" flatpak install -y flathub net.davidotek.pupgui2
-        success "ProtonUp-Qt installed via Flatpak."
-    else
-        warning "Could not determine non-root user. ProtonUp-Qt installation skipped."
+        sudo -u "$PRIMARY_USER" flatpak install -y flathub net.davidotek.pupgui2 || true
     fi
 
-    # 5g. Install Proton-GE
-    install_proton_ge() {
-        local user="$1"
-        local user_home="/home/$user"
-        local compat_dir="$user_home/.steam/root/compatibilitytools.d"
-        
-        # Check if any Proton-GE is already installed
-        if [[ -d "$compat_dir" ]] && ls "$compat_dir"/GE-Proton* &>/dev/null; then
-            info "Proton-GE is already installed. Skipping download."
-            return 0
-        fi
-        
-        # Download and install latest Proton-GE
-        sudo -u "$user" bash <<'EOF'
-set -e
-info() { echo -e "\033[0;34m[INFO]\033[0m $1"; }
-success() { echo -e "\033[0;32m[SUCCESS]\033[0m $1"; }
-
-COMPAT_DIR="$HOME/.steam/root/compatibilitytools.d"
-mkdir -p "$COMPAT_DIR"
-
-info "Fetching latest Proton-GE release information..."
-LATEST_URL=$(curl -s "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest" | grep "browser_download_url.*\.tar\.gz" | cut -d '"' -f 4)
-if [[ -n "$LATEST_URL" ]]; then
-    RELEASE_NAME=$(echo "$LATEST_URL" | sed 's/.*\/\([^\/]*\)\.tar\.gz/\1/')
-    info "Downloading Proton-GE: $RELEASE_NAME..."
-    cd "$COMPAT_DIR"
-    curl -L "$LATEST_URL" | tar -xz
-    success "Proton-GE ($RELEASE_NAME) installed successfully."
-else
-    echo "Could not find the latest Proton-GE release."
-fi
-EOF
-    }
-    
-    info "Installing the latest version of Proton-GE..."
-    PRIMARY_USER=$(get_real_user)
-    if [[ "$PRIMARY_USER" != "root" ]]; then
-        install_proton_ge "$PRIMARY_USER"
-    else
-        warning "Could not determine non-root user. Skipping Proton-GE installation."
-    fi
-
-    success "Gaming software stack installation completed."
+    success "Gaming software installed."
 }
 
-# --- Performance Tuning Functions ---
-
-# 6. Apply system-wide performance optimizations
-apply_performance_tweaks() {
-    info "Applying system-wide performance tweaks..."
-    info "These optimizations will improve gaming performance and system responsiveness..."
-
-    # 6a. Increase vm.max_map_count for game compatibility
-    info "Applying gaming and performance kernel parameters..."
-    cat > /etc/sysctl.d/99-gaming.conf <<EOF
-# Increase vm.max_map_count for modern games (SteamOS default)
-vm.max_map_count = 2147483642
-
-# Gaming performance optimizations
-vm.swappiness = 10
-vm.dirty_ratio = 15
-vm.dirty_background_ratio = 5
-vm.vfs_cache_pressure = 50
-
-# Network optimizations for gaming
-net.core.netdev_max_backlog = 16384
-net.core.somaxconn = 8192
-net.core.rmem_default = 1048576
-net.core.rmem_max = 16777216
-net.core.wmem_default = 1048576
-net.core.wmem_max = 16777216
-net.ipv4.tcp_rmem = 4096 1048576 2097152
-net.ipv4.tcp_wmem = 4096 65536 16777216
-net.ipv4.tcp_mtu_probing = 1
-
-# Reduce latency and improve responsiveness
-kernel.sched_autogroup_enabled = 0
-EOF
-    sysctl -p /etc/sysctl.d/99-gaming.conf
-    success "Gaming and performance optimizations applied."
-
-    # 6b. Enable hardware video acceleration globally
-    info "Enabling hardware video acceleration for better video performance..."
-    if ! grep -q "LIBVA_DRIVER_NAME" /etc/environment; then
-        cat >> /etc/environment <<EOF
-
-# Enable VA-API and VDPAU hardware acceleration for AMDGPU
-LIBVA_DRIVER_NAME=radeonsi
-VDPAU_DRIVER=radeonsi
-
-# Gaming optimizations
-RADV_PERFTEST=gpl,sam,nggc
-DXVK_HUD=compiler
-MANGOHUD=1
-EOF
-    fi
-    success "Hardware video acceleration and gaming environment variables enabled."
-
-    # 6c. Configure gaming-optimized I/O schedulers
-    info "Configuring I/O schedulers for optimal storage performance..."
-    cat > /etc/udev/rules.d/60-ioschedulers.rules <<EOF
-# Set deadline scheduler for SSDs and none for NVMe
-ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
-ACTION=="add|change", KERNEL=="nvme[0-9]*", ATTR{queue/scheduler}="none"
-EOF
-    success "I/O schedulers configured for optimal gaming performance."
-
-    # 6d. Configure CPU governor for performance
-    info "Installing and configuring CPU frequency scaling..."
-    apt install -y cpufrequtils
+# Install AI/LLM software (simplified)
+install_llm_stack() {
+    info "Installing AI/LLM software..."
     
-    cat > /etc/default/cpufrequtils <<EOF
-GOVERNOR="performance"
-EOF
+    echo "Which AI tools would you like?"
+    echo "1. Ollama (local AI models)"
+    echo "2. ROCm (AMD GPU acceleration)" 
+    echo "3. PyTorch"
+    echo "4. All of the above"
+    echo "5. Skip"
+    read -p "Choose (1-5): " choice
     
-    success "CPU performance governor configured."
-
-    # 6e. Configure limits for better gaming performance
-    info "Configuring system limits for better gaming compatibility..."
-    cat > /etc/security/limits.d/99-gaming.conf <<EOF
-# Increase limits for gaming
-* soft nofile 1048576
-* hard nofile 1048576
-* soft nproc 1048576
-* hard nproc 1048576
-* soft memlock unlimited
-* hard memlock unlimited
-EOF
-    success "System limits configured for gaming."
+    case $choice in
+        1|4)
+            info "Installing Ollama..."
+            curl -fsSL https://ollama.ai/install.sh | sh
+            systemctl enable --now ollama.service || true
+            ;;
+    esac
+    
+    case $choice in
+        2|4)
+            info "Installing ROCm..."
+            wget -qO - https://repo.radeon.com/rocm/rocm.gpg.key | apt-key add -
+            echo "deb [arch=amd64] https://repo.radeon.com/rocm/apt/5.7/ jammy main" > /etc/apt/sources.list.d/rocm.list
+            apt update && apt install -y rocm-dev rocm-libs rocm-utils || true
+            if [ -n "${SUDO_USER:-}" ]; then
+                usermod -a -G render "$SUDO_USER"
+            fi
+            ;;
+    esac
+    
+    case $choice in
+        3|4)
+            info "Installing PyTorch..."
+            apt install -y python3-pip python3-venv
+            pip3 install torch torchvision torchaudio transformers || true
+            ;;
+    esac
+    
+    success "AI software installation completed."
 }
 
-# --- Service Management Functions ---
-
-# 7. Enable and start necessary services
+# Enable services
 enable_services() {
-    info "Enabling and starting system services..."
-
-    # Enable TLP for power management
-    info "Enabling TLP power management..."
+    info "Enabling system services..."
     systemctl enable --now tlp.service
-    
-    # Enable hardware fix services
-    info "Enabling hardware fix services..."
     systemctl enable --now reload-hid_asus.service
     
-    # Configure gamemode for the primary user
+    # Configure gamemode for the user
     PRIMARY_USER=$(get_real_user)
     if [[ "$PRIMARY_USER" != "root" ]]; then
-        info "Configuring GameMode for user: $PRIMARY_USER"
-        
-        # Add user to gamemode group
         usermod -a -G gamemode "$PRIMARY_USER"
-        
-        # Configure gamemode
         sudo -u "$PRIMARY_USER" mkdir -p "/home/$PRIMARY_USER/.config/gamemode"
         sudo -u "$PRIMARY_USER" cat > "/home/$PRIMARY_USER/.config/gamemode/gamemode.ini" <<EOF
 [general]
 renice=10
 desiredgov=performance
-igpu_desiredgov=performance
-igpu_power_threshold=0.3
 
 [gpu]
 apply_gpu_optimisations=accept-responsibility
 gpu_device=0
 amd_performance_level=high
-
-[custom]
-start=notify-send "GameMode" "Optimizations activated"
-end=notify-send "GameMode" "Optimizations deactivated"
 EOF
         chown "$PRIMARY_USER:$PRIMARY_USER" "/home/$PRIMARY_USER/.config/gamemode/gamemode.ini"
-        success "GameMode configuration completed."
     fi
-
-    success "All necessary services have been enabled and started."
+    success "Services enabled."
 }
 
-# --- LLM Installation Functions ---
-
-# User choice function for installation options
-ask_installation_options() {
-    echo ""
-    info "Installation Configuration:"
-    echo "This script can install gaming software, LLM frameworks, and system security/backup features."
-    echo ""
-    
-    # Ask about gaming installation
-    echo "Gaming Software includes:"
-    echo "- Steam, Lutris, ProtonUp-Qt"
-    echo "- MangoHUD, GameMode, Wine"
-    echo "- Gaming optimizations and performance tweaks"
-    echo ""
-    read -p "Do you want to install gaming software? (y/n): " install_gaming
-    
-    # Ask about LLM installation
-    echo ""
-    echo "LLM (AI/ML) Software includes:"
-    echo "- Ollama for local LLM inference"
-    echo "- ROCm for AMD GPU acceleration"
-    echo "- PyTorch and Transformers libraries"
-    echo ""
-    read -p "Do you want to install LLM/AI software? (y/n): " install_llm
-    
-    # Ask about system snapshots
-    echo ""
-    echo "System Snapshots provide:"
-    echo "- Automatic daily system backups"
-    echo "- Easy system recovery and rollback"
-    echo "- Supports ZFS, Btrfs, ext4 (with LVM), and XFS filesystems"
-    echo "- 'gz302-snapshot' command for manual management"
-    echo ""
-    read -p "Do you want to enable system snapshots? (y/n): " install_snapshots
-    
-    # Ask about secure boot
-    echo ""
-    echo "Secure Boot provides:"
-    echo "- Enhanced system security and boot integrity"
-    echo "- Automatic kernel signing on updates"
-    echo "- Supports GRUB, systemd-boot, and rEFInd bootloaders"
-    echo "- Requires UEFI system and manual BIOS configuration"
-    echo ""
-    read -p "Do you want to configure Secure Boot? (y/n): " install_secureboot
-    
-    echo ""
-}
-
-# User choice function for LLM installations
-choose_llm_options() {
-    info "LLM (Large Language Model) Installation Options:"
-    echo "Please select which LLM frameworks you'd like to install:"
-    echo ""
-    echo "1. Ollama - Local LLM runner (lightweight, easy to use)"
-    echo "2. ROCm - AMD GPU acceleration for ML/AI workloads"
-    echo "3. PyTorch with ROCm - Deep learning framework with AMD GPU support"
-    echo "4. Transformers - Hugging Face transformers library"
-    echo "5. All of the above"
-    echo "6. Skip LLM installation"
-    echo ""
-    
-    local choices=""
-    read -p "Enter your choices (comma-separated, e.g., 1,3,4): " choices
-    echo "$choices"
-}
-
-# Install Ollama for local LLM inference
-install_ollama() {
-    info "Installing Ollama for local LLM inference..."
-    
-    # Download and install Ollama
-    curl -fsSL https://ollama.ai/install.sh | sh
-    
-    # Enable and start Ollama service
-    systemctl enable ollama.service
-    systemctl start ollama.service
-    
-    success "Ollama installed successfully. You can now run: ollama run llama2"
-}
-
-# Install ROCm for AMD GPU acceleration
-install_rocm() {
-    info "Installing ROCm for AMD GPU acceleration..."
-    
-    # Add ROCm repository
-    wget -qO - https://repo.radeon.com/rocm/rocm.gpg.key | apt-key add -
-    echo "deb [arch=amd64] https://repo.radeon.com/rocm/apt/5.7/ jammy main" > /etc/apt/sources.list.d/rocm.list
-    
-    apt update
-    
-    # Install ROCm packages
-    apt install -y rocm-dev rocm-libs rocm-utils
-    
-    # Add user to render group for GPU access
-    if [ -n "${SUDO_USER:-}" ]; then
-        usermod -a -G render "$SUDO_USER"
-        info "User $SUDO_USER added to render group for GPU access."
-    fi
-    
-    success "ROCm installed successfully. Reboot required for full functionality."
-}
-
-# Install PyTorch with ROCm support
-install_pytorch_rocm() {
-    info "Installing PyTorch with ROCm support..."
-    
-    # Install pip if not present
-    apt install -y python3-pip python3-venv
-    
-    # Install PyTorch with ROCm support
-    pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
-    
-    success "PyTorch with ROCm support installed successfully."
-}
-
-# Install Hugging Face Transformers
-install_transformers() {
-    info "Installing Hugging Face Transformers library..."
-    
-    # Install pip if not present
-    apt install -y python3-pip python3-venv
-    
-    # Install transformers and related packages
-    pip3 install transformers accelerate datasets tokenizers
-    
-    success "Hugging Face Transformers library installed successfully."
-}
-
-# Main LLM installation function
-install_llm_stack() {
-    info "Setting up LLM (Large Language Model) environment..."
-    
-    local choices=$(choose_llm_options)
-    
-    if [[ "$choices" == *"6"* ]] || [[ -z "$choices" ]]; then
-        info "Skipping LLM installation as requested."
-        return 0
-    fi
-    
-    if [[ "$choices" == *"5"* ]]; then
-        info "Installing all LLM options..."
-        install_ollama
-        install_rocm
-        install_pytorch_rocm
-        install_transformers
-    else
-        if [[ "$choices" == *"1"* ]]; then
-            install_ollama
-        fi
-        if [[ "$choices" == *"2"* ]]; then
-            install_rocm
-        fi
-        if [[ "$choices" == *"3"* ]]; then
-            install_pytorch_rocm
-        fi
-        if [[ "$choices" == *"4"* ]]; then
-            install_transformers
-        fi
-    fi
-    
-    success "LLM environment setup completed."
-}
-
-# --- Universal Filesystem and Bootloader Detection Functions ---
-
-# Detect root filesystem type
-detect_root_filesystem() {
-    local root_device=$(findmnt -n -o SOURCE /)
-    local fs_type=$(findmnt -n -o FSTYPE /)
-    
-    echo "Root filesystem: $fs_type on $root_device" >&2
-    echo "$fs_type"
-}
-
-# Detect bootloader type
-detect_bootloader() {
-    local bootloader="unknown"
-    
-    # Check for GRUB
-    if [ -f /boot/grub/grub.cfg ] || [ -f /boot/EFI/*/grub.cfg ] 2>/dev/null; then
-        bootloader="grub"
-    # Check for systemd-boot
-    elif [ -f /boot/EFI/systemd/systemd-bootx64.efi ] || [ -f /boot/EFI/BOOT/BOOTX64.EFI ]; then
-        if bootctl status >/dev/null 2>&1; then
-            bootloader="systemd-boot"
-        fi
-    # Check for rEFInd
-    elif [ -f /boot/EFI/refind/refind_x64.efi ]; then
-        bootloader="refind"
-    fi
-    
-    echo "Detected bootloader: $bootloader" >&2
-    echo "$bootloader"
-}
-
-# Install and configure universal snapshots for system recovery
-install_universal_snapshots() {
-    local fs_type=$(detect_root_filesystem)
-    info "Installing snapshot management for $fs_type filesystem..."
-    
-    case "$fs_type" in
-        zfs)
-            info "Detected ZFS filesystem. Installing ZFS snapshot utilities..."
-            apt update && apt install -y zfsutils-linux
-            ;;
-        btrfs)
-            info "Detected Btrfs filesystem. Installing Btrfs snapshot utilities..."
-            apt update && apt install -y btrfs-progs snapper
-            ;;
-        ext4|ext3|ext2)
-            info "Detected ext filesystem. Installing LVM snapshot utilities..."
-            apt update && apt install -y lvm2
-            ;;
-        xfs)
-            info "Detected XFS filesystem. Installing XFS utilities..."
-            apt update && apt install -y xfsprogs
-            ;;
-        *)
-            warning "Filesystem $fs_type not supported for automatic snapshots."
-            warning "Supported filesystems: ZFS, Btrfs, ext2/3/4 (with LVM), XFS"
-            return 1
-            ;;
-    esac
-    
-    # Create universal snapshot management script (same as Arch)
-    cat > /usr/local/bin/gz302-snapshot <<'EOF'
-#!/bin/bash
-# GZ302 Universal Snapshot Management
-# Supports ZFS, Btrfs, ext4 (with LVM), and XFS filesystems
-
-SNAPSHOT_PREFIX="gz302-auto"
-
-# Detect filesystem type
-detect_filesystem() {
-    local fs_type=$(findmnt -n -o FSTYPE /)
-    echo "$fs_type"
-}
-
-# Detect root device/volume
-detect_root_device() {
-    local root_source=$(findmnt -n -o SOURCE /)
-    echo "$root_source"
-}
-
-show_usage() {
-    echo "Usage: gz302-snapshot [create|list|cleanup|restore]"
-    echo ""
-    echo "Commands:"
-    echo "  create   - Create a new system snapshot"
-    echo "  list     - List available snapshots"
-    echo "  cleanup  - Remove old snapshots (keep last 5)"
-    echo "  restore  - Restore from a snapshot (interactive)"
-    echo ""
-    echo "Supported filesystems: ZFS, Btrfs, ext4 (with LVM), XFS"
-}
-
-# ZFS snapshot functions
-zfs_create_snapshot() {
-    local pool_name=$(zpool list -H -o name | head -1)
-    local timestamp=$(date +%Y%m%d-%H%M%S)
-    local snapshot_name="${SNAPSHOT_PREFIX}-${timestamp}"
-    
-    echo "Creating ZFS snapshot: $pool_name@$snapshot_name"
-    if zfs snapshot "$pool_name@$snapshot_name"; then
-        echo "ZFS snapshot created successfully: $snapshot_name"
-    else
-        echo "Error: Failed to create ZFS snapshot"
-        return 1
-    fi
-}
-
-zfs_list_snapshots() {
-    local pool_name=$(zpool list -H -o name | head -1)
-    echo "Available ZFS snapshots:"
-    zfs list -t snapshot -o name,creation,used -s creation | grep "$pool_name@$SNAPSHOT_PREFIX" || echo "No snapshots found"
-}
-
-zfs_cleanup_snapshots() {
-    local pool_name=$(zpool list -H -o name | head -1)
-    echo "Cleaning up old ZFS snapshots (keeping last 5)..."
-    local snapshots=($(zfs list -H -t snapshot -o name -s creation | grep "$pool_name@$SNAPSHOT_PREFIX"))
-    local total=${#snapshots[@]}
-    
-    if [ $total -gt 5 ]; then
-        local to_remove=$((total - 5))
-        echo "Removing $to_remove old snapshots..."
-        for ((i=0; i<to_remove; i++)); do
-            echo "Removing: ${snapshots[i]}"
-            zfs destroy "${snapshots[i]}"
-        done
-    else
-        echo "No cleanup needed (${total} snapshots, keeping last 5)"
-    fi
-}
-
-# Btrfs snapshot functions
-btrfs_create_snapshot() {
-    local timestamp=$(date +%Y%m%d-%H%M%S)
-    local snapshot_dir="/.snapshots"
-    local snapshot_name="${SNAPSHOT_PREFIX}-${timestamp}"
-    
-    mkdir -p "$snapshot_dir"
-    echo "Creating Btrfs snapshot: $snapshot_dir/$snapshot_name"
-    
-    if btrfs subvolume snapshot / "$snapshot_dir/$snapshot_name"; then
-        echo "Btrfs snapshot created successfully: $snapshot_name"
-    else
-        echo "Error: Failed to create Btrfs snapshot"
-        return 1
-    fi
-}
-
-btrfs_list_snapshots() {
-    local snapshot_dir="/.snapshots"
-    echo "Available Btrfs snapshots:"
-    if [ -d "$snapshot_dir" ]; then
-        ls -la "$snapshot_dir" | grep "$SNAPSHOT_PREFIX" || echo "No snapshots found"
-    else
-        echo "No snapshots found"
-    fi
-}
-
-btrfs_cleanup_snapshots() {
-    local snapshot_dir="/.snapshots"
-    echo "Cleaning up old Btrfs snapshots (keeping last 5)..."
-    
-    if [ ! -d "$snapshot_dir" ]; then
-        echo "No snapshots directory found"
-        return
-    fi
-    
-    local snapshots=($(ls -1 "$snapshot_dir" | grep "$SNAPSHOT_PREFIX" | sort))
-    local total=${#snapshots[@]}
-    
-    if [ $total -gt 5 ]; then
-        local to_remove=$((total - 5))
-        echo "Removing $to_remove old snapshots..."
-        for ((i=0; i<to_remove; i++)); do
-            echo "Removing: ${snapshots[i]}"
-            btrfs subvolume delete "$snapshot_dir/${snapshots[i]}"
-        done
-    else
-        echo "No cleanup needed (${total} snapshots, keeping last 5)"
-    fi
-}
-
-# LVM snapshot functions for ext4
-lvm_create_snapshot() {
-    local root_device=$(detect_root_device)
-    local vg_name=$(lvs --noheadings -o vg_name "$root_device" 2>/dev/null | tr -d ' ')
-    local lv_name=$(lvs --noheadings -o lv_name "$root_device" 2>/dev/null | tr -d ' ')
-    local timestamp=$(date +%Y%m%d-%H%M%S)
-    local snapshot_name="${lv_name}-${SNAPSHOT_PREFIX}-${timestamp}"
-    
-    if [ -z "$vg_name" ] || [ -z "$lv_name" ]; then
-        echo "Error: Root filesystem is not on LVM. LVM snapshots require LVM setup."
-        return 1
-    fi
-    
-    echo "Creating LVM snapshot: $vg_name/$snapshot_name"
-    if lvcreate -L1G -s -n "$snapshot_name" "$vg_name/$lv_name"; then
-        echo "LVM snapshot created successfully: $snapshot_name"
-    else
-        echo "Error: Failed to create LVM snapshot"
-        return 1
-    fi
-}
-
-lvm_list_snapshots() {
-    echo "Available LVM snapshots:"
-    lvs | grep "$SNAPSHOT_PREFIX" || echo "No LVM snapshots found"
-}
-
-lvm_cleanup_snapshots() {
-    echo "Cleaning up old LVM snapshots (keeping last 5)..."
-    local snapshots=($(lvs --noheadings -o lv_name | grep "$SNAPSHOT_PREFIX" | sort))
-    local total=${#snapshots[@]}
-    
-    if [ $total -gt 5 ]; then
-        local to_remove=$((total - 5))
-        echo "Removing $to_remove old snapshots..."
-        for ((i=0; i<to_remove; i++)); do
-            local snapshot_name="${snapshots[i]// /}"
-            local vg_name=$(lvs --noheadings -o vg_name "/dev/mapper/$snapshot_name" 2>/dev/null | tr -d ' ')
-            echo "Removing: $vg_name/$snapshot_name"
-            lvremove -f "$vg_name/$snapshot_name"
-        done
-    else
-        echo "No cleanup needed (${total} snapshots, keeping last 5)"
-    fi
-}
-
-# XFS functions (XFS doesn't support snapshots, but we can suggest alternatives)
-xfs_create_snapshot() {
-    echo "XFS does not support native snapshots."
-    echo "Consider using:"
-    echo "  1. LVM snapshots (if XFS is on LVM)"
-    echo "  2. External backup tools like rsync or tar"
-    echo "  3. Filesystem-level backup solutions"
-    return 1
-}
-
-xfs_list_snapshots() {
-    echo "XFS does not support native snapshots."
-    echo "Use external backup solutions or LVM if available."
-}
-
-xfs_cleanup_snapshots() {
-    echo "XFS does not support native snapshots."
-}
-
-# Main snapshot functions
-create_snapshot() {
-    local fs_type=$(detect_filesystem)
-    
-    case "$fs_type" in
-        zfs)
-            zfs_create_snapshot
-            ;;
-        btrfs)
-            btrfs_create_snapshot
-            ;;
-        ext4|ext3|ext2)
-            lvm_create_snapshot
-            ;;
-        xfs)
-            xfs_create_snapshot
-            ;;
-        *)
-            echo "Error: Filesystem $fs_type not supported for snapshots"
-            return 1
-            ;;
-    esac
-}
-
-list_snapshots() {
-    local fs_type=$(detect_filesystem)
-    
-    case "$fs_type" in
-        zfs)
-            zfs_list_snapshots
-            ;;
-        btrfs)
-            btrfs_list_snapshots
-            ;;
-        ext4|ext3|ext2)
-            lvm_list_snapshots
-            ;;
-        xfs)
-            xfs_list_snapshots
-            ;;
-        *)
-            echo "Error: Filesystem $fs_type not supported for snapshots"
-            return 1
-            ;;
-    esac
-}
-
-cleanup_snapshots() {
-    local fs_type=$(detect_filesystem)
-    
-    case "$fs_type" in
-        zfs)
-            zfs_cleanup_snapshots
-            ;;
-        btrfs)
-            btrfs_cleanup_snapshots
-            ;;
-        ext4|ext3|ext2)
-            lvm_cleanup_snapshots
-            ;;
-        xfs)
-            xfs_cleanup_snapshots
-            ;;
-        *)
-            echo "Error: Filesystem $fs_type not supported for snapshots"
-            return 1
-            ;;
-    esac
-}
-
-restore_snapshot() {
-    local fs_type=$(detect_filesystem)
-    
-    echo "WARNING: Snapshot restoration varies by filesystem type."
-    echo "Current filesystem: $fs_type"
-    echo ""
-    echo "For safe restoration:"
-    echo "  1. Boot from a live USB/CD"
-    echo "  2. Mount your filesystem"
-    echo "  3. Use filesystem-specific restoration commands"
-    echo ""
-    echo "This feature is intentionally limited to prevent accidental data loss."
-    echo "Please refer to your filesystem documentation for restoration procedures."
-}
-
-# Check filesystem support
-fs_type=$(detect_filesystem)
-case "$fs_type" in
-    zfs|btrfs|ext4|ext3|ext2|xfs)
-        # Supported filesystem
-        ;;
-    *)
-        echo "Error: Filesystem $fs_type is not supported for snapshots"
-        echo "Supported filesystems: ZFS, Btrfs, ext2/3/4 (with LVM), XFS (limited)"
-        exit 1
-        ;;
-esac
-
-# Main script logic
-case "$1" in
-    create)
-        create_snapshot
-        ;;
-    list)
-        list_snapshots
-        ;;
-    cleanup)
-        cleanup_snapshots
-        ;;
-    restore)
-        restore_snapshot
-        ;;
-    "")
-        show_usage
-        ;;
-    *)
-        echo "Error: Unknown command '$1'"
-        show_usage
-        exit 1
-        ;;
-esac
-EOF
-
-    chmod +x /usr/local/bin/gz302-snapshot
-    
-    # Create automatic snapshot timer
-    cat > /etc/systemd/system/gz302-snapshot.service <<EOF
-[Unit]
-Description=Create GZ302 system snapshot
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/gz302-snapshot create
-EOF
-
-    cat > /etc/systemd/system/gz302-snapshot.timer <<EOF
-[Unit]
-Description=Create GZ302 system snapshots daily
-
-[Timer]
-OnCalendar=daily
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-EOF
-
-    systemctl enable gz302-snapshot.timer
-    success "Universal snapshot management installed for $fs_type filesystem. Use 'gz302-snapshot' command."
-}
-
-# Configure secure boot for post-install
-configure_universal_secure_boot() {
-    local bootloader=$(detect_bootloader)
-    info "Configuring Secure Boot for GZ302 with $bootloader bootloader..."
-    
-    # Install sbctl for secure boot management  
-    apt update && apt install -y sbctl
-    
-    # Check if we're in UEFI mode
-    if [ ! -d /sys/firmware/efi ]; then
-        warning "Not booted in UEFI mode. Skipping Secure Boot configuration."
-        return
-    fi
-    
-    # Check current secure boot status
-    local sb_state=$(sbctl status 2>/dev/null | grep "Secure Boot" | awk '{print $3}' || echo "unknown")
-    
-    if [ "$sb_state" = "Enabled" ]; then
-        warning "Secure Boot is already enabled. Skipping key creation."
-        return
-    fi
-    
-    info "Creating Secure Boot keys..."
-    sbctl create-keys
-    
-    info "Enrolling Secure Boot keys..."
-    sbctl enroll-keys -m
-    
-    # Sign the kernel and bootloader based on detected bootloader
-    info "Signing kernel and bootloader for $bootloader..."
-    
-    # Sign the kernel (Ubuntu typically uses generic kernel)
-    sbctl sign -s /boot/vmlinuz-*-generic 2>/dev/null || sbctl sign -s /boot/vmlinuz 2>/dev/null || true
-    
-    case "$bootloader" in
-        grub)
-            info "Configuring Secure Boot for GRUB..."
-            # Sign GRUB bootloader files
-            sbctl sign -s /boot/EFI/BOOT/BOOTX64.EFI 2>/dev/null || true
-            sbctl sign -s /boot/EFI/ubuntu/grubx64.efi 2>/dev/null || true
-            sbctl sign -s /boot/EFI/ubuntu/shimx64.efi 2>/dev/null || true
-            ;;
-        systemd-boot)
-            info "Configuring Secure Boot for systemd-boot..."
-            # Sign systemd-boot files
-            sbctl sign -s /boot/EFI/systemd/systemd-bootx64.efi 2>/dev/null || true
-            sbctl sign -s /boot/EFI/BOOT/BOOTX64.EFI 2>/dev/null || true
-            ;;
-        refind)
-            info "Configuring Secure Boot for rEFInd..."
-            # Sign rEFInd files
-            sbctl sign -s /boot/EFI/refind/refind_x64.efi 2>/dev/null || true
-            sbctl sign -s /boot/EFI/BOOT/BOOTX64.EFI 2>/dev/null || true
-            ;;
-        unknown)
-            warning "Could not detect bootloader type. Creating generic Secure Boot configuration..."
-            # Try to sign common bootloader files
-            sbctl sign -s /boot/EFI/BOOT/BOOTX64.EFI 2>/dev/null || true
-            sbctl sign -s /boot/EFI/ubuntu/grubx64.efi 2>/dev/null || true
-            ;;
-    esac
-    
-    success "Secure Boot configured for $bootloader. Reboot and enable Secure Boot in BIOS/UEFI settings."
-    info "Use 'sbctl status' to check Secure Boot status after enabling in BIOS."
-    warning "Note: Ubuntu may require additional steps for Secure Boot with custom kernels."
-}
-
-# --- Main Execution Logic ---
+# Main script
 main() {
     check_root
 
-    echo
     echo "============================================================"
-    echo "  ASUS ROG Flow Z13 (GZ302) Ubuntu Setup Script"
-    echo "  Version 1.3 - Gaming Performance Optimization"
+    echo "  Ubuntu Setup for ASUS ROG Flow Z13 (GZ302)"
+    echo "  Simple hardware fixes and gaming setup"
     echo "============================================================"
-    echo
     
-    info "Starting comprehensive setup process..."
-    info "This script will configure your Ubuntu system for optimal ROG Flow Z13 performance"
-    info "Estimated time: 10-30 minutes depending on internet speed"
+    info "This will fix hardware issues and optionally install gaming/AI software"
     
-    # Ask user for installation preferences
     ask_installation_options
     
-    info "Step 1/10: Updating system and installing base dependencies..."
+    info "Step 1/6: Updating system..."
     update_system
     
-    info "Step 2/10: Setting up gaming and hardware repositories..."
+    info "Step 2/6: Setting up repositories..."
     setup_repositories
     
-    info "Step 3/10: Installing hardware support packages..."
+    info "Step 3/6: Installing hardware support..."
     install_hardware_support
     
-    info "Step 4/10: Applying hardware-specific fixes..."
-    apply_hardware_fixes
+    info "Step 4/6: Applying hardware fixes..."
+    load_common_fixes
+    apply_common_hardware_fixes
+    apply_common_performance_tweaks
     
-    # Conditional gaming installation
     if [[ "${install_gaming,,}" == "y" || "${install_gaming,,}" == "yes" ]]; then
-        info "Step 5/10: Installing gaming software stack..."
+        info "Step 5/6: Installing gaming software..."
         install_gaming_stack
-        
-        info "Step 6/10: Applying performance optimizations..."
-        apply_performance_tweaks
     else
-        info "Step 5/10: Skipping gaming software installation as requested..."
-        info "Step 6/10: Applying basic performance optimizations..."
-        apply_performance_tweaks
+        info "Step 5/6: Skipping gaming software..."
     fi
     
-    # Conditional LLM installation
     if [[ "${install_llm,,}" == "y" || "${install_llm,,}" == "yes" ]]; then
-        info "Step 7/10: Installing LLM/AI software stack..."
+        info "Installing AI software..."
         install_llm_stack
     else
-        info "Step 7/10: Skipping LLM/AI software installation as requested..."
+        info "Skipping AI software..."
     fi
     
-    info "Step 8/10: Configuring optional system features..."
-    
-    # Conditional secure boot installation
-    if [[ "${install_secureboot,,}" == "y" || "${install_secureboot,,}" == "yes" ]]; then
-        info "Configuring Secure Boot..."
-        configure_universal_secure_boot
-    else
-        info "Skipping Secure Boot configuration as requested..."
-    fi
-    
-    # Conditional snapshots installation
-    if [[ "${install_snapshots,,}" == "y" || "${install_snapshots,,}" == "yes" ]]; then
-        info "Configuring system snapshots..."
-        install_universal_snapshots
-    else
-        info "Skipping system snapshots configuration as requested..."
-    fi
-    
-    info "Step 9/10: Enabling services and finalizing setup..."
+    info "Step 6/6: Enabling services..."
     enable_services
+    enable_common_services
 
     echo
     success "============================================================"
-    success "Ubuntu setup complete for ASUS ROG Flow Z13 (GZ302)! (Version 1.5)"
-    success "It is highly recommended to REBOOT your system now."
+    success "Ubuntu setup complete for ASUS ROG Flow Z13!"
+    success "Please REBOOT your computer to apply all changes."
     success ""
     
-    # Show gaming tools if installed
     if [[ "${install_gaming,,}" == "y" || "${install_gaming,,}" == "yes" ]]; then
-        success "Installed gaming tools:"
-        success "- Steam with Proton support"
-        success "- Lutris for game management"
-        success "- ProtonUp-Qt for Proton version management (Flatpak)"
-        success "- MangoHUD for performance monitoring"
-        success "- GameMode for automatic gaming optimizations"
-        success ""
-    fi
-    
-    # Show LLM tools if installed
-    if [[ "${install_llm,,}" == "y" || "${install_llm,,}" == "yes" ]]; then
-        success "Installed LLM/AI tools:"
-        success "- Ollama for local LLM inference (if selected)"
-        success "- ROCm for AMD GPU acceleration (if selected)"
-        success "- PyTorch with ROCm support (if selected)"
-        success "- Hugging Face Transformers (if selected)"
-        success ""
-    fi
-    
-    # Show secure boot status if installed
-    if [[ "${install_secureboot,,}" == "y" || "${install_secureboot,,}" == "yes" ]]; then
-        success "Secure Boot configured:"
-        success "- Bootloader and kernel signing enabled"
-        success "- Automatic signing on updates"
-        success "- Use 'sbctl status' to check status after enabling in BIOS"
-        success ""
-    fi
-    
-    # Show snapshot status if installed
-    if [[ "${install_snapshots,,}" == "y" || "${install_snapshots,,}" == "yes" ]]; then
-        local fs_type=$(detect_root_filesystem)
-        success "System snapshots configured for $fs_type:"
-        success "- Daily automatic snapshots enabled"
-        success "- Manual management with 'gz302-snapshot' command"
-        success "- Supports create, list, cleanup, and restore operations"
-        success ""
+        success "Gaming tools installed: Steam, Lutris, MangoHUD, GameMode"
     fi
     
     success "Hardware fixes applied:"
-    success "- MediaTek MT7925 Wi-Fi stability improvements"
-    success "- Touchpad detection and sensitivity fixes"
-    success "- AMD GPU driver optimizations"
-    success "- Audio device compatibility fixes"
-    success "- Thermal throttling and power management"
-    success ""
-    success "Performance optimizations applied:"
-    success "- Gaming-optimized kernel parameters"
-    success "- CPU performance governor configuration"
-    success "- I/O scheduler optimizations for SSDs/NVMe"
-    success "- Network latency optimizations"
-    success "- Memory management tweaks"
-    success "- Hardware video acceleration"
-    success "- System limits increased for gaming"
-    success ""
-    success "You can now enjoy Ubuntu optimized for your"
-    success "ASUS ROG Flow Z13 (GZ302)!"
+    success "- Wi-Fi stability improvements"
+    success "- Touchpad detection fixes"
+    success "- Audio compatibility fixes"
+    success "- Graphics optimizations"
+    success "- Performance tweaks"
     success "============================================================"
     echo
 }
 
-# --- Run the script ---
+# Run the script
 main "$@"
