@@ -1394,7 +1394,7 @@ enable_arch_services() {
     info "Enabling services for Arch-based system..."
     
     # Enable ASUS services
-    systemctl enable --now supergfxd asusctl power-profiles-daemon
+    systemctl enable --now supergfxd power-profiles-daemon switcheroo-control
     
     # Enable touchpad fix service
     systemctl enable --now reload-hid_asus.service
