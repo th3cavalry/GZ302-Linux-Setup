@@ -1,83 +1,55 @@
-# GZ302-Multi-Distro-Setup
+# GZ302 Linux Setup
 
-Complete Linux installation and setup scripts optimized for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+ processor, supporting multiple popular gaming distributions.
+Easy setup scripts for your ASUS ROG Flow Z13 (GZ302) laptop. Makes Linux work perfectly with your hardware and games!
 
-## Overview
+## What This Does
 
-This repository provides setup scripts for **10 popular Linux gaming distributions** on the ASUS ROG Flow Z13 (GZ302):
+These scripts fix common problems with the GZ302 laptop and install gaming software. Pick the script for your Linux version:
 
-### Distribution Scripts Available:
+- **`arch_setup.sh`** - Arch Linux
+- **`ubuntu_setup.sh`** - Ubuntu
+- **`fedora_setup.sh`** - Fedora  
+- **`popos_setup.sh`** - Pop!_OS
+- **`manjaro_setup.sh`** - Manjaro
+- **`opensuse_setup.sh`** - OpenSUSE
+- **`endeavouros_setup.sh`** - EndeavourOS
+- **`nobara_setup.sh`** - Nobara
+- **`linuxmint_setup.sh`** - Linux Mint
 
-1. **`arch_setup.sh`** - Arch Linux post-installation setup and optimizations (formerly flowz13_setup.sh)
-2. **`ubuntu_setup.sh`** - Ubuntu gaming setup with LLM support
-3. **`fedora_setup.sh`** - Fedora gaming setup with RPM Fusion and LLM support
-4. **`popos_setup.sh`** - Pop!_OS enhanced gaming configuration with LLM support
-5. **`manjaro_setup.sh`** - Manjaro with AUR gaming packages and LLM support
-6. **`opensuse_setup.sh`** - OpenSUSE (Tumbleweed/Leap) gaming setup
-7. **`endeavouros_setup.sh`** - EndeavourOS user-friendly Arch setup
-8. **`nobara_setup.sh`** - Nobara gaming-focused enhancements
-9. **`linuxmint_setup.sh`** - Linux Mint stable gaming platform
+All scripts fix the same hardware issues and can install gaming tools and AI software if you want.
 
-Each script is tailored to the specific distribution's package management and repository system while providing the same core hardware fixes, gaming optimizations, and optional LLM/AI framework installation.
+## What Gets Fixed
 
-## Features
+### Hardware Problems
+- **Wi-Fi Issues** - Stops Wi-Fi from disconnecting 
+- **Touchpad Problems** - Makes touchpad work properly
+- **Audio Issues** - Fixes sound problems
+- **Camera Issues** - Gets camera working
+- **GPU Problems** - Optimizes graphics performance
+- **Power Management** - Better battery life and performance
 
-### Hardware Support
-- **Wi-Fi Stability**: Enhanced fixes for MediaTek MT7925 wireless adapter
-- **Touchpad**: Proper detection and sensitivity configuration
-- **Audio**: Complete audio device compatibility
-- **Camera**: Hardware-specific camera drivers and configuration for GZ302
-- **AMD GPU**: Optimized driver configuration for integrated graphics
-- **Thermal Management**: Proper throttling and power management
-- **ASUS Controls**: Full integration with ASUS hardware controls
+### What Can Be Installed (Your Choice)
+- **Gaming Software** - Steam, game launchers, performance tools
+- **AI Software** - Tools for running AI models locally
+- **System Snapshots** - Automatic backups for easy recovery
+- **Secure Boot** - Enhanced security features
 
-### Gaming Performance
-- **Steam & Lutris**: Complete gaming platform setup
-- **ProtonUp-Qt**: Easy Proton version management
-- **MangoHUD & Goverlay**: Performance monitoring tools
-- **GameMode**: Automatic gaming optimizations
-- **CoreCtrl**: GPU performance control
-- **System Optimizations**: Kernel parameters, I/O schedulers, and memory management
-- **Smart Skip Logic**: Automatically detects and skips already-installed components (yay, Proton-GE)
-- **Progress Reporting**: Detailed step-by-step progress with time estimates
-- **User Choice**: Optional gaming installation with user prompts
+## How To Use
 
-### Power Management (New in v1.5)
-- **TDP Management**: Four power profiles (gaming, performance, balanced, efficient)
-- **Smart Profile Switching**: Automatic power source detection
-- **Battery Monitoring**: Real-time battery status and percentage
-- **AC/Battery Optimization**: Optimized settings for each power source
+**Important:** Always restart your computer after running any script!
 
-### LLM/AI Support (Enhanced in v1.5)
-- **Ollama**: Local LLM inference for running models like Llama2, Code Llama, etc.
-- **ROCm**: Enhanced AMD GPU acceleration for machine learning workloads
-- **PyTorch with ROCm**: Deep learning framework with AMD GPU support
-- **Transformers**: Hugging Face transformers library for NLP tasks
-- **User Choice**: Optional LLM/AI installation with user prompts
-- **Flexible Selection**: Choose which LLM frameworks to install
+### Step 1: Pick Your Linux Version
 
-### System Recovery (New in v1.5)
-- **ZFS Snapshots**: Automatic system snapshots for easy recovery (Arch)
-- **Snapshot Management**: Create, list, cleanup, and restore from snapshots (Arch)
-- **Secure Boot**: Automated secure boot configuration with sbctl (Arch)
-- **Enhanced Error Recovery**: Comprehensive troubleshooting and rollback capabilities (Arch)
-- **Camera Support**: Hardware-specific camera fixes applied to all distributions
+Find your Linux version below and copy the commands:
 
-## Quick Start
-
-### Choose Your Distribution
-
-Select the setup script for your Linux distribution:
-
-#### Arch Linux (Post-Installation Setup)
+#### Arch Linux
 ```bash
-# If you already have Arch Linux installed
 curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/arch_setup.sh -o setup.sh
 chmod +x setup.sh
 sudo ./setup.sh
 ```
 
-#### Ubuntu/Ubuntu-based Distributions
+#### Ubuntu
 ```bash
 curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/ubuntu_setup.sh -o setup.sh
 chmod +x setup.sh
@@ -105,7 +77,7 @@ chmod +x setup.sh
 sudo ./setup.sh
 ```
 
-#### OpenSUSE (Tumbleweed/Leap)
+#### OpenSUSE
 ```bash
 curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/opensuse_setup.sh -o setup.sh
 chmod +x setup.sh
@@ -133,212 +105,71 @@ chmod +x setup.sh
 sudo ./setup.sh
 ```
 
-After running any script, **reboot your system** to apply all changes.
+### Step 2: What The Script Will Ask You
 
-## New in Version 1.5
+The script will ask if you want to install extra software:
 
-### Power Management Commands
+1. **Gaming Software?** (Steam, game tools, performance monitoring)
+2. **AI Software?** (Tools for running AI models on your laptop)  
+3. **System Snapshots?** (Automatic backups for easy recovery)
+4. **Secure Boot?** (Extra security features)
+
+Just answer yes (y) or no (n) for each one!
+
+## Useful Commands (After Setup)
+
+### Power Management (Arch Linux Only)
 ```bash
-# TDP management for optimal performance/battery life
-gz302-tdp gaming      # Maximum performance (54W)
-gz302-tdp performance # High performance (45W)  
-gz302-tdp balanced    # Balanced mode (35W) - default
-gz302-tdp efficient   # Battery saving (15W)
-gz302-tdp status      # Show current power status and profile
-gz302-tdp list        # List all available profiles
+gz302-tdp gaming      # Maximum performance
+gz302-tdp balanced    # Normal use (default)
+gz302-tdp efficient   # Save battery
+gz302-tdp status      # Check current settings
 ```
 
-### System Recovery Commands
+### System Snapshots
 ```bash
-# ZFS snapshot management
-gz302-snapshot create  # Create a system snapshot
-gz302-snapshot list    # List available snapshots
-gz302-snapshot cleanup # Remove old snapshots (keep last 5)
-gz302-snapshot restore # Restore from a snapshot (interactive)
+gz302-snapshot create  # Make a backup
+gz302-snapshot list    # See all backups
+gz302-snapshot cleanup # Remove old backups
 ```
 
-### Secure Boot Management
-```bash
-# Check secure boot status
-sbctl status
+## Problems? Here's How To Fix Them
 
-# Sign additional kernels if needed
-sbctl sign -s /boot/vmlinuz-linux
-```
-
-## Installation Options (Enhanced in v1.5)
-
-All scripts now include user prompts for optional installations:
-
-### Gaming Software
-When you run any setup script, you'll be prompted whether to install gaming software including:
-- Steam with Proton support
-- Lutris for game management
-- ProtonUp-Qt for Proton version management
-- MangoHUD for performance monitoring
-- GameMode for automatic optimizations
-
-### LLM/AI Software
-You'll also be prompted whether to install LLM/AI frameworks including:
-- **Ollama**: For running local language models (Llama2, Code Llama, etc.)
-- **ROCm**: AMD GPU acceleration for ML workloads
-- **PyTorch with ROCm**: Deep learning with AMD GPU support
-- **Transformers**: Hugging Face library for NLP tasks
-
-You can choose to install all, some, or none of these optional components.
-
-## What Gets Installed
-
-All distribution scripts provide the same core components, adapted to each distribution's package management:
-
-### Gaming Software
-- **Steam**: With multilib/32-bit support and Proton
-- **Lutris**: Game launcher and manager
-- **ProtonUp-Qt**: GUI tool for managing Proton versions (Flatpak/AUR/native packages)
-- **MangoHUD**: Performance overlay for games
-- **Goverlay**: GUI for MangoHUD configuration (where available)
-- **GameMode**: Automatic system optimizations during gaming
-- **Wine**: Windows compatibility layer
-- **Winetricks**: Wine configuration utility
-
-### Hardware Support (All Distributions)
-- **AMD GPU Drivers**: Mesa, Vulkan, VA-API, VDPAU acceleration
-- **Audio Support**: Full audio device compatibility fixes
-- **Wi-Fi Fixes**: MediaTek MT7925 stability improvements
-- **Touchpad Support**: Proper multi-touch detection and sensitivity
-- **Power Management**: TLP/distribution-specific power optimization
-- **Thermal Management**: Proper throttling and cooling policies
-
-### Distribution-Specific Enhancements
-
-#### Arch Linux
-- **linux-g14 kernel**: Better hardware support for ASUS devices
-- **ASUS Linux tools**: asusctl, supergfxctl, rog-control-center
-- **AUR packages**: Direct access to AUR gaming packages
-
-#### Ubuntu/Debian-based (Ubuntu, Pop!_OS, Linux Mint)
-- **Multiverse repositories**: Additional multimedia and gaming packages
-- **Steam repository**: Official Steam packages
-- **Flatpak support**: Alternative package installation method
-- **Hardware acceleration**: VA-API and VDPAU for AMD GPUs
-
-#### Fedora/Red Hat-based (Fedora, Nobara)
-- **RPM Fusion**: Free and non-free multimedia packages
-- **Native gaming packages**: Steam, Lutris from official repos
-- **Enhanced codec support**: Full multimedia codec stack
-
-#### SUSE-based (OpenSUSE)
-- **Packman repository**: Multimedia codecs and enhanced packages
-- **Games repository**: Additional gaming packages
-- **Both Tumbleweed and Leap support**: Automatic version detection
-
-#### Arch-based (Manjaro, EndeavourOS)
-- **AUR helper**: yay for easy AUR package management
-- **Gaming-focused AUR packages**: ProtonUp-Qt, Goverlay, latest tools
-- **Optimized mirror selection**: Better download speeds
-
-### Performance Optimizations (All Distributions)
-- **Kernel Parameters**: Gaming-optimized sysctl settings (vm.max_map_count, etc.)
-- **I/O Schedulers**: Optimized for SSD/NVMe performance
-- **CPU Governor**: Performance profiles for gaming
-- **Memory Management**: Reduced swappiness and optimized cache
-- **Network Tuning**: Reduced latency for online gaming
-- **System Limits**: Increased limits for gaming compatibility
-
-## Hardware-Specific Fixes
-
-### Wi-Fi (MediaTek MT7925)
-- Disabled ASPM for stability
-- Power saving disabled
-- MAC randomization disabled
-- Additional stability parameters
-
-### Touchpad
-- Proper multi-touch detection
-- Sensitivity adjustments
-- HID driver reloading service
-
-### Audio
-- All audio devices properly detected
-- ALSA configuration for best compatibility
-- Model-specific driver parameters
-
-### AMD GPU
-- GPU recovery enabled
-- Power management optimized
-- All performance features enabled
-- Hardware acceleration configured
-
-## Troubleshooting
-
-### Common Issues
-
-**Wi-Fi not working after installation:**
-- Reboot to apply kernel module changes
+### Wi-Fi Not Working
+- Restart your computer (this usually fixes it)
 - Check if NetworkManager is running: `systemctl status NetworkManager`
 
-**Touchpad not detected:**
-- The reload-hid_asus service will fix this automatically after reboot
-- Manual fix: `sudo modprobe -r hid_asus && sudo modprobe hid_asus`
+### Touchpad Not Working  
+- Restart your computer first
+- If still broken: `sudo modprobe -r hid_asus && sudo modprobe hid_asus`
 
-**Games not running smoothly:**
-- Ensure you're using the linux-g14 kernel
-- Check if GameMode is active: `gamemoded -s`
-- Use MangoHUD to monitor performance: `mangohud your_game`
+### Games Running Slowly
+- Make sure you picked the right kernel when booting up
+- Check if GameMode is working: `gamemoded -s`
+- Use MangoHUD to see performance: `mangohud your_game`
 
-**ASUS controls not working:**
-- Verify services are running: `systemctl status supergfxd asusctl`
-- Try restarting: `sudo systemctl restart supergfxd`
+### ASUS Controls Not Working
+- Check if services are running: `systemctl status supergfxd asusctl`
+- Try restarting them: `sudo systemctl restart supergfxd`
 
-**"running makepkg as root is not allowed" error:**
-- This has been fixed in the latest version of the script
-- The script now properly cleans the environment when switching to non-root user
-- If you encounter this with an older version, update to the latest script
+## Need Help?
 
-**"Failed to connect to user scope bus via local transport" error:**
-- This DBUS error has been fixed in version 1.3 of the script
-- The script now properly sets XDG_RUNTIME_DIR and handles user session environment
-- User services (like GameMode) will be enabled with proper DBUS session handling
+If something goes wrong:
 
-**Script seems to hang or doesn't show progress:**
-- Version 1.3 includes comprehensive progress reporting
-- You'll see step-by-step progress (Step X/7) and detailed explanations
-- Time estimates are provided for longer operations
+1. Check error messages: `journalctl -b`
+2. Create an issue on GitHub with:
+   - What went wrong
+   - Error messages you saw
+   - Your laptop model (make sure it's GZ302)
 
-### Getting Help
+## Thanks To
 
-If you encounter issues:
-
-1. Check the system logs: `journalctl -b`
-2. Verify all services are running properly
-3. Open an issue in this repository with:
-   - Your hardware model (confirm it's GZ302)
-   - Error messages or logs
-   - Steps to reproduce the problem
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Test your changes on actual GZ302 hardware
-2. Document any new fixes or optimizations
-3. Update the README if adding new features
-4. Follow the existing code style and structure
-
-## Credits
-
-This setup is based on the excellent work of:
+This project builds on great work from:
 - [asus-linux.org](https://asus-linux.org) community
-- ASUS Linux drivers and tools developers
-- Arch Linux community and documentation
-
-### Version 1.5 Enhancements Based On:
-- **Shahzebqazi's Asus-Z13-Flow-2025-PCMR repository** - TDP management, ZFS snapshots, secure boot configuration, and enhanced hardware fixes
-- **Level1Techs Forum Community** - Additional hardware-specific optimizations and troubleshooting techniques
-- **Arch Linux Wiki** - Secure boot implementation and power management best practices
-
-We gratefully acknowledge these community contributions that made the enhanced features in version 1.5 possible.
+- Shahzebqazi's Asus-Z13-Flow-2025-PCMR repository  
+- Level1Techs Forum Community
+- Arch Linux community
 
 ## License
 
-This project is open source and available under the MIT License.
+This project is open source under the MIT License.
