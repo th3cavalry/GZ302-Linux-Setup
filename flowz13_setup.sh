@@ -230,8 +230,13 @@ install_gaming_stack() {
     # Install ProtonUp-Qt via AUR (requires yay to be available)
     if command -v yay &> /dev/null; then
         info "Installing ProtonUp-Qt for easy Proton version management..."
-        yay -S --noconfirm --needed protonup-qt
-        success "ProtonUp-Qt installed."
+        PRIMARY_USER=$(logname 2>/dev/null || echo $SUDO_USER)
+        if [[ -z "$PRIMARY_USER" ]] || [[ "$PRIMARY_USER" == "root" ]]; then
+            warning "Cannot install ProtonUp-Qt without a non-root user. Skipping."
+        else
+            sudo -u "$PRIMARY_USER" -H --set-home env -i HOME="/home/$PRIMARY_USER" USER="$PRIMARY_USER" PATH="/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl" yay -S --noconfirm --needed protonup-qt
+            success "ProtonUp-Qt installed."
+        fi
     else
         warning "AUR helper not available. ProtonUp-Qt installation skipped."
         warning "Please install ProtonUp-Qt manually after setting up an AUR helper."
