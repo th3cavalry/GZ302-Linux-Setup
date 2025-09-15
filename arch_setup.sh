@@ -1472,6 +1472,8 @@ install_hypervisor_stack() {
     case "$choice" in
         1)
             info "Installing KVM/QEMU with virt-manager..."
+            # Resolve iptables conflict: replace iptables with iptables-nft if needed
+            pacman -S --noconfirm --needed iptables-nft
             pacman -S --noconfirm --needed qemu-full virt-manager libvirt ebtables dnsmasq bridge-utils openbsd-netcat
             systemctl enable --now libvirtd
             local primary_user=$(get_real_user)
