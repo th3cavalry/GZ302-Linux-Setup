@@ -1,13 +1,24 @@
-# GZ302-Arch-Setup
+# GZ302-Multi-Distro-Setup
 
-Complete Arch Linux installation and setup scripts optimized for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+ processor.
+Complete Linux installation and setup scripts optimized for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+ processor, supporting multiple popular gaming distributions.
 
 ## Overview
 
-This repository provides two scripts for setting up Arch Linux on the ASUS ROG Flow Z13 (GZ302):
+This repository provides setup scripts for **10 popular Linux gaming distributions** on the ASUS ROG Flow Z13 (GZ302):
 
-1. **`install-arch-gz302.sh`** - Complete Arch Linux installation from scratch
-2. **`flowz13_setup.sh`** - Post-installation hardware fixes and gaming optimizations
+### Distribution Scripts Available:
+
+1. **`install-arch-gz302.sh`** & **`flowz13_setup.sh`** - Complete Arch Linux installation and setup
+2. **`ubuntu_setup.sh`** - Ubuntu gaming setup and optimizations
+3. **`fedora_setup.sh`** - Fedora gaming setup with RPM Fusion
+4. **`popos_setup.sh`** - Pop!_OS enhanced gaming configuration
+5. **`manjaro_setup.sh`** - Manjaro with AUR gaming packages
+6. **`opensuse_setup.sh`** - OpenSUSE (Tumbleweed/Leap) gaming setup
+7. **`endeavouros_setup.sh`** - EndeavourOS user-friendly Arch setup
+8. **`nobara_setup.sh`** - Nobara gaming-focused enhancements
+9. **`linuxmint_setup.sh`** - Linux Mint stable gaming platform
+
+Each script is tailored to the specific distribution's package management and repository system while providing the same core hardware fixes and gaming optimizations.
 
 ## Features
 
@@ -31,57 +42,141 @@ This repository provides two scripts for setting up Arch Linux on the ASUS ROG F
 
 ## Quick Start
 
-### Option 1: Complete Fresh Installation
+### Choose Your Distribution
 
-If you want to install Arch Linux from scratch:
+Select the setup script for your Linux distribution:
 
-1. Boot from Arch Linux USB
-2. Connect to internet (ethernet or Wi-Fi via `iwctl`)
-3. Download and run the installation script:
-   ```bash
-   curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/install-arch-gz302.sh -o install.sh
-   chmod +x install.sh
-   ./install.sh
-   ```
-4. Follow the interactive prompts
-5. Reboot and log in
-6. The post-installation script will be ready in your home directory
+#### Arch Linux (Complete Installation)
+```bash
+# Fresh Arch Linux installation from scratch
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/install-arch-gz302.sh -o install.sh
+chmod +x install.sh
+./install.sh
+```
 
-### Option 2: Post-Installation Setup Only
+#### Ubuntu/Ubuntu-based Distributions
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/ubuntu_setup.sh -o setup.sh
+chmod +x setup.sh
+sudo ./setup.sh
+```
 
-If you already have Arch Linux installed:
+#### Fedora
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/fedora_setup.sh -o setup.sh
+chmod +x setup.sh
+sudo ./setup.sh
+```
 
-1. Download and run the setup script:
-   ```bash
-   curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/flowz13_setup.sh -o setup.sh
-   chmod +x setup.sh
-   sudo ./setup.sh
-   ```
-2. Reboot to apply all changes
+#### Pop!_OS
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/popos_setup.sh -o setup.sh
+chmod +x setup.sh
+sudo ./setup.sh
+```
+
+#### Manjaro
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/manjaro_setup.sh -o setup.sh
+chmod +x setup.sh
+sudo ./setup.sh
+```
+
+#### OpenSUSE (Tumbleweed/Leap)
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/opensuse_setup.sh -o setup.sh
+chmod +x setup.sh
+sudo ./setup.sh
+```
+
+#### EndeavourOS
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/endeavouros_setup.sh -o setup.sh
+chmod +x setup.sh
+sudo ./setup.sh
+```
+
+#### Nobara Linux
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/nobara_setup.sh -o setup.sh
+chmod +x setup.sh
+sudo ./setup.sh
+```
+
+#### Linux Mint
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/linuxmint_setup.sh -o setup.sh
+chmod +x setup.sh
+sudo ./setup.sh
+```
+
+#### Arch Linux (Post-Installation Only)
+```bash
+# If you already have Arch Linux installed
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/flowz13_setup.sh -o setup.sh
+chmod +x setup.sh
+sudo ./setup.sh
+```
+
+After running any script, **reboot your system** to apply all changes.
 
 ## What Gets Installed
 
-### System Components
-- **linux-g14 kernel**: Better hardware support for ASUS devices
-- **ASUS Linux tools**: asusctl, supergfxctl, rog-control-center
-- **Power management**: power-profiles-daemon, switcheroo-control
+All distribution scripts provide the same core components, adapted to each distribution's package management:
 
 ### Gaming Software
-- **Steam**: With multilib support and Proton
+- **Steam**: With multilib/32-bit support and Proton
 - **Lutris**: Game launcher and manager
-- **ProtonUp-Qt**: GUI tool for managing Proton versions
+- **ProtonUp-Qt**: GUI tool for managing Proton versions (Flatpak/AUR/native packages)
 - **MangoHUD**: Performance overlay for games
-- **Goverlay**: GUI for MangoHUD configuration
-- **CoreCtrl**: AMD GPU control and overclocking
+- **Goverlay**: GUI for MangoHUD configuration (where available)
 - **GameMode**: Automatic system optimizations during gaming
+- **Wine**: Windows compatibility layer
+- **Winetricks**: Wine configuration utility
 
-### Performance Optimizations
-- **Kernel Parameters**: Gaming-optimized sysctl settings
+### Hardware Support (All Distributions)
+- **AMD GPU Drivers**: Mesa, Vulkan, VA-API, VDPAU acceleration
+- **Audio Support**: Full audio device compatibility fixes
+- **Wi-Fi Fixes**: MediaTek MT7925 stability improvements
+- **Touchpad Support**: Proper multi-touch detection and sensitivity
+- **Power Management**: TLP/distribution-specific power optimization
+- **Thermal Management**: Proper throttling and cooling policies
+
+### Distribution-Specific Enhancements
+
+#### Arch Linux
+- **linux-g14 kernel**: Better hardware support for ASUS devices
+- **ASUS Linux tools**: asusctl, supergfxctl, rog-control-center
+- **AUR packages**: Direct access to AUR gaming packages
+
+#### Ubuntu/Debian-based (Ubuntu, Pop!_OS, Linux Mint)
+- **Multiverse repositories**: Additional multimedia and gaming packages
+- **Steam repository**: Official Steam packages
+- **Flatpak support**: Alternative package installation method
+- **Hardware acceleration**: VA-API and VDPAU for AMD GPUs
+
+#### Fedora/Red Hat-based (Fedora, Nobara)
+- **RPM Fusion**: Free and non-free multimedia packages
+- **Native gaming packages**: Steam, Lutris from official repos
+- **Enhanced codec support**: Full multimedia codec stack
+
+#### SUSE-based (OpenSUSE)
+- **Packman repository**: Multimedia codecs and enhanced packages
+- **Games repository**: Additional gaming packages
+- **Both Tumbleweed and Leap support**: Automatic version detection
+
+#### Arch-based (Manjaro, EndeavourOS)
+- **AUR helper**: yay for easy AUR package management
+- **Gaming-focused AUR packages**: ProtonUp-Qt, Goverlay, latest tools
+- **Optimized mirror selection**: Better download speeds
+
+### Performance Optimizations (All Distributions)
+- **Kernel Parameters**: Gaming-optimized sysctl settings (vm.max_map_count, etc.)
 - **I/O Schedulers**: Optimized for SSD/NVMe performance
 - **CPU Governor**: Performance profiles for gaming
 - **Memory Management**: Reduced swappiness and optimized cache
 - **Network Tuning**: Reduced latency for online gaming
-- **GPU Acceleration**: Hardware-accelerated video decoding
+- **System Limits**: Increased limits for gaming compatibility
 
 ## Hardware-Specific Fixes
 
