@@ -8,17 +8,17 @@ This repository provides setup scripts for **10 popular Linux gaming distributio
 
 ### Distribution Scripts Available:
 
-1. **`install-arch-gz302.sh`** & **`flowz13_setup.sh`** - Complete Arch Linux installation and setup
-2. **`ubuntu_setup.sh`** - Ubuntu gaming setup and optimizations
-3. **`fedora_setup.sh`** - Fedora gaming setup with RPM Fusion
-4. **`popos_setup.sh`** - Pop!_OS enhanced gaming configuration
-5. **`manjaro_setup.sh`** - Manjaro with AUR gaming packages
+1. **`flowz13_setup.sh`** - Arch Linux post-installation setup and optimizations
+2. **`ubuntu_setup.sh`** - Ubuntu gaming setup with LLM support
+3. **`fedora_setup.sh`** - Fedora gaming setup with RPM Fusion and LLM support
+4. **`popos_setup.sh`** - Pop!_OS enhanced gaming configuration with LLM support
+5. **`manjaro_setup.sh`** - Manjaro with AUR gaming packages and LLM support
 6. **`opensuse_setup.sh`** - OpenSUSE (Tumbleweed/Leap) gaming setup
 7. **`endeavouros_setup.sh`** - EndeavourOS user-friendly Arch setup
 8. **`nobara_setup.sh`** - Nobara gaming-focused enhancements
 9. **`linuxmint_setup.sh`** - Linux Mint stable gaming platform
 
-Each script is tailored to the specific distribution's package management and repository system while providing the same core hardware fixes and gaming optimizations.
+Each script is tailored to the specific distribution's package management and repository system while providing the same core hardware fixes, gaming optimizations, and optional LLM/AI framework installation.
 
 ## Features
 
@@ -39,6 +39,15 @@ Each script is tailored to the specific distribution's package management and re
 - **System Optimizations**: Kernel parameters, I/O schedulers, and memory management
 - **Smart Skip Logic**: Automatically detects and skips already-installed components (yay, Proton-GE)
 - **Progress Reporting**: Detailed step-by-step progress with time estimates
+- **User Choice**: Optional gaming installation with user prompts
+
+### LLM/AI Support (New in v1.3)
+- **Ollama**: Local LLM inference for running models like Llama2, Code Llama, etc.
+- **ROCm**: AMD GPU acceleration for machine learning workloads
+- **PyTorch with ROCm**: Deep learning framework with AMD GPU support
+- **Transformers**: Hugging Face transformers library for NLP tasks
+- **User Choice**: Optional LLM/AI installation with user prompts
+- **Flexible Selection**: Choose which LLM frameworks to install
 
 ## Quick Start
 
@@ -46,79 +55,92 @@ Each script is tailored to the specific distribution's package management and re
 
 Select the setup script for your Linux distribution:
 
-#### Arch Linux (Complete Installation)
+#### Arch Linux (Post-Installation Setup)
 ```bash
-# Fresh Arch Linux installation from scratch
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/install-arch-gz302.sh -o install.sh
-chmod +x install.sh
-./install.sh
+# If you already have Arch Linux installed
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/flowz13_setup.sh -o setup.sh
+chmod +x setup.sh
+sudo ./setup.sh
 ```
 
 #### Ubuntu/Ubuntu-based Distributions
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/ubuntu_setup.sh -o setup.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/ubuntu_setup.sh -o setup.sh
 chmod +x setup.sh
 sudo ./setup.sh
 ```
 
 #### Fedora
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/fedora_setup.sh -o setup.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/fedora_setup.sh -o setup.sh
 chmod +x setup.sh
 sudo ./setup.sh
 ```
 
 #### Pop!_OS
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/popos_setup.sh -o setup.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/popos_setup.sh -o setup.sh
 chmod +x setup.sh
 sudo ./setup.sh
 ```
 
 #### Manjaro
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/manjaro_setup.sh -o setup.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/manjaro_setup.sh -o setup.sh
 chmod +x setup.sh
 sudo ./setup.sh
 ```
 
 #### OpenSUSE (Tumbleweed/Leap)
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/opensuse_setup.sh -o setup.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/opensuse_setup.sh -o setup.sh
 chmod +x setup.sh
 sudo ./setup.sh
 ```
 
 #### EndeavourOS
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/endeavouros_setup.sh -o setup.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/endeavouros_setup.sh -o setup.sh
 chmod +x setup.sh
 sudo ./setup.sh
 ```
 
 #### Nobara Linux
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/nobara_setup.sh -o setup.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/nobara_setup.sh -o setup.sh
 chmod +x setup.sh
 sudo ./setup.sh
 ```
 
 #### Linux Mint
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/linuxmint_setup.sh -o setup.sh
-chmod +x setup.sh
-sudo ./setup.sh
-```
-
-#### Arch Linux (Post-Installation Only)
-```bash
-# If you already have Arch Linux installed
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Arch-Setup/main/flowz13_setup.sh -o setup.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/linuxmint_setup.sh -o setup.sh
 chmod +x setup.sh
 sudo ./setup.sh
 ```
 
 After running any script, **reboot your system** to apply all changes.
+
+## Installation Options (New in v1.3)
+
+All scripts now include user prompts for optional installations:
+
+### Gaming Software
+When you run any setup script, you'll be prompted whether to install gaming software including:
+- Steam with Proton support
+- Lutris for game management
+- ProtonUp-Qt for Proton version management
+- MangoHUD for performance monitoring
+- GameMode for automatic optimizations
+
+### LLM/AI Software
+You'll also be prompted whether to install LLM/AI frameworks including:
+- **Ollama**: For running local language models (Llama2, Code Llama, etc.)
+- **ROCm**: AMD GPU acceleration for ML workloads
+- **PyTorch with ROCm**: Deep learning with AMD GPU support
+- **Transformers**: Hugging Face library for NLP tasks
+
+You can choose to install all, some, or none of these optional components.
 
 ## What Gets Installed
 

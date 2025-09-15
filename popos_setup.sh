@@ -648,14 +648,29 @@ main() {
     success "Pop!_OS setup complete for ASUS ROG Flow Z13 (GZ302)!"
     success "It is highly recommended to REBOOT your system now."
     success ""
-    success "Pop!_OS Gaming Features Enhanced:"
-    success "- Steam with Proton support (enhanced configuration)"
-    success "- Lutris for game management"
-    success "- ProtonUp-Qt for Proton version management (Flatpak)"
-    success "- MangoHUD for performance monitoring"
-    success "- GameMode with enhanced configuration"
-    success "- System76 power management optimized for gaming"
-    success ""
+    
+    # Show gaming tools if installed
+    if [[ "${install_gaming,,}" == "y" || "${install_gaming,,}" == "yes" ]]; then
+        success "Pop!_OS Gaming Features Enhanced:"
+        success "- Steam with Proton support (enhanced configuration)"
+        success "- Lutris for game management"
+        success "- ProtonUp-Qt for Proton version management (Flatpak)"
+        success "- MangoHUD for performance monitoring"
+        success "- GameMode with enhanced configuration"
+        success "- System76 power management optimized for gaming"
+        success ""
+    fi
+    
+    # Show LLM tools if installed
+    if [[ "${install_llm,,}" == "y" || "${install_llm,,}" == "yes" ]]; then
+        success "Installed LLM/AI tools:"
+        success "- Ollama for local LLM inference (if selected)"
+        success "- ROCm for AMD GPU acceleration (if selected)"
+        success "- PyTorch with ROCm support (if selected)"
+        success "- Hugging Face Transformers (if selected)"
+        success ""
+    fi
+    
     success "Hardware fixes applied:"
     success "- MediaTek MT7925 Wi-Fi stability improvements"
     success "- Touchpad detection and sensitivity fixes"
@@ -673,7 +688,7 @@ main() {
     success "- System limits increased for gaming"
     success ""
     success "You can now enjoy Pop!_OS optimized for your"
-    success "ASUS ROG Flow Z13 (GZ302) with excellent gaming performance!"
+    success "ASUS ROG Flow Z13 (GZ302)!"
     success "============================================================"
     echo
 }
