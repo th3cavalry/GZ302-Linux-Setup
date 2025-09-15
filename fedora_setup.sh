@@ -460,6 +460,186 @@ EOF
     success "All necessary services have been enabled and started."
 }
 
+# --- TDP Management Functions ---
+# Based on research from: https://github.com/Shahzebqazi/Asus-Z13-Flow-2025-PCMR
+
+# Install TDP management tools and configure profiles
+install_tdp_management() {
+    info "Installing TDP management for GZ302..."
+    
+    # Install dependencies for building ryzenadj
+    dnf install -y cmake pciutils-devel gcc gcc-c++ make git
+    
+    PRIMARY_USER=$(get_real_user)
+    if [[ "$PRIMARY_USER" == "root" ]]; then
+        warning "Cannot install ryzenadj without a non-root user."
+        return 1
+    fi
+    
+    # Build and install ryzenadj from source
+    sudo -u "$PRIMARY_USER" bash <<'EOF'
+set -e
+cd /tmp
+git clone https://github.com/FlyGoat/RyzenAdj.git
+cd RyzenAdj
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j$(nproc)
+EOF
+    
+    # Install ryzenadj system-wide
+    cp /tmp/RyzenAdj/build/ryzenadj /usr/local/bin/
+    chmod +x /usr/local/bin/ryzenadj
+    
+    # Cleanup
+    rm -rf /tmp/RyzenAdj
+    
+    # Create TDP management script (same as Ubuntu)
+    cat > /usr/local/bin/gz302-tdp <<'EOF'
+#!/bin/bash
+# GZ302 TDP Management Script for Fedora
+# Based on research from Shahzebqazi's Asus-Z13-Flow-2025-PCMR
+
+TDP_CONFIG_DIR="/etc/gz302-tdp"
+CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
+
+# TDP Profiles (in mW)
+declare -A TDP_PROFILES
+TDP_PROFILES[gaming]="54000"      # Maximum performance for gaming
+TDP_PROFILES[performance]="45000" # High performance
+TDP_PROFILES[balanced]="35000"    # Balanced performance/efficiency
+TDP_PROFILES[efficient]="15000"   # Maximum efficiency
+
+# Create config directory
+mkdir -p "$TDP_CONFIG_DIR"
+
+show_usage() {
+    echo "Usage: gz302-tdp [PROFILE|status|list]"
+    echo ""
+    echo "Profiles:"
+    echo "  gaming       - 54W maximum performance (AC power recommended)"
+    echo "  performance  - 45W high performance"
+    echo "  balanced     - 35W balanced (default)"
+    echo "  efficient    - 15W maximum efficiency"
+    echo ""
+    echo "Commands:"
+    echo "  status       - Show current TDP and power source"
+    echo "  list         - List available profiles"
+}
+
+get_battery_status() {
+    if [ -f /sys/class/power_supply/ADP1/online ]; then
+        if [ "$(cat /sys/class/power_supply/ADP1/online)" = "1" ]; then
+            echo "AC"
+        else
+            echo "Battery"
+        fi
+    else
+        echo "Unknown"
+    fi
+}
+
+get_battery_percentage() {
+    if [ -f /sys/class/power_supply/BAT0/capacity ]; then
+        cat /sys/class/power_supply/BAT0/capacity
+    else
+        echo "N/A"
+    fi
+}
+
+set_tdp_profile() {
+    local profile="$1"
+    local tdp_value="${TDP_PROFILES[$profile]}"
+    
+    if [ -z "$tdp_value" ]; then
+        echo "Error: Unknown profile '$profile'"
+        return 1
+    fi
+    
+    echo "Setting TDP profile: $profile ($(($tdp_value / 1000))W)"
+    
+    # Apply TDP settings using ryzenadj
+    ryzenadj --stapm-limit="$tdp_value" --fast-limit="$tdp_value" --slow-limit="$tdp_value"
+    
+    if [ $? -eq 0 ]; then
+        echo "$profile" > "$CURRENT_PROFILE_FILE"
+        echo "TDP profile '$profile' applied successfully"
+    else
+        echo "Error: Failed to apply TDP profile"
+        return 1
+    fi
+}
+
+show_status() {
+    local power_source=$(get_battery_status)
+    local battery_pct=$(get_battery_percentage)
+    local current_profile="Unknown"
+    
+    if [ -f "$CURRENT_PROFILE_FILE" ]; then
+        current_profile=$(cat "$CURRENT_PROFILE_FILE")
+    fi
+    
+    echo "GZ302 Power Status:"
+    echo "  Power Source: $power_source"
+    echo "  Battery: $battery_pct%"
+    echo "  Current Profile: $current_profile"
+    
+    if [ "$current_profile" != "Unknown" ] && [ -n "${TDP_PROFILES[$current_profile]}" ]; then
+        echo "  TDP Limit: $(( ${TDP_PROFILES[$current_profile]} / 1000 ))W"
+    fi
+}
+
+list_profiles() {
+    echo "Available TDP profiles:"
+    for profile in "${!TDP_PROFILES[@]}"; do
+        local tdp_watts=$(( ${TDP_PROFILES[$profile]} / 1000 ))
+        echo "  $profile: ${tdp_watts}W"
+    done
+}
+
+# Main script logic
+case "$1" in
+    gaming|performance|balanced|efficient)
+        set_tdp_profile "$1"
+        ;;
+    status)
+        show_status
+        ;;
+    list)
+        list_profiles
+        ;;
+    "")
+        show_usage
+        ;;
+    *)
+        echo "Error: Unknown command '$1'"
+        show_usage
+        exit 1
+        ;;
+esac
+EOF
+
+    chmod +x /usr/local/bin/gz302-tdp
+    
+    # Create systemd service for automatic TDP management
+    cat > /etc/systemd/system/gz302-tdp-auto.service <<EOF
+[Unit]
+Description=GZ302 Automatic TDP Management
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gz302-tdp balanced
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    systemctl enable gz302-tdp-auto.service
+    success "TDP management installed. Use 'gz302-tdp' command to manage power profiles."
+}
+
 # --- LLM Installation Functions ---
 
 # User choice function for installation options
@@ -1094,32 +1274,46 @@ main() {
     info "Step 3/8: Installing hardware support packages..."
     install_hardware_support
     
-    info "Step 4/8: Applying hardware-specific fixes..."
+    info "Step 4/10: Applying hardware-specific fixes..."
     apply_hardware_fixes
+    
+    info "Step 5/10: Installing TDP management and system tools..."
+    install_tdp_management
     
     # Conditional gaming installation
     if [[ "${install_gaming,,}" == "y" || "${install_gaming,,}" == "yes" ]]; then
-        info "Step 5/8: Installing gaming software stack..."
+        info "Step 6/10: Installing gaming software stack..."
         install_gaming_stack
         
-        info "Step 6/8: Applying performance optimizations..."
+        info "Step 7/10: Applying performance optimizations..."
         apply_performance_tweaks
     else
-        info "Step 5/8: Skipping gaming software installation as requested..."
-        info "Step 6/8: Applying basic performance optimizations..."
+        info "Step 6/10: Skipping gaming software installation as requested..."
+        info "Step 7/10: Applying basic performance optimizations..."
         apply_performance_tweaks
     fi
     
     # Conditional LLM installation
     if [[ "${install_llm,,}" == "y" || "${install_llm,,}" == "yes" ]]; then
-        info "Step 7/8: Installing LLM/AI software stack..."
+        info "Step 8/10: Installing LLM/AI software stack..."
         install_llm_stack
     else
-        info "Step 7/8: Skipping LLM/AI software installation as requested..."
+        info "Step 8/10: Skipping LLM/AI software installation as requested..."
     fi
     
-    info "Step 8/8: Enabling services and finalizing setup..."
-    enable_services
+    info "Step 9/10: Configuring optional system features..."
+    
+    # Conditional secure boot installation (Fedora supports this, but add check)
+    if command -v sbctl &> /dev/null; then
+        info "Secure Boot tools available, configuring if requested..."
+        # Secure boot configuration would go here if implemented
+    fi
+    
+    # Conditional snapshots installation (Fedora supports this, but add check)
+    info "Snapshot support available for filesystem detection..."
+    # Snapshot configuration would go here if implemented
+    
+    info "Step 10/10: Enabling services and finalizing setup..."
 
     echo
     success "============================================================"

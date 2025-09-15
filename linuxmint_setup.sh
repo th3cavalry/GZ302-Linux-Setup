@@ -463,6 +463,72 @@ EOF
     success "All necessary services have been enabled and started."
 }
 
+# --- TDP Management Functions ---
+# Simplified TDP management for Linux Mint
+
+install_tdp_management() {
+    info "Installing TDP management for GZ302..."
+    
+    # Install dependencies and build ryzenadj (simplified)
+    apt install -y cmake libpci-dev gcc g++ make git
+    
+    PRIMARY_USER=$(get_real_user)
+    if [[ "$PRIMARY_USER" == "root" ]]; then
+        warning "Cannot install ryzenadj without a non-root user."
+        return 1
+    fi
+    
+    # Quick build and install
+    sudo -u "$PRIMARY_USER" bash -c 'cd /tmp && git clone https://github.com/FlyGoat/RyzenAdj.git && cd RyzenAdj && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j$(nproc)'
+    cp /tmp/RyzenAdj/build/ryzenadj /usr/local/bin/
+    chmod +x /usr/local/bin/ryzenadj
+    rm -rf /tmp/RyzenAdj
+    
+    # Create simplified TDP script
+    cat > /usr/local/bin/gz302-tdp <<'EOF'
+#!/bin/bash
+# GZ302 TDP Management for Linux Mint
+declare -A TDP_PROFILES=([gaming]="54000" [performance]="45000" [balanced]="35000" [efficient]="15000")
+case "$1" in
+    gaming|performance|balanced|efficient)
+        echo "Setting TDP: $1 ($(( ${TDP_PROFILES[$1]} / 1000 ))W)"
+        ryzenadj --stapm-limit="${TDP_PROFILES[$1]}" --fast-limit="${TDP_PROFILES[$1]}" --slow-limit="${TDP_PROFILES[$1]}"
+        echo "$1" > /etc/gz302-tdp/current-profile 2>/dev/null || true
+        ;;
+    status)
+        local profile=$(cat /etc/gz302-tdp/current-profile 2>/dev/null || echo "Unknown")
+        echo "Current TDP profile: $profile"
+        ;;
+    *) echo "Usage: gz302-tdp [gaming|performance|balanced|efficient|status]" ;;
+esac
+EOF
+    chmod +x /usr/local/bin/gz302-tdp
+    mkdir -p /etc/gz302-tdp
+    
+    success "TDP management installed. Use 'gz302-tdp' command."
+}
+
+# Enhanced fixes for Linux Mint
+enhance_hardware_fixes() {
+    info "Applying enhanced hardware fixes..."
+    
+    # Enhanced Wi-Fi fixes
+    cat >> /etc/modprobe.d/mt7925e_wifi.conf <<EOF
+options mt7925e swcrypto=0 amsdu=0 disable_11ax=0 disable_radar_background=1
+EOF
+    
+    # Enhanced camera fixes
+    cat > /etc/modprobe.d/uvcvideo-gz302.conf <<EOF
+options uvcvideo quirks=0x80 nodrop=1
+EOF
+    
+    cat > /etc/udev/rules.d/99-gz302-camera.rules <<EOF
+SUBSYSTEM=="video4linux", GROUP="video", MODE="0664"
+EOF
+    
+    success "Enhanced hardware fixes applied."
+}
+
 # --- Main Execution Logic ---
 main() {
     check_root
@@ -470,7 +536,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Linux Mint Setup Script"
-    echo "  Version 1.3 - Gaming Performance Optimization"
+    echo "  Version 1.5 - Enhanced with TDP management and feature parity"
     echo "============================================================"
     echo
     
@@ -488,22 +554,34 @@ main() {
     info "Step 3/7: Installing hardware support packages..."
     install_hardware_support
     
-    info "Step 4/7: Applying hardware-specific fixes..."
+    info "Step 4/8: Applying hardware-specific fixes..."
     apply_hardware_fixes
+    enhance_hardware_fixes
     
-    info "Step 5/7: Installing gaming software stack..."
+    info "Step 5/8: Installing TDP management..."
+    install_tdp_management
+    
+    info "Step 6/8: Installing gaming software stack..."
     install_gaming_stack
-    
-    info "Step 6/7: Applying performance optimizations..."
+
+    info "Step 7/8: Applying performance optimizations..."
     apply_performance_tweaks
     
-    info "Step 7/7: Enabling services and finalizing setup..."
+    info "Step 8/8: Enabling services and finalizing setup..."
     enable_services
 
     echo
     success "============================================================"
-    success "Linux Mint setup complete for ASUS ROG Flow Z13 (GZ302)!"
+    success "Linux Mint setup complete for ASUS ROG Flow Z13 (GZ302)! (Version 1.5)"
     success "It is highly recommended to REBOOT your system now."
+    success ""
+    success "New in Version 1.5:"
+    success "- TDP management: Use 'gz302-tdp' command for power profiles"
+    success "- Enhanced Wi-Fi stability for MediaTek MT7925e"
+    success "- Enhanced camera support for GZ302"
+    success "- Improved hardware optimizations"
+    success ""
+    success "TDP profiles: gaming(54W), performance(45W), balanced(35W), efficient(15W)"
     success ""
     success "Installed gaming tools:"
     success "- Steam with Proton support"
