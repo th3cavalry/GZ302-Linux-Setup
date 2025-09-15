@@ -11,10 +11,10 @@
 # It applies critical hardware fixes and allows optional software installation.
 #
 # Supported Distributions:
-# - Arch Linux, EndeavourOS, Manjaro
-# - Ubuntu, Pop!_OS, Linux Mint
-# - Fedora, Nobara
-# - OpenSUSE
+# - Arch-based: Arch Linux (also supports EndeavourOS, Manjaro)
+# - Debian-based: Ubuntu (also supports Pop!_OS, Linux Mint)
+# - RPM-based: Fedora (also supports Nobara)
+# - OpenSUSE: Tumbleweed and Leap
 #
 # PRE-REQUISITES:
 # 1. A supported Linux distribution
@@ -84,59 +84,43 @@ detect_distribution() {
         distro="$ID"
         version="${VERSION_ID:-unknown}"
         
-        # Handle special cases and derivatives
+        # Handle special cases and derivatives - route to base distributions
         case "$distro" in
             "arch")
                 distro="arch"
                 ;;
-            "endeavouros")
-                distro="endeavouros"
-                ;;
-            "manjaro")
-                distro="manjaro"
+            "endeavouros"|"manjaro")
+                # Route Arch derivatives to base Arch
+                distro="arch"
                 ;;
             "ubuntu")
                 distro="ubuntu"
                 ;;
-            "pop")
-                distro="popos"
-                ;;
-            "linuxmint")
-                distro="linuxmint"
+            "pop"|"linuxmint")
+                # Route Ubuntu derivatives to base Ubuntu  
+                distro="ubuntu"
                 ;;
             "fedora")
                 distro="fedora"
                 ;;
             "nobara")
-                distro="nobara"
+                # Route Fedora derivatives to base Fedora
+                distro="fedora"
                 ;;
             "opensuse-tumbleweed"|"opensuse-leap"|"opensuse")
                 distro="opensuse"
                 ;;
             *)
-                # Try to detect based on package managers
+                # Try to detect based on package managers and route to base distros
                 if command -v pacman >/dev/null 2>&1; then
-                    if [[ -f /etc/endeavouros-release ]]; then
-                        distro="endeavouros"
-                    elif [[ -f /etc/manjaro-release ]]; then
-                        distro="manjaro"
-                    else
-                        distro="arch"
-                    fi
+                    # All Arch-based distros route to arch
+                    distro="arch"
                 elif command -v apt >/dev/null 2>&1; then
-                    if grep -q "Pop!_OS" /etc/os-release 2>/dev/null; then
-                        distro="popos"
-                    elif grep -q "Linux Mint" /etc/os-release 2>/dev/null; then
-                        distro="linuxmint"
-                    else
-                        distro="ubuntu"
-                    fi
+                    # All Debian-based distros route to ubuntu  
+                    distro="ubuntu"
                 elif command -v dnf >/dev/null 2>&1; then
-                    if grep -q "Nobara" /etc/os-release 2>/dev/null; then
-                        distro="nobara"
-                    else
-                        distro="fedora"
-                    fi
+                    # All RPM-based distros route to fedora
+                    distro="fedora"
                 elif command -v zypper >/dev/null 2>&1; then
                     distro="opensuse"
                 fi
@@ -145,7 +129,7 @@ detect_distribution() {
     fi
     
     if [[ -z "$distro" ]]; then
-        error "Could not detect your Linux distribution. Supported distributions include Arch, Ubuntu, Fedora, OpenSUSE, and their derivatives."
+        error "Could not detect your Linux distribution. Supported base distributions: Arch, Ubuntu, Fedora, OpenSUSE (including their derivatives)"
     fi
     
     echo "$distro"
@@ -226,8 +210,7 @@ get_user_choices() {
 
 # --- Distribution-Specific Setup Functions ---
 setup_arch_based() {
-    local distro="$1"
-    info "Setting up $distro-based system..."
+    info "Setting up Arch-based system..."
     
     # Update system and install base dependencies
     info "Updating system and installing base dependencies..."
@@ -247,7 +230,7 @@ EOF
     fi
     
     # Apply hardware fixes
-    apply_arch_hardware_fixes "$distro"
+    apply_arch_hardware_fixes
     
     # Setup TDP management (always install for all systems)
     setup_tdp_management "arch"
@@ -277,8 +260,7 @@ EOF
 }
 
 setup_debian_based() {
-    local distro="$1"
-    info "Setting up $distro-based system..."
+    info "Setting up Debian-based system..."
     
     # Update system and install base dependencies
     info "Updating system and installing base dependencies..."
@@ -288,7 +270,7 @@ setup_debian_based() {
         apt-transport-https ca-certificates gnupg lsb-release
     
     # Apply hardware fixes
-    apply_debian_hardware_fixes "$distro"
+    apply_debian_hardware_fixes
     
     # Setup TDP management (always install for all systems)
     setup_tdp_management "debian"
@@ -318,8 +300,7 @@ setup_debian_based() {
 }
 
 setup_fedora_based() {
-    local distro="$1"
-    info "Setting up $distro-based system..."
+    info "Setting up Fedora-based system..."
     
     # Update system and install base dependencies
     info "Updating system and installing base dependencies..."
@@ -328,7 +309,7 @@ setup_fedora_based() {
         rpmfusion-free-release rpmfusion-nonfree-release
     
     # Apply hardware fixes
-    apply_fedora_hardware_fixes "$distro"
+    apply_fedora_hardware_fixes
     
     # Setup TDP management (always install for all systems)
     setup_tdp_management "fedora"
@@ -398,17 +379,10 @@ setup_opensuse() {
 
 # Apply comprehensive hardware fixes for Arch-based systems
 apply_arch_hardware_fixes() {
-    local distro="$1"
-    info "Applying comprehensive GZ302 hardware fixes for $distro..."
+    info "Applying comprehensive GZ302 hardware fixes for Arch-based systems..."
     
-    # Install kernel and drivers
-    if [[ "$distro" == "arch" ]]; then
-        pacman -S --noconfirm --needed linux-g14 linux-g14-headers asusctl supergfxctl rog-control-center power-profiles-daemon switcheroo-control
-    elif [[ "$distro" == "manjaro" ]]; then
-        pacman -S --noconfirm --needed linux-g14 linux-g14-headers asusctl supergfxctl
-    else # endeavouros
-        pacman -S --noconfirm --needed linux-g14 linux-g14-headers asusctl supergfxctl rog-control-center
-    fi
+    # Install kernel and drivers (same for all Arch-based distros)
+    pacman -S --noconfirm --needed linux-g14 linux-g14-headers asusctl supergfxctl rog-control-center power-profiles-daemon switcheroo-control
     
     # Regenerate bootloader configuration
     if [ -f /boot/grub/grub.cfg ]; then
@@ -509,12 +483,11 @@ EOF
     systemd-hwdb update
     udevadm control --reload
     
-    success "Comprehensive hardware fixes applied for $distro"
+    success "Comprehensive hardware fixes applied for Arch-based systems"
 }
 
 apply_debian_hardware_fixes() {
-    local distro="$1"
-    info "Applying comprehensive GZ302 hardware fixes for $distro..."
+    info "Applying comprehensive GZ302 hardware fixes for Debian-based systems..."
     
     # Install kernel and drivers
     apt install -y linux-generic-hwe-22.04 firmware-misc-nonfree
@@ -612,12 +585,11 @@ EOF
     systemd-hwdb update
     udevadm control --reload
     
-    success "Comprehensive hardware fixes applied for $distro"
+    success "Comprehensive hardware fixes applied for Debian-based systems"
 }
 
 apply_fedora_hardware_fixes() {
-    local distro="$1"
-    info "Applying GZ302 hardware fixes for $distro..."
+    info "Applying GZ302 hardware fixes for Fedora-based systems..."
     
     # Install kernel and drivers
     dnf install -y kernel-devel akmod-nvidia
@@ -639,7 +611,7 @@ EOF
     info "Applying audio fixes..."
     echo 'options snd-hda-intel model=asus-zenbook' > /etc/modprobe.d/alsa-asus.conf
     
-    success "Hardware fixes applied for $distro"
+    success "Hardware fixes applied for Fedora-based systems"
 }
 
 apply_opensuse_hardware_fixes() {
@@ -1443,27 +1415,39 @@ main() {
     echo
     
     info "Detecting your Linux distribution..."
+    
+    # Get original distribution name for display
+    local original_distro=""
+    if [[ -f /etc/os-release ]]; then
+        source /etc/os-release
+        original_distro="$ID"
+    fi
+    
     local detected_distro=$(detect_distribution)
     
-    success "Detected distribution: $detected_distro"
+    if [[ "$original_distro" != "$detected_distro" ]]; then
+        success "Detected distribution: $original_distro (using $detected_distro base)"
+    else
+        success "Detected distribution: $detected_distro"
+    fi
     echo
     
     # Get user choices for optional software
     get_user_choices
     
-    info "Starting setup process for $detected_distro..."
+    info "Starting setup process for $detected_distro-based systems..."
     echo
     
-    # Route to appropriate setup function based on distribution
+    # Route to appropriate setup function based on base distribution
     case "$detected_distro" in
-        "arch"|"endeavouros"|"manjaro")
-            setup_arch_based "$detected_distro"
+        "arch")
+            setup_arch_based
             ;;
-        "ubuntu"|"popos"|"linuxmint")
-            setup_debian_based "$detected_distro"
+        "ubuntu")
+            setup_debian_based
             ;;
-        "fedora"|"nobara")
-            setup_fedora_based "$detected_distro"
+        "fedora")
+            setup_fedora_based
             ;;
         "opensuse")
             setup_opensuse
@@ -1475,7 +1459,7 @@ main() {
     
     echo
     success "============================================================"
-    success "GZ302 Universal Setup Complete for $detected_distro!"
+    success "GZ302 Universal Setup Complete for $detected_distro-based systems!"
     success "It is highly recommended to REBOOT your system now."
     success ""
     success "Applied GZ302-specific hardware fixes:"
@@ -1517,7 +1501,7 @@ main() {
     success "Available TDP profiles: gaming, performance, balanced, efficient"
     success "Check power status with: gz302-tdp status"
     success ""
-    success "Your ROG Flow Z13 (GZ302) is now optimized for $detected_distro!"
+    success "Your ROG Flow Z13 (GZ302) is now optimized for $detected_distro-based systems!"
     success "============================================================"
     echo
 }

@@ -13,24 +13,19 @@ sudo ./gz302_setup.sh
 ```
 
 The universal script supports:
-- **Arch-based**: Arch Linux, EndeavourOS, Manjaro
-- **Debian-based**: Ubuntu, Pop!_OS, Linux Mint  
-- **Fedora-based**: Fedora, Nobara
+- **Arch-based**: Arch Linux (also works with EndeavourOS, Manjaro)
+- **Debian-based**: Ubuntu (also works with Pop!_OS, Linux Mint)  
+- **RPM-based**: Fedora (also works with Nobara)
 - **OpenSUSE**: Tumbleweed and Leap
 
 ## Individual Distribution Scripts
 
-If you prefer distribution-specific scripts, you can still use these:
+If you prefer distribution-specific scripts, you can still use these for the main base distributions:
 
-- **`arch_setup.sh`** - Arch Linux
-- **`ubuntu_setup.sh`** - Ubuntu
-- **`fedora_setup.sh`** - Fedora  
-- **`popos_setup.sh`** - Pop!_OS
-- **`manjaro_setup.sh`** - Manjaro
+- **`arch_setup.sh`** - Arch Linux (works with EndeavourOS, Manjaro)
+- **`ubuntu_setup.sh`** - Ubuntu (works with Pop!_OS, Linux Mint)
+- **`fedora_setup.sh`** - Fedora (works with Nobara)
 - **`opensuse_setup.sh`** - OpenSUSE
-- **`endeavouros_setup.sh`** - EndeavourOS
-- **`nobara_setup.sh`** - Nobara
-- **`linuxmint_setup.sh`** - Linux Mint
 
 All scripts fix the same hardware issues and can install gaming tools and AI software if you want.
 
@@ -90,16 +85,9 @@ chmod +x setup.sh
 sudo ./setup.sh
 ```
 
-#### Pop!_OS
+#### Fedora
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/popos_setup.sh -o setup.sh
-chmod +x setup.sh
-sudo ./setup.sh
-```
-
-#### Manjaro
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/manjaro_setup.sh -o setup.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/fedora_setup.sh -o setup.sh
 chmod +x setup.sh
 sudo ./setup.sh
 ```
@@ -111,26 +99,7 @@ chmod +x setup.sh
 sudo ./setup.sh
 ```
 
-#### EndeavourOS
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/endeavouros_setup.sh -o setup.sh
-chmod +x setup.sh
-sudo ./setup.sh
-```
-
-#### Nobara Linux
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/nobara_setup.sh -o setup.sh
-chmod +x setup.sh
-sudo ./setup.sh
-```
-
-#### Linux Mint
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/linuxmint_setup.sh -o setup.sh
-chmod +x setup.sh
-sudo ./setup.sh
-```
+**Note:** Derivative distributions (EndeavourOS, Manjaro, Pop!_OS, Linux Mint, Nobara) will automatically use their base distribution scripts. For example, Manjaro users can use the Arch script, Pop!_OS users can use the Ubuntu script.
 
 ### Step 2: What The Script Will Ask You
 
