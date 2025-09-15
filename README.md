@@ -26,6 +26,8 @@ This repository provides two scripts for setting up Arch Linux on the ASUS ROG F
 - **GameMode**: Automatic gaming optimizations
 - **CoreCtrl**: GPU performance control
 - **System Optimizations**: Kernel parameters, I/O schedulers, and memory management
+- **Smart Skip Logic**: Automatically detects and skips already-installed components (yay, Proton-GE)
+- **Progress Reporting**: Detailed step-by-step progress with time estimates
 
 ## Quick Start
 
@@ -130,6 +132,16 @@ If you already have Arch Linux installed:
 - This has been fixed in the latest version of the script
 - The script now properly cleans the environment when switching to non-root user
 - If you encounter this with an older version, update to the latest script
+
+**"Failed to connect to user scope bus via local transport" error:**
+- This DBUS error has been fixed in version 1.3 of the script
+- The script now properly sets XDG_RUNTIME_DIR and handles user session environment
+- User services (like GameMode) will be enabled with proper DBUS session handling
+
+**Script seems to hang or doesn't show progress:**
+- Version 1.3 includes comprehensive progress reporting
+- You'll see step-by-step progress (Step X/7) and detailed explanations
+- Time estimates are provided for longer operations
 
 ### Getting Help
 
