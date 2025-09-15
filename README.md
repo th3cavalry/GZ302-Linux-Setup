@@ -57,10 +57,11 @@ Each script is tailored to the specific distribution's package management and re
 - **Flexible Selection**: Choose which LLM frameworks to install
 
 ### System Recovery (New in v1.5)
-- **ZFS Snapshots**: Automatic system snapshots for easy recovery
-- **Snapshot Management**: Create, list, cleanup, and restore from snapshots
-- **Secure Boot**: Automated secure boot configuration with sbctl
-- **Enhanced Error Recovery**: Comprehensive troubleshooting and rollback capabilities
+- **ZFS Snapshots**: Automatic system snapshots for easy recovery (Arch)
+- **Snapshot Management**: Create, list, cleanup, and restore from snapshots (Arch)
+- **Secure Boot**: Automated secure boot configuration with sbctl (Arch)
+- **Enhanced Error Recovery**: Comprehensive troubleshooting and rollback capabilities (Arch)
+- **Camera Support**: Hardware-specific camera fixes applied to all distributions
 
 ## Quick Start
 
