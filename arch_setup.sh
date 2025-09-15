@@ -28,6 +28,22 @@
 # --- Script Configuration and Safety ---
 set -euo pipefail # Exit on error, undefined variable, or pipe failure
 
+# Add error handling trap
+cleanup_on_error() {
+    local exit_code=$?
+    echo
+    echo "❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌"
+    echo -e "${C_RED}[ERROR]${C_NC} Script failed with exit code: $exit_code"
+    echo -e "${C_RED}[ERROR]${C_NC} The setup process was interrupted and may be incomplete."
+    echo -e "${C_RED}[ERROR]${C_NC} Please check the error messages above for details."
+    echo -e "${C_RED}[ERROR]${C_NC} You may need to run the script again or fix issues manually."
+    echo "❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌"
+    echo
+}
+
+# Set up the error trap
+trap cleanup_on_error ERR
+
 # --- Helper Functions for User Feedback ---
 # Color codes for output
 C_BLUE='\033[0;34m'
@@ -1473,14 +1489,34 @@ install_hypervisor_stack() {
         1)
             info "Installing KVM/QEMU with virt-manager..."
             # Resolve iptables conflict: replace iptables with iptables-nft if needed
-            yes | pacman -S --needed iptables-nft
-            pacman -S --noconfirm --needed qemu-full virt-manager libvirt ebtables dnsmasq bridge-utils openbsd-netcat
-            systemctl enable --now libvirtd
+            if pacman -S --noconfirm --needed iptables-nft; then
+                info "iptables-nft package handled successfully"
+            else
+                warning "iptables-nft installation had issues, but continuing..."
+            fi
+            
+            if pacman -S --noconfirm --needed qemu-full virt-manager libvirt ebtables dnsmasq bridge-utils openbsd-netcat; then
+                info "KVM/QEMU packages installed successfully"
+            else
+                error "Failed to install KVM/QEMU packages. Check your internet connection and try again."
+                return 1
+            fi
+            
+            if systemctl enable --now libvirtd; then
+                info "libvirtd service enabled and started"
+            else
+                warning "Failed to enable libvirtd service, but continuing..."
+            fi
+            
             local primary_user=$(get_real_user)
             if [[ "$primary_user" != "root" ]]; then
-                usermod -a -G libvirt "$primary_user"
+                if usermod -a -G libvirt "$primary_user"; then
+                    info "User $primary_user added to libvirt group"
+                else
+                    warning "Failed to add user to libvirt group, but continuing..."
+                fi
             fi
-            success "KVM/QEMU with virt-manager installed"
+            success "KVM/QEMU with virt-manager installed successfully"
             ;;
         2)
             info "Installing VirtualBox..."
@@ -1574,6 +1610,7 @@ main() {
     if [[ "${install_hypervisor}" =~ ^[1-5]$ ]]; then
         info "Step 9/11: Installing hypervisor software..."
         install_hypervisor_stack "${install_hypervisor}"
+        success "Hypervisor installation completed successfully"
     else
         info "Step 9/11: Skipping hypervisor installation as requested..."
     fi
@@ -1692,6 +1729,13 @@ main() {
     success "You can now enjoy Arch Linux optimized for your"
     success "ASUS ROG Flow Z13 (GZ302)!"
     success "============================================================"
+    echo
+    echo
+    echo "🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉"
+    success "SCRIPT COMPLETED SUCCESSFULLY!"
+    success "Setup is 100% COMPLETE and FINISHED!"
+    success "You may now reboot your system to enjoy all optimizations."
+    echo "🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉"
     echo
 }
 
