@@ -210,6 +210,7 @@ get_user_choices() {
 
 # --- Distribution-Specific Setup Functions ---
 setup_arch_based() {
+    local distro="$1"
     info "Setting up Arch-based system..."
     
     # Update system and install base dependencies
@@ -260,6 +261,7 @@ EOF
 }
 
 setup_debian_based() {
+    local distro="$1"
     info "Setting up Debian-based system..."
     
     # Update system and install base dependencies
@@ -300,6 +302,7 @@ setup_debian_based() {
 }
 
 setup_fedora_based() {
+    local distro="$1"
     info "Setting up Fedora-based system..."
     
     # Update system and install base dependencies
@@ -339,6 +342,7 @@ setup_fedora_based() {
 }
 
 setup_opensuse() {
+    local distro="$1"
     info "Setting up OpenSUSE system..."
     
     # Update system and install base dependencies
@@ -1443,16 +1447,16 @@ main() {
     # Route to appropriate setup function based on base distribution
     case "$detected_distro" in
         "arch")
-            setup_arch_based
+            setup_arch_based "$detected_distro"
             ;;
         "ubuntu")
-            setup_debian_based
+            setup_debian_based "$detected_distro"
             ;;
         "fedora")
-            setup_fedora_based
+            setup_fedora_based "$detected_distro"
             ;;
         "opensuse")
-            setup_opensuse
+            setup_opensuse "$detected_distro"
             ;;
         *)
             error "Unsupported distribution: $detected_distro"
