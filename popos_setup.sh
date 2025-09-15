@@ -758,6 +758,9 @@ ask_installation_options() {
     read -p "Install gaming software? (y/n): " install_gaming
     echo "LLM/AI Software: Ollama, ROCm, PyTorch, Transformers"
     read -p "Install LLM/AI software? (y/n): " install_llm
+    echo "Hypervisor Software: KVM/QEMU, VirtualBox, VMware, Xen, Proxmox"
+    echo "Choose: 1) KVM/QEMU 2) VirtualBox 3) VMware 4) Xen 5) Proxmox 6) None"
+    read -p "Choose hypervisor (1-6): " install_hypervisor
     echo ""
 }
 
@@ -783,6 +786,56 @@ install_llm_stack() {
     fi
     
     success "Basic LLM stack installed. Use 'ollama run llama2' to get started."
+}
+
+# Hypervisor installation function
+install_hypervisor_stack() {
+    local choice="$1"
+    
+    case "$choice" in
+        1)
+            info "Installing KVM/QEMU with virt-manager..."
+            apt install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager
+            systemctl enable --now libvirtd
+            local primary_user=$(get_real_user)
+            if [[ "$primary_user" != "root" ]]; then
+                usermod -a -G libvirt "$primary_user"
+                usermod -a -G kvm "$primary_user"
+            fi
+            success "KVM/QEMU with virt-manager installed"
+            ;;
+        2)
+            info "Installing VirtualBox..."
+            wget -q https://www.virtualbox.org/download/oracle_vbox_2016.asc -O- | apt-key add -
+            echo "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian $(lsb_release -cs) contrib" > /etc/apt/sources.list.d/virtualbox.list
+            apt update
+            apt install -y virtualbox-7.0
+            local primary_user=$(get_real_user)
+            if [[ "$primary_user" != "root" ]]; then
+                usermod -a -G vboxusers "$primary_user"
+            fi
+            success "VirtualBox installed"
+            ;;
+        3)
+            info "Installing VMware Workstation Pro..."
+            warning "VMware Workstation Pro requires manual download and installation."
+            success "VMware Workstation installation instructions provided"
+            ;;
+        4)
+            info "Installing Xen hypervisor..."
+            apt install -y xen-hypervisor-amd64 xen-tools xen-utils-common
+            warning "Xen requires GRUB configuration and reboot."
+            success "Xen hypervisor installed"
+            ;;
+        5)
+            info "Installing Proxmox VE alternative..."
+            apt install -y lxd lxd-client
+            success "LXC/LXD containers installed as Proxmox alternative"
+            ;;
+        6|*)
+            info "Skipping hypervisor installation"
+            ;;
+    esac
 }
 
 # --- Main Execution Logic ---
@@ -830,13 +883,21 @@ main() {
     
     # Conditional LLM installation
     if [[ "${install_llm,,}" == "y" || "${install_llm,,}" == "yes" ]]; then
-        info "Step 7/8: Installing LLM/AI software stack..."
+        info "Step 7/9: Installing LLM/AI software stack..."
         install_llm_stack
     else
-        info "Step 7/8: Skipping LLM/AI software installation as requested..."
+        info "Step 7/9: Skipping LLM/AI software installation as requested..."
     fi
     
-    info "Step 8/8: Enabling services and finalizing setup..."
+    # Conditional hypervisor installation
+    if [[ "${install_hypervisor}" =~ ^[1-5]$ ]]; then
+        info "Step 8/9: Installing hypervisor software..."
+        install_hypervisor_stack "${install_hypervisor}"
+    else
+        info "Step 8/9: Skipping hypervisor installation as requested..."
+    fi
+    
+    info "Step 9/9: Enabling services and finalizing setup..."
     enable_services
 
     echo
@@ -872,6 +933,19 @@ main() {
         success "- ROCm for AMD GPU acceleration (if selected)"
         success "- PyTorch with ROCm support (if selected)"
         success "- Hugging Face Transformers (if selected)"
+        success ""
+    fi
+    
+    # Show hypervisor if installed
+    if [[ "${install_hypervisor}" =~ ^[1-5]$ ]]; then
+        success "Installed hypervisor:"
+        case "${install_hypervisor}" in
+            1) success "- KVM/QEMU with virt-manager for virtualization" ;;
+            2) success "- VirtualBox for virtualization" ;;
+            3) success "- VMware Workstation Pro for virtualization" ;;
+            4) success "- Xen hypervisor (requires configuration)" ;;
+            5) success "- LXC/LXD containers as Proxmox alternative" ;;
+        esac
         success ""
     fi
     

@@ -47,6 +47,7 @@ All scripts fix the same hardware issues and can install gaming tools and AI sof
 ### What Can Be Installed (Your Choice)
 - **Gaming Software** - Steam, game launchers, performance tools
 - **AI Software** - Tools for running AI models locally
+- **Hypervisor Software** - Virtual machine platforms (KVM/QEMU, VirtualBox, VMware, Xen, Proxmox)
 - **System Snapshots** - Automatic backups for easy recovery
 - **Secure Boot** - Enhanced security features
 
@@ -137,10 +138,11 @@ Both the universal script and individual scripts will ask if you want to install
 
 1. **Gaming Software?** (Steam, game tools, performance monitoring)
 2. **AI Software?** (Tools for running AI models on your laptop)  
-3. **System Snapshots?** (Automatic backups for easy recovery)
-4. **Secure Boot?** (Extra security features)
+3. **Hypervisor Software?** (Choose from KVM/QEMU, VirtualBox, VMware, Xen, or Proxmox)
+4. **System Snapshots?** (Automatic backups for easy recovery)
+5. **Secure Boot?** (Extra security features)
 
-Just answer yes (y) or no (n) for each one!
+Just answer yes (y) or no (n) for each one! For hypervisors, choose from the numbered options (1-6).
 
 **GZ302-specific hardware fixes are applied automatically** - no user input required.
 

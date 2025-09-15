@@ -850,6 +850,19 @@ ask_installation_options() {
     echo ""
     read -p "Do you want to install LLM/AI software? (y/n): " install_llm
     
+    # Ask about hypervisor installation
+    echo ""
+    echo "Hypervisor Software allows you to run virtual machines:"
+    echo "Available options:"
+    echo "  1) KVM/QEMU with virt-manager (Open source, excellent performance)"
+    echo "  2) VirtualBox (Oracle, user-friendly)"
+    echo "  3) VMware Workstation Pro (Commercial, feature-rich)"
+    echo "  4) Xen with Xen Orchestra (Enterprise-grade)"
+    echo "  5) Proxmox VE (Complete virtualization platform)"
+    echo "  6) None - skip hypervisor installation"
+    echo ""
+    read -p "Choose a hypervisor to install (1-6): " install_hypervisor
+    
     # Ask about system snapshots
     echo ""
     echo "System Snapshots provide:"

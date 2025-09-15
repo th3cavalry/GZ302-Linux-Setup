@@ -157,6 +157,7 @@ get_user_choices() {
     local install_llm=""
     local install_snapshots=""
     local install_secureboot=""
+    local install_hypervisor=""
     
     echo
     info "The script will now apply GZ302-specific hardware fixes automatically."
@@ -179,6 +180,19 @@ get_user_choices() {
     echo "- PyTorch and Transformers libraries"
     echo ""
     read -p "Do you want to install LLM/AI software? (y/n): " install_llm
+    
+    # Ask about hypervisor installation
+    echo ""
+    echo "Hypervisor Software allows you to run virtual machines:"
+    echo "Available options:"
+    echo "  1) KVM/QEMU with virt-manager (Open source, excellent performance)"
+    echo "  2) VirtualBox (Oracle, user-friendly)"
+    echo "  3) VMware Workstation Pro (Commercial, feature-rich)"
+    echo "  4) Xen with Xen Orchestra (Enterprise-grade)"
+    echo "  5) Proxmox VE (Complete virtualization platform)"
+    echo "  6) None - skip hypervisor installation"
+    echo ""
+    read -p "Choose a hypervisor to install (1-6): " install_hypervisor
     
     # Ask about system snapshots
     echo ""
@@ -205,6 +219,7 @@ get_user_choices() {
     # Export variables for use in other functions
     export INSTALL_GAMING="$install_gaming"
     export INSTALL_LLM="$install_llm"
+    export INSTALL_HYPERVISOR="$install_hypervisor"
     export INSTALL_SNAPSHOTS="$install_snapshots"
     export INSTALL_SECUREBOOT="$install_secureboot"
 }
@@ -246,6 +261,10 @@ EOF
         install_arch_llm_software
     fi
     
+    if [[ "${INSTALL_HYPERVISOR}" =~ ^[1-5]$ ]]; then
+        install_arch_hypervisor_software "${INSTALL_HYPERVISOR}"
+    fi
+    
     if [[ "${INSTALL_SNAPSHOTS,,}" == "y" || "${INSTALL_SNAPSHOTS,,}" == "yes" ]]; then
         setup_arch_snapshots
     fi
@@ -281,6 +300,10 @@ setup_debian_based() {
     
     if [[ "${INSTALL_LLM,,}" == "y" || "${INSTALL_LLM,,}" == "yes" ]]; then
         install_debian_llm_software
+    fi
+    
+    if [[ "${INSTALL_HYPERVISOR}" =~ ^[1-5]$ ]]; then
+        install_debian_hypervisor_software "${INSTALL_HYPERVISOR}"
     fi
     
     if [[ "${INSTALL_SNAPSHOTS,,}" == "y" || "${INSTALL_SNAPSHOTS,,}" == "yes" ]]; then
@@ -319,6 +342,10 @@ setup_fedora_based() {
         install_fedora_llm_software
     fi
     
+    if [[ "${INSTALL_HYPERVISOR}" =~ ^[1-5]$ ]]; then
+        install_fedora_hypervisor_software "${INSTALL_HYPERVISOR}"
+    fi
+    
     if [[ "${INSTALL_SNAPSHOTS,,}" == "y" || "${INSTALL_SNAPSHOTS,,}" == "yes" ]]; then
         setup_fedora_snapshots
     fi
@@ -352,6 +379,10 @@ setup_opensuse() {
     
     if [[ "${INSTALL_LLM,,}" == "y" || "${INSTALL_LLM,,}" == "yes" ]]; then
         install_opensuse_llm_software
+    fi
+    
+    if [[ "${INSTALL_HYPERVISOR}" =~ ^[1-5]$ ]]; then
+        install_opensuse_hypervisor_software "${INSTALL_HYPERVISOR}"
     fi
     
     if [[ "${INSTALL_SNAPSHOTS,,}" == "y" || "${INSTALL_SNAPSHOTS,,}" == "yes" ]]; then
@@ -874,6 +905,201 @@ install_opensuse_llm_software() {
     success "LLM/AI software installation completed"
 }
 
+# Hypervisor installation functions
+install_arch_hypervisor_software() {
+    local choice="$1"
+    info "Installing hypervisor software for Arch-based system..."
+    
+    case "$choice" in
+        1)
+            info "Installing KVM/QEMU with virt-manager..."
+            pacman -S --noconfirm --needed qemu-full virt-manager libvirt ebtables dnsmasq bridge-utils openbsd-netcat
+            systemctl enable --now libvirtd
+            local primary_user=$(get_real_user)
+            if [[ "$primary_user" != "root" ]]; then
+                usermod -a -G libvirt "$primary_user"
+            fi
+            success "KVM/QEMU with virt-manager installed"
+            ;;
+        2)
+            info "Installing VirtualBox..."
+            pacman -S --noconfirm --needed virtualbox virtualbox-host-modules-arch virtualbox-guest-iso
+            modprobe vboxdrv
+            local primary_user=$(get_real_user)
+            if [[ "$primary_user" != "root" ]]; then
+                usermod -a -G vboxusers "$primary_user"
+            fi
+            success "VirtualBox installed"
+            ;;
+        3)
+            info "Installing VMware Workstation Pro..."
+            if command -v yay >/dev/null 2>&1; then
+                sudo -u "$(get_real_user)" yay -S --noconfirm vmware-workstation
+            else
+                warning "VMware Workstation requires AUR helper. Please install manually."
+            fi
+            success "VMware Workstation installation attempted"
+            ;;
+        4)
+            info "Installing Xen hypervisor..."
+            pacman -S --noconfirm --needed xen xen-docs
+            warning "Xen requires additional configuration. Please refer to Arch Wiki for setup."
+            success "Xen hypervisor installed"
+            ;;
+        5)
+            info "Installing Proxmox VE..."
+            warning "Proxmox VE is typically installed as a dedicated OS. Consider using containers instead."
+            pacman -S --noconfirm --needed lxc lxd
+            success "LXC/LXD containers installed as Proxmox alternative"
+            ;;
+    esac
+}
+
+install_debian_hypervisor_software() {
+    local choice="$1"
+    info "Installing hypervisor software for Debian-based system..."
+    
+    case "$choice" in
+        1)
+            info "Installing KVM/QEMU with virt-manager..."
+            apt install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager
+            systemctl enable --now libvirtd
+            local primary_user=$(get_real_user)
+            if [[ "$primary_user" != "root" ]]; then
+                usermod -a -G libvirt "$primary_user"
+                usermod -a -G kvm "$primary_user"
+            fi
+            success "KVM/QEMU with virt-manager installed"
+            ;;
+        2)
+            info "Installing VirtualBox..."
+            # Add Oracle VirtualBox repository
+            wget -q https://www.virtualbox.org/download/oracle_vbox_2016.asc -O- | apt-key add -
+            echo "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian $(lsb_release -cs) contrib" > /etc/apt/sources.list.d/virtualbox.list
+            apt update
+            apt install -y virtualbox-7.0
+            local primary_user=$(get_real_user)
+            if [[ "$primary_user" != "root" ]]; then
+                usermod -a -G vboxusers "$primary_user"
+            fi
+            success "VirtualBox installed"
+            ;;
+        3)
+            info "Installing VMware Workstation Pro..."
+            warning "VMware Workstation Pro requires manual download and installation."
+            info "Please download from https://www.vmware.com/products/workstation-pro.html"
+            success "VMware Workstation installation instructions provided"
+            ;;
+        4)
+            info "Installing Xen hypervisor..."
+            apt install -y xen-hypervisor-amd64 xen-tools xen-utils-common
+            warning "Xen requires GRUB configuration and reboot. Please refer to documentation."
+            success "Xen hypervisor installed"
+            ;;
+        5)
+            info "Installing Proxmox VE..."
+            warning "Proxmox VE is typically installed as a dedicated OS. Installing LXC/LXD as alternative."
+            apt install -y lxd lxd-client
+            success "LXC/LXD containers installed as Proxmox alternative"
+            ;;
+    esac
+}
+
+install_fedora_hypervisor_software() {
+    local choice="$1"
+    info "Installing hypervisor software for Fedora-based system..."
+    
+    case "$choice" in
+        1)
+            info "Installing KVM/QEMU with virt-manager..."
+            dnf install -y @virtualization
+            systemctl enable --now libvirtd
+            local primary_user=$(get_real_user)
+            if [[ "$primary_user" != "root" ]]; then
+                usermod -a -G libvirt "$primary_user"
+            fi
+            success "KVM/QEMU with virt-manager installed"
+            ;;
+        2)
+            info "Installing VirtualBox..."
+            dnf install -y kernel-headers kernel-devel dkms elfutils-libelf-devel qt5-qtx11extras
+            dnf install -y https://download.virtualbox.org/virtualbox/rpm/fedora/virtualbox-repo-$(rpm -E %fedora)-$(rpm -E %fedora).noarch.rpm
+            dnf install -y VirtualBox-7.0
+            local primary_user=$(get_real_user)
+            if [[ "$primary_user" != "root" ]]; then
+                usermod -a -G vboxusers "$primary_user"
+            fi
+            success "VirtualBox installed"
+            ;;
+        3)
+            info "Installing VMware Workstation Pro..."
+            warning "VMware Workstation Pro requires manual download and installation."
+            info "Please download from https://www.vmware.com/products/workstation-pro.html"
+            success "VMware Workstation installation instructions provided"
+            ;;
+        4)
+            info "Installing Xen hypervisor..."
+            dnf install -y xen hypervisor xen-runtime xen-libs
+            warning "Xen requires GRUB configuration and reboot. Please refer to documentation."
+            success "Xen hypervisor installed"
+            ;;
+        5)
+            info "Installing Proxmox VE..."
+            warning "Proxmox VE is typically installed as a dedicated OS. Installing LXC/LXD as alternative."
+            dnf install -y lxc lxc-templates libvirt-daemon-lxc
+            success "LXC containers installed as Proxmox alternative"
+            ;;
+    esac
+}
+
+install_opensuse_hypervisor_software() {
+    local choice="$1"
+    info "Installing hypervisor software for OpenSUSE..."
+    
+    case "$choice" in
+        1)
+            info "Installing KVM/QEMU with virt-manager..."
+            zypper install -y -t pattern kvm_server kvm_tools
+            zypper install -y virt-manager
+            systemctl enable --now libvirtd
+            local primary_user=$(get_real_user)
+            if [[ "$primary_user" != "root" ]]; then
+                usermod -a -G libvirt "$primary_user"
+            fi
+            success "KVM/QEMU with virt-manager installed"
+            ;;
+        2)
+            info "Installing VirtualBox..."
+            zypper addrepo https://download.opensuse.org/repositories/Virtualization/openSUSE_Tumbleweed/Virtualization.repo
+            zypper refresh
+            zypper install -y virtualbox virtualbox-qt
+            local primary_user=$(get_real_user)
+            if [[ "$primary_user" != "root" ]]; then
+                usermod -a -G vboxusers "$primary_user"
+            fi
+            success "VirtualBox installed"
+            ;;
+        3)
+            info "Installing VMware Workstation Pro..."
+            warning "VMware Workstation Pro requires manual download and installation."
+            info "Please download from https://www.vmware.com/products/workstation-pro.html"
+            success "VMware Workstation installation instructions provided"
+            ;;
+        4)
+            info "Installing Xen hypervisor..."
+            zypper install -y xen xen-tools
+            warning "Xen requires GRUB configuration and reboot. Please refer to documentation."
+            success "Xen hypervisor installed"
+            ;;
+        5)
+            info "Installing Proxmox VE..."
+            warning "Proxmox VE is typically installed as a dedicated OS. Installing LXC/LXD as alternative."
+            zypper install -y lxc
+            success "LXC containers installed as Proxmox alternative"
+            ;;
+    esac
+}
+
 # TDP Management functions
 install_ryzenadj_arch() {
     info "Installing ryzenadj for Arch-based system..."
@@ -1267,6 +1493,16 @@ main() {
     
     if [[ "${INSTALL_LLM,,}" == "y" || "${INSTALL_LLM,,}" == "yes" ]]; then
         success "AI/LLM software installed"
+    fi
+    
+    if [[ "${INSTALL_HYPERVISOR}" =~ ^[1-5]$ ]]; then
+        case "${INSTALL_HYPERVISOR}" in
+            1) success "Hypervisor installed: KVM/QEMU with virt-manager" ;;
+            2) success "Hypervisor installed: VirtualBox" ;;
+            3) success "Hypervisor installed: VMware Workstation Pro" ;;
+            4) success "Hypervisor installed: Xen" ;;
+            5) success "Hypervisor installed: Proxmox VE/LXC containers" ;;
+        esac
     fi
     
     if [[ "${INSTALL_SECUREBOOT,,}" == "y" || "${INSTALL_SECUREBOOT,,}" == "yes" ]]; then

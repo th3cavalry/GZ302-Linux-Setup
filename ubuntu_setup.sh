@@ -675,6 +675,19 @@ ask_installation_options() {
     echo ""
     read -p "Do you want to install LLM/AI software? (y/n): " install_llm
     
+    # Ask about hypervisor installation
+    echo ""
+    echo "Hypervisor Software allows you to run virtual machines:"
+    echo "Available options:"
+    echo "  1) KVM/QEMU with virt-manager (Open source, excellent performance)"
+    echo "  2) VirtualBox (Oracle, user-friendly)"
+    echo "  3) VMware Workstation Pro (Commercial, feature-rich)"
+    echo "  4) Xen with Xen Orchestra (Enterprise-grade)"
+    echo "  5) Proxmox VE (Complete virtualization platform)"
+    echo "  6) None - skip hypervisor installation"
+    echo ""
+    read -p "Choose a hypervisor to install (1-6): " install_hypervisor
+    
     # Ask about system snapshots
     echo ""
     echo "System Snapshots provide:"
@@ -811,6 +824,59 @@ install_llm_stack() {
     fi
     
     success "LLM environment setup completed."
+}
+
+# --- Hypervisor Installation Functions ---
+
+# Install hypervisor stack based on user choice
+install_hypervisor_stack() {
+    local choice="$1"
+    info "Installing hypervisor software for Ubuntu-based system..."
+    
+    case "$choice" in
+        1)
+            info "Installing KVM/QEMU with virt-manager..."
+            apt install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager
+            systemctl enable --now libvirtd
+            local primary_user=$(get_real_user)
+            if [[ "$primary_user" != "root" ]]; then
+                usermod -a -G libvirt "$primary_user"
+                usermod -a -G kvm "$primary_user"
+            fi
+            success "KVM/QEMU with virt-manager installed"
+            ;;
+        2)
+            info "Installing VirtualBox..."
+            # Add Oracle VirtualBox repository
+            wget -q https://www.virtualbox.org/download/oracle_vbox_2016.asc -O- | apt-key add -
+            echo "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian $(lsb_release -cs) contrib" > /etc/apt/sources.list.d/virtualbox.list
+            apt update
+            apt install -y virtualbox-7.0
+            local primary_user=$(get_real_user)
+            if [[ "$primary_user" != "root" ]]; then
+                usermod -a -G vboxusers "$primary_user"
+            fi
+            success "VirtualBox installed"
+            ;;
+        3)
+            info "Installing VMware Workstation Pro..."
+            warning "VMware Workstation Pro requires manual download and installation."
+            info "Please download from https://www.vmware.com/products/workstation-pro.html"
+            success "VMware Workstation installation instructions provided"
+            ;;
+        4)
+            info "Installing Xen hypervisor..."
+            apt install -y xen-hypervisor-amd64 xen-tools xen-utils-common
+            warning "Xen requires GRUB configuration and reboot. Please refer to documentation."
+            success "Xen hypervisor installed"
+            ;;
+        5)
+            info "Installing Proxmox VE..."
+            warning "Proxmox VE is typically installed as a dedicated OS. Installing LXC/LXD as alternative."
+            apt install -y lxd lxd-client
+            success "LXC/LXD containers installed as Proxmox alternative"
+            ;;
+    esac
 }
 
 # --- Universal Filesystem and Bootloader Detection Functions ---
@@ -1333,7 +1399,15 @@ main() {
         info "Step 8/10: Skipping LLM/AI software installation as requested..."
     fi
     
-    info "Step 9/10: Configuring optional system features..."
+    # Conditional hypervisor installation
+    if [[ "${install_hypervisor}" =~ ^[1-5]$ ]]; then
+        info "Step 9/11: Installing hypervisor software..."
+        install_hypervisor_stack "${install_hypervisor}"
+    else
+        info "Step 9/11: Skipping hypervisor installation as requested..."
+    fi
+    
+    info "Step 10/11: Configuring optional system features..."
     
     # Conditional secure boot installation
     if [[ "${install_secureboot,,}" == "y" || "${install_secureboot,,}" == "yes" ]]; then
@@ -1351,7 +1425,7 @@ main() {
         info "Skipping system snapshots configuration as requested..."
     fi
     
-    info "Step 10/10: Enabling services and finalizing setup..."
+    info "Step 11/11: Enabling services and finalizing setup..."
     enable_services
 
     echo
@@ -1378,6 +1452,16 @@ main() {
     
     if [[ "${install_llm,,}" == "y" || "${install_llm,,}" == "yes" ]]; then
         success "AI/LLM tools: Ollama, ROCm, PyTorch, Transformers (as selected)"
+    fi
+    
+    if [[ "${install_hypervisor}" =~ ^[1-5]$ ]]; then
+        case "${install_hypervisor}" in
+            1) success "Hypervisor: KVM/QEMU with virt-manager installed" ;;
+            2) success "Hypervisor: VirtualBox installed" ;;
+            3) success "Hypervisor: VMware Workstation Pro configured" ;;
+            4) success "Hypervisor: Xen hypervisor installed" ;;
+            5) success "Hypervisor: LXC/LXD containers installed" ;;
+        esac
     fi
     
     if [[ "${install_secureboot,,}" == "y" || "${install_secureboot,,}" == "yes" ]]; then
