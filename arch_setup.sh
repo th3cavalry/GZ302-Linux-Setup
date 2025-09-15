@@ -551,13 +551,19 @@ install_tdp_management() {
 
 TDP_CONFIG_DIR="/etc/gz302-tdp"
 CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
+AUTO_CONFIG_FILE="$TDP_CONFIG_DIR/auto-config"
+AC_PROFILE_FILE="$TDP_CONFIG_DIR/ac-profile"
+BATTERY_PROFILE_FILE="$TDP_CONFIG_DIR/battery-profile"
 
 # TDP Profiles (in mW)
 declare -A TDP_PROFILES
-TDP_PROFILES[gaming]="54000"      # Maximum performance for gaming
-TDP_PROFILES[performance]="45000" # High performance
-TDP_PROFILES[balanced]="35000"    # Balanced performance/efficiency
-TDP_PROFILES[efficient]="15000"   # Maximum efficiency
+TDP_PROFILES[max_performance]="65000"    # Absolute maximum (AC only, short bursts)
+TDP_PROFILES[gaming]="54000"             # Gaming optimized (AC recommended)
+TDP_PROFILES[performance]="45000"        # High performance (AC recommended)
+TDP_PROFILES[balanced]="35000"           # Balanced performance/efficiency
+TDP_PROFILES[efficient]="25000"          # Better efficiency, good performance
+TDP_PROFILES[power_saver]="15000"        # Maximum battery life
+TDP_PROFILES[ultra_low]="10000"          # Emergency battery extension
 
 # Create config directory
 mkdir -p "$TDP_CONFIG_DIR"
