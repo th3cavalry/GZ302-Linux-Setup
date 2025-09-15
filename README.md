@@ -2,9 +2,25 @@
 
 Easy setup scripts for your ASUS ROG Flow Z13 (GZ302) laptop. Makes Linux work perfectly with your hardware and games!
 
-## What This Does
+## 🚀 NEW: Universal Setup Script
 
-These scripts fix common problems with the GZ302 laptop and install gaming software. Pick the script for your Linux version:
+**For the easiest experience, use our new universal script that automatically detects your Linux distribution:**
+
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_universal_setup.sh -o gz302_setup.sh
+chmod +x gz302_setup.sh
+sudo ./gz302_setup.sh
+```
+
+The universal script supports:
+- **Arch-based**: Arch Linux, EndeavourOS, Manjaro
+- **Debian-based**: Ubuntu, Pop!_OS, Linux Mint  
+- **Fedora-based**: Fedora, Nobara
+- **OpenSUSE**: Tumbleweed and Leap
+
+## Individual Distribution Scripts
+
+If you prefer distribution-specific scripts, you can still use these:
 
 - **`arch_setup.sh`** - Arch Linux
 - **`ubuntu_setup.sh`** - Ubuntu
@@ -38,9 +54,19 @@ All scripts fix the same hardware issues and can install gaming tools and AI sof
 
 **Important:** Always restart your computer after running any script!
 
-### Step 1: Pick Your Linux Version
+### Option 1: Universal Script (Recommended)
 
-Find your Linux version below and copy the commands:
+The universal script automatically detects your Linux distribution and applies the appropriate setup:
+
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_universal_setup.sh -o gz302_setup.sh
+chmod +x gz302_setup.sh
+sudo ./gz302_setup.sh
+```
+
+### Option 2: Distribution-Specific Scripts
+
+If you prefer to use a distribution-specific script, find your Linux version below:
 
 #### Arch Linux
 ```bash
@@ -107,7 +133,7 @@ sudo ./setup.sh
 
 ### Step 2: What The Script Will Ask You
 
-The script will ask if you want to install extra software:
+Both the universal script and individual scripts will ask if you want to install extra software:
 
 1. **Gaming Software?** (Steam, game tools, performance monitoring)
 2. **AI Software?** (Tools for running AI models on your laptop)  
@@ -115,6 +141,8 @@ The script will ask if you want to install extra software:
 4. **Secure Boot?** (Extra security features)
 
 Just answer yes (y) or no (n) for each one!
+
+**GZ302-specific hardware fixes are applied automatically** - no user input required.
 
 ## Useful Commands (After Setup)
 
