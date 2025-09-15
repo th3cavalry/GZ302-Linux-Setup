@@ -4,7 +4,7 @@
 # Comprehensive Manjaro Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.3
+# Version: 1.5
 #
 # This script automates the post-installation setup for Manjaro on the
 # ASUS ROG Flow Z13 (GZ302) with an AMD Ryzen AI 395+ processor.

@@ -4,7 +4,7 @@
 # Comprehensive Arch Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.3
+# Version: 1.5
 #
 # This script automates the post-installation setup for Arch Linux on the
 # ASUS ROG Flow Z13 (GZ302) with an AMD Ryzen AI 395+ processor.
@@ -146,12 +146,18 @@ apply_hardware_fixes() {
     info "These fixes address known issues with Wi-Fi, touchpad, audio, and graphics..."
 
     # 4a. Fix Wi-Fi instability (MediaTek MT7925)
+    # Enhanced fixes based on research from: https://github.com/Shahzebqazi/Asus-Z13-Flow-2025-PCMR
     info "Applying Wi-Fi stability fixes for MediaTek MT7925..."
     cat > /etc/modprobe.d/mt7925e_wifi.conf <<EOF
 # Disable ASPM for the MediaTek MT7925E to improve stability
 options mt7925e disable_aspm=1
 # Additional stability parameters
 options mt7925e power_save=0
+# Enhanced stability fixes from research
+options mt7925e swcrypto=0
+options mt7925e amsdu=0
+options mt7925e disable_11ax=0
+options mt7925e disable_radar_background=1
 EOF
 
     mkdir -p /etc/NetworkManager/conf.d/
@@ -161,8 +167,21 @@ wifi.powersave = 2
 
 [device]
 wifi.scan-rand-mac-address=no
+# Additional NetworkManager optimizations
+wifi.backend=wpa_supplicant
+
+[main]
+# Reduce scan frequency for stability
+wifi.scan-rand-mac-address=no
 EOF
-    success "Wi-Fi fixes for MediaTek MT7925 applied."
+
+    # Add additional udev rules for Wi-Fi stability
+    cat > /etc/udev/rules.d/99-wifi-powersave.rules <<EOF
+# Disable Wi-Fi power saving for MediaTek MT7925e
+ACTION=="add", SUBSYSTEM=="net", KERNEL=="wlan*", RUN+="/usr/bin/iw dev \$name set power_save off"
+EOF
+
+    success "Enhanced Wi-Fi fixes for MediaTek MT7925 applied."
 
     # 4b. Fix touchpad detection and sensitivity
     info "Applying touchpad detection and sensitivity fixes..."
@@ -220,6 +239,23 @@ EOF
 # Thermal management for GZ302
 SUBSYSTEM=="thermal", KERNEL=="thermal_zone*", ATTR{type}=="x86_pkg_temp", ATTR{policy}="step_wise"
 SUBSYSTEM=="thermal", KERNEL=="thermal_zone*", ATTR{type}=="acpi", ATTR{policy}="step_wise"
+EOF
+
+    # 4f. Fix camera issues for GZ302
+    # Based on research from: https://github.com/Shahzebqazi/Asus-Z13-Flow-2025-PCMR
+    info "Applying camera fixes for GZ302..."
+    cat > /etc/modprobe.d/uvcvideo-gz302.conf <<EOF
+# Camera fixes for ASUS ROG Flow Z13 GZ302
+# Improved UVC video driver parameters for better compatibility
+options uvcvideo quirks=0x80
+options uvcvideo nodrop=1
+EOF
+
+    # Add camera permissions for user access
+    cat > /etc/udev/rules.d/99-gz302-camera.rules <<EOF
+# Camera access rules for GZ302
+SUBSYSTEM=="video4linux", GROUP="video", MODE="0664"
+KERNEL=="video[0-9]*", SUBSYSTEM=="video4linux", SUBSYSTEMS=="usb", ATTRS{idVendor}=="*", ATTRS{idProduct}=="*", GROUP="video", MODE="0664"
 EOF
 
     info "Updating system hardware database..."
@@ -481,6 +517,379 @@ EOF
     success "System limits configured for gaming."
 }
 
+# --- TDP Management Functions ---
+# Based on research from: https://github.com/Shahzebqazi/Asus-Z13-Flow-2025-PCMR
+
+# Install TDP management tools and configure profiles
+install_tdp_management() {
+    info "Installing TDP management for GZ302..."
+    
+    # Install ryzenadj for AMD TDP control
+    sudo -u "$PRIMARY_USER" yay -S --noconfirm ryzenadj-git
+    
+    # Create TDP management script
+    cat > /usr/local/bin/gz302-tdp <<'EOF'
+#!/bin/bash
+# GZ302 TDP Management Script
+# Based on research from Shahzebqazi's Asus-Z13-Flow-2025-PCMR
+
+TDP_CONFIG_DIR="/etc/gz302-tdp"
+CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
+
+# TDP Profiles (in mW)
+declare -A TDP_PROFILES
+TDP_PROFILES[gaming]="54000"      # Maximum performance for gaming
+TDP_PROFILES[performance]="45000" # High performance
+TDP_PROFILES[balanced]="35000"    # Balanced performance/efficiency
+TDP_PROFILES[efficient]="15000"   # Maximum efficiency
+
+# Create config directory
+mkdir -p "$TDP_CONFIG_DIR"
+
+show_usage() {
+    echo "Usage: gz302-tdp [PROFILE|status|list]"
+    echo ""
+    echo "Profiles:"
+    echo "  gaming       - 54W maximum performance (AC power recommended)"
+    echo "  performance  - 45W high performance"
+    echo "  balanced     - 35W balanced (default)"
+    echo "  efficient    - 15W maximum efficiency"
+    echo ""
+    echo "Commands:"
+    echo "  status       - Show current TDP and power source"
+    echo "  list         - List available profiles"
+}
+
+get_battery_status() {
+    if [ -f /sys/class/power_supply/ADP1/online ]; then
+        if [ "$(cat /sys/class/power_supply/ADP1/online)" = "1" ]; then
+            echo "AC"
+        else
+            echo "Battery"
+        fi
+    else
+        echo "Unknown"
+    fi
+}
+
+get_battery_percentage() {
+    if [ -f /sys/class/power_supply/BAT0/capacity ]; then
+        cat /sys/class/power_supply/BAT0/capacity
+    else
+        echo "N/A"
+    fi
+}
+
+set_tdp_profile() {
+    local profile="$1"
+    local tdp_value="${TDP_PROFILES[$profile]}"
+    
+    if [ -z "$tdp_value" ]; then
+        echo "Error: Unknown profile '$profile'"
+        return 1
+    fi
+    
+    echo "Setting TDP profile: $profile ($(($tdp_value / 1000))W)"
+    
+    # Apply TDP settings using ryzenadj
+    ryzenadj --stapm-limit="$tdp_value" --fast-limit="$tdp_value" --slow-limit="$tdp_value"
+    
+    if [ $? -eq 0 ]; then
+        echo "$profile" > "$CURRENT_PROFILE_FILE"
+        echo "TDP profile '$profile' applied successfully"
+    else
+        echo "Error: Failed to apply TDP profile"
+        return 1
+    fi
+}
+
+show_status() {
+    local power_source=$(get_battery_status)
+    local battery_pct=$(get_battery_percentage)
+    local current_profile="Unknown"
+    
+    if [ -f "$CURRENT_PROFILE_FILE" ]; then
+        current_profile=$(cat "$CURRENT_PROFILE_FILE")
+    fi
+    
+    echo "GZ302 Power Status:"
+    echo "  Power Source: $power_source"
+    echo "  Battery: $battery_pct%"
+    echo "  Current Profile: $current_profile"
+    
+    if [ "$current_profile" != "Unknown" ] && [ -n "${TDP_PROFILES[$current_profile]}" ]; then
+        echo "  TDP Limit: $(( ${TDP_PROFILES[$current_profile]} / 1000 ))W"
+    fi
+}
+
+list_profiles() {
+    echo "Available TDP profiles:"
+    for profile in "${!TDP_PROFILES[@]}"; do
+        local tdp_watts=$(( ${TDP_PROFILES[$profile]} / 1000 ))
+        echo "  $profile: ${tdp_watts}W"
+    done
+}
+
+# Main script logic
+case "$1" in
+    gaming|performance|balanced|efficient)
+        set_tdp_profile "$1"
+        ;;
+    status)
+        show_status
+        ;;
+    list)
+        list_profiles
+        ;;
+    "")
+        show_usage
+        ;;
+    *)
+        echo "Error: Unknown command '$1'"
+        show_usage
+        exit 1
+        ;;
+esac
+EOF
+
+    chmod +x /usr/local/bin/gz302-tdp
+    
+    # Create systemd service for automatic TDP management
+    cat > /etc/systemd/system/gz302-tdp-auto.service <<EOF
+[Unit]
+Description=GZ302 Automatic TDP Management
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gz302-tdp balanced
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    systemctl enable gz302-tdp-auto.service
+    success "TDP management installed. Use 'gz302-tdp' command to manage power profiles."
+}
+
+# --- Secure Boot Functions ---
+# Based on research from: https://github.com/Shahzebqazi/Asus-Z13-Flow-2025-PCMR
+
+# Configure secure boot for post-install
+configure_secure_boot() {
+    info "Configuring Secure Boot for GZ302..."
+    
+    # Install sbctl for secure boot management
+    pacman -S --noconfirm --needed sbctl
+    
+    # Check if we're in UEFI mode
+    if [ ! -d /sys/firmware/efi ]; then
+        warning "Not booted in UEFI mode. Skipping Secure Boot configuration."
+        return
+    fi
+    
+    # Check current secure boot status
+    local sb_state=$(sbctl status 2>/dev/null | grep "Secure Boot" | awk '{print $3}' || echo "unknown")
+    
+    if [ "$sb_state" = "Enabled" ]; then
+        warning "Secure Boot is already enabled. Skipping key creation."
+        return
+    fi
+    
+    info "Creating Secure Boot keys..."
+    sbctl create-keys
+    
+    info "Enrolling Secure Boot keys..."
+    sbctl enroll-keys -m
+    
+    # Sign the kernel and bootloader
+    info "Signing kernel and bootloader..."
+    sbctl sign -s /boot/vmlinuz-linux-g14
+    sbctl sign -s /boot/EFI/BOOT/BOOTX64.EFI 2>/dev/null || true
+    sbctl sign -s /boot/EFI/systemd/systemd-bootx64.efi 2>/dev/null || true
+    
+    # Create a hook to automatically sign kernels on update
+    mkdir -p /etc/pacman.d/hooks
+    cat > /etc/pacman.d/hooks/95-secureboot.hook <<EOF
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = linux-g14
+
+[Action]
+Description = Signing kernel for Secure Boot
+When = PostTransaction
+Exec = /usr/bin/sbctl sign -s /boot/vmlinuz-linux-g14
+Depends = sbctl
+EOF
+    
+    success "Secure Boot configured. Reboot and enable Secure Boot in BIOS/UEFI settings."
+    info "Use 'sbctl status' to check Secure Boot status after enabling in BIOS."
+}
+
+# --- ZFS Snapshot Functions ---
+# Based on research from: https://github.com/Shahzebqazi/Asus-Z13-Flow-2025-PCMR
+
+# Install and configure ZFS snapshots for system recovery
+install_zfs_snapshots() {
+    info "Installing ZFS snapshot management..."
+    
+    # Install ZFS utilities
+    pacman -S --noconfirm --needed zfs-utils
+    
+    # Create snapshot management script
+    cat > /usr/local/bin/gz302-snapshot <<'EOF'
+#!/bin/bash
+# GZ302 ZFS Snapshot Management
+# Based on research from Shahzebqazi's Asus-Z13-Flow-2025-PCMR
+
+POOL_NAME="zroot"
+SNAPSHOT_PREFIX="gz302-auto"
+
+show_usage() {
+    echo "Usage: gz302-snapshot [create|list|cleanup|restore]"
+    echo ""
+    echo "Commands:"
+    echo "  create   - Create a new system snapshot"
+    echo "  list     - List available snapshots"
+    echo "  cleanup  - Remove old snapshots (keep last 5)"
+    echo "  restore  - Restore from a snapshot (interactive)"
+}
+
+create_snapshot() {
+    local timestamp=$(date +%Y%m%d-%H%M%S)
+    local snapshot_name="${SNAPSHOT_PREFIX}-${timestamp}"
+    
+    echo "Creating snapshot: $snapshot_name"
+    
+    if zfs snapshot "$POOL_NAME@$snapshot_name"; then
+        echo "Snapshot created successfully: $snapshot_name"
+    else
+        echo "Error: Failed to create snapshot"
+        return 1
+    fi
+}
+
+list_snapshots() {
+    echo "Available snapshots:"
+    zfs list -t snapshot -o name,creation,used -s creation | grep "$POOL_NAME@$SNAPSHOT_PREFIX"
+}
+
+cleanup_snapshots() {
+    echo "Cleaning up old snapshots (keeping last 5)..."
+    local snapshots=($(zfs list -H -t snapshot -o name -s creation | grep "$POOL_NAME@$SNAPSHOT_PREFIX"))
+    local total=${#snapshots[@]}
+    
+    if [ $total -gt 5 ]; then
+        local to_remove=$((total - 5))
+        echo "Removing $to_remove old snapshots..."
+        
+        for ((i=0; i<to_remove; i++)); do
+            echo "Removing: ${snapshots[i]}"
+            zfs destroy "${snapshots[i]}"
+        done
+    else
+        echo "No cleanup needed (${total} snapshots, keeping last 5)"
+    fi
+}
+
+restore_snapshot() {
+    echo "Available snapshots for restore:"
+    local snapshots=($(zfs list -H -t snapshot -o name -s creation | grep "$POOL_NAME@$SNAPSHOT_PREFIX"))
+    
+    if [ ${#snapshots[@]} -eq 0 ]; then
+        echo "No snapshots available for restore"
+        return 1
+    fi
+    
+    local i=1
+    for snapshot in "${snapshots[@]}"; do
+        echo "$i) $snapshot"
+        ((i++))
+    done
+    
+    read -p "Select snapshot to restore (1-${#snapshots[@]}): " choice
+    
+    if [[ $choice =~ ^[0-9]+$ ]] && [ $choice -ge 1 ] && [ $choice -le ${#snapshots[@]} ]; then
+        local selected_snapshot="${snapshots[$((choice-1))]}"
+        echo "WARNING: This will restore the system to snapshot: $selected_snapshot"
+        echo "All changes since this snapshot will be lost!"
+        read -p "Are you sure? (yes/no): " confirm
+        
+        if [ "$confirm" = "yes" ]; then
+            echo "Restoring from snapshot: $selected_snapshot"
+            zfs rollback "$selected_snapshot"
+            echo "System restored. Reboot recommended."
+        else
+            echo "Restore cancelled"
+        fi
+    else
+        echo "Invalid selection"
+        return 1
+    fi
+}
+
+# Check if ZFS pool exists
+if ! zpool list "$POOL_NAME" &>/dev/null; then
+    echo "Error: ZFS pool '$POOL_NAME' not found"
+    echo "This system may not be using ZFS as root filesystem"
+    exit 1
+fi
+
+case "$1" in
+    create)
+        create_snapshot
+        ;;
+    list)
+        list_snapshots
+        ;;
+    cleanup)
+        cleanup_snapshots
+        ;;
+    restore)
+        restore_snapshot
+        ;;
+    "")
+        show_usage
+        ;;
+    *)
+        echo "Error: Unknown command '$1'"
+        show_usage
+        exit 1
+        ;;
+esac
+EOF
+
+    chmod +x /usr/local/bin/gz302-snapshot
+    
+    # Create automatic snapshot timer
+    cat > /etc/systemd/system/gz302-snapshot.service <<EOF
+[Unit]
+Description=Create GZ302 system snapshot
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gz302-snapshot create
+EOF
+
+    cat > /etc/systemd/system/gz302-snapshot.timer <<EOF
+[Unit]
+Description=Create GZ302 system snapshots daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+    systemctl enable gz302-snapshot.timer
+    success "ZFS snapshot management installed. Use 'gz302-snapshot' command."
+}
+
 # --- Service Management Functions ---
 
 # 7. Enable and start necessary services
@@ -600,19 +1009,38 @@ install_ollama() {
 }
 
 # Install ROCm for AMD GPU acceleration (Arch)
+# Install ROCm for AMD GPU acceleration (Arch)
+# Enhanced based on research from: https://github.com/Shahzebqazi/Asus-Z13-Flow-2025-PCMR
 install_rocm() {
     info "Installing ROCm for AMD GPU acceleration..."
     
-    # Install ROCm packages from AUR
-    sudo -u "$PRIMARY_USER" yay -S --noconfirm rocm-dev rocm-opencl-runtime hip-runtime-amd
+    # Install ROCm packages from AUR with enhanced configuration
+    sudo -u "$PRIMARY_USER" yay -S --noconfirm rocm-dev rocm-opencl-runtime hip-runtime-amd rocm-cmake rocblas miopen-hip
     
-    # Add user to render group for GPU access
+    # Add user to render and video groups for GPU access
     if [ -n "$PRIMARY_USER" ]; then
-        usermod -a -G render "$PRIMARY_USER"
-        info "User $PRIMARY_USER added to render group for GPU access."
+        usermod -a -G render,video "$PRIMARY_USER"
+        info "User $PRIMARY_USER added to render and video groups for GPU access."
     fi
     
-    success "ROCm installed successfully. Reboot required for full functionality."
+    # Configure ROCm environment variables
+    cat >> /etc/environment <<EOF
+
+# ROCm Configuration for GZ302 - Enhanced
+ROC_ENABLE_PRE_VEGA=1
+HSA_OVERRIDE_GFX_VERSION=11.0.0
+ROCM_PATH=/opt/rocm
+HIP_VISIBLE_DEVICES=0
+HCC_AMDGPU_TARGET=gfx1100
+EOF
+
+    # Create ROCm library configuration
+    mkdir -p /etc/ld.so.conf.d/
+    echo "/opt/rocm/lib" > /etc/ld.so.conf.d/rocm.conf
+    echo "/opt/rocm/lib64" >> /etc/ld.so.conf.d/rocm.conf
+    ldconfig
+    
+    success "Enhanced ROCm installed successfully. Reboot required for full functionality."
 }
 
 # Install PyTorch with ROCm support
@@ -689,54 +1117,72 @@ main() {
     
     info "Starting comprehensive setup process..."
     info "This script will configure your system for optimal ROG Flow Z13 performance"
-    info "Estimated time: 10-30 minutes depending on internet speed and optional components"
+    info "Estimated time: 15-40 minutes depending on internet speed and optional components"
     
     # Ask user for installation preferences
     ask_installation_options
     
-    info "Step 1/8: Updating system and installing base dependencies..."
+    info "Step 1/10: Updating system and installing base dependencies..."
     update_system
     
-    info "Step 2/8: Setting up ASUS-specific repositories..."
+    info "Step 2/10: Setting up ASUS-specific repositories..."
     setup_g14_repo
     
-    info "Step 3/8: Installing specialized kernel and ASUS tools..."
+    info "Step 3/10: Installing specialized kernel and ASUS tools..."
     install_kernel_and_asus_tools
     
-    info "Step 4/8: Applying hardware-specific fixes..."
+    info "Step 4/10: Applying hardware-specific fixes..."
     apply_hardware_fixes
+    
+    info "Step 5/10: Installing TDP management and system tools..."
+    install_tdp_management
     
     # Conditional gaming installation
     if [[ "${install_gaming,,}" == "y" || "${install_gaming,,}" == "yes" ]]; then
-        info "Step 5/8: Installing gaming software stack..."
+        info "Step 6/10: Installing gaming software stack..."
         install_gaming_stack
         
-        info "Step 6/8: Installing AUR helper..."
+        info "Step 7/10: Installing AUR helper..."
         install_aur_helper
     else
-        info "Step 5/8: Skipping gaming software installation as requested..."
-        info "Step 6/8: Installing AUR helper..."
+        info "Step 6/10: Skipping gaming software installation as requested..."
+        info "Step 7/10: Installing AUR helper..."
         install_aur_helper
     fi
     
     # Conditional LLM installation
     if [[ "${install_llm,,}" == "y" || "${install_llm,,}" == "yes" ]]; then
-        info "Step 7/8: Installing LLM/AI software stack..."
+        info "Step 8/10: Installing LLM/AI software stack..."
         install_llm_stack
     else
-        info "Step 7/8: Skipping LLM/AI software installation as requested..."
+        info "Step 8/10: Skipping LLM/AI software installation as requested..."
     fi
     
-    info "Step 8/8: Applying performance optimizations and enabling services..."
+    info "Step 9/10: Configuring Secure Boot and ZFS snapshots..."
+    configure_secure_boot
+    install_zfs_snapshots
+    
+    info "Step 10/10: Applying performance optimizations and enabling services..."
     apply_performance_tweaks
     enable_services
 
     echo
     success "============================================================"
-    success "Setup complete!"
+    success "GZ302 Linux Setup Complete! (Version 1.5)"
     success "It is highly recommended to REBOOT your system now."
     success "After rebooting, make sure to select the 'linux-g14' kernel"
     success "from your bootloader menu."
+    success ""
+    success "New in Version 1.5:"
+    success "- Enhanced camera support for GZ302"
+    success "- TDP management: Use 'gz302-tdp' command"
+    success "- Secure Boot configuration with sbctl"
+    success "- ZFS snapshots: Use 'gz302-snapshot' command"
+    success "- Improved Wi-Fi stability for MediaTek MT7925e"
+    success "- Enhanced ROCm configuration for AI/ML workloads"
+    success ""
+    success "Available TDP profiles: gaming, performance, balanced, efficient"
+    success "Check power status with: gz302-tdp status"
     success ""
     
     # Show gaming tools if installed
