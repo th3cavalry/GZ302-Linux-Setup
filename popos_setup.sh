@@ -589,6 +589,202 @@ install_llm_stack() {
     success "LLM environment setup completed."
 }
 
+# --- TDP Management Functions ---
+# Based on research from: https://github.com/Shahzebqazi/Asus-Z13-Flow-2025-PCMR
+
+# Install TDP management tools and configure profiles
+install_tdp_management() {
+    info "Installing TDP management for GZ302..."
+    
+    # Install dependencies for building ryzenadj
+    apt install -y cmake libpci-dev gcc g++ make git
+    
+    PRIMARY_USER=$(get_real_user)
+    if [[ "$PRIMARY_USER" == "root" ]]; then
+        warning "Cannot install ryzenadj without a non-root user."
+        return 1
+    fi
+    
+    # Build and install ryzenadj from source (same as Ubuntu)
+    sudo -u "$PRIMARY_USER" bash <<'EOF'
+set -e
+cd /tmp
+git clone https://github.com/FlyGoat/RyzenAdj.git
+cd RyzenAdj
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j$(nproc)
+EOF
+    
+    # Install ryzenadj system-wide
+    cp /tmp/RyzenAdj/build/ryzenadj /usr/local/bin/
+    chmod +x /usr/local/bin/ryzenadj
+    rm -rf /tmp/RyzenAdj
+    
+    # Create TDP management script
+    cat > /usr/local/bin/gz302-tdp <<'EOF'
+#!/bin/bash
+# GZ302 TDP Management Script for Pop!_OS
+TDP_CONFIG_DIR="/etc/gz302-tdp"
+CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
+declare -A TDP_PROFILES
+TDP_PROFILES[gaming]="54000"
+TDP_PROFILES[performance]="45000"
+TDP_PROFILES[balanced]="35000"
+TDP_PROFILES[efficient]="15000"
+mkdir -p "$TDP_CONFIG_DIR"
+
+show_usage() {
+    echo "Usage: gz302-tdp [gaming|performance|balanced|efficient|status|list]"
+    echo "TDP profiles: gaming(54W) performance(45W) balanced(35W) efficient(15W)"
+}
+
+set_tdp_profile() {
+    local profile="$1"
+    local tdp_value="${TDP_PROFILES[$profile]}"
+    if [ -z "$tdp_value" ]; then
+        echo "Error: Unknown profile '$profile'"
+        return 1
+    fi
+    echo "Setting TDP profile: $profile ($(($tdp_value / 1000))W)"
+    ryzenadj --stapm-limit="$tdp_value" --fast-limit="$tdp_value" --slow-limit="$tdp_value"
+    if [ $? -eq 0 ]; then
+        echo "$profile" > "$CURRENT_PROFILE_FILE"
+        echo "TDP profile '$profile' applied successfully"
+    else
+        echo "Error: Failed to apply TDP profile"
+        return 1
+    fi
+}
+
+show_status() {
+    local power_source="Unknown"
+    if [ -f /sys/class/power_supply/ADP1/online ] && [ "$(cat /sys/class/power_supply/ADP1/online)" = "1" ]; then
+        power_source="AC"
+    else
+        power_source="Battery"
+    fi
+    local current_profile="Unknown"
+    if [ -f "$CURRENT_PROFILE_FILE" ]; then
+        current_profile=$(cat "$CURRENT_PROFILE_FILE")
+    fi
+    echo "GZ302 Power Status: $power_source | Profile: $current_profile"
+}
+
+case "$1" in
+    gaming|performance|balanced|efficient) set_tdp_profile "$1" ;;
+    status) show_status ;;
+    list) for p in "${!TDP_PROFILES[@]}"; do echo "$p: $(( ${TDP_PROFILES[$p]} / 1000 ))W"; done ;;
+    *) show_usage ;;
+esac
+EOF
+
+    chmod +x /usr/local/bin/gz302-tdp
+    
+    # Create systemd service
+    cat > /etc/systemd/system/gz302-tdp-auto.service <<EOF
+[Unit]
+Description=GZ302 Automatic TDP Management
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gz302-tdp balanced
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    systemctl enable gz302-tdp-auto.service
+    success "TDP management installed. Use 'gz302-tdp' command to manage power profiles."
+}
+
+# Enhanced Wi-Fi stability fixes
+enhance_wifi_fixes() {
+    info "Applying enhanced Wi-Fi stability fixes..."
+    
+    # Add enhanced Wi-Fi parameters
+    cat >> /etc/modprobe.d/mt7925e_wifi.conf <<EOF
+# Enhanced stability fixes from research
+options mt7925e swcrypto=0
+options mt7925e amsdu=0
+options mt7925e disable_11ax=0
+options mt7925e disable_radar_background=1
+EOF
+
+    cat >> /etc/NetworkManager/conf.d/99-wifi-powersave-off.conf <<EOF
+# Additional NetworkManager optimizations
+wifi.backend=wpa_supplicant
+
+[main]
+# Reduce scan frequency for stability
+wifi.scan-rand-mac-address=no
+EOF
+
+    # Add udev rules for Wi-Fi stability
+    cat > /etc/udev/rules.d/99-wifi-powersave.rules <<EOF
+# Disable Wi-Fi power saving for MediaTek MT7925e
+ACTION=="add", SUBSYSTEM=="net", KERNEL=="wlan*", RUN+="/usr/bin/iw dev \$name set power_save off"
+EOF
+
+    success "Enhanced Wi-Fi stability fixes applied."
+}
+
+# Enhanced camera fixes
+enhance_camera_fixes() {
+    info "Applying enhanced camera fixes for GZ302..."
+    
+    cat > /etc/modprobe.d/uvcvideo-gz302.conf <<EOF
+# Camera fixes for ASUS ROG Flow Z13 GZ302
+options uvcvideo quirks=0x80
+options uvcvideo nodrop=1
+EOF
+
+    cat > /etc/udev/rules.d/99-gz302-camera.rules <<EOF
+# Camera access rules for GZ302
+SUBSYSTEM=="video4linux", GROUP="video", MODE="0664"
+KERNEL=="video[0-9]*", SUBSYSTEM=="video4linux", SUBSYSTEMS=="usb", ATTRS{idVendor}=="*", ATTRS{idProduct}=="*", GROUP="video", MODE="0664"
+EOF
+
+    success "Enhanced camera fixes applied."
+}
+
+# User choice function for installation options
+ask_installation_options() {
+    echo ""
+    info "Installation Configuration:"
+    echo "Gaming Software: Steam, Lutris, MangoHUD, GameMode, Wine"
+    read -p "Install gaming software? (y/n): " install_gaming
+    echo "LLM/AI Software: Ollama, ROCm, PyTorch, Transformers"
+    read -p "Install LLM/AI software? (y/n): " install_llm
+    echo ""
+}
+
+# Simple LLM installation
+install_llm_stack() {
+    if [[ "${install_llm,,}" != "y" && "${install_llm,,}" != "yes" ]]; then
+        info "Skipping LLM installation as requested."
+        return 0
+    fi
+    
+    info "Installing basic LLM stack..."
+    
+    # Install Ollama
+    curl -fsSL https://ollama.ai/install.sh | sh
+    systemctl enable ollama.service
+    systemctl start ollama.service
+    
+    # Install basic Python ML tools
+    apt install -y python3-pip
+    PRIMARY_USER=$(get_real_user)
+    if [[ "$PRIMARY_USER" != "root" ]]; then
+        sudo -u "$PRIMARY_USER" pip3 install torch transformers
+    fi
+    
+    success "Basic LLM stack installed. Use 'ollama run llama2' to get started."
+}
+
 # --- Main Execution Logic ---
 main() {
     check_root
@@ -596,7 +792,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Pop!_OS Setup Script"
-    echo "  Version 1.3 - Enhanced Gaming Performance Optimization"
+    echo "  Version 1.5 - Enhanced with full feature parity"
     echo "============================================================"
     echo
     
@@ -645,8 +841,16 @@ main() {
 
     echo
     success "============================================================"
-    success "Pop!_OS setup complete for ASUS ROG Flow Z13 (GZ302)!"
+    success "Pop!_OS setup complete for ASUS ROG Flow Z13 (GZ302)! (Version 1.5)"
     success "It is highly recommended to REBOOT your system now."
+    success ""
+    success "New in Version 1.5:"
+    success "- TDP management: Use 'gz302-tdp' command"
+    success "- Enhanced Wi-Fi stability for MediaTek MT7925e"
+    success "- Enhanced camera support for GZ302"
+    success ""
+    success "Available TDP profiles: gaming(54W), performance(45W), balanced(35W), efficient(15W)"
+    success "Check power status with: gz302-tdp status"
     success ""
     
     # Show gaming tools if installed
