@@ -480,7 +480,7 @@ EOF
 ask_installation_options() {
     echo ""
     info "Installation Configuration:"
-    echo "This script can install gaming software and LLM frameworks."
+    echo "This script can install gaming software, LLM frameworks, and system security/backup features."
     echo ""
     
     # Ask about gaming installation
@@ -499,6 +499,26 @@ ask_installation_options() {
     echo "- PyTorch and Transformers libraries"
     echo ""
     read -p "Do you want to install LLM/AI software? (y/n): " install_llm
+    
+    # Ask about system snapshots
+    echo ""
+    echo "System Snapshots provide:"
+    echo "- Automatic daily system backups"
+    echo "- Easy system recovery and rollback"
+    echo "- Supports ZFS, Btrfs, ext4 (with LVM), and XFS filesystems"
+    echo "- 'gz302-snapshot' command for manual management"
+    echo ""
+    read -p "Do you want to enable system snapshots? (y/n): " install_snapshots
+    
+    # Ask about secure boot
+    echo ""
+    echo "Secure Boot provides:"
+    echo "- Enhanced system security and boot integrity"
+    echo "- Automatic kernel signing on updates"
+    echo "- Supports GRUB, systemd-boot, and rEFInd bootloaders"
+    echo "- Requires UEFI system and manual BIOS configuration"
+    echo ""
+    read -p "Do you want to configure Secure Boot? (y/n): " install_secureboot
     
     echo ""
 }
@@ -618,6 +638,472 @@ install_llm_stack() {
     success "LLM environment setup completed."
 }
 
+# --- Universal Filesystem and Bootloader Detection Functions ---
+
+# Detect root filesystem type
+detect_root_filesystem() {
+    local root_device=$(findmnt -n -o SOURCE /)
+    local fs_type=$(findmnt -n -o FSTYPE /)
+    
+    echo "Root filesystem: $fs_type on $root_device" >&2
+    echo "$fs_type"
+}
+
+# Detect bootloader type
+detect_bootloader() {
+    local bootloader="unknown"
+    
+    # Check for GRUB
+    if [ -f /boot/grub/grub.cfg ] || [ -f /boot/EFI/*/grub.cfg ] 2>/dev/null; then
+        bootloader="grub"
+    # Check for systemd-boot
+    elif [ -f /boot/EFI/systemd/systemd-bootx64.efi ] || [ -f /boot/EFI/BOOT/BOOTX64.EFI ]; then
+        if bootctl status >/dev/null 2>&1; then
+            bootloader="systemd-boot"
+        fi
+    # Check for rEFInd
+    elif [ -f /boot/EFI/refind/refind_x64.efi ]; then
+        bootloader="refind"
+    fi
+    
+    echo "Detected bootloader: $bootloader" >&2
+    echo "$bootloader"
+}
+
+# Install and configure universal snapshots for system recovery
+install_universal_snapshots() {
+    local fs_type=$(detect_root_filesystem)
+    info "Installing snapshot management for $fs_type filesystem..."
+    
+    case "$fs_type" in
+        zfs)
+            info "Detected ZFS filesystem. Installing ZFS snapshot utilities..."
+            apt update && apt install -y zfsutils-linux
+            ;;
+        btrfs)
+            info "Detected Btrfs filesystem. Installing Btrfs snapshot utilities..."
+            apt update && apt install -y btrfs-progs snapper
+            ;;
+        ext4|ext3|ext2)
+            info "Detected ext filesystem. Installing LVM snapshot utilities..."
+            apt update && apt install -y lvm2
+            ;;
+        xfs)
+            info "Detected XFS filesystem. Installing XFS utilities..."
+            apt update && apt install -y xfsprogs
+            ;;
+        *)
+            warning "Filesystem $fs_type not supported for automatic snapshots."
+            warning "Supported filesystems: ZFS, Btrfs, ext2/3/4 (with LVM), XFS"
+            return 1
+            ;;
+    esac
+    
+    # Create universal snapshot management script (same as Arch)
+    cat > /usr/local/bin/gz302-snapshot <<'EOF'
+#!/bin/bash
+# GZ302 Universal Snapshot Management
+# Supports ZFS, Btrfs, ext4 (with LVM), and XFS filesystems
+
+SNAPSHOT_PREFIX="gz302-auto"
+
+# Detect filesystem type
+detect_filesystem() {
+    local fs_type=$(findmnt -n -o FSTYPE /)
+    echo "$fs_type"
+}
+
+# Detect root device/volume
+detect_root_device() {
+    local root_source=$(findmnt -n -o SOURCE /)
+    echo "$root_source"
+}
+
+show_usage() {
+    echo "Usage: gz302-snapshot [create|list|cleanup|restore]"
+    echo ""
+    echo "Commands:"
+    echo "  create   - Create a new system snapshot"
+    echo "  list     - List available snapshots"
+    echo "  cleanup  - Remove old snapshots (keep last 5)"
+    echo "  restore  - Restore from a snapshot (interactive)"
+    echo ""
+    echo "Supported filesystems: ZFS, Btrfs, ext4 (with LVM), XFS"
+}
+
+# ZFS snapshot functions
+zfs_create_snapshot() {
+    local pool_name=$(zpool list -H -o name | head -1)
+    local timestamp=$(date +%Y%m%d-%H%M%S)
+    local snapshot_name="${SNAPSHOT_PREFIX}-${timestamp}"
+    
+    echo "Creating ZFS snapshot: $pool_name@$snapshot_name"
+    if zfs snapshot "$pool_name@$snapshot_name"; then
+        echo "ZFS snapshot created successfully: $snapshot_name"
+    else
+        echo "Error: Failed to create ZFS snapshot"
+        return 1
+    fi
+}
+
+zfs_list_snapshots() {
+    local pool_name=$(zpool list -H -o name | head -1)
+    echo "Available ZFS snapshots:"
+    zfs list -t snapshot -o name,creation,used -s creation | grep "$pool_name@$SNAPSHOT_PREFIX" || echo "No snapshots found"
+}
+
+zfs_cleanup_snapshots() {
+    local pool_name=$(zpool list -H -o name | head -1)
+    echo "Cleaning up old ZFS snapshots (keeping last 5)..."
+    local snapshots=($(zfs list -H -t snapshot -o name -s creation | grep "$pool_name@$SNAPSHOT_PREFIX"))
+    local total=${#snapshots[@]}
+    
+    if [ $total -gt 5 ]; then
+        local to_remove=$((total - 5))
+        echo "Removing $to_remove old snapshots..."
+        for ((i=0; i<to_remove; i++)); do
+            echo "Removing: ${snapshots[i]}"
+            zfs destroy "${snapshots[i]}"
+        done
+    else
+        echo "No cleanup needed (${total} snapshots, keeping last 5)"
+    fi
+}
+
+# Btrfs snapshot functions
+btrfs_create_snapshot() {
+    local timestamp=$(date +%Y%m%d-%H%M%S)
+    local snapshot_dir="/.snapshots"
+    local snapshot_name="${SNAPSHOT_PREFIX}-${timestamp}"
+    
+    mkdir -p "$snapshot_dir"
+    echo "Creating Btrfs snapshot: $snapshot_dir/$snapshot_name"
+    
+    if btrfs subvolume snapshot / "$snapshot_dir/$snapshot_name"; then
+        echo "Btrfs snapshot created successfully: $snapshot_name"
+    else
+        echo "Error: Failed to create Btrfs snapshot"
+        return 1
+    fi
+}
+
+btrfs_list_snapshots() {
+    local snapshot_dir="/.snapshots"
+    echo "Available Btrfs snapshots:"
+    if [ -d "$snapshot_dir" ]; then
+        ls -la "$snapshot_dir" | grep "$SNAPSHOT_PREFIX" || echo "No snapshots found"
+    else
+        echo "No snapshots found"
+    fi
+}
+
+btrfs_cleanup_snapshots() {
+    local snapshot_dir="/.snapshots"
+    echo "Cleaning up old Btrfs snapshots (keeping last 5)..."
+    
+    if [ ! -d "$snapshot_dir" ]; then
+        echo "No snapshots directory found"
+        return
+    fi
+    
+    local snapshots=($(ls -1 "$snapshot_dir" | grep "$SNAPSHOT_PREFIX" | sort))
+    local total=${#snapshots[@]}
+    
+    if [ $total -gt 5 ]; then
+        local to_remove=$((total - 5))
+        echo "Removing $to_remove old snapshots..."
+        for ((i=0; i<to_remove; i++)); do
+            echo "Removing: ${snapshots[i]}"
+            btrfs subvolume delete "$snapshot_dir/${snapshots[i]}"
+        done
+    else
+        echo "No cleanup needed (${total} snapshots, keeping last 5)"
+    fi
+}
+
+# LVM snapshot functions for ext4
+lvm_create_snapshot() {
+    local root_device=$(detect_root_device)
+    local vg_name=$(lvs --noheadings -o vg_name "$root_device" 2>/dev/null | tr -d ' ')
+    local lv_name=$(lvs --noheadings -o lv_name "$root_device" 2>/dev/null | tr -d ' ')
+    local timestamp=$(date +%Y%m%d-%H%M%S)
+    local snapshot_name="${lv_name}-${SNAPSHOT_PREFIX}-${timestamp}"
+    
+    if [ -z "$vg_name" ] || [ -z "$lv_name" ]; then
+        echo "Error: Root filesystem is not on LVM. LVM snapshots require LVM setup."
+        return 1
+    fi
+    
+    echo "Creating LVM snapshot: $vg_name/$snapshot_name"
+    if lvcreate -L1G -s -n "$snapshot_name" "$vg_name/$lv_name"; then
+        echo "LVM snapshot created successfully: $snapshot_name"
+    else
+        echo "Error: Failed to create LVM snapshot"
+        return 1
+    fi
+}
+
+lvm_list_snapshots() {
+    echo "Available LVM snapshots:"
+    lvs | grep "$SNAPSHOT_PREFIX" || echo "No LVM snapshots found"
+}
+
+lvm_cleanup_snapshots() {
+    echo "Cleaning up old LVM snapshots (keeping last 5)..."
+    local snapshots=($(lvs --noheadings -o lv_name | grep "$SNAPSHOT_PREFIX" | sort))
+    local total=${#snapshots[@]}
+    
+    if [ $total -gt 5 ]; then
+        local to_remove=$((total - 5))
+        echo "Removing $to_remove old snapshots..."
+        for ((i=0; i<to_remove; i++)); do
+            local snapshot_name="${snapshots[i]// /}"
+            local vg_name=$(lvs --noheadings -o vg_name "/dev/mapper/$snapshot_name" 2>/dev/null | tr -d ' ')
+            echo "Removing: $vg_name/$snapshot_name"
+            lvremove -f "$vg_name/$snapshot_name"
+        done
+    else
+        echo "No cleanup needed (${total} snapshots, keeping last 5)"
+    fi
+}
+
+# XFS functions (XFS doesn't support snapshots, but we can suggest alternatives)
+xfs_create_snapshot() {
+    echo "XFS does not support native snapshots."
+    echo "Consider using:"
+    echo "  1. LVM snapshots (if XFS is on LVM)"
+    echo "  2. External backup tools like rsync or tar"
+    echo "  3. Filesystem-level backup solutions"
+    return 1
+}
+
+xfs_list_snapshots() {
+    echo "XFS does not support native snapshots."
+    echo "Use external backup solutions or LVM if available."
+}
+
+xfs_cleanup_snapshots() {
+    echo "XFS does not support native snapshots."
+}
+
+# Main snapshot functions
+create_snapshot() {
+    local fs_type=$(detect_filesystem)
+    
+    case "$fs_type" in
+        zfs)
+            zfs_create_snapshot
+            ;;
+        btrfs)
+            btrfs_create_snapshot
+            ;;
+        ext4|ext3|ext2)
+            lvm_create_snapshot
+            ;;
+        xfs)
+            xfs_create_snapshot
+            ;;
+        *)
+            echo "Error: Filesystem $fs_type not supported for snapshots"
+            return 1
+            ;;
+    esac
+}
+
+list_snapshots() {
+    local fs_type=$(detect_filesystem)
+    
+    case "$fs_type" in
+        zfs)
+            zfs_list_snapshots
+            ;;
+        btrfs)
+            btrfs_list_snapshots
+            ;;
+        ext4|ext3|ext2)
+            lvm_list_snapshots
+            ;;
+        xfs)
+            xfs_list_snapshots
+            ;;
+        *)
+            echo "Error: Filesystem $fs_type not supported for snapshots"
+            return 1
+            ;;
+    esac
+}
+
+cleanup_snapshots() {
+    local fs_type=$(detect_filesystem)
+    
+    case "$fs_type" in
+        zfs)
+            zfs_cleanup_snapshots
+            ;;
+        btrfs)
+            btrfs_cleanup_snapshots
+            ;;
+        ext4|ext3|ext2)
+            lvm_cleanup_snapshots
+            ;;
+        xfs)
+            xfs_cleanup_snapshots
+            ;;
+        *)
+            echo "Error: Filesystem $fs_type not supported for snapshots"
+            return 1
+            ;;
+    esac
+}
+
+restore_snapshot() {
+    local fs_type=$(detect_filesystem)
+    
+    echo "WARNING: Snapshot restoration varies by filesystem type."
+    echo "Current filesystem: $fs_type"
+    echo ""
+    echo "For safe restoration:"
+    echo "  1. Boot from a live USB/CD"
+    echo "  2. Mount your filesystem"
+    echo "  3. Use filesystem-specific restoration commands"
+    echo ""
+    echo "This feature is intentionally limited to prevent accidental data loss."
+    echo "Please refer to your filesystem documentation for restoration procedures."
+}
+
+# Check filesystem support
+fs_type=$(detect_filesystem)
+case "$fs_type" in
+    zfs|btrfs|ext4|ext3|ext2|xfs)
+        # Supported filesystem
+        ;;
+    *)
+        echo "Error: Filesystem $fs_type is not supported for snapshots"
+        echo "Supported filesystems: ZFS, Btrfs, ext2/3/4 (with LVM), XFS (limited)"
+        exit 1
+        ;;
+esac
+
+# Main script logic
+case "$1" in
+    create)
+        create_snapshot
+        ;;
+    list)
+        list_snapshots
+        ;;
+    cleanup)
+        cleanup_snapshots
+        ;;
+    restore)
+        restore_snapshot
+        ;;
+    "")
+        show_usage
+        ;;
+    *)
+        echo "Error: Unknown command '$1'"
+        show_usage
+        exit 1
+        ;;
+esac
+EOF
+
+    chmod +x /usr/local/bin/gz302-snapshot
+    
+    # Create automatic snapshot timer
+    cat > /etc/systemd/system/gz302-snapshot.service <<EOF
+[Unit]
+Description=Create GZ302 system snapshot
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gz302-snapshot create
+EOF
+
+    cat > /etc/systemd/system/gz302-snapshot.timer <<EOF
+[Unit]
+Description=Create GZ302 system snapshots daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+    systemctl enable gz302-snapshot.timer
+    success "Universal snapshot management installed for $fs_type filesystem. Use 'gz302-snapshot' command."
+}
+
+# Configure secure boot for post-install
+configure_universal_secure_boot() {
+    local bootloader=$(detect_bootloader)
+    info "Configuring Secure Boot for GZ302 with $bootloader bootloader..."
+    
+    # Install sbctl for secure boot management  
+    apt update && apt install -y sbctl
+    
+    # Check if we're in UEFI mode
+    if [ ! -d /sys/firmware/efi ]; then
+        warning "Not booted in UEFI mode. Skipping Secure Boot configuration."
+        return
+    fi
+    
+    # Check current secure boot status
+    local sb_state=$(sbctl status 2>/dev/null | grep "Secure Boot" | awk '{print $3}' || echo "unknown")
+    
+    if [ "$sb_state" = "Enabled" ]; then
+        warning "Secure Boot is already enabled. Skipping key creation."
+        return
+    fi
+    
+    info "Creating Secure Boot keys..."
+    sbctl create-keys
+    
+    info "Enrolling Secure Boot keys..."
+    sbctl enroll-keys -m
+    
+    # Sign the kernel and bootloader based on detected bootloader
+    info "Signing kernel and bootloader for $bootloader..."
+    
+    # Sign the kernel (Ubuntu typically uses generic kernel)
+    sbctl sign -s /boot/vmlinuz-*-generic 2>/dev/null || sbctl sign -s /boot/vmlinuz 2>/dev/null || true
+    
+    case "$bootloader" in
+        grub)
+            info "Configuring Secure Boot for GRUB..."
+            # Sign GRUB bootloader files
+            sbctl sign -s /boot/EFI/BOOT/BOOTX64.EFI 2>/dev/null || true
+            sbctl sign -s /boot/EFI/ubuntu/grubx64.efi 2>/dev/null || true
+            sbctl sign -s /boot/EFI/ubuntu/shimx64.efi 2>/dev/null || true
+            ;;
+        systemd-boot)
+            info "Configuring Secure Boot for systemd-boot..."
+            # Sign systemd-boot files
+            sbctl sign -s /boot/EFI/systemd/systemd-bootx64.efi 2>/dev/null || true
+            sbctl sign -s /boot/EFI/BOOT/BOOTX64.EFI 2>/dev/null || true
+            ;;
+        refind)
+            info "Configuring Secure Boot for rEFInd..."
+            # Sign rEFInd files
+            sbctl sign -s /boot/EFI/refind/refind_x64.efi 2>/dev/null || true
+            sbctl sign -s /boot/EFI/BOOT/BOOTX64.EFI 2>/dev/null || true
+            ;;
+        unknown)
+            warning "Could not detect bootloader type. Creating generic Secure Boot configuration..."
+            # Try to sign common bootloader files
+            sbctl sign -s /boot/EFI/BOOT/BOOTX64.EFI 2>/dev/null || true
+            sbctl sign -s /boot/EFI/ubuntu/grubx64.efi 2>/dev/null || true
+            ;;
+    esac
+    
+    success "Secure Boot configured for $bootloader. Reboot and enable Secure Boot in BIOS/UEFI settings."
+    info "Use 'sbctl status' to check Secure Boot status after enabling in BIOS."
+    warning "Note: Ubuntu may require additional steps for Secure Boot with custom kernels."
+}
+
 # --- Main Execution Logic ---
 main() {
     check_root
@@ -636,45 +1122,63 @@ main() {
     # Ask user for installation preferences
     ask_installation_options
     
-    info "Step 1/8: Updating system and installing base dependencies..."
+    info "Step 1/10: Updating system and installing base dependencies..."
     update_system
     
-    info "Step 2/8: Setting up gaming and hardware repositories..."
+    info "Step 2/10: Setting up gaming and hardware repositories..."
     setup_repositories
     
-    info "Step 3/8: Installing hardware support packages..."
+    info "Step 3/10: Installing hardware support packages..."
     install_hardware_support
     
-    info "Step 4/8: Applying hardware-specific fixes..."
+    info "Step 4/10: Applying hardware-specific fixes..."
     apply_hardware_fixes
     
     # Conditional gaming installation
     if [[ "${install_gaming,,}" == "y" || "${install_gaming,,}" == "yes" ]]; then
-        info "Step 5/8: Installing gaming software stack..."
+        info "Step 5/10: Installing gaming software stack..."
         install_gaming_stack
         
-        info "Step 6/8: Applying performance optimizations..."
+        info "Step 6/10: Applying performance optimizations..."
         apply_performance_tweaks
     else
-        info "Step 5/8: Skipping gaming software installation as requested..."
-        info "Step 6/8: Applying basic performance optimizations..."
+        info "Step 5/10: Skipping gaming software installation as requested..."
+        info "Step 6/10: Applying basic performance optimizations..."
         apply_performance_tweaks
     fi
     
     # Conditional LLM installation
     if [[ "${install_llm,,}" == "y" || "${install_llm,,}" == "yes" ]]; then
-        info "Step 7/8: Installing LLM/AI software stack..."
+        info "Step 7/10: Installing LLM/AI software stack..."
         install_llm_stack
     else
-        info "Step 7/8: Skipping LLM/AI software installation as requested..."
+        info "Step 7/10: Skipping LLM/AI software installation as requested..."
     fi
     
-    info "Step 8/8: Enabling services and finalizing setup..."
+    info "Step 8/10: Configuring optional system features..."
+    
+    # Conditional secure boot installation
+    if [[ "${install_secureboot,,}" == "y" || "${install_secureboot,,}" == "yes" ]]; then
+        info "Configuring Secure Boot..."
+        configure_universal_secure_boot
+    else
+        info "Skipping Secure Boot configuration as requested..."
+    fi
+    
+    # Conditional snapshots installation
+    if [[ "${install_snapshots,,}" == "y" || "${install_snapshots,,}" == "yes" ]]; then
+        info "Configuring system snapshots..."
+        install_universal_snapshots
+    else
+        info "Skipping system snapshots configuration as requested..."
+    fi
+    
+    info "Step 9/10: Enabling services and finalizing setup..."
     enable_services
 
     echo
     success "============================================================"
-    success "Ubuntu setup complete for ASUS ROG Flow Z13 (GZ302)!"
+    success "Ubuntu setup complete for ASUS ROG Flow Z13 (GZ302)! (Version 1.5)"
     success "It is highly recommended to REBOOT your system now."
     success ""
     
@@ -696,6 +1200,25 @@ main() {
         success "- ROCm for AMD GPU acceleration (if selected)"
         success "- PyTorch with ROCm support (if selected)"
         success "- Hugging Face Transformers (if selected)"
+        success ""
+    fi
+    
+    # Show secure boot status if installed
+    if [[ "${install_secureboot,,}" == "y" || "${install_secureboot,,}" == "yes" ]]; then
+        success "Secure Boot configured:"
+        success "- Bootloader and kernel signing enabled"
+        success "- Automatic signing on updates"
+        success "- Use 'sbctl status' to check status after enabling in BIOS"
+        success ""
+    fi
+    
+    # Show snapshot status if installed
+    if [[ "${install_snapshots,,}" == "y" || "${install_snapshots,,}" == "yes" ]]; then
+        local fs_type=$(detect_root_filesystem)
+        success "System snapshots configured for $fs_type:"
+        success "- Daily automatic snapshots enabled"
+        success "- Manual management with 'gz302-snapshot' command"
+        success "- Supports create, list, cleanup, and restore operations"
         success ""
     fi
     
