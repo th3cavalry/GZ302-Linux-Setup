@@ -497,6 +497,363 @@ EOF
     # Create TDP management script (same as Ubuntu)
     cat > /usr/local/bin/gz302-tdp <<'EOF'
 #!/bin/bash
+EOF
+
+    mkdir -p /etc/NetworkManager/conf.d/
+    cat > /etc/NetworkManager/conf.d/99-wifi-powersave-off.conf <<EOF
+[connection]
+wifi.powersave = 2
+
+[device]
+wifi.scan-rand-mac-address=no
+EOF
+    success "Wi-Fi fixes for MediaTek MT7925 applied."
+
+    # 4b. Fix touchpad detection and sensitivity
+    info "Applying touchpad detection and sensitivity fixes..."
+    cat > /etc/udev/hwdb.d/61-asus-touchpad.hwdb <<EOF
+# ASUS ROG Flow Z13 folio touchpad override
+# Forces the device to be recognized as a multi-touch touchpad
+evdev:input:b0003v0b05p1a30*
+ ENV{ID_INPUT_TOUCHPAD}="1"
+ ENV{ID_INPUT_MULTITOUCH}="1"
+ ENV{ID_INPUT_MOUSE}="0"
+ EVDEV_ABS_00=::100
+ EVDEV_ABS_01=::100
+ EVDEV_ABS_35=::100
+ EVDEV_ABS_36=::100
+EOF
+
+    # Create systemd service to reload hid_asus module post-boot
+    info "Creating touchpad fix service..."
+    cat > /etc/systemd/system/reload-hid_asus.service <<EOF
+[Unit]
+Description=Reload hid_asus module with correct options for Z13 Touchpad
+After=multi-user.target
+ConditionKernelModule=hid_asus
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/modprobe -r hid_asus
+ExecStart=/usr/sbin/modprobe hid_asus
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # 4c. Fix audio issues and enable all audio devices
+    info "Applying audio fixes for GZ302..."
+    cat > /etc/modprobe.d/alsa-gz302.conf <<EOF
+# Fix audio issues on ROG Flow Z13 GZ302
+options snd-hda-intel probe_mask=1
+options snd-hda-intel model=asus-zenbook
+EOF
+
+    # 4d. Fix AMD GPU driver issues
+    info "Applying AMD GPU optimizations..."
+    cat > /etc/modprobe.d/amdgpu-gz302.conf <<EOF
+# AMD GPU optimizations for GZ302
+options amdgpu dc=1
+options amdgpu gpu_recovery=1
+options amdgpu ppfeaturemask=0xffffffff
+options amdgpu runpm=1
+EOF
+
+    # 4e. Fix thermal throttling and power management
+    info "Applying thermal and power management fixes..."
+    cat > /etc/udev/rules.d/50-gz302-thermal.rules <<EOF
+# Thermal management for GZ302
+SUBSYSTEM=="thermal", KERNEL=="thermal_zone*", ATTR{type}=="x86_pkg_temp", ATTR{policy}="step_wise"
+SUBSYSTEM=="thermal", KERNEL=="thermal_zone*", ATTR{type}=="acpi", ATTR{policy}="step_wise"
+EOF
+
+    # 4f. Fix camera issues for GZ302
+    # Based on research from: https://github.com/Shahzebqazi/Asus-Z13-Flow-2025-PCMR
+    info "Applying camera fixes for GZ302..."
+    cat > /etc/modprobe.d/uvcvideo-gz302.conf <<EOF
+# Camera fixes for ASUS ROG Flow Z13 GZ302
+# Improved UVC video driver parameters for better compatibility
+options uvcvideo quirks=0x80
+options uvcvideo nodrop=1
+EOF
+
+    # Add camera permissions for user access
+    cat > /etc/udev/rules.d/99-gz302-camera.rules <<EOF
+# Camera access rules for GZ302
+SUBSYSTEM=="video4linux", GROUP="video", MODE="0664"
+KERNEL=="video[0-9]*", SUBSYSTEM=="video4linux", SUBSYSTEMS=="usb", ATTRS{idVendor}=="*", ATTRS{idProduct}=="*", GROUP="video", MODE="0664"
+EOF
+
+    info "Updating system hardware database..."
+    systemd-hwdb update
+    success "All hardware fixes applied."
+}
+
+# --- Gaming Software Stack Functions ---
+
+# 5. Install and configure the gaming software stack
+install_gaming_stack() {
+    info "Installing and configuring the gaming software stack..."
+    info "This will install Steam, Lutris, gaming tools, and compatibility layers..."
+
+    # 5a. Install Steam
+    info "Installing Steam..."
+    dnf install -y steam
+
+    # 5b. Install Lutris
+    info "Installing Lutris game manager..."
+    dnf install -y lutris
+
+    # 5c. Install gaming libraries and tools
+    info "Installing gaming libraries and performance tools..."
+    dnf install -y gamemode vulkan-loader vulkan-tools mesa-vulkan-drivers \
+        wine winetricks
+    
+    # Install additional libraries for better compatibility
+    dnf install -y mesa-dri-drivers.i686 mesa-vulkan-drivers.i686 \
+        vulkan-loader.i686
+
+    success "Core gaming applications and libraries installed."
+
+    # 5d. Install MangoHUD for performance monitoring
+    info "Installing MangoHUD for performance monitoring..."
+    dnf install -y mangohud
+
+    # 5e. Install ProtonUp-Qt via Flatpak
+    info "Installing ProtonUp-Qt for Proton version management..."
+    
+    PRIMARY_USER=$(get_real_user)
+    if [[ "$PRIMARY_USER" != "root" ]]; then
+        sudo -u "$PRIMARY_USER" flatpak install -y flathub net.davidotek.pupgui2
+        success "ProtonUp-Qt installed via Flatpak."
+    else
+        warning "Could not determine non-root user. ProtonUp-Qt installation skipped."
+    fi
+
+    # 5f. Install Proton-GE
+    install_proton_ge() {
+        local user="$1"
+        local user_home="/home/$user"
+        local compat_dir="$user_home/.steam/root/compatibilitytools.d"
+        
+        # Check if any Proton-GE is already installed
+        if [[ -d "$compat_dir" ]] && ls "$compat_dir"/GE-Proton* &>/dev/null; then
+            info "Proton-GE is already installed. Skipping download."
+            return 0
+        fi
+        
+        # Download and install latest Proton-GE
+        sudo -u "$user" bash <<'EOF'
+set -e
+
+COMPAT_DIR="$HOME/.steam/root/compatibilitytools.d"
+mkdir -p "$COMPAT_DIR"
+
+echo -e "\033[0;34m[INFO]\033[0m Fetching latest Proton-GE release information..."
+LATEST_URL=$(curl -s "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest" | grep "browser_download_url.*\.tar\.gz" | cut -d '"' -f 4)
+if [[ -n "$LATEST_URL" ]]; then
+    RELEASE_NAME=$(echo "$LATEST_URL" | sed 's/.*\/\([^\/]*\)\.tar\.gz/\1/')
+    echo -e "\033[0;34m[INFO]\033[0m Downloading Proton-GE: $RELEASE_NAME..."
+    cd "$COMPAT_DIR"
+    curl -L "$LATEST_URL" | tar -xz
+    echo -e "\033[0;32m[SUCCESS]\033[0m Proton-GE ($RELEASE_NAME) installed successfully."
+else
+    echo "Could not find the latest Proton-GE release."
+fi
+EOF
+    }
+    
+    info "Installing the latest version of Proton-GE..."
+    PRIMARY_USER=$(get_real_user)
+    if [[ "$PRIMARY_USER" != "root" ]]; then
+        install_proton_ge "$PRIMARY_USER"
+    else
+        warning "Could not determine non-root user. Skipping Proton-GE installation."
+    fi
+
+    success "Gaming software stack installation completed."
+}
+
+# --- Performance Tuning Functions ---
+
+# 6. Apply system-wide performance optimizations
+apply_performance_tweaks() {
+    info "Applying system performance optimizations..."
+
+    # 6a. Increase vm.max_map_count for game compatibility
+    info "Applying gaming and performance kernel parameters..."
+    cat > /etc/sysctl.d/99-gaming.conf <<EOF
+# Increase vm.max_map_count for modern games (SteamOS default)
+vm.max_map_count = 2147483642
+
+# Gaming performance optimizations
+vm.swappiness = 10
+vm.dirty_ratio = 15
+vm.dirty_background_ratio = 5
+vm.vfs_cache_pressure = 50
+
+# Network optimizations for gaming
+net.core.netdev_max_backlog = 16384
+net.core.somaxconn = 8192
+net.core.rmem_default = 1048576
+net.core.rmem_max = 16777216
+net.core.wmem_default = 1048576
+net.core.wmem_max = 16777216
+net.ipv4.tcp_rmem = 4096 1048576 2097152
+net.ipv4.tcp_wmem = 4096 65536 16777216
+net.ipv4.tcp_mtu_probing = 1
+
+# Reduce latency and improve responsiveness
+kernel.sched_autogroup_enabled = 0
+EOF
+    sysctl -p /etc/sysctl.d/99-gaming.conf
+    success "Gaming and performance optimizations applied."
+
+    # 6b. Enable hardware video acceleration globally
+    info "Enabling hardware video acceleration for better video performance..."
+    if ! grep -q "LIBVA_DRIVER_NAME" /etc/environment; then
+        cat >> /etc/environment <<EOF
+
+# Enable VA-API and VDPAU hardware acceleration for AMDGPU
+LIBVA_DRIVER_NAME=radeonsi
+VDPAU_DRIVER=radeonsi
+
+# Gaming optimizations
+RADV_PERFTEST=gpl,sam,nggc
+DXVK_HUD=compiler
+MANGOHUD=1
+EOF
+    fi
+    success "Hardware video acceleration and gaming environment variables enabled."
+
+    # 6c. Configure gaming-optimized I/O schedulers
+    info "Configuring I/O schedulers for optimal storage performance..."
+    cat > /etc/udev/rules.d/60-ioschedulers.rules <<EOF
+# Set deadline scheduler for SSDs and none for NVMe
+ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
+ACTION=="add|change", KERNEL=="nvme[0-9]*", ATTR{queue/scheduler}="none"
+EOF
+    success "I/O schedulers configured for optimal gaming performance."
+
+    # 6d. Configure CPU governor for performance
+    info "Installing and configuring CPU frequency scaling..."
+    dnf install -y kernel-tools
+    
+    cat > /etc/systemd/system/cpu-performance.service <<EOF
+[Unit]
+Description=Set CPU governor to performance
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    success "CPU performance governor configured."
+
+    # 6e. Configure limits for better gaming performance
+    info "Configuring system limits for better gaming compatibility..."
+    cat > /etc/security/limits.d/99-gaming.conf <<EOF
+# Increase limits for gaming
+* soft nofile 1048576
+* hard nofile 1048576
+* soft nproc 1048576
+* hard nproc 1048576
+* soft memlock unlimited
+* hard memlock unlimited
+EOF
+    success "System limits configured for gaming."
+}
+
+# --- Service Management Functions ---
+
+# 7. Enable and start necessary services
+enable_services() {
+    info "Enabling and starting system services..."
+
+    # Enable TLP for power management
+    info "Enabling TLP power management..."
+    systemctl enable --now tlp.service
+    
+    # Enable hardware fix services
+    info "Enabling hardware fix services..."
+    systemctl enable --now reload-hid_asus.service
+    systemctl enable --now cpu-performance.service
+    
+    # Configure gamemode for the primary user
+    PRIMARY_USER=$(get_real_user)
+    if [[ "$PRIMARY_USER" != "root" ]]; then
+        info "Configuring GameMode for user: $PRIMARY_USER"
+        
+        # Add user to gamemode group
+        usermod -a -G gamemode "$PRIMARY_USER"
+        
+        # Configure gamemode
+        sudo -u "$PRIMARY_USER" mkdir -p "/home/$PRIMARY_USER/.config/gamemode"
+        sudo -u "$PRIMARY_USER" cat > "/home/$PRIMARY_USER/.config/gamemode/gamemode.ini" <<EOF
+[general]
+renice=10
+desiredgov=performance
+igpu_desiredgov=performance
+igpu_power_threshold=0.3
+
+[gpu]
+apply_gpu_optimisations=accept-responsibility
+gpu_device=0
+amd_performance_level=high
+
+[custom]
+start=notify-send "GameMode" "Optimizations activated"
+end=notify-send "GameMode" "Optimizations deactivated"
+EOF
+        chown "$PRIMARY_USER:$PRIMARY_USER" "/home/$PRIMARY_USER/.config/gamemode/gamemode.ini"
+        success "GameMode configuration completed."
+    fi
+
+    success "All necessary services have been enabled and started."
+}
+
+# --- TDP Management Functions ---
+# Based on research from: https://github.com/Shahzebqazi/Asus-Z13-Flow-2025-PCMR
+
+# Install TDP management tools and configure profiles
+install_tdp_management() {
+    info "Installing TDP management for GZ302..."
+    
+    # Install dependencies for building ryzenadj
+    dnf install -y cmake pciutils-devel gcc gcc-c++ make git
+    
+    PRIMARY_USER=$(get_real_user)
+    if [[ "$PRIMARY_USER" == "root" ]]; then
+        warning "Cannot install ryzenadj without a non-root user."
+        return 1
+    fi
+    
+    # Build and install ryzenadj from source
+    sudo -u "$PRIMARY_USER" bash <<'EOF'
+set -e
+cd /tmp
+git clone https://github.com/FlyGoat/RyzenAdj.git
+cd RyzenAdj
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j$(nproc)
+EOF
+    
+    # Install ryzenadj system-wide
+    cp /tmp/RyzenAdj/build/ryzenadj /usr/local/bin/
+    chmod +x /usr/local/bin/ryzenadj
+    
+    # Cleanup
+    rm -rf /tmp/RyzenAdj
+    
+    # Create TDP management script (same as Ubuntu)
+    cat > /usr/local/bin/gz302-tdp <<'EOF'
+#!/bin/bash
 # GZ302 TDP Management Script for Fedora
 # Based on research from Shahzebqazi's Asus-Z13-Flow-2025-PCMR
 
@@ -505,10 +862,13 @@ CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
 
 # TDP Profiles (in mW)
 declare -A TDP_PROFILES
-TDP_PROFILES[gaming]="54000"      # Maximum performance for gaming
-TDP_PROFILES[performance]="45000" # High performance
-TDP_PROFILES[balanced]="35000"    # Balanced performance/efficiency
-TDP_PROFILES[efficient]="15000"   # Maximum efficiency
+TDP_PROFILES[max_performance]="65000"    # Absolute maximum (AC only, short bursts)
+TDP_PROFILES[gaming]="54000"             # Gaming optimized (AC recommended)
+TDP_PROFILES[performance]="45000"        # High performance (AC recommended)
+TDP_PROFILES[balanced]="35000"           # Balanced performance/efficiency
+TDP_PROFILES[efficient]="25000"          # Better efficiency, good performance
+TDP_PROFILES[power_saver]="15000"        # Maximum battery life
+TDP_PROFILES[ultra_low]="10000"          # Emergency battery extension
 
 # Create config directory
 mkdir -p "$TDP_CONFIG_DIR"

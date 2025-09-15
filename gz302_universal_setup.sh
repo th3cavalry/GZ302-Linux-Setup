@@ -1209,49 +1209,162 @@ setup_tdp_management() {
 
 TDP_CONFIG_DIR="/etc/gz302-tdp"
 CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
+AUTO_CONFIG_FILE="$TDP_CONFIG_DIR/auto-config"
+AC_PROFILE_FILE="$TDP_CONFIG_DIR/ac-profile"
+BATTERY_PROFILE_FILE="$TDP_CONFIG_DIR/battery-profile"
 
-# TDP Profiles (in mW)
+# TDP Profiles (in mW) - Optimized for GZ302 AMD Ryzen AI 395+
 declare -A TDP_PROFILES
-TDP_PROFILES[gaming]="54000"      # Maximum performance for gaming
-TDP_PROFILES[performance]="45000" # High performance
-TDP_PROFILES[balanced]="35000"    # Balanced performance/efficiency
-TDP_PROFILES[efficient]="15000"   # Maximum efficiency
+TDP_PROFILES[max_performance]="65000"    # Absolute maximum (AC only, short bursts)
+TDP_PROFILES[gaming]="54000"             # Gaming optimized (AC recommended)
+TDP_PROFILES[performance]="45000"        # High performance (AC recommended)
+TDP_PROFILES[balanced]="35000"           # Balanced performance/efficiency
+TDP_PROFILES[efficient]="25000"          # Better efficiency, good performance
+TDP_PROFILES[power_saver]="15000"        # Maximum battery life
+TDP_PROFILES[ultra_low]="10000"          # Emergency battery extension
 
 # Create config directory
 mkdir -p "$TDP_CONFIG_DIR"
 
 show_usage() {
-    echo "Usage: gz302-tdp [PROFILE|status|list]"
+    echo "Usage: gz302-tdp [PROFILE|status|list|auto|config]"
     echo ""
     echo "Profiles:"
-    echo "  gaming       - 54W maximum performance (AC power recommended)"
-    echo "  performance  - 45W high performance"
-    echo "  balanced     - 35W balanced (default)"
-    echo "  efficient    - 15W maximum efficiency"
+    echo "  max_performance  - 65W absolute maximum (AC only, short bursts)"
+    echo "  gaming           - 54W gaming optimized (AC recommended)"
+    echo "  performance      - 45W high performance (AC recommended)"
+    echo "  balanced         - 35W balanced performance/efficiency (default)"
+    echo "  efficient        - 25W better efficiency, good performance"
+    echo "  power_saver      - 15W maximum battery life"
+    echo "  ultra_low        - 10W emergency battery extension"
     echo ""
     echo "Commands:"
-    echo "  status       - Show current TDP and power source"
-    echo "  list         - List available profiles"
+    echo "  status           - Show current TDP and power source"
+    echo "  list             - List available profiles"
+    echo "  auto             - Enable/disable automatic profile switching"
+    echo "  config           - Configure automatic profile preferences"
 }
 
 get_battery_status() {
-    if [ -f /sys/class/power_supply/ADP1/online ]; then
-        if [ "$(cat /sys/class/power_supply/ADP1/online)" = "1" ]; then
-            echo "AC"
-        else
-            echo "Battery"
+    # Try multiple methods to detect AC adapter status
+    
+    # Method 1: Check common AC adapter names
+    for adapter in ADP1 ADP0 ACAD AC0 AC; do
+        if [ -f "/sys/class/power_supply/$adapter/online" ]; then
+            if [ "$(cat /sys/class/power_supply/$adapter/online 2>/dev/null)" = "1" ]; then
+                echo "AC"
+                return 0
+            else
+                echo "Battery"
+                return 0
+            fi
         fi
-    else
-        echo "Unknown"
+    done
+    
+    # Method 2: Check all power supplies for AC adapter type
+    if [ -d /sys/class/power_supply ]; then
+        for ps in /sys/class/power_supply/*; do
+            if [ -d "$ps" ] && [ -f "$ps/type" ]; then
+                type=$(cat "$ps/type" 2>/dev/null)
+                if [ "$type" = "Mains" ] || [ "$type" = "ADP" ]; then
+                    if [ -f "$ps/online" ]; then
+                        if [ "$(cat "$ps/online" 2>/dev/null)" = "1" ]; then
+                            echo "AC"
+                            return 0
+                        else
+                            echo "Battery"
+                            return 0
+                        fi
+                    fi
+                fi
+            fi
+        done
     fi
+    
+    # Method 3: Use upower if available
+    if command -v upower >/dev/null 2>&1; then
+        local ac_status=$(upower -i $(upower -e | grep -E 'ADP|ACA|AC') 2>/dev/null | grep -i "online" | grep -i "true")
+        if [ -n "$ac_status" ]; then
+            echo "AC"
+            return 0
+        else
+            local ac_devices=$(upower -e | grep -E 'ADP|ACA|AC' 2>/dev/null)
+            if [ -n "$ac_devices" ]; then
+                echo "Battery"
+                return 0
+            fi
+        fi
+    fi
+    
+    # Method 4: Use acpi if available
+    if command -v acpi >/dev/null 2>&1; then
+        local ac_status=$(acpi -a 2>/dev/null | grep -i "on-line\|online")
+        if [ -n "$ac_status" ]; then
+            echo "AC"
+            return 0
+        else
+            local ac_info=$(acpi -a 2>/dev/null)
+            if [ -n "$ac_info" ]; then
+                echo "Battery"
+                return 0
+            fi
+        fi
+    fi
+    
+    echo "Unknown"
 }
 
 get_battery_percentage() {
-    if [ -f /sys/class/power_supply/BAT0/capacity ]; then
-        cat /sys/class/power_supply/BAT0/capacity
-    else
-        echo "N/A"
+    # Try multiple methods to get battery percentage
+    
+    # Method 1: Check common battery names
+    for battery in BAT0 BAT1 BATT; do
+        if [ -f "/sys/class/power_supply/$battery/capacity" ]; then
+            local capacity=$(cat "/sys/class/power_supply/$battery/capacity" 2>/dev/null)
+            if [ -n "$capacity" ] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
+                echo "$capacity"
+                return 0
+            fi
+        fi
+    done
+    
+    # Method 2: Check all power supplies for Battery type
+    if [ -d /sys/class/power_supply ]; then
+        for ps in /sys/class/power_supply/*; do
+            if [ -d "$ps" ] && [ -f "$ps/type" ]; then
+                type=$(cat "$ps/type" 2>/dev/null)
+                if [ "$type" = "Battery" ]; then
+                    if [ -f "$ps/capacity" ]; then
+                        local capacity=$(cat "$ps/capacity" 2>/dev/null)
+                        if [ -n "$capacity" ] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
+                            echo "$capacity"
+                            return 0
+                        fi
+                    fi
+                fi
+            fi
+        done
     fi
+    
+    # Method 3: Use upower if available
+    if command -v upower >/dev/null 2>&1; then
+        local capacity=$(upower -i $(upower -e | grep 'BAT') 2>/dev/null | grep -E "percentage" | grep -o '[0-9]*')
+        if [ -n "$capacity" ] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
+            echo "$capacity"
+            return 0
+        fi
+    fi
+    
+    # Method 4: Use acpi if available
+    if command -v acpi >/dev/null 2>&1; then
+        local capacity=$(acpi -b 2>/dev/null | grep -o '[0-9]\+%' | head -1 | tr -d '%')
+        if [ -n "$capacity" ] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
+            echo "$capacity"
+            return 0
+        fi
+    fi
+    
+    echo "N/A"
 }
 
 set_tdp_profile() {
@@ -1260,19 +1373,121 @@ set_tdp_profile() {
     
     if [ -z "$tdp_value" ]; then
         echo "Error: Unknown profile '$profile'"
+        echo "Use 'gz302-tdp list' to see available profiles"
         return 1
     fi
     
     echo "Setting TDP profile: $profile ($(($tdp_value / 1000))W)"
     
-    # Apply TDP settings using ryzenadj
-    ryzenadj --stapm-limit="$tdp_value" --fast-limit="$tdp_value" --slow-limit="$tdp_value"
+    # Check if we're on AC power for high-power profiles
+    local power_source=$(get_battery_status)
+    if [ "$power_source" = "Battery" ] && [ "$tdp_value" -gt 35000 ]; then
+        echo "Warning: High power profile ($profile) selected while on battery power"
+        echo "This may cause rapid battery drain. Consider using 'balanced' or lower profiles."
+        read -p "Continue anyway? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Operation cancelled"
+            return 1
+        fi
+    fi
     
-    if [ $? -eq 0 ]; then
+    # Try multiple methods to apply TDP settings
+    local success=false
+    
+    # Method 1: Try ryzenadj first
+    if command -v ryzenadj >/dev/null 2>&1; then
+        echo "Attempting to apply TDP using ryzenadj..."
+        if ryzenadj --stapm-limit="$tdp_value" --fast-limit="$tdp_value" --slow-limit="$tdp_value" >/dev/null 2>&1; then
+            success=true
+            echo "TDP applied successfully using ryzenadj"
+        else
+            echo "ryzenadj failed, checking for common issues..."
+            
+            # Check for secure boot issues
+            if dmesg | grep -i "secure boot" >/dev/null 2>&1; then
+                echo "Secure boot may be preventing direct hardware access"
+                echo "Consider disabling secure boot in BIOS for full TDP control"
+            fi
+            
+            # Check for permissions
+            if [ ! -w /dev/mem ] 2>/dev/null; then
+                echo "Insufficient permissions for direct memory access"
+            fi
+            
+            echo "Trying alternative methods..."
+        fi
+    else
+        echo "ryzenadj not found, trying alternative methods..."
+    fi
+    
+    # Method 2: Try power profiles daemon if available
+    if [ "$success" = false ] && command -v powerprofilesctl >/dev/null 2>&1; then
+        echo "Attempting to use power-profiles-daemon..."
+        case "$profile" in
+            max_performance|gaming|performance)
+                if powerprofilesctl set performance >/dev/null 2>&1; then
+                    echo "Set system power profile to performance mode"
+                    success=true
+                fi
+                ;;
+            balanced|efficient)
+                if powerprofilesctl set balanced >/dev/null 2>&1; then
+                    echo "Set system power profile to balanced mode"
+                    success=true
+                fi
+                ;;
+            power_saver|ultra_low)
+                if powerprofilesctl set power-saver >/dev/null 2>&1; then
+                    echo "Set system power profile to power-saver mode"
+                    success=true
+                fi
+                ;;
+        esac
+    fi
+    
+    # Method 3: Try cpupower if available (frequency scaling)
+    if [ "$success" = false ] && command -v cpupower >/dev/null 2>&1; then
+        echo "Attempting to use cpupower for frequency scaling..."
+        case "$profile" in
+            max_performance|gaming|performance)
+                if cpupower frequency-set -g performance >/dev/null 2>&1; then
+                    echo "Set CPU governor to performance"
+                    success=true
+                fi
+                ;;
+            power_saver|ultra_low)
+                if cpupower frequency-set -g powersave >/dev/null 2>&1; then
+                    echo "Set CPU governor to powersave"
+                    success=true
+                fi
+                ;;
+            *)
+                if cpupower frequency-set -g ondemand >/dev/null 2>&1 || cpupower frequency-set -g schedutil >/dev/null 2>&1; then
+                    echo "Set CPU governor to dynamic scaling"
+                    success=true
+                fi
+                ;;
+        esac
+    fi
+    
+    if [ "$success" = true ]; then
         echo "$profile" > "$CURRENT_PROFILE_FILE"
         echo "TDP profile '$profile' applied successfully"
+        
+        # Store timestamp and power source for automatic switching
+        echo "$(date +%s)" > "$TDP_CONFIG_DIR/last-change"
+        echo "$power_source" > "$TDP_CONFIG_DIR/last-power-source"
+        
+        return 0
     else
-        echo "Error: Failed to apply TDP profile"
+        echo "Error: Failed to apply TDP profile using any available method"
+        echo ""
+        echo "Troubleshooting steps:"
+        echo "1. Ensure you're running as root (sudo)"
+        echo "2. Check if secure boot is disabled in BIOS"
+        echo "3. Verify ryzenadj is properly installed"
+        echo "4. Try rebooting and running the command again"
         return 1
     fi
 }
@@ -1298,15 +1513,109 @@ show_status() {
 
 list_profiles() {
     echo "Available TDP profiles:"
-    for profile in "${!TDP_PROFILES[@]}"; do
-        local tdp_watts=$(( ${TDP_PROFILES[$profile]} / 1000 ))
-        echo "  $profile: ${tdp_watts}W"
+    for profile in max_performance gaming performance balanced efficient power_saver ultra_low; do
+        if [ -n "${TDP_PROFILES[$profile]}" ]; then
+            local tdp_watts=$(( ${TDP_PROFILES[$profile]} / 1000 ))
+            echo "  $profile: ${tdp_watts}W"
+        fi
     done
+}
+
+# Configuration management functions
+configure_auto_switching() {
+    echo "Configuring automatic TDP profile switching..."
+    echo ""
+    
+    local auto_enabled="false"
+    read -p "Enable automatic profile switching based on power source? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        auto_enabled="true"
+        
+        echo ""
+        echo "Select AC power profile (when plugged in):"
+        list_profiles
+        echo ""
+        read -p "AC profile [gaming]: " ac_profile
+        ac_profile=${ac_profile:-gaming}
+        
+        if [ -z "${TDP_PROFILES[$ac_profile]}" ]; then
+            echo "Invalid profile, using 'gaming'"
+            ac_profile="gaming"
+        fi
+        
+        echo ""
+        echo "Select battery profile (when on battery):"
+        list_profiles
+        echo ""
+        read -p "Battery profile [efficient]: " battery_profile
+        battery_profile=${battery_profile:-efficient}
+        
+        if [ -z "${TDP_PROFILES[$battery_profile]}" ]; then
+            echo "Invalid profile, using 'efficient'"
+            battery_profile="efficient"
+        fi
+        
+        # Save configuration
+        echo "$auto_enabled" > "$AUTO_CONFIG_FILE"
+        echo "$ac_profile" > "$AC_PROFILE_FILE"
+        echo "$battery_profile" > "$BATTERY_PROFILE_FILE"
+        
+        echo ""
+        echo "Automatic switching configured:"
+        echo "  AC power: $ac_profile"
+        echo "  Battery: $battery_profile"
+        echo ""
+        echo "Starting automatic switching service..."
+        systemctl enable gz302-tdp-auto.service >/dev/null 2>&1
+        systemctl start gz302-tdp-auto.service >/dev/null 2>&1
+    else
+        echo "false" > "$AUTO_CONFIG_FILE"
+        systemctl disable gz302-tdp-auto.service >/dev/null 2>&1
+        systemctl stop gz302-tdp-auto.service >/dev/null 2>&1
+        echo "Automatic switching disabled"
+    fi
+}
+
+auto_switch_profile() {
+    # Check if auto switching is enabled
+    if [ -f "$AUTO_CONFIG_FILE" ] && [ "$(cat "$AUTO_CONFIG_FILE" 2>/dev/null)" = "true" ]; then
+        local current_power=$(get_battery_status)
+        local last_power_source=""
+        
+        if [ -f "$TDP_CONFIG_DIR/last-power-source" ]; then
+            last_power_source=$(cat "$TDP_CONFIG_DIR/last-power-source" 2>/dev/null)
+        fi
+        
+        # Only switch if power source changed
+        if [ "$current_power" != "$last_power_source" ]; then
+            case "$current_power" in
+                "AC")
+                    if [ -f "$AC_PROFILE_FILE" ]; then
+                        local ac_profile=$(cat "$AC_PROFILE_FILE" 2>/dev/null)
+                        if [ -n "$ac_profile" ] && [ -n "${TDP_PROFILES[$ac_profile]}" ]; then
+                            echo "Power source changed to AC, switching to profile: $ac_profile"
+                            set_tdp_profile "$ac_profile"
+                        fi
+                    fi
+                    ;;
+                "Battery")
+                    if [ -f "$BATTERY_PROFILE_FILE" ]; then
+                        local battery_profile=$(cat "$BATTERY_PROFILE_FILE" 2>/dev/null)
+                        if [ -n "$battery_profile" ] && [ -n "${TDP_PROFILES[$battery_profile]}" ]; then
+                            echo "Power source changed to Battery, switching to profile: $battery_profile"
+                            set_tdp_profile "$battery_profile"
+                        fi
+                    fi
+                    ;;
+            esac
+        fi
+    fi
 }
 
 # Main script logic
 case "$1" in
-    gaming|performance|balanced|efficient)
+    max_performance|gaming|performance|balanced|efficient|power_saver|ultra_low)
         set_tdp_profile "$1"
         ;;
     status)
@@ -1314,6 +1623,12 @@ case "$1" in
         ;;
     list)
         list_profiles
+        ;;
+    auto)
+        auto_switch_profile
+        ;;
+    config)
+        configure_auto_switching
         ;;
     "")
         show_usage
@@ -1333,6 +1648,7 @@ EOF
 [Unit]
 Description=GZ302 Automatic TDP Management
 After=multi-user.target
+Wants=gz302-tdp-monitor.service
 
 [Service]
 Type=oneshot
@@ -1342,8 +1658,55 @@ RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target
 EOF
+
+    # Create systemd service for power monitoring
+    cat > /etc/systemd/system/gz302-tdp-monitor.service <<EOF
+[Unit]
+Description=GZ302 TDP Power Source Monitor
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gz302-tdp-monitor
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Create power monitoring script
+    cat > /usr/local/bin/gz302-tdp-monitor <<'MONITOR_EOF'
+#!/bin/bash
+# GZ302 TDP Power Source Monitor
+# Monitors power source changes and automatically switches TDP profiles
+
+while true; do
+    /usr/local/bin/gz302-tdp auto
+    sleep 10  # Check every 10 seconds
+done
+MONITOR_EOF
+
+    chmod +x /usr/local/bin/gz302-tdp-monitor
     
     systemctl enable gz302-tdp-auto.service
+    
+    echo ""
+    info "TDP management installation complete!"
+    echo ""
+    echo "Would you like to configure automatic TDP profile switching now?"
+    echo "This allows the system to automatically change performance profiles"
+    echo "when you plug/unplug the AC adapter."
+    echo ""
+    read -p "Configure automatic switching? (Y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        /usr/local/bin/gz302-tdp config
+    else
+        echo "You can configure automatic switching later using: gz302-tdp config"
+    fi
+    
+    echo ""
     success "TDP management installed. Use 'gz302-tdp' command to manage power profiles."
 }
 

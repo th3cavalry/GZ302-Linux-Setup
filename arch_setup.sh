@@ -546,46 +546,486 @@ install_tdp_management() {
     # Create TDP management script
     cat > /usr/local/bin/gz302-tdp <<'EOF'
 #!/bin/bash
+EOF
+
+    mkdir -p /etc/NetworkManager/conf.d/
+    cat > /etc/NetworkManager/conf.d/99-wifi-powersave-off.conf <<EOF
+[connection]
+wifi.powersave = 2
+
+[device]
+wifi.scan-rand-mac-address=no
+# Additional NetworkManager optimizations
+wifi.backend=wpa_supplicant
+
+[main]
+# Reduce scan frequency for stability
+wifi.scan-rand-mac-address=no
+EOF
+
+    # Add additional udev rules for Wi-Fi stability
+    cat > /etc/udev/rules.d/99-wifi-powersave.rules <<EOF
+# Disable Wi-Fi power saving for MediaTek MT7925e
+ACTION=="add", SUBSYSTEM=="net", KERNEL=="wlan*", RUN+="/usr/bin/iw dev \$name set power_save off"
+EOF
+
+    success "Enhanced Wi-Fi fixes for MediaTek MT7925 applied."
+
+    # 4b. Fix touchpad detection and sensitivity
+    info "Applying touchpad detection and sensitivity fixes..."
+    cat > /etc/udev/hwdb.d/61-asus-touchpad.hwdb <<EOF
+# ASUS ROG Flow Z13 folio touchpad override
+# Forces the device to be recognized as a multi-touch touchpad
+evdev:input:b0003v0b05p1a30*
+ ENV{ID_INPUT_TOUCHPAD}="1"
+ ENV{ID_INPUT_MULTITOUCH}="1"
+ ENV{ID_INPUT_MOUSE}="0"
+ EVDEV_ABS_00=::100
+ EVDEV_ABS_01=::100
+ EVDEV_ABS_35=::100
+ EVDEV_ABS_36=::100
+EOF
+
+    # Create systemd service to reload hid_asus module post-boot
+    info "Creating touchpad fix service..."
+    cat > /etc/systemd/system/reload-hid_asus.service <<EOF
+[Unit]
+Description=Reload hid_asus module with correct options for Z13 Touchpad
+After=multi-user.target
+ConditionKernelModule=hid_asus
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/modprobe -r hid_asus
+ExecStart=/usr/bin/modprobe hid_asus
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # 4c. Fix audio issues and enable all audio devices
+    info "Applying audio fixes for GZ302..."
+    cat > /etc/modprobe.d/alsa-gz302.conf <<EOF
+# Fix audio issues on ROG Flow Z13 GZ302
+options snd-hda-intel probe_mask=1
+options snd-hda-intel model=asus-zenbook
+EOF
+
+    # 4d. Fix AMD GPU driver issues
+    info "Applying AMD GPU optimizations..."
+    cat > /etc/modprobe.d/amdgpu-gz302.conf <<EOF
+# AMD GPU optimizations for GZ302
+options amdgpu dc=1
+options amdgpu gpu_recovery=1
+options amdgpu ppfeaturemask=0xffffffff
+options amdgpu runpm=1
+EOF
+
+    # 4e. Fix thermal throttling and power management
+    info "Applying thermal and power management fixes..."
+    cat > /etc/udev/rules.d/50-gz302-thermal.rules <<EOF
+# Thermal management for GZ302
+SUBSYSTEM=="thermal", KERNEL=="thermal_zone*", ATTR{type}=="x86_pkg_temp", ATTR{policy}="step_wise"
+SUBSYSTEM=="thermal", KERNEL=="thermal_zone*", ATTR{type}=="acpi", ATTR{policy}="step_wise"
+EOF
+
+    # 4f. Fix camera issues for GZ302
+    # Based on research from: https://github.com/Shahzebqazi/Asus-Z13-Flow-2025-PCMR
+    info "Applying camera fixes for GZ302..."
+    cat > /etc/modprobe.d/uvcvideo-gz302.conf <<EOF
+# Camera fixes for ASUS ROG Flow Z13 GZ302
+# Improved UVC video driver parameters for better compatibility
+options uvcvideo quirks=0x80
+options uvcvideo nodrop=1
+EOF
+
+    # Add camera permissions for user access
+    cat > /etc/udev/rules.d/99-gz302-camera.rules <<EOF
+# Camera access rules for GZ302
+SUBSYSTEM=="video4linux", GROUP="video", MODE="0664"
+KERNEL=="video[0-9]*", SUBSYSTEM=="video4linux", SUBSYSTEMS=="usb", ATTRS{idVendor}=="*", ATTRS{idProduct}=="*", GROUP="video", MODE="0664"
+EOF
+
+    info "Updating system hardware database..."
+    systemd-hwdb update
+    success "All hardware fixes applied."
+}
+
+# --- Gaming Software Stack Functions ---
+
+# 5. Install and configure the gaming software stack
+install_gaming_stack() {
+    info "Installing and configuring the gaming software stack..."
+    info "This will install Steam, Lutris, gaming tools, and compatibility layers..."
+
+    # 5a. Enable multilib repository
+    info "Enabling multilib repository for 32-bit support..."
+    if grep -q "^\s*#\s*\[multilib\]" /etc/pacman.conf; then
+        sed -i '/\[multilib\]/,/Include/ s/^#//' /etc/pacman.conf
+        pacman -Sy
+        success "Multilib repository enabled."
+    else
+        success "Multilib repository already enabled or not found in standard format."
+    fi
+
+    # 5b. Install Steam, Lutris, GameMode, and dependencies
+    info "Installing Steam, Lutris, GameMode, and essential libraries..."
+    info "This may take several minutes depending on your internet connection..."
+    pacman -S --noconfirm --needed steam lutris gamemode lib32-gamemode \
+        vulkan-radeon lib32-vulkan-radeon \
+        gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav
+    success "Core gaming applications installed."
+
+    # 5c. Install additional gaming tools and optimizations
+    info "Installing additional gaming tools and performance utilities..."
+    pacman -S --noconfirm --needed \
+        mangohud goverlay \
+        wine-staging winetricks \
+        corectrl \
+        mesa-utils vulkan-tools \
+        lib32-mesa lib32-vulkan-radeon \
+        pipewire pipewire-pulse pipewire-jack lib32-pipewire
+    success "Additional gaming tools installed."
+
+    # Install ProtonUp-Qt via AUR (requires yay to be available)
+    if command -v yay &> /dev/null; then
+        info "Installing ProtonUp-Qt for easy Proton version management..."
+        PRIMARY_USER=$(logname 2>/dev/null || echo $SUDO_USER)
+        if [[ -z "$PRIMARY_USER" ]] || [[ "$PRIMARY_USER" == "root" ]]; then
+            warning "Cannot install ProtonUp-Qt without a non-root user. Skipping."
+        else
+            info "Installing ProtonUp-Qt via yay (this may take a few minutes)..."
+            sudo -u "$PRIMARY_USER" -H --set-home env -i HOME="/home/$PRIMARY_USER" USER="$PRIMARY_USER" PATH="/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl" yay -S --noconfirm --needed protonup-qt
+            success "ProtonUp-Qt installed."
+        fi
+    else
+        warning "AUR helper not available. ProtonUp-Qt installation skipped."
+        warning "Please install ProtonUp-Qt manually after setting up an AUR helper."
+    fi
+
+    # 5d. Install Proton-GE
+    check_and_install_proton_ge() {
+        local user="$1"
+        local user_home="/home/$user"
+        local compat_dir="$user_home/.steam/root/compatibilitytools.d"
+        
+        # Check if any Proton-GE is already installed
+        if [[ -d "$compat_dir" ]] && ls "$compat_dir"/GE-Proton* &>/dev/null; then
+            local installed_versions=($(ls -d "$compat_dir"/GE-Proton* 2>/dev/null | xargs -n1 basename))
+            info "Found existing Proton-GE installations: ${installed_versions[*]}"
+            
+            # Get the latest available version
+            local latest_release=$(curl -s "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest" | grep '"tag_name":' | cut -d '"' -f 4)
+            if [[ -n "$latest_release" ]]; then
+                local latest_folder="GE-Proton${latest_release#GE-Proton}"
+                if [[ " ${installed_versions[*]} " =~ " ${latest_folder} " ]]; then
+                    success "Latest Proton-GE ($latest_release) is already installed. Skipping download."
+                    return 0
+                else
+                    info "Newer Proton-GE version available: $latest_release"
+                fi
+            fi
+        fi
+        
+        # Download and install latest Proton-GE
+        sudo -u "$user" -H --set-home env -i HOME="$user_home" USER="$user" PATH="/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl" bash <<'EOF'
+set -e
+info() { echo -e "\033[0;34m[INFO]\033[0m $1"; }
+success() { echo -e "\033[0;32m[SUCCESS]\033[0m $1"; }
+warning() { echo -e "\033[1;33m[WARNING]\033[0m $1"; }
+
+COMPAT_DIR="$HOME/.steam/root/compatibilitytools.d"
+mkdir -p "$COMPAT_DIR"
+
+info "Fetching latest Proton-GE release information..."
+LATEST_URL=$(curl -s "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest" | grep "browser_download_url.*\.tar\.gz" | cut -d '"' -f 4)
+if [[ -n "$LATEST_URL" ]]; then
+    RELEASE_NAME=$(echo "$LATEST_URL" | sed 's/.*\/\([^\/]*\)\.tar\.gz/\1/')
+    info "Downloading Proton-GE: $RELEASE_NAME..."
+    info "This may take several minutes depending on your internet connection..."
+    cd "$COMPAT_DIR"
+    curl -L "$LATEST_URL" | tar -xz
+    success "Proton-GE ($RELEASE_NAME) installed successfully."
+else
+    warning "Could not find the latest Proton-GE release. Please use ProtonUp-Qt to install it after rebooting."
+fi
+EOF
+    }
+    
+    info "Installing the latest version of Proton-GE..."
+    # This requires a non-root user to install into their home directory.
+    # We find the primary user to run this command.
+    PRIMARY_USER=$(logname 2>/dev/null || echo $SUDO_USER)
+    if [[ -z "$PRIMARY_USER" ]] || [[ "$PRIMARY_USER" == "root" ]]; then
+        warning "Could not determine a non-root user. Skipping Proton-GE installation."
+        warning "Please run the Proton-GE installation part of the script manually as a user."
+        warning "Alternatively, you can use ProtonUp-Qt to install Proton versions after rebooting."
+    else
+        info "Installing Proton-GE for user: $PRIMARY_USER"
+        check_and_install_proton_ge "$PRIMARY_USER"
+        success "Proton-GE installation completed."
+        info "You can also use ProtonUp-Qt GUI to manage Proton versions going forward."
+    fi
+}
+
+# --- Optional AUR Helper Installation ---
+
+# Check if yay is already installed
+check_yay_installed() {
+    if command -v yay &> /dev/null; then
+        local yay_version=$(yay --version | head -n1 | awk '{print $2}')
+        success "yay is already installed (version: $yay_version). Skipping installation."
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Optional: Install AUR helper
+install_aur_helper() {
+    if check_yay_installed; then
+        return 0
+    fi
+    
+    echo -e "${C_YELLOW}[OPTIONAL]${C_NC} Do you want to install an AUR helper (yay)? [y/N] "
+    read -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        info "Installing AUR helper 'yay'..."
+        info "This will be compiled from source and may take a few minutes..."
+        PRIMARY_USER=$(logname 2>/dev/null || echo $SUDO_USER)
+        if [[ -z "$PRIMARY_USER" ]] || [[ "$PRIMARY_USER" == "root" ]]; then
+            warning "Cannot install AUR helper without a non-root user. Skipping."
+        else
+            sudo -u "$PRIMARY_USER" -H --set-home env -i HOME="/home/$PRIMARY_USER" USER="$PRIMARY_USER" PATH="/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl" bash <<'EOF'
+set -e
+info() { echo -e "\033[0;34m[INFO]\033[0m $1"; }
+cd /tmp
+info "Cloning yay-bin from AUR..."
+git clone https://aur.archlinux.org/yay-bin.git
+cd yay-bin
+info "Building and installing yay..."
+makepkg -si --noconfirm
+cd /
+rm -rf /tmp/yay-bin
+EOF
+            success "AUR helper 'yay' installed."
+        fi
+    fi
+}
+
+# --- Performance Tuning Functions ---
+
+# 6. Apply system-wide performance optimizations
+apply_performance_tweaks() {
+    info "Applying system-wide performance tweaks..."
+    info "These optimizations will improve gaming performance and system responsiveness..."
+
+    # 6a. Increase vm.max_map_count for game compatibility
+    info "Applying gaming and performance kernel parameters..."
+    cat > /etc/sysctl.d/99-gaming.conf <<EOF
+# Increase vm.max_map_count for modern games (SteamOS default)
+vm.max_map_count = 2147483642
+
+# Gaming performance optimizations
+vm.swappiness = 10
+vm.dirty_ratio = 15
+vm.dirty_background_ratio = 5
+vm.vfs_cache_pressure = 50
+
+# Network optimizations for gaming
+net.core.netdev_max_backlog = 16384
+net.core.somaxconn = 8192
+net.core.rmem_default = 1048576
+net.core.rmem_max = 16777216
+net.core.wmem_default = 1048576
+net.core.wmem_max = 16777216
+net.ipv4.tcp_rmem = 4096 1048576 2097152
+net.ipv4.tcp_wmem = 4096 65536 16777216
+net.ipv4.tcp_mtu_probing = 1
+
+# Reduce latency and improve responsiveness
+kernel.sched_autogroup_enabled = 0
+EOF
+    sysctl -p /etc/sysctl.d/99-gaming.conf
+    success "Gaming and performance optimizations applied."
+
+    # 6b. Enable hardware video acceleration globally
+    info "Enabling hardware video acceleration for better video performance..."
+    if ! grep -q "LIBVA_DRIVER_NAME" /etc/environment; then
+        cat >> /etc/environment <<EOF
+# Enable VA-API and VDPAU hardware acceleration for AMDGPU
+LIBVA_DRIVER_NAME=radeonsi
+VDPAU_DRIVER=radeonsi
+
+# Gaming optimizations
+RADV_PERFTEST=gpl,sam,nggc
+DXVK_HUD=compiler
+MANGOHUD=1
+EOF
+    fi
+    success "Hardware video acceleration and gaming environment variables enabled."
+
+    # 6c. Configure gaming-optimized I/O schedulers
+    info "Configuring I/O schedulers for optimal storage performance..."
+    cat > /etc/udev/rules.d/60-ioschedulers.rules <<EOF
+# Set deadline scheduler for SSDs and none for NVMe
+ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
+ACTION=="add|change", KERNEL=="nvme[0-9]*", ATTR{queue/scheduler}="none"
+EOF
+    success "I/O schedulers configured for optimal gaming performance."
+
+    # 6d. Configure CPU governor and power management
+    info "Setting up CPU performance profiles for gaming..."
+    cat > /etc/systemd/system/cpu-performance.service <<EOF
+[Unit]
+Description=Set CPU governor to performance on AC power
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # 6e. Configure limits for better gaming performance
+    info "Configuring system limits for better gaming compatibility..."
+    cat > /etc/security/limits.d/99-gaming.conf <<EOF
+# Increase limits for gaming
+* soft nofile 1048576
+* hard nofile 1048576
+* soft nproc 1048576
+* hard nproc 1048576
+* soft memlock unlimited
+* hard memlock unlimited
+EOF
+    success "System limits configured for gaming."
+}
+
+# --- TDP Management Functions ---
+# Based on research from: https://github.com/Shahzebqazi/Asus-Z13-Flow-2025-PCMR
+
+# Install TDP management tools and configure profiles
+install_tdp_management() {
+    info "Installing TDP management for GZ302..."
+    
+    # Install ryzenadj for AMD TDP control
+    sudo -u "$PRIMARY_USER" yay -S --noconfirm ryzenadj-git
+    
+    # Create TDP management script
+    cat > /usr/local/bin/gz302-tdp <<'EOF'
+#!/bin/bash
 # GZ302 TDP Management Script
 # Based on research from Shahzebqazi's Asus-Z13-Flow-2025-PCMR
 
 TDP_CONFIG_DIR="/etc/gz302-tdp"
 CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
+AUTO_CONFIG_FILE="$TDP_CONFIG_DIR/auto-config"
+AC_PROFILE_FILE="$TDP_CONFIG_DIR/ac-profile"
+BATTERY_PROFILE_FILE="$TDP_CONFIG_DIR/battery-profile"
 
 # TDP Profiles (in mW)
 declare -A TDP_PROFILES
-TDP_PROFILES[gaming]="54000"      # Maximum performance for gaming
-TDP_PROFILES[performance]="45000" # High performance
-TDP_PROFILES[balanced]="35000"    # Balanced performance/efficiency
-TDP_PROFILES[efficient]="15000"   # Maximum efficiency
+TDP_PROFILES[max_performance]="65000"    # Absolute maximum (AC only, short bursts)
+TDP_PROFILES[gaming]="54000"             # Gaming optimized (AC recommended)
+TDP_PROFILES[performance]="45000"        # High performance (AC recommended)
+TDP_PROFILES[balanced]="35000"           # Balanced performance/efficiency
+TDP_PROFILES[efficient]="25000"          # Better efficiency, good performance
+TDP_PROFILES[power_saver]="15000"        # Maximum battery life
+TDP_PROFILES[ultra_low]="10000"          # Emergency battery extension
 
 # Create config directory
 mkdir -p "$TDP_CONFIG_DIR"
 
 show_usage() {
-    echo "Usage: gz302-tdp [PROFILE|status|list]"
+    echo "Usage: gz302-tdp [PROFILE|status|list|auto|config]"
     echo ""
     echo "Profiles:"
-    echo "  gaming       - 54W maximum performance (AC power recommended)"
-    echo "  performance  - 45W high performance"
-    echo "  balanced     - 35W balanced (default)"
-    echo "  efficient    - 15W maximum efficiency"
+    echo "  max_performance  - 65W absolute maximum (AC only, short bursts)"
+    echo "  gaming           - 54W gaming optimized (AC recommended)"
+    echo "  performance      - 45W high performance (AC recommended)"
+    echo "  balanced         - 35W balanced performance/efficiency (default)"
+    echo "  efficient        - 25W better efficiency, good performance"
+    echo "  power_saver      - 15W maximum battery life"
+    echo "  ultra_low        - 10W emergency battery extension"
     echo ""
     echo "Commands:"
-    echo "  status       - Show current TDP and power source"
-    echo "  list         - List available profiles"
+    echo "  status           - Show current TDP and power source"
+    echo "  list             - List available profiles"
+    echo "  auto             - Enable/disable automatic profile switching"
+    echo "  config           - Configure automatic profile preferences"
 }
 
 get_battery_status() {
-    if [ -f /sys/class/power_supply/ADP1/online ]; then
-        if [ "$(cat /sys/class/power_supply/ADP1/online)" = "1" ]; then
-            echo "AC"
-        else
-            echo "Battery"
+    # Try multiple methods to detect AC adapter status
+    
+    # Method 1: Check common AC adapter names
+    for adapter in ADP1 ADP0 ACAD AC0 AC; do
+        if [ -f "/sys/class/power_supply/$adapter/online" ]; then
+            if [ "$(cat /sys/class/power_supply/$adapter/online 2>/dev/null)" = "1" ]; then
+                echo "AC"
+                return 0
+            else
+                echo "Battery"
+                return 0
+            fi
         fi
-    else
-        echo "Unknown"
+    done
+    
+    # Method 2: Check all power supplies for AC adapter type
+    if [ -d /sys/class/power_supply ]; then
+        for ps in /sys/class/power_supply/*; do
+            if [ -d "$ps" ] && [ -f "$ps/type" ]; then
+                type=$(cat "$ps/type" 2>/dev/null)
+                if [ "$type" = "Mains" ] || [ "$type" = "ADP" ]; then
+                    if [ -f "$ps/online" ]; then
+                        if [ "$(cat "$ps/online" 2>/dev/null)" = "1" ]; then
+                            echo "AC"
+                            return 0
+                        else
+                            echo "Battery"
+                            return 0
+                        fi
+                    fi
+                fi
+            fi
+        done
     fi
+    
+    # Method 3: Use upower if available
+    if command -v upower >/dev/null 2>&1; then
+        local ac_status=$(upower -i $(upower -e | grep -E 'ADP|ACA|AC') 2>/dev/null | grep -i "online" | grep -i "true")
+        if [ -n "$ac_status" ]; then
+            echo "AC"
+            return 0
+        else
+            local ac_devices=$(upower -e | grep -E 'ADP|ACA|AC' 2>/dev/null)
+            if [ -n "$ac_devices" ]; then
+                echo "Battery"
+                return 0
+            fi
+        fi
+    fi
+    
+    # Method 4: Use acpi if available
+    if command -v acpi >/dev/null 2>&1; then
+        local ac_status=$(acpi -a 2>/dev/null | grep -i "on-line\|online")
+        if [ -n "$ac_status" ]; then
+            echo "AC"
+            return 0
+        else
+            local ac_info=$(acpi -a 2>/dev/null)
+            if [ -n "$ac_info" ]; then
+                echo "Battery"
+                return 0
+            fi
+        fi
+    fi
+    
+    echo "Unknown"
 }
 
 get_battery_percentage() {
