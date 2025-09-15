@@ -73,8 +73,7 @@ get_real_user() {
 
 # 1. Update system and install base dependencies
 update_system() {
-    info "Performing a full system update and installing base dependencies..."
-    info "This may take a few minutes depending on your internet connection..."
+    info "Performing system update and installing base dependencies..."
     
     # Update system
     dnf upgrade -y --refresh
@@ -132,8 +131,7 @@ install_hardware_support() {
 
 # 4. Apply hardware-specific fixes
 apply_hardware_fixes() {
-    info "Applying hardware-specific fixes for the ROG Flow Z13..."
-    info "These fixes address known issues with Wi-Fi, touchpad, audio, and graphics..."
+    info "Applying hardware fixes for the ROG Flow Z13 (GZ302)..."
 
     # 4a. Fix Wi-Fi instability (MediaTek MT7925)
     info "Applying Wi-Fi stability fixes for MediaTek MT7925..."
@@ -290,20 +288,18 @@ install_gaming_stack() {
         # Download and install latest Proton-GE
         sudo -u "$user" bash <<'EOF'
 set -e
-info() { echo -e "\033[0;34m[INFO]\033[0m $1"; }
-success() { echo -e "\033[0;32m[SUCCESS]\033[0m $1"; }
 
 COMPAT_DIR="$HOME/.steam/root/compatibilitytools.d"
 mkdir -p "$COMPAT_DIR"
 
-info "Fetching latest Proton-GE release information..."
+echo -e "\033[0;34m[INFO]\033[0m Fetching latest Proton-GE release information..."
 LATEST_URL=$(curl -s "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest" | grep "browser_download_url.*\.tar\.gz" | cut -d '"' -f 4)
 if [[ -n "$LATEST_URL" ]]; then
     RELEASE_NAME=$(echo "$LATEST_URL" | sed 's/.*\/\([^\/]*\)\.tar\.gz/\1/')
-    info "Downloading Proton-GE: $RELEASE_NAME..."
+    echo -e "\033[0;34m[INFO]\033[0m Downloading Proton-GE: $RELEASE_NAME..."
     cd "$COMPAT_DIR"
     curl -L "$LATEST_URL" | tar -xz
-    success "Proton-GE ($RELEASE_NAME) installed successfully."
+    echo -e "\033[0;32m[SUCCESS]\033[0m Proton-GE ($RELEASE_NAME) installed successfully."
 else
     echo "Could not find the latest Proton-GE release."
 fi
@@ -325,8 +321,7 @@ EOF
 
 # 6. Apply system-wide performance optimizations
 apply_performance_tweaks() {
-    info "Applying system-wide performance tweaks..."
-    info "These optimizations will improve gaming performance and system responsiveness..."
+    info "Applying system performance optimizations..."
 
     # 6a. Increase vm.max_map_count for game compatibility
     info "Applying gaming and performance kernel parameters..."
@@ -1132,45 +1127,21 @@ main() {
     success "It is highly recommended to REBOOT your system now."
     success ""
     
-    # Show gaming tools if installed
+    # Show additional tools if installed
     if [[ "${install_gaming,,}" == "y" || "${install_gaming,,}" == "yes" ]]; then
-        success "Installed gaming tools:"
-        success "- Steam with Proton support"
-        success "- Lutris for game management"
-        success "- ProtonUp-Qt for Proton version management (Flatpak)"
-        success "- MangoHUD for performance monitoring"
-        success "- GameMode for automatic gaming optimizations"
-        success ""
+        success "Gaming tools: Steam, Lutris, ProtonUp-Qt, MangoHUD, GameMode"
     fi
     
-    # Show LLM tools if installed
     if [[ "${install_llm,,}" == "y" || "${install_llm,,}" == "yes" ]]; then
-        success "Installed LLM/AI tools:"
-        success "- Ollama for local LLM inference (if selected)"
-        success "- ROCm for AMD GPU acceleration (if selected)"
-        success "- PyTorch with ROCm support (if selected)"
-        success "- Hugging Face Transformers (if selected)"
-        success ""
+        success "AI/LLM tools: Ollama, ROCm, PyTorch, Transformers (as selected)"
     fi
     
-    success "Hardware fixes applied:"
-    success "- MediaTek MT7925 Wi-Fi stability improvements"
-    success "- Touchpad detection and sensitivity fixes"
-    success "- AMD GPU driver optimizations"
-    success "- Audio device compatibility fixes"
-    success "- Thermal throttling and power management"
+    success "Setup completed! Your ROG Flow Z13 (GZ302) is now optimized for Fedora."
     success ""
-    success "Performance optimizations applied:"
-    success "- Gaming-optimized kernel parameters"
-    success "- CPU performance governor configuration"
-    success "- I/O scheduler optimizations for SSDs/NVMe"
-    success "- Network latency optimizations"
-    success "- Memory management tweaks"
-    success "- Hardware video acceleration"
-    success "- System limits increased for gaming"
+    success "Applied hardware fixes and performance optimizations including:"
+    success "- Wi-Fi stability (MediaTek MT7925) - Touchpad detection - Audio fixes"
+    success "- AMD GPU optimizations - Thermal management - Gaming performance tweaks"
     success ""
-    success "You can now enjoy Fedora optimized for your"
-    success "ASUS ROG Flow Z13 (GZ302)!"
     success "============================================================"
     echo
 }
