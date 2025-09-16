@@ -1,6 +1,6 @@
 # GZ302 Linux Setup
 
-**Professional-grade Linux setup scripts specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional software stacks for gaming, AI development, and virtualization.
+**Professional-grade Linux setup script specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional software stacks for gaming, AI development, and virtualization.
 
 > **🔥 Version 4.0 - Major Update!** Streamlined single-script architecture with comprehensive feature documentation. All individual distribution scripts have been consolidated into one intelligent setup script that automatically detects your Linux distribution.
 
@@ -65,7 +65,7 @@ sudo ./gz302_setup.sh
 - **Thermal Control** - Intelligent thermal management for sustained performance
 
 ### Advanced Power Management (Always Installed)
-Our scripts install comprehensive **TDP (Thermal Design Power) management** that gives you full control over your laptop's performance and battery life:
+Our script installs comprehensive **TDP (Thermal Design Power) management** that gives you full control over your laptop's performance and battery life:
 
 #### 🔋 Seven Power Profiles Available:
 - **`max_performance`** - 65W absolute maximum (AC power only, short bursts)
@@ -132,7 +132,7 @@ sudo ./gz302_setup.sh
 
 ### Step 2: What The Script Will Ask You
 
-The scripts will ask if you want to install optional software. **All hardware fixes and TDP management are installed automatically** - these questions are only for additional software:
+The script will ask if you want to install optional software. **All hardware fixes and TDP management are installed automatically** - these questions are only for additional software:
 
 #### 🎮 Gaming Software Bundle
 **Includes:** Steam, Lutris, ProtonUp-Qt, MangoHUD, GameMode, Wine
@@ -327,6 +327,14 @@ clinfo                             # OpenCL device information
 - **Restart services**: `sudo systemctl restart supergfxd asusctl`
 - **ROG Control Center**: Launch with `rog-control-center`
 - **Check logs**: `journalctl -b | grep -i asus`
+
+#### SuperGFXD "Could not find dGPU" Errors
+If you see repeated error messages like `[ERROR supergfxctl::zbus_iface] get_runtime_status: Could not find dGPU`:
+
+- **Normal for integrated-only systems**: This is expected on GZ302 models with only integrated AMD graphics
+- **Stop the service**: `sudo systemctl stop supergfxd && sudo systemctl disable supergfxd`
+- **Check GPU hardware**: `lspci | grep -i "vga\|3d\|display"` to verify if you have discrete GPU
+- **Re-run setup script**: The latest version automatically detects GPU configuration and only enables supergfxd when needed
 
 ### 📸 Snapshot Issues
 

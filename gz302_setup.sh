@@ -90,6 +90,42 @@ get_real_user() {
     fi
 }
 
+# --- GPU Detection ---
+detect_discrete_gpu() {
+    local dgpu_found=false
+    
+    # Check for discrete GPUs using lspci
+    if command -v lspci >/dev/null 2>&1; then
+        # Look for NVIDIA or AMD discrete GPUs (excluding integrated)
+        if lspci | grep -i "vga\|3d\|display" | grep -i "nvidia\|radeon.*r[567x]\|radeon.*rx\|geforce\|quadro\|tesla" >/dev/null 2>&1; then
+            dgpu_found=true
+        fi
+        
+        # Additional check for AMD discrete GPUs with specific patterns
+        if lspci | grep -i "vga\|3d\|display" | grep -E -i "(radeon.*(hd|r[567x]|rx|vega|navi|rdna))|ati.*(hd|r[567x])" >/dev/null 2>&1; then
+            # Exclude integrated Ryzen graphics (Vega, Radeon Graphics)
+            if ! lspci | grep -i "vga\|3d\|display" | grep -E -i "ryzen.*integrated|amd.*ryzen.*vega|radeon.*vega.*graphics" >/dev/null 2>&1; then
+                dgpu_found=true
+            fi
+        fi
+    fi
+    
+    # Additional check using /sys/class/drm if lspci is not available
+    if [[ "$dgpu_found" == false ]] && [[ -d /sys/class/drm ]]; then
+        # Count the number of GPU cards, integrated usually shows as card0
+        local gpu_count=$(find /sys/class/drm -name "card[0-9]*" -type d | wc -l)
+        if [[ $gpu_count -gt 1 ]]; then
+            dgpu_found=true
+        fi
+    fi
+    
+    if [[ "$dgpu_found" == true ]]; then
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
 # --- Distribution Detection ---
 detect_distribution() {
     local distro=""
@@ -405,8 +441,20 @@ setup_opensuse() {
 apply_arch_hardware_fixes() {
     info "Applying comprehensive GZ302 hardware fixes for Arch-based systems..."
     
-    # Install kernel and drivers (same for all Arch-based distros)
-    pacman -S --noconfirm --needed linux-g14 linux-g14-headers asusctl supergfxctl rog-control-center power-profiles-daemon switcheroo-control
+    # Check for discrete GPU to determine which packages to install
+    local has_dgpu=$(detect_discrete_gpu)
+    
+    if [[ "$has_dgpu" == "true" ]]; then
+        info "Discrete GPU detected, installing full GPU management suite..."
+        # Install kernel and drivers with GPU switching support
+        pacman -S --noconfirm --needed linux-g14 linux-g14-headers asusctl supergfxctl rog-control-center power-profiles-daemon switcheroo-control
+    else
+        info "No discrete GPU detected, installing base ASUS control packages..."
+        # Install kernel and drivers without supergfxctl (for integrated graphics only)
+        pacman -S --noconfirm --needed linux-g14 linux-g14-headers asusctl rog-control-center power-profiles-daemon
+        # switcheroo-control may still be useful for some systems
+        pacman -S --noconfirm --needed switcheroo-control || warning "switcheroo-control not available, continuing..."
+    fi
     
     # Regenerate bootloader configuration
     if [ -f /boot/grub/grub.cfg ]; then
@@ -1756,8 +1804,20 @@ setup_opensuse_secureboot() {
 enable_arch_services() {
     info "Enabling services for Arch-based system..."
     
-    # Enable ASUS services
-    systemctl enable --now supergfxd power-profiles-daemon switcheroo-control
+    # Check for discrete GPU before enabling supergfxd
+    local has_dgpu=$(detect_discrete_gpu)
+    
+    if [[ "$has_dgpu" == "true" ]]; then
+        info "Discrete GPU detected, enabling supergfxd for GPU switching..."
+        systemctl enable --now supergfxd power-profiles-daemon switcheroo-control
+    else
+        info "No discrete GPU detected, skipping supergfxd (integrated graphics only)..."
+        systemctl enable --now power-profiles-daemon
+        # Note: switcheroo-control may still be useful for some integrated GPU management
+        if systemctl list-unit-files | grep -q switcheroo-control; then
+            systemctl enable --now switcheroo-control
+        fi
+    fi
     
     # Enable touchpad fix service
     systemctl enable --now reload-hid_asus.service
