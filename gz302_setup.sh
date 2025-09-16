@@ -456,6 +456,15 @@ apply_arch_hardware_fixes() {
         pacman -S --noconfirm --needed switcheroo-control || warning "switcheroo-control not available, continuing..."
     fi
     
+    # ACPI BIOS error mitigation for GZ302
+    info "Adding ACPI error mitigation kernel parameters..."
+    if [ -f /etc/default/grub ]; then
+        # Add kernel parameters to handle ACPI BIOS errors
+        if ! grep -q "acpi_osi=" /etc/default/grub; then
+            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="acpi_osi=! acpi_osi=\\\"Windows 2020\\\" acpi_enforce_resources=lax /' /etc/default/grub
+        fi
+    fi
+    
     # Regenerate bootloader configuration
     if [ -f /boot/grub/grub.cfg ]; then
         info "Regenerating GRUB configuration..."
@@ -465,15 +474,9 @@ apply_arch_hardware_fixes() {
     # Wi-Fi fixes for MediaTek MT7925e
     info "Applying enhanced Wi-Fi stability fixes for MediaTek MT7925..."
     cat > /etc/modprobe.d/mt7925e_wifi.conf <<EOF
-# Disable ASPM for the MediaTek MT7925E to improve stability
+# MediaTek MT7925E stability and performance fixes
+# Only include valid module parameters to avoid kernel warnings
 options mt7925e disable_aspm=1
-# Additional stability parameters
-options mt7925e power_save=0
-# Enhanced stability fixes
-options mt7925e swcrypto=0
-options mt7925e amsdu=0
-options mt7925e disable_11ax=0
-options mt7925e disable_radar_background=1
 EOF
 
     mkdir -p /etc/NetworkManager/conf.d/
@@ -552,6 +555,9 @@ EOF
 # Fix audio issues on ROG Flow Z13 GZ302
 options snd-hda-intel probe_mask=1
 options snd-hda-intel model=asus-zenbook
+# ACP70 platform fixes for newer AMD audio
+options snd_acp_pci enable=1
+options snd-soc-acp70 machine=acp70-asus
 EOF
 
     # ASUS WMI fixes to reduce error messages
@@ -568,6 +574,8 @@ EOF
 # HID ASUS optimizations for better touchpad/keyboard support
 options hid_asus fnlock_default=0
 options hid_asus kbd_backlight=1
+# Memory management fixes to prevent probe failures (error -12)
+options hid_asus max_hid_buflen=8192
 EOF
     
     # AMD GPU optimizations
@@ -591,6 +599,18 @@ EOF
     # Update hardware database
     systemd-hwdb update
     udevadm control --reload
+    
+    # I/O scheduler fixes for NVMe devices
+    info "Applying I/O scheduler optimizations..."
+    cat > /etc/udev/rules.d/60-ioschedulers.rules <<EOF
+# Set appropriate I/O schedulers for different device types
+# NVMe drives work best with 'none' scheduler but fall back to 'mq-deadline'
+ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]", ATTR{queue/scheduler}="none", ATTR{queue/scheduler}="mq-deadline"
+# SATA SSDs work well with 'mq-deadline' 
+ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
+# Traditional HDDs work best with 'bfq'
+ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
+EOF
     
     success "Comprehensive hardware fixes applied for Arch-based systems"
 }
@@ -601,18 +621,22 @@ apply_debian_hardware_fixes() {
     # Install kernel and drivers
     apt install -y linux-generic-hwe-22.04 firmware-misc-nonfree
     
+    # ACPI BIOS error mitigation for GZ302
+    info "Adding ACPI error mitigation kernel parameters..."
+    if [ -f /etc/default/grub ]; then
+        # Add kernel parameters to handle ACPI BIOS errors
+        if ! grep -q "acpi_osi=" /etc/default/grub; then
+            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="acpi_osi=! acpi_osi=\\\"Windows 2020\\\" acpi_enforce_resources=lax /' /etc/default/grub
+            update-grub
+        fi
+    fi
+    
     # Wi-Fi fixes for MediaTek MT7925e  
     info "Applying enhanced Wi-Fi stability fixes for MediaTek MT7925..."
     cat > /etc/modprobe.d/mt7925e_wifi.conf <<EOF
-# Disable ASPM for the MediaTek MT7925E to improve stability
+# MediaTek MT7925E stability and performance fixes
+# Only include valid module parameters to avoid kernel warnings
 options mt7925e disable_aspm=1
-# Additional stability parameters
-options mt7925e power_save=0
-# Enhanced stability fixes
-options mt7925e swcrypto=0
-options mt7925e amsdu=0
-options mt7925e disable_11ax=0
-options mt7925e disable_radar_background=1
 EOF
 
     mkdir -p /etc/NetworkManager/conf.d/
@@ -691,6 +715,9 @@ EOF
 # Fix audio issues on ROG Flow Z13 GZ302
 options snd-hda-intel probe_mask=1
 options snd-hda-intel model=asus-zenbook
+# ACP70 platform fixes for newer AMD audio
+options snd_acp_pci enable=1
+options snd-soc-acp70 machine=acp70-asus
 EOF
 
     # ASUS WMI fixes to reduce error messages
@@ -707,6 +734,8 @@ EOF
 # HID ASUS optimizations for better touchpad/keyboard support
 options hid_asus fnlock_default=0
 options hid_asus kbd_backlight=1
+# Memory management fixes to prevent probe failures (error -12)
+options hid_asus max_hid_buflen=8192
 EOF
     
     # AMD GPU optimizations
@@ -730,6 +759,18 @@ EOF
     # Update hardware database
     systemd-hwdb update
     udevadm control --reload
+    
+    # I/O scheduler fixes for NVMe devices
+    info "Applying I/O scheduler optimizations..."
+    cat > /etc/udev/rules.d/60-ioschedulers.rules <<EOF
+# Set appropriate I/O schedulers for different device types
+# NVMe drives work best with 'none' scheduler but fall back to 'mq-deadline'
+ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]", ATTR{queue/scheduler}="none", ATTR{queue/scheduler}="mq-deadline"
+# SATA SSDs work well with 'mq-deadline' 
+ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
+# Traditional HDDs work best with 'bfq'
+ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
+EOF
     
     success "Comprehensive hardware fixes applied for Debian-based systems"
 }
@@ -742,7 +783,10 @@ apply_fedora_hardware_fixes() {
     
     # Wi-Fi fixes for MediaTek MT7925e
     info "Applying Wi-Fi stability fixes..."
-    echo 'options mt7925e power_save=0' > /etc/modprobe.d/mt7925e.conf
+    cat > /etc/modprobe.d/mt7925e.conf <<EOF
+# MediaTek MT7925E stability fixes
+options mt7925e disable_aspm=1
+EOF
     
     # Touchpad fixes
     info "Applying touchpad fixes..."
@@ -768,7 +812,10 @@ apply_opensuse_hardware_fixes() {
     
     # Wi-Fi fixes for MediaTek MT7925e
     info "Applying Wi-Fi stability fixes..."
-    echo 'options mt7925e power_save=0' > /etc/modprobe.d/mt7925e.conf
+    cat > /etc/modprobe.d/mt7925e.conf <<EOF
+# MediaTek MT7925E stability fixes
+options mt7925e disable_aspm=1
+EOF
     
     # Touchpad fixes
     info "Applying touchpad fixes..."
