@@ -11,7 +11,6 @@
 - **Complete ASUS touchpad integration** - Full gesture and precision support  
 - **Optimized AMD Ryzen AI 395+ performance** - Unlocks full processor potential
 - **Advanced thermal management** - Sustained performance without throttling
-- **GPU switching optimization** - Seamless integrated/discrete GPU management
 
 ### ⚡ **Intelligent Power Management** 
 - **7-tier TDP control system** - From 10W emergency to 65W maximum performance
