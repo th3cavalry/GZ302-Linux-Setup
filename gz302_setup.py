@@ -1029,9 +1029,14 @@ esac
         else:
             self.info("No discrete GPU detected - skipping GPU switching services")
         
-        # Enable other essential services
+        # Enable asusctl if available (similar to bash script pattern)
         try:
-            self.run_command(['systemctl', 'enable', 'asusctl'], check=False)
+            # Check if asusctl service exists before enabling it
+            result = self.run_command(['systemctl', 'list-unit-files'], capture_output=True, check=False)
+            if result.returncode == 0 and 'asusctl' in result.stdout:
+                self.run_command(['systemctl', 'enable', 'asusctl'], check=False)
+            else:
+                self.warning("asusctl service not available")
         except:
             self.warning("asusctl service not available")
 
