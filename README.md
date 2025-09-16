@@ -328,6 +328,14 @@ clinfo                             # OpenCL device information
 - **ROG Control Center**: Launch with `rog-control-center`
 - **Check logs**: `journalctl -b | grep -i asus`
 
+#### SuperGFXD "Could not find dGPU" Errors
+If you see repeated error messages like `[ERROR supergfxctl::zbus_iface] get_runtime_status: Could not find dGPU`:
+
+- **Normal for integrated-only systems**: This is expected on GZ302 models with only integrated AMD graphics
+- **Stop the service**: `sudo systemctl stop supergfxd && sudo systemctl disable supergfxd`
+- **Check GPU hardware**: `lspci | grep -i "vga\|3d\|display"` to verify if you have discrete GPU
+- **Re-run setup script**: The latest version automatically detects GPU configuration and only enables supergfxd when needed
+
 ### 📸 Snapshot Issues
 
 #### Snapshots Failing to Create
