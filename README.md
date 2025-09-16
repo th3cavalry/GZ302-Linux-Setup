@@ -2,6 +2,8 @@
 
 **Professional-grade Linux setup scripts specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional software stacks for gaming, AI development, and virtualization.
 
+> **🔥 Version 4.0 - Major Update!** Streamlined single-script architecture with comprehensive feature documentation. All individual distribution scripts have been consolidated into one intelligent setup script that automatically detects your Linux distribution.
+
 ## ✨ Key Features
 
 ### 🔧 **Comprehensive Hardware Support**
