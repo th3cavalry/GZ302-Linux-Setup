@@ -2000,7 +2000,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 4.2 - Python Implementation: Modern Script Architecture with Enhanced Capabilities"
+    echo "  Version 4.1.1 - Hardware Fixes Update: Critical Hardware Compatibility Improvements"
     echo "============================================================"
     echo
     

@@ -2,7 +2,7 @@
 
 **Professional-grade Linux setup script specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional software stacks for gaming, AI development, and virtualization.
 
-> **🔥 Version 4.2 - Python Implementation!** Complete Python version of the setup script with enhanced error handling, maintainability, and cross-platform compatibility. Choose between Bash and Python implementations.
+> **🔥 Version 4.1.1 - Python Implementation Fix!** Complete Python version of the setup script with enhanced error handling, maintainability, and cross-platform compatibility. Fixed AUR package installation issues. Choose between Bash and Python implementations.
 
 ## ✨ Key Features
 
@@ -378,29 +378,25 @@ If you see repeated error messages like `[ERROR supergfxctl::zbus_iface] get_run
 
 ## 📝 Changelog
 
-### Version 4.2 (Latest)
-**Python Implementation - Modern Script Architecture with Enhanced Capabilities**
+### Version 4.1.1 (Latest)
+**Python Implementation Fix - AUR Package Installation Error Resolution**
 
-#### 🐍 New Python Implementation:
-- **Complete Python version**: Full `gz302_setup.py` implementation with 100% feature parity to the original Bash script
-- **Enhanced error handling**: Proper exception management with detailed error messages and recovery options
-- **Type safety**: Full type hints for better code maintainability and IDE support
-- **Object-oriented design**: Clean class structure for better organization and future extensibility
-- **Cross-platform compatibility**: More portable implementation that's easier to extend and modify
-- **No external dependencies**: Uses only Python 3.7+ standard library for maximum compatibility
+#### 🐛 Issues Fixed:
+- **Fixed AUR package installation failure**: Resolved "Running makepkg as root is not allowed" error in Python script by implementing proper user context for `yay` and `paru` operations
+- **Enhanced AUR helper support**: Python script now correctly uses `sudo -u real_user` pattern for all AUR package installations, matching the bash script behavior
+- **Improved error handling**: Better handling of missing AUR helpers with automatic yay installation as the real user
+- **Fixed ryzenadj installation**: Specifically resolved the ryzenadj AUR package installation that was failing due to root execution
 
-#### 🔧 Technical Improvements:
-- **Safe file operations**: Atomic file writes with automatic directory creation and error recovery
-- **Structured logging**: Color-coded output with proper logging levels and formatted messages
-- **Better command execution**: Enhanced subprocess handling with proper error checking and output capture
-- **Improved user interaction**: More robust input validation and choice handling
-- **Enhanced service management**: Intelligent GPU detection and service configuration
+#### 🔧 Technical Details:
+- Modified `install_ryzenadj_arch()` method to use proper user context with `sudo -u real_user` 
+- Fixed all AUR installations in Python script including ProtonUp-Qt, VMware Workstation, and Xen packages
+- Ensured consistency between bash and Python implementations for AUR operations
+- Added automatic yay installation process that respects user privileges
 
 #### 📋 Implementation Details:
 - **Both versions available**: Users can choose between the original Bash script (`gz302_setup.sh`) and the new Python version (`gz302_setup.py`)
 - **Identical functionality**: All hardware fixes, TDP management, and optional software installations preserved
-- **Backward compatibility**: Original Bash script remains unchanged and fully functional
-- **Migration path**: Users can migrate at their own pace with no breaking changes
+- **Fixed compatibility**: Python version now works correctly on Arch-based systems without root makepkg errors
 
 ### Version 4.1
 **Hardware Fixes Update - Critical Hardware Compatibility Improvements**

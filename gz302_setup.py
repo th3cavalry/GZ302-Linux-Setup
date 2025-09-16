@@ -54,7 +54,7 @@ class GZ302Setup:
     """Main setup class for ASUS ROG Flow Z13 (GZ302) configuration"""
     
     def __init__(self):
-        self.version = "4.2"
+        self.version = "4.1.1"
         self.user_choices = {}
         self.detected_distro = None
         self.original_distro = None
@@ -499,13 +499,23 @@ esac
     
     def install_ryzenadj_arch(self):
         """Install ryzenadj on Arch-based systems"""
+        real_user = self.get_real_user()
         if shutil.which('yay'):
-            self.run_command(['yay', '-S', '--noconfirm', 'ryzenadj'])
+            self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm', 'ryzenadj'])
+        elif shutil.which('paru'):
+            self.run_command(['sudo', '-u', real_user, 'paru', '-S', '--noconfirm', 'ryzenadj'])
         else:
-            # Install yay first, then ryzenadj
+            self.warning("AUR helper (yay/paru) not found. Installing yay first...")
             self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'git', 'base-devel'])
-            # Note: In real implementation, would need to handle AUR installation properly
-            self.warning("Manual ryzenadj installation required - please install yay and run: yay -S ryzenadj")
+            
+            # Install yay as the real user
+            self.run_command(['sudo', '-u', real_user, 'bash', '-c', 
+                             'cd /tmp && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm'])
+            
+            # Now install ryzenadj using yay
+            self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm', 'ryzenadj'])
+        
+        self.success("ryzenadj installed")
     
     def install_ryzenadj_debian(self):
         """Install ryzenadj on Debian-based systems"""
@@ -655,7 +665,8 @@ esac
         
         # Install ProtonUp-Qt if available
         if shutil.which('yay'):
-            self.run_command(['yay', '-S', '--noconfirm', 'protonup-qt'], check=False)
+            real_user = self.get_real_user()
+            self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm', 'protonup-qt'], check=False)
         
         # Create GameMode configuration
         real_user = self.get_real_user()
@@ -737,14 +748,16 @@ end=notify-send "GameMode ended"
         elif choice == '3':  # VMware
             self.info("Installing VMware Workstation Pro...")
             if shutil.which('yay'):
-                self.run_command(['yay', '-S', '--noconfirm', 'vmware-workstation'], check=False)
+                real_user = self.get_real_user()
+                self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm', 'vmware-workstation'], check=False)
             else:
                 self.warning("VMware installation requires AUR - please install yay first")
                 
         elif choice == '4':  # Xen
             self.info("Installing Xen Hypervisor...")
             if shutil.which('yay'):
-                self.run_command(['yay', '-S', '--noconfirm', 'xen'], check=False)
+                real_user = self.get_real_user()
+                self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm', 'xen'], check=False)
             else:
                 self.warning("Xen installation requires AUR - please install yay first")
                 
