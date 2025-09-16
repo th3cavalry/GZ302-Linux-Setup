@@ -35,32 +35,21 @@
 - **Instant recovery** - Restore to any previous system state
 - **Smart space management** - Automatic cleanup of old snapshots
 
-## 🚀 NEW: Universal Setup Script
+## 🚀 Installation
 
-**For the easiest experience, use our new universal script that automatically detects your Linux distribution:**
+**Simple one-command installation that automatically detects your Linux distribution:**
 
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_universal_setup.sh -o gz302_setup.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_setup.sh -o gz302_setup.sh
 chmod +x gz302_setup.sh
 sudo ./gz302_setup.sh
 ```
 
-The universal script supports:
-- **Arch-based**: Arch Linux (also works with EndeavourOS, Manjaro)
-- **Debian-based**: Ubuntu (also works with Pop!_OS, Linux Mint)  
-- **RPM-based**: Fedora (also works with Nobara)
+**Supported Linux Distributions:**
+- **Arch-based**: Arch Linux, EndeavourOS, Manjaro
+- **Debian-based**: Ubuntu, Pop!_OS, Linux Mint  
+- **RPM-based**: Fedora, Nobara
 - **OpenSUSE**: Tumbleweed and Leap
-
-## Individual Distribution Scripts
-
-If you prefer distribution-specific scripts, you can still use these for the main base distributions:
-
-- **`arch_setup.sh`** - Arch Linux (works with EndeavourOS, Manjaro)
-- **`ubuntu_setup.sh`** - Ubuntu (works with Pop!_OS, Linux Mint)
-- **`fedora_setup.sh`** - Fedora (works with Nobara)
-- **`opensuse_setup.sh`** - OpenSUSE
-
-All scripts fix the same hardware issues and can install gaming tools and AI software if you want.
 
 ## What Gets Fixed
 
@@ -127,51 +116,17 @@ Our scripts install comprehensive **TDP (Thermal Design Power) management** that
 
 ## How To Use
 
-**Important:** Always restart your computer after running any script!
+**Important:** Always restart your computer after running the script!
 
-### Option 1: Universal Script (Recommended)
-
-The universal script automatically detects your Linux distribution and applies the appropriate setup:
+The setup script automatically detects your Linux distribution and applies the appropriate configuration:
 
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_universal_setup.sh -o gz302_setup.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_setup.sh -o gz302_setup.sh
 chmod +x gz302_setup.sh
 sudo ./gz302_setup.sh
 ```
 
-### Option 2: Distribution-Specific Scripts
-
-If you prefer to use a distribution-specific script, find your Linux version below:
-
-#### Arch Linux
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/arch_setup.sh -o setup.sh
-chmod +x setup.sh
-sudo ./setup.sh
-```
-
-#### Ubuntu
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/ubuntu_setup.sh -o setup.sh
-chmod +x setup.sh
-sudo ./setup.sh
-```
-
-#### Fedora
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/fedora_setup.sh -o setup.sh
-chmod +x setup.sh
-sudo ./setup.sh
-```
-
-#### OpenSUSE
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/opensuse_setup.sh -o setup.sh
-chmod +x setup.sh
-sudo ./setup.sh
-```
-
-**Note:** Derivative distributions (EndeavourOS, Manjaro, Pop!_OS, Linux Mint, Nobara) will automatically use their base distribution scripts. For example, Manjaro users can use the Arch script, Pop!_OS users can use the Ubuntu script.
+**The script works on all supported distributions** - Arch Linux, Ubuntu, Fedora, and OpenSUSE (including their derivatives like EndeavourOS, Manjaro, Pop!_OS, Linux Mint, and Nobara).
 
 ### Step 2: What The Script Will Ask You
 

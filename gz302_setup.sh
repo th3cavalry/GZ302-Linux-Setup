@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================================================================
-# Universal Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
+# Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
 # Author: th3cavalry using Copilot
 # Version: 2.0
@@ -23,7 +23,7 @@
 #
 # USAGE:
 # 1. Download the script:
-#    curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_universal_setup.sh -o gz302_setup.sh
+#    curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_setup.sh -o gz302_setup.sh
 # 2. Make it executable:
 #    chmod +x gz302_setup.sh
 # 3. Run with sudo:
@@ -1201,10 +1201,10 @@ setup_tdp_management() {
             ;;
     esac
     
-    # Create universal TDP management script
+    # Create TDP management script
     cat > /usr/local/bin/gz302-tdp <<'EOF'
 #!/bin/bash
-# GZ302 TDP Management Script - Universal Version
+# GZ302 TDP Management Script
 # Based on research from Shahzebqazi's Asus-Z13-Flow-2025-PCMR
 
 TDP_CONFIG_DIR="/etc/gz302-tdp"
@@ -1818,7 +1818,7 @@ main() {
     
     echo
     echo "============================================================"
-    echo "  ASUS ROG Flow Z13 (GZ302) Universal Setup Script"
+    echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
     echo "  Version 2.0 - Auto-detecting Linux Distribution"
     echo "============================================================"
     echo
@@ -1868,7 +1868,7 @@ main() {
     
     echo
     success "============================================================"
-    success "GZ302 Universal Setup Complete for $detected_distro-based systems!"
+    success "GZ302 Setup Complete for $detected_distro-based systems!"
     success "It is highly recommended to REBOOT your system now."
     success ""
     success "Applied GZ302-specific hardware fixes:"
