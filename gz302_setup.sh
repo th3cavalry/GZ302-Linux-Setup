@@ -1290,10 +1290,17 @@ install_opensuse_hypervisor_software() {
 # TDP Management functions
 install_ryzenadj_arch() {
     info "Installing ryzenadj for Arch-based system..."
+    
+    # Check for and remove conflicting packages first
+    if pacman -Qi ryzenadj-git >/dev/null 2>&1; then
+        warning "Removing conflicting ryzenadj-git package..."
+        pacman -R --noconfirm ryzenadj-git || warning "Failed to remove ryzenadj-git, continuing..."
+    fi
+    
     if command -v yay >/dev/null 2>&1; then
-        sudo -u "$SUDO_USER" yay -S --noconfirm ryzenadj-git
+        sudo -u "$SUDO_USER" yay -S --noconfirm ryzenadj
     elif command -v paru >/dev/null 2>&1; then
-        sudo -u "$SUDO_USER" paru -S --noconfirm ryzenadj-git
+        sudo -u "$SUDO_USER" paru -S --noconfirm ryzenadj
     else
         warning "AUR helper (yay/paru) not found. Installing yay first..."
         pacman -S --noconfirm git base-devel
@@ -1301,7 +1308,7 @@ install_ryzenadj_arch() {
         sudo -u "$SUDO_USER" git clone https://aur.archlinux.org/yay.git
         cd yay
         sudo -u "$SUDO_USER" makepkg -si --noconfirm
-        sudo -u "$SUDO_USER" yay -S --noconfirm ryzenadj-git
+        sudo -u "$SUDO_USER" yay -S --noconfirm ryzenadj
     fi
     success "ryzenadj installed"
 }

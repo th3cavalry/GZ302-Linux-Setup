@@ -500,6 +500,19 @@ esac
     def install_ryzenadj_arch(self):
         """Install ryzenadj on Arch-based systems"""
         real_user = self.get_real_user()
+        
+        # Check for and remove conflicting packages first
+        try:
+            self.run_command(['pacman', '-Qi', 'ryzenadj-git'], check=False)
+            self.warning("Removing conflicting ryzenadj-git package...")
+            try:
+                self.run_command(['pacman', '-R', '--noconfirm', 'ryzenadj-git'], check=False)
+            except:
+                self.warning("Failed to remove ryzenadj-git, continuing...")
+        except:
+            # Package not installed, continue
+            pass
+            
         if shutil.which('yay'):
             self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm', 'ryzenadj'])
         elif shutil.which('paru'):
