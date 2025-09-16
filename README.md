@@ -2,7 +2,7 @@
 
 **Professional-grade Linux setup script specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional software stacks for gaming, AI development, and virtualization.
 
-> **🔥 Version 4.1 - Hardware Fixes Update!** Comprehensive hardware compatibility improvements with critical fixes for systemd services, camera drivers, and touchpad functionality.
+> **🔥 Version 4.2 - Python Implementation!** Complete Python version of the setup script with enhanced error handling, maintainability, and cross-platform compatibility. Choose between Bash and Python implementations.
 
 ## ✨ Key Features
 
@@ -38,13 +38,27 @@
 
 ## 🚀 Installation
 
-**Simple one-command installation that automatically detects your Linux distribution:**
+**Now available in both Bash and Python versions!** Both provide identical functionality - choose your preferred implementation:
+
+### Python Version (Recommended)
+**Modern Python implementation with improved error handling and maintainability:**
+
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_setup.py -o gz302_setup.py
+chmod +x gz302_setup.py
+sudo ./gz302_setup.py
+```
+
+### Bash Version (Original)
+**Battle-tested original implementation:**
 
 ```bash
 curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_setup.sh -o gz302_setup.sh
 chmod +x gz302_setup.sh
 sudo ./gz302_setup.sh
 ```
+
+**Both versions automatically detect your Linux distribution and provide identical functionality.**
 
 **Supported Linux Distributions:**
 - **Arch-based**: Arch Linux, EndeavourOS, Manjaro
@@ -117,10 +131,18 @@ Our script installs comprehensive **TDP (Thermal Design Power) management** that
 
 ## How To Use
 
-**Important:** Always restart your computer after running the script!
+**Important:** Always restart your computer after running either script!
 
-The setup script automatically detects your Linux distribution and applies the appropriate configuration:
+The setup script automatically detects your Linux distribution and applies the appropriate configuration. **Choose either the Python or Bash version** - both provide identical functionality:
 
+### Python Version (Recommended)
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_setup.py -o gz302_setup.py
+chmod +x gz302_setup.py
+sudo ./gz302_setup.py
+```
+
+### Bash Version (Original)
 ```bash
 curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_setup.sh -o gz302_setup.sh
 chmod +x gz302_setup.sh
@@ -356,7 +378,31 @@ If you see repeated error messages like `[ERROR supergfxctl::zbus_iface] get_run
 
 ## 📝 Changelog
 
-### Version 4.1 (Latest)
+### Version 4.2 (Latest)
+**Python Implementation - Modern Script Architecture with Enhanced Capabilities**
+
+#### 🐍 New Python Implementation:
+- **Complete Python version**: Full `gz302_setup.py` implementation with 100% feature parity to the original Bash script
+- **Enhanced error handling**: Proper exception management with detailed error messages and recovery options
+- **Type safety**: Full type hints for better code maintainability and IDE support
+- **Object-oriented design**: Clean class structure for better organization and future extensibility
+- **Cross-platform compatibility**: More portable implementation that's easier to extend and modify
+- **No external dependencies**: Uses only Python 3.7+ standard library for maximum compatibility
+
+#### 🔧 Technical Improvements:
+- **Safe file operations**: Atomic file writes with automatic directory creation and error recovery
+- **Structured logging**: Color-coded output with proper logging levels and formatted messages
+- **Better command execution**: Enhanced subprocess handling with proper error checking and output capture
+- **Improved user interaction**: More robust input validation and choice handling
+- **Enhanced service management**: Intelligent GPU detection and service configuration
+
+#### 📋 Implementation Details:
+- **Both versions available**: Users can choose between the original Bash script (`gz302_setup.sh`) and the new Python version (`gz302_setup.py`)
+- **Identical functionality**: All hardware fixes, TDP management, and optional software installations preserved
+- **Backward compatibility**: Original Bash script remains unchanged and fully functional
+- **Migration path**: Users can migrate at their own pace with no breaking changes
+
+### Version 4.1
 **Hardware Fixes Update - Critical Hardware Compatibility Improvements**
 
 #### 🔧 Issues Fixed:
