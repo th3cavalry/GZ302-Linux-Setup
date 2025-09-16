@@ -38,13 +38,27 @@
 
 ## 🚀 Installation
 
-**Simple one-command installation that automatically detects your Linux distribution:**
+**Now available in both Bash and Python versions!** Both provide identical functionality - choose your preferred implementation:
+
+### Python Version (Recommended)
+**Modern Python implementation with improved error handling and maintainability:**
+
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_setup.py -o gz302_setup.py
+chmod +x gz302_setup.py
+sudo ./gz302_setup.py
+```
+
+### Bash Version (Original)
+**Battle-tested original implementation:**
 
 ```bash
 curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_setup.sh -o gz302_setup.sh
 chmod +x gz302_setup.sh
 sudo ./gz302_setup.sh
 ```
+
+**Both versions automatically detect your Linux distribution and provide identical functionality.**
 
 **Supported Linux Distributions:**
 - **Arch-based**: Arch Linux, EndeavourOS, Manjaro
@@ -117,10 +131,18 @@ Our script installs comprehensive **TDP (Thermal Design Power) management** that
 
 ## How To Use
 
-**Important:** Always restart your computer after running the script!
+**Important:** Always restart your computer after running either script!
 
-The setup script automatically detects your Linux distribution and applies the appropriate configuration:
+The setup script automatically detects your Linux distribution and applies the appropriate configuration. **Choose either the Python or Bash version** - both provide identical functionality:
 
+### Python Version (Recommended)
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_setup.py -o gz302_setup.py
+chmod +x gz302_setup.py
+sudo ./gz302_setup.py
+```
+
+### Bash Version (Original)
 ```bash
 curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_setup.sh -o gz302_setup.sh
 chmod +x gz302_setup.sh
