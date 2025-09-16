@@ -366,12 +366,20 @@ If you see repeated error messages like `[ERROR supergfxctl::zbus_iface] get_run
 - **Enhanced ASUS hardware support**: Added dedicated ASUS WMI and HID module optimizations to reduce error messages
 - **Improved touchpad functionality**: Added comprehensive libinput X11 configuration to prevent touch jump detection issues
 - **Better service reliability**: Added `RemainAfterExit=yes` and proper module checking to systemd services
+- **Resolved ACPI BIOS errors**: Added kernel parameters to handle duplicate ACPI object warnings on boot
+- **Enhanced Wi-Fi stability**: Removed invalid mt7925e module parameters that caused kernel warnings
+- **Improved audio support**: Added ACP70 platform fixes for newer AMD audio hardware
+- **Optimized storage I/O**: Added proper NVMe scheduler configuration to prevent attribute write failures
 
 #### 🛠️ Technical Details:
-- Fixed kernel log errors related to ASUS HID device probe failures (error -12)
+- Fixed kernel log errors related to ASUS HID device probe failures (error -12) with memory buffer optimization
 - Eliminated deprecated kernel parameter warnings for UVC camera module
 - Addressed touch jump detection warnings in libinput for better touchpad experience
 - Reduced ASUS WMI fan curve error messages (error -19)
+- Added ACPI kernel parameters (`acpi_osi=! acpi_osi="Windows 2020" acpi_enforce_resources=lax`) to resolve boot warnings
+- Cleaned up Wi-Fi module parameters to only include valid options supported by mt7925e driver
+- Enhanced audio configuration with ACP70 ASoC machine driver support for proper AMD audio platform detection
+- Implemented intelligent I/O scheduler selection for NVMe, SSD, and HDD devices
 - Applied fixes consistently across all supported distributions (Arch, Debian, Fedora, OpenSUSE)
 
 ### Version 4.0
