@@ -131,9 +131,9 @@ class GZ302Setup:
                         break
                     
                     # Check for AMD discrete GPUs with specific patterns
-                    if re.search(r'radeon.*(hd|r[567x]|rx|vega|navi|rdna)', line):
-                        # Exclude integrated Ryzen graphics
-                        if not re.search(r'ryzen.*integrated|amd.*ryzen.*vega|radeon.*vega.*graphics', line):
+                    if re.search(r'(radeon.*(hd|r[567x]|rx|vega|navi|rdna))|ati.*(hd|r[567x])', line, re.IGNORECASE):
+                        # Exclude integrated Ryzen graphics (Vega, Radeon Graphics)
+                        if not re.search(r'ryzen.*integrated|amd.*ryzen.*vega|radeon.*vega.*graphics|ryzen.*\d+.*mobile|vega.*\d+.*\(ryzen|ryzen.*ai.*\d+.*radeon.*vega', line, re.IGNORECASE):
                             dgpu_found = True
                             break
                             
@@ -496,6 +496,23 @@ esac
         self.run_command(['chmod', '+x', '/usr/local/bin/gz302-tdp'])
         
         self.success("TDP management system installed")
+        
+        # Configure automatic TDP switching like bash version
+        self.info("TDP management installation complete!")
+        print()
+        print("Would you like to configure automatic TDP profile switching now?")
+        print("This allows the system to automatically change performance profiles")
+        print("when you plug/unplug the AC adapter.")
+        print()
+        
+        response = input("Configure automatic switching? (Y/n): ").strip().lower()
+        if response != 'n' and response != 'no':
+            try:
+                self.run_command(['/usr/local/bin/gz302-tdp', 'config'])
+            except:
+                self.warning("TDP configuration failed, you can configure it later using: gz302-tdp config")
+        else:
+            print("You can configure automatic switching later using: gz302-tdp config")
     
     def install_ryzenadj_arch(self):
         """Install ryzenadj on Arch-based systems"""
