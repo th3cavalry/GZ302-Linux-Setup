@@ -1,155 +1,351 @@
 # GZ302 Linux Setup
 
-Easy setup scripts for your ASUS ROG Flow Z13 (GZ302) laptop. Makes Linux work perfectly with your hardware and games!
+**Professional-grade Linux setup scripts specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional software stacks for gaming, AI development, and virtualization.
 
-## 🚀 NEW: Universal Setup Script
+> **🔥 Version 4.0 - Major Update!** Streamlined single-script architecture with comprehensive feature documentation. All individual distribution scripts have been consolidated into one intelligent setup script that automatically detects your Linux distribution.
 
-**For the easiest experience, use our new universal script that automatically detects your Linux distribution:**
+## ✨ Key Features
+
+### 🔧 **Comprehensive Hardware Support**
+- **Automated MediaTek MT7925e Wi-Fi fixes** - Eliminates disconnection issues
+- **Complete ASUS touchpad integration** - Full gesture and precision support  
+- **Optimized AMD Ryzen AI 395+ performance** - Unlocks full processor potential
+- **Advanced thermal management** - Sustained performance without throttling
+- **GPU switching optimization** - Seamless integrated/discrete GPU management
+
+### ⚡ **Intelligent Power Management** 
+- **7-tier TDP control system** - From 10W emergency to 65W maximum performance
+- **Automatic AC/battery switching** - Smart profile changes based on power source
+- **Real-time monitoring** - Live power status, battery level, and performance metrics
+- **Optimized for GZ302 hardware** - Profiles tuned specifically for AMD Ryzen AI 395+
+
+### 🎮 **Complete Gaming Stack**
+- **Steam + compatibility layers** - Proton, Wine, and Windows game support
+- **Performance monitoring** - MangoHUD overlay with FPS, temps, and utilization
+- **Automatic optimizations** - GameMode system tuning during gameplay
+- **Multiple game stores** - Lutris for GOG, Epic, and other platforms
+
+### 🤖 **Local AI Development**
+- **Ollama integration** - Run Llama, Mistral, CodeLlama models locally
+- **ROCm acceleration** - AMD GPU computing for AI workloads
+- **Optimized for Ryzen AI** - Takes advantage of GZ302's AI acceleration features
+- **Complete Python ML stack** - PyTorch, Transformers, and modern frameworks
+
+### 📸 **Enterprise Snapshots**
+- **Multi-filesystem support** - ZFS, Btrfs, ext4 (LVM), and XFS compatibility
+- **Automated daily backups** - Set-and-forget system protection
+- **Instant recovery** - Restore to any previous system state
+- **Smart space management** - Automatic cleanup of old snapshots
+
+## 🚀 Installation
+
+**Simple one-command installation that automatically detects your Linux distribution:**
 
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_universal_setup.sh -o gz302_setup.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_setup.sh -o gz302_setup.sh
 chmod +x gz302_setup.sh
 sudo ./gz302_setup.sh
 ```
 
-The universal script supports:
-- **Arch-based**: Arch Linux (also works with EndeavourOS, Manjaro)
-- **Debian-based**: Ubuntu (also works with Pop!_OS, Linux Mint)  
-- **RPM-based**: Fedora (also works with Nobara)
+**Supported Linux Distributions:**
+- **Arch-based**: Arch Linux, EndeavourOS, Manjaro
+- **Debian-based**: Ubuntu, Pop!_OS, Linux Mint  
+- **RPM-based**: Fedora, Nobara
 - **OpenSUSE**: Tumbleweed and Leap
-
-## Individual Distribution Scripts
-
-If you prefer distribution-specific scripts, you can still use these for the main base distributions:
-
-- **`arch_setup.sh`** - Arch Linux (works with EndeavourOS, Manjaro)
-- **`ubuntu_setup.sh`** - Ubuntu (works with Pop!_OS, Linux Mint)
-- **`fedora_setup.sh`** - Fedora (works with Nobara)
-- **`opensuse_setup.sh`** - OpenSUSE
-
-All scripts fix the same hardware issues and can install gaming tools and AI software if you want.
 
 ## What Gets Fixed
 
-### Hardware Problems
-- **Wi-Fi Issues** - Stops Wi-Fi from disconnecting 
-- **Touchpad Problems** - Makes touchpad work properly
-- **Audio Issues** - Fixes sound problems
-- **Camera Issues** - Gets camera working
-- **GPU Problems** - Optimizes graphics performance
-- **Power Management** - Better battery life and performance
+### Hardware Problems (Applied Automatically)
+- **Wi-Fi Issues** - Fixes MediaTek MT7925e disconnections and stability problems
+- **Touchpad Problems** - Enables proper ASUS touchpad detection and functionality
+- **Audio Issues** - Configures ASUS-specific audio hardware and drivers
+- **Camera Issues** - Sets up camera drivers and hardware detection
+- **GPU Problems** - Optimizes AMD GPU performance and thermal management
+- **Power Management** - Advanced TDP control and battery optimization
+- **Thermal Control** - Intelligent thermal management for sustained performance
+
+### Advanced Power Management (Always Installed)
+Our scripts install comprehensive **TDP (Thermal Design Power) management** that gives you full control over your laptop's performance and battery life:
+
+#### 🔋 Seven Power Profiles Available:
+- **`max_performance`** - 65W absolute maximum (AC power only, short bursts)
+- **`gaming`** - 54W gaming optimized (AC power recommended) 
+- **`performance`** - 45W high performance (AC power recommended)
+- **`balanced`** - 35W balanced performance/efficiency (default)
+- **`efficient`** - 25W better efficiency with good performance
+- **`power_saver`** - 15W maximum battery life
+- **`ultra_low`** - 10W emergency battery extension
+
+#### 🤖 Automatic Power Switching:
+- **Smart AC/Battery Detection** - Automatically switches profiles when you plug/unplug power
+- **Configurable Preferences** - Set different profiles for AC and battery power
+- **Real-time Monitoring** - Shows current power source, battery level, and active profile
 
 ### What Can Be Installed (Your Choice)
-- **Gaming Software** - Steam, game launchers, performance tools
-- **AI Software** - Tools for running AI models locally
-- **Hypervisor Software** - Virtual machine platforms (KVM/QEMU, VirtualBox, VMware, Xen, Proxmox)
-- **System Snapshots** - Automatic backups for easy recovery
-- **Secure Boot** - Enhanced security features
+
+#### 🎮 Gaming Software Suite
+- **Game Stores**: Steam, Lutris, ProtonUp-Qt for easy game management
+- **Performance Tools**: MangoHUD (performance overlay), GameMode (system optimization)
+- **Compatibility**: Wine, Proton, and Windows game compatibility layers
+- **Optimizations**: Automatic gaming performance tweaks and kernel optimizations
+
+#### 🤖 AI/LLM Software Stack  
+- **Ollama** - Local LLM server for running AI models (Llama, Mistral, etc.)
+- **ROCm** - AMD GPU acceleration for AI workloads
+- **Python Libraries** - PyTorch, Transformers, and ML frameworks
+- **Hardware Acceleration** - Optimized for GZ302's AMD Ryzen AI 395+ processor
+
+#### 💻 Hypervisor Platforms (Choose One)
+1. **KVM/QEMU with virt-manager** - Open source, excellent performance
+2. **VirtualBox** - Oracle's user-friendly virtualization platform
+3. **VMware Workstation Pro** - Commercial, feature-rich solution
+4. **Xen Hypervisor** - Enterprise-grade Type-1 hypervisor  
+5. **Proxmox VE** - Complete virtualization management platform
+6. **Hyper-V** - Microsoft's virtualization technology (where supported)
+
+#### 📸 System Snapshots & Recovery
+- **Multi-Filesystem Support** - Works with ZFS, Btrfs, ext4 (LVM), and XFS
+- **Automatic Daily Snapshots** - Background system state preservation
+- **Manual Snapshot Control** - Create snapshots before major changes
+- **Easy Recovery** - Restore system to any previous snapshot
+- **Space Management** - Automatic cleanup of old snapshots
+
+#### 🔒 Secure Boot Configuration
+- **Enhanced Security** - Boot integrity and kernel signature verification
+- **Multi-Bootloader Support** - Works with GRUB, systemd-boot, and rEFInd
+- **Automatic Signing** - Kernel modules automatically signed on updates
+- **UEFI Integration** - Seamless integration with ASUS UEFI firmware
 
 ## How To Use
 
-**Important:** Always restart your computer after running any script!
+**Important:** Always restart your computer after running the script!
 
-### Option 1: Universal Script (Recommended)
-
-The universal script automatically detects your Linux distribution and applies the appropriate setup:
+The setup script automatically detects your Linux distribution and applies the appropriate configuration:
 
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_universal_setup.sh -o gz302_setup.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302_setup.sh -o gz302_setup.sh
 chmod +x gz302_setup.sh
 sudo ./gz302_setup.sh
 ```
 
-### Option 2: Distribution-Specific Scripts
-
-If you prefer to use a distribution-specific script, find your Linux version below:
-
-#### Arch Linux
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/arch_setup.sh -o setup.sh
-chmod +x setup.sh
-sudo ./setup.sh
-```
-
-#### Ubuntu
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/ubuntu_setup.sh -o setup.sh
-chmod +x setup.sh
-sudo ./setup.sh
-```
-
-#### Fedora
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/fedora_setup.sh -o setup.sh
-chmod +x setup.sh
-sudo ./setup.sh
-```
-
-#### Fedora
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/fedora_setup.sh -o setup.sh
-chmod +x setup.sh
-sudo ./setup.sh
-```
-
-#### OpenSUSE
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/opensuse_setup.sh -o setup.sh
-chmod +x setup.sh
-sudo ./setup.sh
-```
-
-**Note:** Derivative distributions (EndeavourOS, Manjaro, Pop!_OS, Linux Mint, Nobara) will automatically use their base distribution scripts. For example, Manjaro users can use the Arch script, Pop!_OS users can use the Ubuntu script.
+**The script works on all supported distributions** - Arch Linux, Ubuntu, Fedora, and OpenSUSE (including their derivatives like EndeavourOS, Manjaro, Pop!_OS, Linux Mint, and Nobara).
 
 ### Step 2: What The Script Will Ask You
 
-Both the universal script and individual scripts will ask if you want to install extra software:
+The scripts will ask if you want to install optional software. **All hardware fixes and TDP management are installed automatically** - these questions are only for additional software:
 
-1. **Gaming Software?** (Steam, game tools, performance monitoring)
-2. **AI Software?** (Tools for running AI models on your laptop)  
-3. **Hypervisor Software?** (Choose from KVM/QEMU, VirtualBox, VMware, Xen, or Proxmox)
-4. **System Snapshots?** (Automatic backups for easy recovery)
-5. **Secure Boot?** (Extra security features)
+#### 🎮 Gaming Software Bundle
+**Includes:** Steam, Lutris, ProtonUp-Qt, MangoHUD, GameMode, Wine
+- **Steam** - Primary game store and launcher
+- **Lutris** - Open-source game manager for GOG, Epic, etc.
+- **ProtonUp-Qt** - Easy Proton/Wine version management
+- **MangoHUD** - In-game performance overlay (FPS, temps, usage)
+- **GameMode** - Automatic system optimizations during gaming
+- **Wine** - Windows application compatibility layer
 
-Just answer yes (y) or no (n) for each one! For hypervisors, choose from the numbered options (1-6).
+#### 🤖 AI/LLM Software Stack
+**Includes:** Ollama, ROCm, Python AI libraries
+- **Ollama** - Local AI server (run Llama, Mistral, CodeLlama models)
+- **ROCm** - AMD GPU acceleration for AI workloads
+- **PyTorch & Transformers** - Modern machine learning frameworks
+- **Optimized for GZ302's AMD Ryzen AI 395+ processor**
 
-**GZ302-specific hardware fixes are applied automatically** - no user input required.
+#### 💻 Hypervisor Platform (Choose One)
+1. **KVM/QEMU + virt-manager** - Best performance, open source
+2. **VirtualBox** - Easiest to use, good for beginners  
+3. **VMware Workstation Pro** - Professional features, commercial
+4. **Xen Hypervisor** - Enterprise-grade, Type-1 hypervisor
+5. **Proxmox VE** - Complete virtualization management
+6. **Skip** - Don't install any virtualization software
+
+#### 📸 System Snapshots
+**Automatic filesystem backups supporting:**
+- **ZFS** - Advanced snapshots with compression
+- **Btrfs** - Built-in snapshot capabilities  
+- **ext4** - LVM-based snapshots
+- **XFS** - Limited snapshot support
+- **Daily automatic snapshots** + manual control via `gz302-snapshot`
+
+#### 🔒 Secure Boot Setup  
+**Enhanced boot security featuring:**
+- **Kernel signature verification** - Ensures kernel integrity
+- **Automatic signing** - New kernels signed automatically  
+- **Multi-bootloader support** - GRUB, systemd-boot, rEFInd
+- **UEFI integration** - Works with ASUS firmware
+
+**Just answer `y` (yes) or `n` (no) for each option!** For hypervisors, choose the numbered option (1-6) that you prefer.
+
+> 💡 **Tip:** You can always run the script again later to install additional software you initially skipped.
 
 ## Useful Commands (After Setup)
 
-### Power Management
+### 🔋 Advanced Power Management
+
+#### Basic TDP Profile Control:
 ```bash
-gz302-tdp gaming      # Maximum performance
-gz302-tdp balanced    # Normal use (default)
-gz302-tdp efficient   # Save battery
-gz302-tdp status      # Check current settings
+# Set performance profiles
+gz302-tdp max_performance  # 65W maximum (AC only)
+gz302-tdp gaming           # 54W gaming optimized
+gz302-tdp performance      # 45W high performance  
+gz302-tdp balanced         # 35W balanced (default)
+gz302-tdp efficient        # 25W efficient performance
+gz302-tdp power_saver      # 15W maximum battery life
+gz302-tdp ultra_low        # 10W emergency extension
 ```
 
-### System Snapshots
+#### System Monitoring & Status:
 ```bash
-gz302-snapshot create  # Make a backup
-gz302-snapshot list    # See all backups
-gz302-snapshot cleanup # Remove old backups
+gz302-tdp status           # Show current profile, power source, battery %
+gz302-tdp list             # List all available profiles with wattage
+```
+
+#### 🤖 Automatic Profile Switching:
+```bash
+gz302-tdp config           # Configure automatic AC/battery switching
+gz302-tdp auto             # Enable/disable automatic switching
+```
+
+**Example automatic setup:**
+- **AC Power**: Automatically switches to `gaming` or `performance` profile
+- **Battery Power**: Automatically switches to `efficient` or `power_saver` profile
+- **Smart Detection**: Only switches when power source actually changes
+
+### 📸 System Snapshots & Recovery
+
+#### Snapshot Management:
+```bash
+gz302-snapshot create      # Create a new system backup
+gz302-snapshot list        # View all available snapshots  
+gz302-snapshot cleanup     # Remove old snapshots (keeps last 5)
+gz302-snapshot restore     # Interactive snapshot restoration
+```
+
+**Supported Filesystems:** ZFS, Btrfs, ext4 (with LVM), XFS
+**Automatic Schedule:** Daily snapshots created automatically
+
+### 🎮 Gaming Performance Tools
+
+#### Performance Monitoring:
+```bash
+gamemoded -s               # Check GameMode status
+mangohud your_game         # Launch game with performance overlay
+systemctl status gamemode  # Verify GameMode service
+```
+
+#### Steam Integration:
+```bash
+# Add to Steam launch options for any game:
+mangohud %command%         # Enable performance overlay
+gamemoderun %command%      # Enable gaming optimizations
+```
+
+### 🔧 Hardware Control & Diagnostics
+
+#### ASUS Hardware Controls:
+```bash
+systemctl status supergfxd asusctl  # Check ASUS services
+sudo systemctl restart supergfxd    # Restart GPU switching
+asusctl profile -l                  # List available power profiles
+supergfxctl -g                      # Check current GPU mode
+```
+
+#### Wi-Fi Troubleshooting:
+```bash
+systemctl status NetworkManager     # Check network service
+sudo modprobe -r hid_asus && sudo modprobe hid_asus  # Reset ASUS drivers
+```
+
+### 🤖 AI/LLM Management (If Installed)
+
+#### Ollama Local AI Server:
+```bash
+systemctl status ollama             # Check Ollama service
+ollama list                         # List installed models
+ollama pull llama2                  # Download a model
+ollama run llama2                   # Start interactive chat
+```
+
+#### ROCm GPU Acceleration:
+```bash
+rocm-smi                           # AMD GPU status and monitoring
+clinfo                             # OpenCL device information
 ```
 
 ## Problems? Here's How To Fix Them
 
-### Wi-Fi Not Working
-- Restart your computer (this usually fixes it)
-- Check if NetworkManager is running: `systemctl status NetworkManager`
+### 🔋 Power & Performance Issues
 
-### Touchpad Not Working  
-- Restart your computer first
-- If still broken: `sudo modprobe -r hid_asus && sudo modprobe hid_asus`
+#### TDP Profile Not Working
+- **Check current status**: `gz302-tdp status`
+- **Verify installation**: `which gz302-tdp` (should show `/usr/local/bin/gz302-tdp`)
+- **Manual profile test**: `sudo gz302-tdp balanced`
+- **Check logs**: `journalctl -u gz302-tdp-auto.service -f`
 
-### Games Running Slowly
-- Make sure you picked the right kernel when booting up
-- Check if GameMode is working: `gamemoded -s`
-- Use MangoHUD to see performance: `mangohud your_game`
+#### Battery Draining Too Fast
+- **Switch to power-saving profile**: `gz302-tdp power_saver` or `gz302-tdp ultra_low`
+- **Enable automatic switching**: `gz302-tdp config` (set battery profile to `efficient`)
+- **Check current profile**: `gz302-tdp status`
 
-### ASUS Controls Not Working
-- Check if services are running: `systemctl status supergfxd asusctl`
-- Try restarting them: `sudo systemctl restart supergfxd`
+#### Performance Lower Than Expected
+- **Use high-performance profile**: `gz302-tdp gaming` or `gz302-tdp max_performance` (AC power only)
+- **Verify AC power**: `gz302-tdp status` should show "Power Source: AC"
+- **Check thermal throttling**: Monitor temperatures during use
+
+### 📶 Wi-Fi Issues
+
+#### Wi-Fi Not Working or Disconnecting
+- **First step**: Restart your computer (fixes most MediaTek MT7925e issues)
+- **Check NetworkManager**: `systemctl status NetworkManager`
+- **Reset drivers**: `sudo modprobe -r hid_asus && sudo modprobe hid_asus`
+- **Check Wi-Fi power management**: `iwconfig` (look for Power Management settings)
+
+### 🖱️ Touchpad Problems
+
+#### Touchpad Not Responding  
+- **First step**: Restart your computer
+- **Reset ASUS drivers**: `sudo modprobe -r hid_asus && sudo modprobe hid_asus`
+- **Check touchpad detection**: `xinput list` (look for ASUS touchpad)
+
+### 🎮 Gaming Performance Issues
+
+#### Games Running Slowly
+- **Use gaming TDP profile**: `gz302-tdp gaming`
+- **Verify correct kernel**: Make sure you selected the right kernel at boot
+- **Check GameMode**: `gamemoded -s` (should show "gamemode is active")
+- **Monitor performance**: `mangohud your_game` to see real-time stats
+- **GPU switching**: `supergfxctl -g` to check current GPU mode
+
+#### Steam Games Not Starting
+- **Check Proton**: Update to latest Proton version in Steam
+- **GameMode integration**: Add `gamemoderun %command%` to launch options
+- **Performance overlay**: Add `mangohud %command%` to launch options
+
+### 🔧 ASUS Hardware Controls
+
+#### ASUS Controls Not Working
+- **Check services**: `systemctl status supergfxd asusctl`
+- **Restart services**: `sudo systemctl restart supergfxd asusctl`
+- **ROG Control Center**: Launch with `rog-control-center`
+- **Check logs**: `journalctl -b | grep -i asus`
+
+### 📸 Snapshot Issues
+
+#### Snapshots Failing to Create
+- **Check filesystem**: `gz302-snapshot list` will show supported filesystem
+- **Disk space**: Ensure sufficient free space (at least 20% recommended)
+- **Permissions**: Run as root: `sudo gz302-snapshot create`
+
+### 🤖 AI/LLM Issues (If Installed)
+
+#### Ollama Not Responding
+- **Check service**: `systemctl status ollama`
+- **Restart service**: `sudo systemctl restart ollama`
+- **Check port**: `curl http://localhost:11434` (should respond)
+
+#### ROCm GPU Not Detected
+- **Check ROCm installation**: `rocm-smi`
+- **Verify GPU support**: `clinfo` (should show AMD GPU)
+- **Reboot required**: ROCm often requires reboot after installation
 
 ## Need Help?
 
