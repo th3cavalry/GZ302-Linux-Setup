@@ -509,17 +509,38 @@ evdev:input:b0003v0b05p1a30*
  EVDEV_ABS_36=::100
 EOF
 
+    # Create libinput configuration to address touch jump detection
+    mkdir -p /etc/X11/xorg.conf.d
+    cat > /etc/X11/xorg.conf.d/30-touchpad.conf <<EOF
+Section "InputClass"
+    Identifier "ASUS GZ302 Touchpad"
+    MatchIsTouchpad "on"
+    MatchDevicePath "/dev/input/event*"
+    MatchProduct "ASUSTeK Computer Inc. GZ302EA-Keyboard Touchpad"
+    Driver "libinput"
+    Option "DisableWhileTyping" "off"
+    Option "TappingDrag" "on"
+    Option "TappingDragLock" "on"
+    Option "MiddleEmulation" "on"
+    Option "NaturalScrolling" "true"
+    Option "ScrollMethod" "twofinger"
+    Option "HorizontalScrolling" "on"
+    Option "SendEventsMode" "enabled"
+EndSection
+EOF
+
     # Create systemd service to reload hid_asus module
     cat > /etc/systemd/system/reload-hid_asus.service <<EOF
 [Unit]
 Description=Reload hid_asus module with correct options for Z13 Touchpad
 After=multi-user.target
-ConditionKernelModule=hid_asus
 
 [Service]
 Type=oneshot
+ExecStartPre=/bin/bash -c 'if ! lsmod | grep -q hid_asus; then exit 0; fi'
 ExecStart=/usr/sbin/modprobe -r hid_asus
 ExecStart=/usr/sbin/modprobe hid_asus
+RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
@@ -531,6 +552,22 @@ EOF
 # Fix audio issues on ROG Flow Z13 GZ302
 options snd-hda-intel probe_mask=1
 options snd-hda-intel model=asus-zenbook
+EOF
+
+    # ASUS WMI fixes to reduce error messages
+    info "Applying ASUS WMI optimizations..."
+    cat > /etc/modprobe.d/asus-wmi.conf <<EOF
+# ASUS WMI optimizations for GZ302
+# Reduces fan curve and other WMI-related error messages
+options asus_wmi dev_id=0x00110000
+options asus_nb_wmi wapf=1
+EOF
+    
+    # HID ASUS module optimizations
+    cat > /etc/modprobe.d/hid-asus.conf <<EOF
+# HID ASUS optimizations for better touchpad/keyboard support
+options hid_asus fnlock_default=0
+options hid_asus kbd_backlight=1
 EOF
     
     # AMD GPU optimizations
@@ -547,7 +584,7 @@ EOF
     info "Applying camera fixes..."
     cat > /etc/modprobe.d/uvcvideo.conf <<EOF
 # Camera fixes for GZ302
-options uvcvideo nodrop=1
+options uvcvideo quirks=128
 options uvcvideo timeout=5000
 EOF
     
@@ -611,17 +648,38 @@ evdev:input:b0003v0b05p1a30*
  EVDEV_ABS_36=::100
 EOF
 
+    # Create libinput configuration to address touch jump detection
+    mkdir -p /etc/X11/xorg.conf.d
+    cat > /etc/X11/xorg.conf.d/30-touchpad.conf <<EOF
+Section "InputClass"
+    Identifier "ASUS GZ302 Touchpad"
+    MatchIsTouchpad "on"
+    MatchDevicePath "/dev/input/event*"
+    MatchProduct "ASUSTeK Computer Inc. GZ302EA-Keyboard Touchpad"
+    Driver "libinput"
+    Option "DisableWhileTyping" "off"
+    Option "TappingDrag" "on"
+    Option "TappingDragLock" "on"
+    Option "MiddleEmulation" "on"
+    Option "NaturalScrolling" "true"
+    Option "ScrollMethod" "twofinger"
+    Option "HorizontalScrolling" "on"
+    Option "SendEventsMode" "enabled"
+EndSection
+EOF
+
     # Create systemd service to reload hid_asus module
     cat > /etc/systemd/system/reload-hid_asus.service <<EOF
 [Unit]
 Description=Reload hid_asus module with correct options for Z13 Touchpad
 After=multi-user.target
-ConditionKernelModule=hid_asus
 
 [Service]
 Type=oneshot
+ExecStartPre=/bin/bash -c 'if ! lsmod | grep -q hid_asus; then exit 0; fi'
 ExecStart=/usr/sbin/modprobe -r hid_asus
 ExecStart=/usr/sbin/modprobe hid_asus
+RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
@@ -633,6 +691,22 @@ EOF
 # Fix audio issues on ROG Flow Z13 GZ302
 options snd-hda-intel probe_mask=1
 options snd-hda-intel model=asus-zenbook
+EOF
+
+    # ASUS WMI fixes to reduce error messages
+    info "Applying ASUS WMI optimizations..."
+    cat > /etc/modprobe.d/asus-wmi.conf <<EOF
+# ASUS WMI optimizations for GZ302
+# Reduces fan curve and other WMI-related error messages
+options asus_wmi dev_id=0x00110000
+options asus_nb_wmi wapf=1
+EOF
+    
+    # HID ASUS module optimizations
+    cat > /etc/modprobe.d/hid-asus.conf <<EOF
+# HID ASUS optimizations for better touchpad/keyboard support
+options hid_asus fnlock_default=0
+options hid_asus kbd_backlight=1
 EOF
     
     # AMD GPU optimizations
@@ -649,7 +723,7 @@ EOF
     info "Applying camera fixes..."
     cat > /etc/modprobe.d/uvcvideo.conf <<EOF
 # Camera fixes for GZ302
-options uvcvideo nodrop=1
+options uvcvideo quirks=128
 options uvcvideo timeout=5000
 EOF
     
