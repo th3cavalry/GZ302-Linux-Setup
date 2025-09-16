@@ -54,7 +54,7 @@ class GZ302Setup:
     """Main setup class for ASUS ROG Flow Z13 (GZ302) configuration"""
     
     def __init__(self):
-        self.version = "4.1.1"
+        self.version = "4.2.1"
         self.user_choices = {}
         self.detected_distro = None
         self.original_distro = None

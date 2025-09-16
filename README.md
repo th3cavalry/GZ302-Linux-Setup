@@ -2,7 +2,7 @@
 
 **Professional-grade Linux setup script specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional software stacks for gaming, AI development, and virtualization.
 
-> **🔥 Version 4.1.1 - Python Implementation Fix!** Complete Python version of the setup script with enhanced error handling, maintainability, and cross-platform compatibility. Fixed AUR package installation issues. Choose between Bash and Python implementations.
+> **🔥 Version 4.2.1 - Python Implementation Fix!** Complete Python version of the setup script with enhanced error handling, maintainability, and cross-platform compatibility. Fixed AUR package installation issues. Choose between Bash and Python implementations.
 
 ## ✨ Key Features
 
@@ -378,7 +378,7 @@ If you see repeated error messages like `[ERROR supergfxctl::zbus_iface] get_run
 
 ## 📝 Changelog
 
-### Version 4.1.1 (Latest)
+### Version 4.2.1 (Latest)
 **Python Implementation Fix - AUR Package Installation Error Resolution**
 
 #### 🐛 Issues Fixed:
