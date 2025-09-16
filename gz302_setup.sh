@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 4.0 - Major Update: Consolidated single-script architecture
+# Version: 4.1 - Hardware Fixes Update: Critical hardware compatibility improvements
 #
 # This script automatically detects your Linux distribution and applies
 # the appropriate setup for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+.
@@ -1953,7 +1953,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 4.0 - Major Update: Streamlined Single-Script Architecture"
+    echo "  Version 4.1 - Hardware Fixes Update: Critical Hardware Compatibility Improvements"
     echo "============================================================"
     echo
     

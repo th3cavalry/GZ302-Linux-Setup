@@ -2,7 +2,7 @@
 
 **Professional-grade Linux setup script specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional software stacks for gaming, AI development, and virtualization.
 
-> **🔥 Version 4.0 - Major Update!** Streamlined single-script architecture with comprehensive feature documentation. All individual distribution scripts have been consolidated into one intelligent setup script that automatically detects your Linux distribution.
+> **🔥 Version 4.1 - Hardware Fixes Update!** Comprehensive hardware compatibility improvements with critical fixes for systemd services, camera drivers, and touchpad functionality.
 
 ## ✨ Key Features
 
@@ -354,6 +354,34 @@ If you see repeated error messages like `[ERROR supergfxctl::zbus_iface] get_run
 - **Check ROCm installation**: `rocm-smi`
 - **Verify GPU support**: `clinfo` (should show AMD GPU)
 - **Reboot required**: ROCm often requires reboot after installation
+
+## 📝 Changelog
+
+### Version 4.1 (Latest)
+**Hardware Fixes Update - Critical Hardware Compatibility Improvements**
+
+#### 🔧 Issues Fixed:
+- **Fixed systemd service errors**: Removed invalid `ConditionKernelModule=hid_asus` directive that was causing systemd warnings
+- **Updated camera drivers**: Replaced deprecated `uvcvideo nodrop=1` parameter with modern `quirks=128` configuration  
+- **Enhanced ASUS hardware support**: Added dedicated ASUS WMI and HID module optimizations to reduce error messages
+- **Improved touchpad functionality**: Added comprehensive libinput X11 configuration to prevent touch jump detection issues
+- **Better service reliability**: Added `RemainAfterExit=yes` and proper module checking to systemd services
+
+#### 🛠️ Technical Details:
+- Fixed kernel log errors related to ASUS HID device probe failures (error -12)
+- Eliminated deprecated kernel parameter warnings for UVC camera module
+- Addressed touch jump detection warnings in libinput for better touchpad experience
+- Reduced ASUS WMI fan curve error messages (error -19)
+- Applied fixes consistently across all supported distributions (Arch, Debian, Fedora, OpenSUSE)
+
+### Version 4.0
+**Major Update - Streamlined Single-Script Architecture**
+
+- Consolidated all distribution-specific scripts into one intelligent setup script
+- Added automatic Linux distribution detection
+- Comprehensive feature documentation and user guidance
+- Enhanced TDP management with 7-tier power profiles
+- Improved hardware support and compatibility fixes
 
 ## Need Help?
 
