@@ -131,9 +131,9 @@ class GZ302Setup:
                         break
                     
                     # Check for AMD discrete GPUs with specific patterns
-                    if re.search(r'radeon.*(hd|r[567x]|rx|vega|navi|rdna)', line):
-                        # Exclude integrated Ryzen graphics
-                        if not re.search(r'ryzen.*integrated|amd.*ryzen.*vega|radeon.*vega.*graphics', line):
+                    if re.search(r'(radeon.*(hd|r[567x]|rx|vega|navi|rdna))|ati.*(hd|r[567x])', line, re.IGNORECASE):
+                        # Exclude integrated Ryzen graphics (Vega, Radeon Graphics)
+                        if not re.search(r'ryzen.*integrated|amd.*ryzen.*vega|radeon.*vega.*graphics|ryzen.*\d+.*mobile|vega.*\d+.*\(ryzen|ryzen.*ai.*\d+.*radeon.*vega', line, re.IGNORECASE):
                             dgpu_found = True
                             break
                             
@@ -496,6 +496,91 @@ esac
         self.run_command(['chmod', '+x', '/usr/local/bin/gz302-tdp'])
         
         self.success("TDP management system installed")
+        
+        # Configure automatic TDP switching like bash version
+        self.info("TDP management installation complete!")
+        print()
+        print("Would you like to configure automatic TDP profile switching now?")
+        print("This allows the system to automatically change performance profiles")
+        print("when you plug/unplug the AC adapter.")
+        print()
+        
+        response = input("Configure automatic switching? (Y/n): ").strip().lower()
+        if response != 'n' and response != 'no':
+            self.configure_tdp_profiles()
+        else:
+            print("You can configure automatic switching later using: gz302-tdp config")
+    
+    def configure_tdp_profiles(self):
+        """Configure TDP profiles interactively like bash script"""
+        # TDP profiles dictionary matching bash script
+        tdp_profiles = {
+            'max_performance': {'watts': 65, 'description': '65W'},
+            'gaming': {'watts': 54, 'description': '54W'},
+            'performance': {'watts': 45, 'description': '45W'},
+            'balanced': {'watts': 35, 'description': '35W'},
+            'efficient': {'watts': 25, 'description': '25W'},
+            'power_saver': {'watts': 15, 'description': '15W'},
+            'ultra_low': {'watts': 10, 'description': '10W'}
+        }
+        
+        print("Configuring automatic TDP profile switching...")
+        print()
+        
+        response = input("Enable automatic profile switching based on power source? (y/N): ").strip().lower()
+        if response == 'y' or response == 'yes':
+            print()
+            print("Select AC power profile (when plugged in):")
+            print("Available TDP profiles:")
+            for profile, info in tdp_profiles.items():
+                print(f"  {profile}: {info['description']}")
+            print()
+            
+            ac_profile = input("AC profile [gaming]: ").strip()
+            if not ac_profile:
+                ac_profile = "gaming"
+            elif ac_profile not in tdp_profiles:
+                print("Invalid profile, using 'gaming'")
+                ac_profile = "gaming"
+            
+            print()
+            print("Select battery profile (when on battery):")
+            print("Available TDP profiles:")
+            for profile, info in tdp_profiles.items():
+                print(f"  {profile}: {info['description']}")
+            print()
+            
+            battery_profile = input("Battery profile [efficient]: ").strip()
+            if not battery_profile:
+                battery_profile = "efficient"
+            elif battery_profile not in tdp_profiles:
+                print("Invalid profile, using 'efficient'")
+                battery_profile = "efficient"
+            
+            # Create config directory and save configuration
+            config_dir = "/etc/gz302-tdp"
+            self.run_command(['mkdir', '-p', config_dir])
+            
+            # Save configuration files
+            self.write_file(f"{config_dir}/auto-config", "true")
+            self.write_file(f"{config_dir}/ac-profile", ac_profile)
+            self.write_file(f"{config_dir}/battery-profile", battery_profile)
+            
+            print()
+            print("Automatic switching configured:")
+            print(f"  AC power: {ac_profile}")
+            print(f"  Battery: {battery_profile}")
+            print()
+            print("Starting automatic switching service...")
+            
+            # Enable the auto TDP service
+            try:
+                self.run_command(['systemctl', 'enable', '--now', 'gz302-tdp-auto.service'])
+                self.success("TDP management installed. Use 'gz302-tdp' command to manage power profiles.")
+            except:
+                self.warning("Failed to start automatic switching service")
+        else:
+            print("Automatic switching disabled. You can enable it later using: gz302-tdp config")
     
     def install_ryzenadj_arch(self):
         """Install ryzenadj on Arch-based systems"""
