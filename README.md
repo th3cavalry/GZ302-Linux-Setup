@@ -2,7 +2,7 @@
 
 **Professional-grade Linux setup script specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional software stacks for gaming, AI development, and virtualization.
 
-> **🔥 Version 4.2.1 - Python Implementation Fix!** Complete Python version of the setup script with enhanced error handling, maintainability, and cross-platform compatibility. Fixed AUR package installation issues. Choose between Bash and Python implementations.
+> **🔥 Version 4.2.2 - Python Implementation Fix!** Complete Python version of the setup script with enhanced error handling, maintainability, and cross-platform compatibility. Fixed missing ASUS packages for Arch-based systems. Choose between Bash and Python implementations.
 
 ## ✨ Key Features
 
@@ -378,7 +378,28 @@ If you see repeated error messages like `[ERROR supergfxctl::zbus_iface] get_run
 
 ## 📝 Changelog
 
-### Version 4.2.1 (Latest)
+### Version 4.2.2 (Latest)
+**Python Implementation Fix - Missing ASUS Packages for Arch-based Systems**
+
+#### 🐛 Issues Fixed:
+- **Fixed missing ASUS packages in Python script**: Resolved issue where Python script was missing critical ASUS packages (`linux-g14`, `linux-g14-headers`, `asusctl`, `rog-control-center`) that were present in bash script
+- **Resolved ryzen_smu module error**: Fixed "no compatible ryzen_smu kernel module found" error in `gz302-tdp` command by ensuring linux-g14 kernel installation
+- **Added GPU detection logic**: Python script now properly detects discrete GPU and installs appropriate packages conditionally
+- **Enhanced service management**: Fixed missing systemd service creation and enablement for ASUS hardware
+
+#### 🔧 Technical Details:
+- Added `_install_arch_packages_with_yay()` helper function for proper AUR package handling
+- Implemented conditional package installation based on discrete GPU detection
+- Added ACPI kernel parameter fixes for GZ302 BIOS errors (`acpi_osi=! acpi_osi="Windows 2020" acpi_enforce_resources=lax`)
+- Created missing `reload-hid_asus.service` systemd service for touchpad fixes
+- Updated `enable_arch_services()` to properly enable `supergfxd`, `power-profiles-daemon`, and `switcheroo-control`
+
+#### 📋 Implementation Details:
+- **Full feature parity**: Python script now has identical functionality to bash script for Arch-based systems
+- **EndeavourOS compatibility**: Specifically addresses package installation issues on EndeavourOS mentioned in issue #33
+- **Proper AUR handling**: Uses yay/paru for AUR packages with automatic yay installation if needed
+
+### Version 4.2.1
 **Python Implementation Fix - AUR Package Installation Error Resolution**
 
 #### 🐛 Issues Fixed:
@@ -441,6 +462,63 @@ If something goes wrong:
    - What went wrong
    - Error messages you saw
    - Your laptop model (make sure it's GZ302)
+
+## 📚 Complete Version History
+
+<details>
+<summary>Click to view complete changelog from project start</summary>
+
+```
+Version 4.2.2 (Latest) - Python Implementation Fix
+• Fixed missing ASUS packages in Python script for Arch-based systems
+• Resolved "no compatible ryzen_smu kernel module found" error
+• Added GPU detection logic and conditional package installation
+• Enhanced systemd service management for ASUS hardware
+• Full feature parity between Python and bash scripts
+
+Version 4.2.1 - Python Implementation Fix
+• Fixed AUR package installation "Running makepkg as root" error
+• Enhanced AUR helper support with proper user context
+• Fixed ryzenadj installation failures due to root execution
+• Ensured consistency between bash and Python implementations
+
+Version 4.2 - Python Implementation
+• Complete Python version of setup script released
+• Enhanced error handling and maintainability  
+• Cross-platform compatibility improvements
+• Object-oriented design with type hints
+• Identical functionality to bash version
+
+Version 4.1 - Hardware Fixes Update
+• Fixed systemd service errors and camera driver issues
+• Enhanced ASUS hardware support and touchpad functionality
+• Resolved ACPI BIOS errors and Wi-Fi stability issues
+• Improved audio support and storage I/O optimization
+• Better service reliability across all distributions
+
+Version 4.0 - Major Update
+• Consolidated all distribution scripts into single intelligent script
+• Added automatic Linux distribution detection
+• Comprehensive TDP management with 7-tier power profiles
+• Enhanced hardware support and compatibility fixes
+• Streamlined single-script architecture
+
+Version 3.x - Distribution-Specific Scripts
+• Separate scripts for Arch, Ubuntu, Fedora, OpenSUSE
+• Basic hardware fixes and TDP management
+• Manual distribution selection required
+
+Version 2.x - Early Development
+• Initial hardware compatibility fixes
+• Basic ASUS control software installation
+• Limited distribution support
+
+Version 1.x - Project Start  
+• Initial release for GZ302 hardware support
+• Basic setup automation for Linux installations
+```
+
+</details>
 
 ## Thanks To
 
