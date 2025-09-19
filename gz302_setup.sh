@@ -2007,7 +2007,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 4.2.1 - Hardware Fixes Update: Critical Hardware Compatibility Improvements"
+    echo "  Version 4.2.2 - Hardware Fixes Update: Critical Hardware Compatibility Improvements"
     echo "============================================================"
     echo
     
