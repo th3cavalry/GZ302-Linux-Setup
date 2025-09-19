@@ -275,53 +275,178 @@ class GZ302Setup:
     
     def apply_arch_hardware_fixes(self):
         """Apply comprehensive hardware fixes for Arch-based systems"""
-        self.info("Applying GZ302 hardware fixes for Arch-based systems...")
+        self.info("Applying comprehensive GZ302 hardware fixes for Arch-based systems...")
         
-        # Install kernel and drivers
-        self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'linux-headers', 'base-devel'])
+        # Check for discrete GPU to determine which packages to install
+        has_dgpu = self.detect_discrete_gpu()
+        
+        if has_dgpu:
+            self.info("Discrete GPU detected, installing full GPU management suite...")
+            # Install kernel and drivers with GPU switching support
+            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'linux-g14', 'linux-g14-headers', 'asusctl', 'supergfxctl', 'rog-control-center', 'power-profiles-daemon', 'switcheroo-control'])
+        else:
+            self.info("No discrete GPU detected, installing base ASUS control packages...")
+            # Install kernel and drivers without supergfxctl (for integrated graphics only)
+            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'linux-g14', 'linux-g14-headers', 'asusctl', 'rog-control-center', 'power-profiles-daemon'])
+            # switcheroo-control may still be useful for some systems
+            try:
+                self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'switcheroo-control'])
+            except:
+                self.warning("switcheroo-control not available, continuing...")
+        
+        # ACPI BIOS error mitigation for GZ302
+        self.info("Adding ACPI error mitigation kernel parameters...")
+        grub_path = '/etc/default/grub'
+        if Path(grub_path).exists():
+            try:
+                with open(grub_path, 'r') as f:
+                    grub_content = f.read()
+                
+                # Add kernel parameters to handle ACPI BIOS errors
+                if 'acpi_osi=' not in grub_content:
+                    grub_content = grub_content.replace(
+                        'GRUB_CMDLINE_LINUX_DEFAULT="',
+                        'GRUB_CMDLINE_LINUX_DEFAULT="acpi_osi=! acpi_osi=\\"Windows 2020\\" acpi_enforce_resources=lax '
+                    )
+                    with open(grub_path, 'w') as f:
+                        f.write(grub_content)
+            except Exception as e:
+                self.warning(f"Failed to update GRUB configuration: {e}")
+        
+        # Regenerate bootloader configuration
+        grub_cfg_path = '/boot/grub/grub.cfg'
+        if Path(grub_cfg_path).exists():
+            self.info("Regenerating GRUB configuration...")
+            try:
+                self.run_command(['grub-mkconfig', '-o', '/boot/grub/grub.cfg'])
+            except:
+                self.warning("Failed to regenerate GRUB configuration")
         
         # Wi-Fi fixes for MediaTek MT7925e
-        self.info("Applying Wi-Fi stability fixes...")
-        wifi_config = """# MediaTek MT7925E stability fixes
+        self.info("Applying enhanced Wi-Fi stability fixes for MediaTek MT7925...")
+        wifi_config = """# MediaTek MT7925E stability and performance fixes
+# Only include valid module parameters to avoid kernel warnings
 options mt7925e disable_aspm=1
 """
-        self.write_file('/etc/modprobe.d/mt7925e.conf', wifi_config)
+        self.write_file('/etc/modprobe.d/mt7925e_wifi.conf', wifi_config)
+        
+        # Create NetworkManager Wi-Fi configuration
+        os.makedirs('/etc/NetworkManager/conf.d/', exist_ok=True)
+        nm_wifi_config = """[connection]
+wifi.powersave = 2
+
+[device]
+wifi.scan-rand-mac-address=no
+wifi.backend=wpa_supplicant
+
+[main]
+wifi.scan-rand-mac-address=no
+"""
+        self.write_file('/etc/NetworkManager/conf.d/99-wifi-powersave-off.conf', nm_wifi_config)
+        
+        # Add udev rules for Wi-Fi stability
+        wifi_udev_rules = """# Disable Wi-Fi power saving for MediaTek MT7925e
+ACTION=="add", SUBSYSTEM=="net", KERNEL=="wlan*", RUN+="/usr/bin/iw dev $name set power_save off"
+"""
+        self.write_file('/etc/udev/rules.d/99-wifi-powersave.rules', wifi_udev_rules)
         
         # Touchpad fixes
-        self.info("Applying touchpad fixes...")
-        touchpad_rules = """# ASUS ROG Flow Z13 GZ302 touchpad fixes
-SUBSYSTEM=="input", ATTRS{name}=="ASUS TouchPad", ENV{ID_INPUT_TOUCHPAD}="1"
-SUBSYSTEM=="input", ATTRS{name}=="*ASUS*TouchPad*", ENV{ID_INPUT_TOUCHPAD}="1"
-SUBSYSTEM=="input", ATTRS{name}=="*Touchpad*", ATTRS{id/vendor}=="04f3", ENV{ID_INPUT_TOUCHPAD}="1"
+        self.info("Applying touchpad detection and sensitivity fixes...")
+        touchpad_hwdb = """# ASUS ROG Flow Z13 folio touchpad override
+evdev:input:b0003v0b05p1a30*
+ ENV{ID_INPUT_TOUCHPAD}="1"
+ ENV{ID_INPUT_MULTITOUCH}="1"
+ ENV{ID_INPUT_MOUSE}="0"
+ EVDEV_ABS_00=::100
+ EVDEV_ABS_01=::100
+ EVDEV_ABS_35=::100
+ EVDEV_ABS_36=::100
 """
-        self.write_file('/etc/udev/rules.d/90-asus-touchpad.rules', touchpad_rules)
+        self.write_file('/etc/udev/hwdb.d/61-asus-touchpad.hwdb', touchpad_hwdb)
+        
+        # Create libinput configuration to address touch jump detection
+        os.makedirs('/etc/X11/xorg.conf.d', exist_ok=True)
+        touchpad_xorg_config = """Section "InputClass"
+    Identifier "ASUS GZ302 Touchpad"
+    MatchIsTouchpad "on"
+    MatchDevicePath "/dev/input/event*"
+    MatchProduct "ASUSTeK Computer Inc. GZ302EA-Keyboard Touchpad"
+    Driver "libinput"
+    Option "DisableWhileTyping" "off"
+    Option "TappingDrag" "on"
+    Option "TappingDragLock" "on"
+    Option "MiddleEmulation" "on"
+    Option "NaturalScrolling" "true"
+    Option "ScrollMethod" "twofinger"
+    Option "HorizontalScrolling" "on"
+    Option "SendEventsMode" "enabled"
+EndSection
+"""
+        self.write_file('/etc/X11/xorg.conf.d/30-touchpad.conf', touchpad_xorg_config)
+        
+        # Create systemd service to reload hid_asus module
+        hid_asus_service = """[Unit]
+Description=Reload hid_asus module with correct options for Z13 Touchpad
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/bash -c 'if ! lsmod | grep -q hid_asus; then exit 0; fi'
+ExecStart=/usr/sbin/modprobe -r hid_asus
+ExecStart=/usr/sbin/modprobe hid_asus
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+"""
+        self.write_file('/etc/systemd/system/reload-hid_asus.service', hid_asus_service)
         
         # Audio fixes
-        self.info("Applying audio fixes...")
-        audio_config = """# ASUS ROG Flow Z13 GZ302 audio fixes
+        self.info("Applying audio fixes for GZ302...")
+        audio_config = """# Fix audio issues on ROG Flow Z13 GZ302
+options snd-hda-intel probe_mask=1
 options snd-hda-intel model=asus-zenbook
-options snd-hda-intel enable_msi=1
+# ACP70 platform fixes for newer AMD audio
+options snd_acp_pci enable=1
+options snd-soc-acp70 machine=acp70-asus
 """
-        self.write_file('/etc/modprobe.d/asus-audio.conf', audio_config)
+        self.write_file('/etc/modprobe.d/alsa-gz302.conf', audio_config)
+        
+        # ASUS WMI fixes to reduce error messages
+        self.info("Applying ASUS WMI optimizations...")
+        asus_wmi_config = """# ASUS WMI optimizations for GZ302
+# Reduces fan curve and other WMI-related error messages
+options asus_wmi dev_id=0x00110000
+options asus_nb_wmi wapf=1
+"""
+        self.write_file('/etc/modprobe.d/asus-wmi.conf', asus_wmi_config)
+        
+        # HID ASUS module optimizations
+        hid_asus_config = """# HID ASUS optimizations for better touchpad/keyboard support
+options hid_asus fnlock_default=0
+options hid_asus kbd_backlight=1
+# Memory management fixes to prevent probe failures (error -12)
+options hid_asus max_hid_buflen=8192
+"""
+        self.write_file('/etc/modprobe.d/hid-asus.conf', hid_asus_config)
+        
+        # GPU optimizations
+        self.info("Applying AMD GPU optimizations...")
+        gpu_config = """# AMD GPU optimizations for GZ302
+options amdgpu dc=1
+options amdgpu gpu_recovery=1
+options amdgpu ppfeaturemask=0xffffffff
+options amdgpu runpm=1
+"""
+        self.write_file('/etc/modprobe.d/amdgpu-gz302.conf', gpu_config)
         
         # Camera fixes
         self.info("Applying camera fixes...")
-        camera_config = """# ASUS ROG Flow Z13 GZ302 camera fixes
-options uvcvideo nodrop=1
-options uvcvideo quirks=512
+        camera_config = """# Camera fixes for GZ302
+options uvcvideo quirks=128
+options uvcvideo timeout=5000
 """
-        self.write_file('/etc/modprobe.d/asus-camera.conf', camera_config)
-        
-        # GPU optimizations
-        self.info("Applying GPU optimizations...")
-        gpu_config = """# AMD GPU optimizations for GZ302
-options amdgpu si_support=1
-options amdgpu cik_support=1
-options amdgpu dc=1
-options amdgpu dpm=1
-options amdgpu ppfeaturemask=0xffffffff
-"""
-        self.write_file('/etc/modprobe.d/amdgpu.conf', gpu_config)
+        self.write_file('/etc/modprobe.d/uvcvideo.conf', camera_config)
         
         # Power management
         self.info("Applying power management optimizations...")
@@ -338,15 +463,23 @@ options acpi_thermal polling_frequency=3
         self.write_file('/etc/modprobe.d/asus-thermal.conf', thermal_config)
         
         # SSD optimizations
-        self.info("Applying SSD optimizations...")
-        ssd_rules = """# NVMe SSD optimizations for better performance
-ACTION=="add|change", KERNEL=="nvme[0-9]*n[0-9]*", ATTR{queue/scheduler}="none"
-# SSDs work best with 'mq-deadline' or 'none'
+        self.info("Applying I/O scheduler optimizations...")
+        ssd_rules = """# Set appropriate I/O schedulers for different device types
+# NVMe drives work best with 'none' scheduler but fall back to 'mq-deadline'
+ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]", ATTR{queue/scheduler}="none", ATTR{queue/scheduler}="mq-deadline"
+# SATA SSDs work well with 'mq-deadline' 
 ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
 # Traditional HDDs work best with 'bfq'
 ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
 """
         self.write_file('/etc/udev/rules.d/60-ioschedulers.rules', ssd_rules)
+        
+        # Update hardware database
+        try:
+            self.run_command(['systemd-hwdb', 'update'])
+            self.run_command(['udevadm', 'control', '--reload'])
+        except:
+            self.warning("Failed to update hardware database")
         
         self.success("Comprehensive hardware fixes applied for Arch-based systems")
     
