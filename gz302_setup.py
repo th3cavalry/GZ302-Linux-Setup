@@ -273,12 +273,82 @@ class GZ302Setup:
         except Exception as e:
             self.error(f"Failed to write file {filepath}: {e}")
     
+    def _install_arch_packages_with_yay(self, packages: list, real_user: str):
+        """Install packages on Arch, using yay for AUR packages if needed"""
+        if not packages:
+            return
+            
+        # First try with pacman for official repo packages
+        try:
+            self.run_command(['pacman', '-S', '--noconfirm', '--needed'] + packages, check=False)
+        except:
+            # If pacman fails, try with yay for AUR packages
+            if shutil.which('yay'):
+                self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm'] + packages)
+            elif shutil.which('paru'):
+                self.run_command(['sudo', '-u', real_user, 'paru', '-S', '--noconfirm'] + packages)
+            else:
+                self.warning("AUR helper (yay/paru) not found. Installing yay first...")
+                self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'git', 'base-devel'])
+                
+                # Install yay as the real user
+                self.run_command(['sudo', '-u', real_user, 'bash', '-c', 
+                                 'cd /tmp && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm'])
+                
+                # Now install packages using yay
+                self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm'] + packages)
+    
     def apply_arch_hardware_fixes(self):
         """Apply comprehensive hardware fixes for Arch-based systems"""
-        self.info("Applying GZ302 hardware fixes for Arch-based systems...")
+        self.info("Applying comprehensive GZ302 hardware fixes for Arch-based systems...")
+        
+        # Check for discrete GPU to determine which packages to install
+        has_dgpu = self.detect_discrete_gpu()
+        real_user = self.get_real_user()
+        
+        if has_dgpu:
+            self.info("Discrete GPU detected, installing full GPU management suite...")
+            # Install kernel and drivers with GPU switching support
+            self._install_arch_packages_with_yay(['linux-g14', 'linux-g14-headers', 'asusctl', 'supergfxctl', 'rog-control-center', 'power-profiles-daemon', 'switcheroo-control'], real_user)
+        else:
+            self.info("No discrete GPU detected, installing base ASUS control packages...")
+            # Install kernel and drivers without supergfxctl (for integrated graphics only)
+            self._install_arch_packages_with_yay(['linux-g14', 'linux-g14-headers', 'asusctl', 'rog-control-center', 'power-profiles-daemon'], real_user)
+            # switcheroo-control may still be useful for some systems
+            try:
+                self._install_arch_packages_with_yay(['switcheroo-control'], real_user)
+            except:
+                self.warning("switcheroo-control not available, continuing...")
         
         # Install kernel and drivers
         self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'linux-headers', 'base-devel'])
+        
+        # ACPI BIOS error mitigation for GZ302
+        self.info("Adding ACPI error mitigation kernel parameters...")
+        if os.path.exists('/etc/default/grub'):
+            # Add kernel parameters to handle ACPI BIOS errors
+            try:
+                with open('/etc/default/grub', 'r') as f:
+                    grub_content = f.read()
+                
+                if 'acpi_osi=' not in grub_content:
+                    updated_content = grub_content.replace(
+                        'GRUB_CMDLINE_LINUX_DEFAULT="',
+                        'GRUB_CMDLINE_LINUX_DEFAULT="acpi_osi=! acpi_osi=\\"Windows 2020\\" acpi_enforce_resources=lax '
+                    )
+                    with open('/etc/default/grub', 'w') as f:
+                        f.write(updated_content)
+                    self.info("Added ACPI kernel parameters to GRUB")
+            except Exception as e:
+                self.warning(f"Failed to update GRUB configuration: {e}")
+        
+        # Regenerate bootloader configuration
+        if os.path.exists('/boot/grub/grub.cfg'):
+            self.info("Regenerating GRUB configuration...")
+            try:
+                self.run_command(['grub-mkconfig', '-o', '/boot/grub/grub.cfg'])
+            except Exception as e:
+                self.warning(f"Failed to regenerate GRUB config: {e}")
         
         # Wi-Fi fixes for MediaTek MT7925e
         self.info("Applying Wi-Fi stability fixes...")
@@ -295,6 +365,23 @@ SUBSYSTEM=="input", ATTRS{name}=="*ASUS*TouchPad*", ENV{ID_INPUT_TOUCHPAD}="1"
 SUBSYSTEM=="input", ATTRS{name}=="*Touchpad*", ATTRS{id/vendor}=="04f3", ENV{ID_INPUT_TOUCHPAD}="1"
 """
         self.write_file('/etc/udev/rules.d/90-asus-touchpad.rules', touchpad_rules)
+        
+        # Create systemd service to reload hid_asus module
+        hid_asus_service = """[Unit]
+Description=Reload hid_asus module with correct options for Z13 Touchpad
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/bash -c 'if ! lsmod | grep -q hid_asus; then exit 0; fi'
+ExecStart=/usr/sbin/modprobe -r hid_asus
+ExecStart=/usr/sbin/modprobe hid_asus
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+"""
+        self.write_file('/etc/systemd/system/reload-hid_asus.service', hid_asus_service)
         
         # Audio fixes
         self.info("Applying audio fixes...")
@@ -1098,32 +1185,46 @@ esac
             self.info("No discrete GPU detected - skipping GPU switching services")
     
     def enable_arch_services(self):
-        self.info("Enabling services for Arch-based system...")
+        """Enable system services for Arch-based systems"""
+        self.info("Enabling system services for Arch-based systems...")
         
         # Check for discrete GPU before enabling supergfxd
         has_dgpu = self.detect_discrete_gpu()
         
         if has_dgpu:
-            self.info("Discrete GPU detected - enabling GPU switching services")
-            if shutil.which('systemctl'):
-                try:
-                    self.run_command(['systemctl', 'enable', 'supergfxd'], check=False)
-                    self.run_command(['systemctl', 'start', 'supergfxd'], check=False)
-                except:
-                    self.warning("supergfxd service not available")
+            self.info("Discrete GPU detected, enabling supergfxd for GPU switching...")
+            try:
+                self.run_command(['systemctl', 'enable', '--now', 'supergfxd', 'power-profiles-daemon', 'switcheroo-control'], check=False)
+            except:
+                self.warning("Some GPU switching services not available")
         else:
-            self.info("No discrete GPU detected - skipping GPU switching services")
+            self.info("No discrete GPU detected, skipping supergfxd (integrated graphics only)...")
+            try:
+                self.run_command(['systemctl', 'enable', '--now', 'power-profiles-daemon'], check=False)
+            except:
+                self.warning("power-profiles-daemon not available")
+            
+            # Note: switcheroo-control may still be useful for some integrated GPU management
+            try:
+                result = self.run_command(['systemctl', 'list-unit-files'], capture_output=True, check=False)
+                if result.returncode == 0 and 'switcheroo-control' in result.stdout:
+                    self.run_command(['systemctl', 'enable', '--now', 'switcheroo-control'], check=False)
+            except:
+                pass
         
-        # Enable asusctl if available (similar to bash script pattern)
+        # Enable touchpad fix service
         try:
-            # Check if asusctl service exists before enabling it
-            result = self.run_command(['systemctl', 'list-unit-files'], capture_output=True, check=False)
-            if result.returncode == 0 and 'asusctl' in result.stdout:
-                self.run_command(['systemctl', 'enable', 'asusctl'], check=False)
-            else:
-                self.warning("asusctl service not available")
+            self.run_command(['systemctl', 'enable', '--now', 'reload-hid_asus.service'], check=False)
         except:
-            self.warning("asusctl service not available")
+            self.warning("reload-hid_asus.service not available")
+        
+        # Enable ollama if installed
+        try:
+            result = self.run_command(['systemctl', 'list-unit-files'], capture_output=True, check=False)
+            if result.returncode == 0 and 'ollama' in result.stdout:
+                self.run_command(['systemctl', 'enable', '--now', 'ollama'], check=False)
+        except:
+            pass
 
 
 if __name__ == "__main__":
