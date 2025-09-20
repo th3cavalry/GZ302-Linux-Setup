@@ -18,6 +18,12 @@
 - **Real-time monitoring** - Live power status, battery level, and performance metrics
 - **Optimized for GZ302 hardware** - Profiles tuned specifically for AMD Ryzen AI 395+
 
+### 🖥️ **Virtual Refresh Rate Control**
+- **6-tier refresh rate profiles** - From 30Hz power saving to 165Hz gaming
+- **Variable Refresh Rate (VRR/FreeSync)** - Adaptive sync for smooth gaming
+- **Power-aware switching** - Automatic refresh rate optimization for battery life
+- **Multi-display support** - X11, Wayland, and DRM compatibility
+
 ### 🎮 **Complete Gaming Stack**
 - **Steam + compatibility layers** - Proton, Wine, and Windows game support
 - **Performance monitoring** - MangoHUD overlay with FPS, temps, and utilization
@@ -176,6 +182,42 @@ gz302-tdp auto             # Enable/disable automatic switching
 **Example automatic setup:**
 - **AC Power**: Automatically switches to `gaming` or `performance` profile
 - **Battery Power**: Automatically switches to `efficient` or `power_saver` profile
+
+### 🖥️ Virtual Refresh Rate Management
+
+#### Basic Refresh Rate Control:
+```bash
+# Set refresh rate profiles
+gz302-refresh gaming           # 165Hz maximum gaming performance
+gz302-refresh performance      # 120Hz high performance applications  
+gz302-refresh balanced         # 90Hz balanced performance/power (default)
+gz302-refresh efficient        # 60Hz standard desktop use
+gz302-refresh power_saver      # 48Hz battery conservation
+gz302-refresh ultra_low        # 30Hz emergency battery extension
+```
+
+#### Variable Refresh Rate (FreeSync) Control:
+```bash
+gz302-refresh vrr on           # Enable Variable Refresh Rate/FreeSync
+gz302-refresh vrr off          # Disable Variable Refresh Rate
+gz302-refresh vrr toggle       # Toggle VRR on/off
+```
+
+#### Refresh Rate Monitoring & Status:
+```bash
+gz302-refresh status           # Show current rate, VRR status, detected displays
+gz302-refresh list             # List all available profiles with refresh rates
+```
+
+#### 🤖 Automatic Refresh Rate Switching:
+```bash
+gz302-refresh config           # Configure automatic AC/battery switching
+gz302-refresh auto             # Enable/disable automatic switching
+```
+
+**Example automatic setup:**
+- **AC Power**: Automatically switches to `gaming` (165Hz) or `performance` (120Hz) 
+- **Battery Power**: Automatically switches to `power_saver` (48Hz) or `ultra_low` (30Hz)
 - **Smart Detection**: Only switches when power source actually changes
 
 ### 📸 System Snapshots & Recovery
@@ -259,6 +301,25 @@ clinfo                             # OpenCL device information
 - **Verify AC power**: `gz302-tdp status` should show "Power Source: AC"
 - **Check thermal throttling**: Monitor temperatures during use
 
+### 🖥️ Display & Refresh Rate Issues
+
+#### Refresh Rate Not Changing
+- **Check current status**: `gz302-refresh status`
+- **Verify installation**: `which gz302-refresh` (should show `/usr/local/bin/gz302-refresh`)
+- **Manual rate test**: `sudo gz302-refresh gaming`
+- **Check display detection**: Look for "Detected Displays" in status output
+
+#### Gaming Feels Choppy or Stuttering
+- **Use gaming refresh profile**: `gz302-refresh gaming` (165Hz)
+- **Enable Variable Refresh Rate**: `gz302-refresh vrr on`
+- **Check VRR support**: `gz302-refresh status` should show VRR capabilities
+- **Verify X11/Wayland compatibility**: Different tools for X11 vs Wayland
+
+#### Poor Battery Life with High Refresh Rate
+- **Switch to power-saving refresh**: `gz302-refresh power_saver` (48Hz)
+- **Enable automatic switching**: `gz302-refresh config` (set battery to `ultra_low`)
+- **Check current refresh rate**: `gz302-refresh status`
+
 ### 📶 Wi-Fi Issues
 
 #### Wi-Fi Not Working or Disconnecting
@@ -278,6 +339,8 @@ clinfo                             # OpenCL device information
 
 #### Games Running Slowly
 - **Use gaming TDP profile**: `gz302-tdp gaming`
+- **Use gaming refresh rate**: `gz302-refresh gaming` (165Hz)
+- **Enable Variable Refresh Rate**: `gz302-refresh vrr on`
 - **Verify correct kernel**: Make sure you selected the right kernel at boot
 - **Check GameMode**: `gamemoded -s` (should show "gamemode is active")
 - **Monitor performance**: `mangohud your_game` to see real-time stats

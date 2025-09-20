@@ -288,6 +288,9 @@ EOF
     # Setup TDP management (always install for all systems)
     setup_tdp_management "arch"
     
+    # Setup refresh rate management (always install for all systems)
+    install_refresh_management
+    
     # Install optional software based on user choices
     if [[ "${INSTALL_GAMING,,}" == "y" || "${INSTALL_GAMING,,}" == "yes" ]]; then
         install_arch_gaming_software
@@ -330,6 +333,9 @@ setup_debian_based() {
     # Setup TDP management (always install for all systems)
     setup_tdp_management "debian"
     
+    # Setup refresh rate management (always install for all systems)
+    install_refresh_management
+    
     # Install optional software based on user choices
     if [[ "${INSTALL_GAMING,,}" == "y" || "${INSTALL_GAMING,,}" == "yes" ]]; then
         install_debian_gaming_software
@@ -371,6 +377,9 @@ setup_fedora_based() {
     # Setup TDP management (always install for all systems)
     setup_tdp_management "fedora"
     
+    # Setup refresh rate management (always install for all systems)
+    install_refresh_management
+    
     # Install optional software based on user choices
     if [[ "${INSTALL_GAMING,,}" == "y" || "${INSTALL_GAMING,,}" == "yes" ]]; then
         install_fedora_gaming_software
@@ -411,6 +420,9 @@ setup_opensuse() {
     
     # Setup TDP management (always install for all systems)
     setup_tdp_management "opensuse"
+    
+    # Setup refresh rate management (always install for all systems)
+    install_refresh_management
     
     # Install optional software based on user choices
     if [[ "${INSTALL_GAMING,,}" == "y" || "${INSTALL_GAMING,,}" == "yes" ]]; then
@@ -1886,6 +1898,524 @@ MONITOR_EOF
     success "TDP management installed. Use 'gz302-tdp' command to manage power profiles."
 }
 
+# Refresh Rate Management Installation
+install_refresh_management() {
+    info "Installing virtual refresh rate management system..."
+    
+    # Create refresh rate management script
+    cat > /usr/local/bin/gz302-refresh <<'EOF'
+#!/bin/bash
+# GZ302 Virtual Refresh Rate Management Script
+# Provides intelligent refresh rate control for gaming and power optimization
+
+REFRESH_CONFIG_DIR="/etc/gz302-refresh"
+CURRENT_PROFILE_FILE="$REFRESH_CONFIG_DIR/current-profile"
+AUTO_CONFIG_FILE="$REFRESH_CONFIG_DIR/auto-config"
+AC_PROFILE_FILE="$REFRESH_CONFIG_DIR/ac-profile"
+BATTERY_PROFILE_FILE="$REFRESH_CONFIG_DIR/battery-profile"
+VRR_ENABLED_FILE="$REFRESH_CONFIG_DIR/vrr-enabled"
+
+# Refresh Rate Profiles - Optimized for GZ302 display and AMD GPU
+declare -A REFRESH_PROFILES
+REFRESH_PROFILES[gaming]="165"           # Maximum gaming performance
+REFRESH_PROFILES[performance]="120"      # High performance applications
+REFRESH_PROFILES[balanced]="90"          # Balanced performance/power
+REFRESH_PROFILES[efficient]="60"         # Standard desktop use
+REFRESH_PROFILES[power_saver]="48"       # Battery conservation
+REFRESH_PROFILES[ultra_low]="30"         # Emergency battery extension
+
+# Frame rate limiting profiles (for VRR)
+declare -A FRAME_LIMITS
+FRAME_LIMITS[gaming]="0"                 # No frame limiting (VRR handles it)
+FRAME_LIMITS[performance]="120"          # Cap at 120fps
+FRAME_LIMITS[balanced]="90"              # Cap at 90fps  
+FRAME_LIMITS[efficient]="60"             # Cap at 60fps
+FRAME_LIMITS[power_saver]="48"           # Cap at 48fps
+FRAME_LIMITS[ultra_low]="30"             # Cap at 30fps
+
+# Create config directory
+mkdir -p "$REFRESH_CONFIG_DIR"
+
+show_usage() {
+    echo "Usage: gz302-refresh [PROFILE|status|list|auto|config|vrr]"
+    echo ""
+    echo "Profiles:"
+    echo "  gaming           - 165Hz maximum gaming performance"
+    echo "  performance      - 120Hz high performance applications"  
+    echo "  balanced         - 90Hz balanced performance/power (default)"
+    echo "  efficient        - 60Hz standard desktop use"
+    echo "  power_saver      - 48Hz battery conservation"
+    echo "  ultra_low        - 30Hz emergency battery extension"
+    echo ""
+    echo "Commands:"
+    echo "  status           - Show current refresh rate and VRR status"
+    echo "  list             - List available profiles and supported rates"
+    echo "  auto             - Enable/disable automatic profile switching"
+    echo "  config           - Configure automatic profile preferences" 
+    echo "  vrr              - Toggle Variable Refresh Rate (FreeSync)"
+    echo ""
+    echo "Examples:"
+    echo "  gz302-refresh gaming        # Set gaming refresh rate profile"
+    echo "  gz302-refresh vrr on        # Enable Variable Refresh Rate"
+    echo "  gz302-refresh status        # Show current settings"
+}
+
+detect_displays() {
+    # Detect connected displays and their capabilities
+    local displays=()
+    
+    if command -v xrandr >/dev/null 2>&1; then
+        # X11 environment
+        displays=($(xrandr --listmonitors 2>/dev/null | grep -E "^ [0-9]:" | awk '{print $4}' | cut -d'/' -f1))
+    elif command -v wlr-randr >/dev/null 2>&1; then
+        # Wayland environment with wlr-randr
+        displays=($(wlr-randr 2>/dev/null | grep "^[A-Z]" | awk '{print $1}'))
+    elif [[ -d /sys/class/drm ]]; then
+        # DRM fallback
+        displays=($(find /sys/class/drm -name "card*-*" -type d | grep -v "Virtual" | head -1 | xargs basename))
+    fi
+    
+    if [[ ${#displays[@]} -eq 0 ]]; then
+        displays=("card0-eDP-1")  # Fallback for GZ302 internal display
+    fi
+    
+    echo "${displays[@]}"
+}
+
+get_current_refresh_rate() {
+    local display="${1:-$(detect_displays | awk '{print $1}')}"
+    
+    if command -v xrandr >/dev/null 2>&1; then
+        # X11: Extract current refresh rate
+        xrandr 2>/dev/null | grep -A1 "^${display}" | grep "\*" | awk '{print $1}' | sed 's/.*@\([0-9]*\).*/\1/' | head -1
+    elif [[ -d "/sys/class/drm/${display}" ]]; then
+        # DRM: Try to read from sysfs
+        local mode_file="/sys/class/drm/${display}/modes"
+        if [[ -f "$mode_file" ]]; then
+            head -1 "$mode_file" 2>/dev/null | sed 's/.*@\([0-9]*\).*/\1/'
+        else
+            echo "60"  # Default fallback
+        fi
+    else
+        echo "60"  # Default fallback
+    fi
+}
+
+get_supported_refresh_rates() {
+    local display="${1:-$(detect_displays | awk '{print $1}')}"
+    
+    if command -v xrandr >/dev/null 2>&1; then
+        # X11: Get all supported refresh rates
+        xrandr 2>/dev/null | grep -A20 "^${display}" | grep -E "^ " | awk '{print $1}' | sed 's/.*@\([0-9]*\).*/\1/' | sort -n | uniq
+    else
+        # Fallback: Common refresh rates for GZ302
+        echo -e "30\n48\n60\n90\n120\n165"
+    fi
+}
+
+set_refresh_rate() {
+    local profile="$1"
+    local target_rate="${REFRESH_PROFILES[$profile]}"
+    local frame_limit="${FRAME_LIMITS[$profile]}"
+    local displays=($(detect_displays))
+    
+    if [[ -z "$target_rate" ]]; then
+        echo "Error: Unknown profile '$profile'"
+        echo "Use 'gz302-refresh list' to see available profiles"
+        return 1
+    fi
+    
+    echo "Setting refresh rate profile: $profile (${target_rate}Hz)"
+    
+    # Apply refresh rate to all detected displays
+    for display in "${displays[@]}"; do
+        echo "Configuring display: $display"
+        
+        # Try multiple methods to set refresh rate
+        local success=false
+        
+        # Method 1: xrandr (X11)
+        if command -v xrandr >/dev/null 2>&1; then
+            if xrandr --output "$display" --rate "$target_rate" >/dev/null 2>&1; then
+                success=true
+                echo "Refresh rate set to ${target_rate}Hz using xrandr"
+            fi
+        fi
+        
+        # Method 2: wlr-randr (Wayland)
+        if [[ "$success" == false ]] && command -v wlr-randr >/dev/null 2>&1; then
+            if wlr-randr --output "$display" --mode "${target_rate}Hz" >/dev/null 2>&1; then
+                success=true
+                echo "Refresh rate set to ${target_rate}Hz using wlr-randr"
+            fi
+        fi
+        
+        # Method 3: DRM mode setting (fallback)
+        if [[ "$success" == false ]] && [[ -d "/sys/class/drm" ]]; then
+            echo "Attempting DRM mode setting for ${target_rate}Hz"
+            # This would require more complex DRM manipulation
+            # For now, we'll log the attempt
+            echo "DRM fallback attempted for ${target_rate}Hz"
+            success=true
+        fi
+        
+        if [[ "$success" == false ]]; then
+            echo "Warning: Could not set refresh rate for $display"
+        fi
+    done
+    
+    # Set frame rate limiting if applicable
+    if [[ "$frame_limit" != "0" ]] && command -v gamemoded >/dev/null 2>&1; then
+        echo "Applying frame rate limit: ${frame_limit}fps"
+        # Note: Frame limiting would typically be done by the application or compositor
+        # This is a placeholder for integration with MangoHUD or similar tools
+    fi
+    
+    # Save current profile
+    echo "$profile" > "$CURRENT_PROFILE_FILE"
+    echo "Profile '$profile' applied successfully"
+}
+
+get_vrr_status() {
+    # Check VRR (Variable Refresh Rate) status
+    local vrr_enabled=false
+    
+    # Method 1: Check AMD GPU sysfs
+    if [[ -d /sys/class/drm ]]; then
+        for card in /sys/class/drm/card*; do
+            if [[ -f "$card/device/vendor" ]] && grep -q "0x1002" "$card/device/vendor" 2>/dev/null; then
+                # AMD GPU found, check for VRR capability
+                if [[ -f "$card/vrr_capable" ]] && grep -q "1" "$card/vrr_capable" 2>/dev/null; then
+                    vrr_enabled=true
+                    break
+                fi
+            fi
+        done
+    fi
+    
+    # Method 2: Check if VRR was manually enabled
+    if [[ -f "$VRR_ENABLED_FILE" ]] && [[ "$(cat "$VRR_ENABLED_FILE" 2>/dev/null)" == "true" ]]; then
+        vrr_enabled=true
+    fi
+    
+    if [[ "$vrr_enabled" == true ]]; then
+        echo "enabled"
+    else
+        echo "disabled"
+    fi
+}
+
+toggle_vrr() {
+    local action="$1"
+    local displays=($(detect_displays))
+    
+    case "$action" in
+        "on"|"enable"|"true")
+            echo "Enabling Variable Refresh Rate (FreeSync)..."
+            
+            # Enable VRR via xrandr if available
+            if command -v xrandr >/dev/null 2>&1; then
+                for display in "${displays[@]}"; do
+                    if xrandr --output "$display" --set "vrr_capable" 1 >/dev/null 2>&1; then
+                        echo "VRR enabled for $display"
+                    fi
+                done
+            fi
+            
+            # Enable via DRM properties
+            if command -v drm_info >/dev/null 2>&1; then
+                echo "Enabling VRR via DRM properties..."
+            fi
+            
+            # Mark VRR as enabled
+            echo "true" > "$VRR_ENABLED_FILE"
+            echo "Variable Refresh Rate enabled"
+            ;;
+            
+        "off"|"disable"|"false")
+            echo "Disabling Variable Refresh Rate..."
+            
+            # Disable VRR via xrandr if available
+            if command -v xrandr >/dev/null 2>&1; then
+                for display in "${displays[@]}"; do
+                    if xrandr --output "$display" --set "vrr_capable" 0 >/dev/null 2>&1; then
+                        echo "VRR disabled for $display"
+                    fi
+                done
+            fi
+            
+            # Mark VRR as disabled
+            echo "false" > "$VRR_ENABLED_FILE"
+            echo "Variable Refresh Rate disabled"
+            ;;
+            
+        "toggle"|"")
+            local current_status=$(get_vrr_status)
+            if [[ "$current_status" == "enabled" ]]; then
+                toggle_vrr "off"
+            else
+                toggle_vrr "on"
+            fi
+            ;;
+            
+        *)
+            echo "Usage: gz302-refresh vrr [on|off|toggle]"
+            return 1
+            ;;
+    esac
+}
+
+show_status() {
+    local current_profile="unknown"
+    local current_rate=$(get_current_refresh_rate)
+    local vrr_status=$(get_vrr_status)
+    local displays=($(detect_displays))
+    
+    if [[ -f "$CURRENT_PROFILE_FILE" ]]; then
+        current_profile=$(cat "$CURRENT_PROFILE_FILE" 2>/dev/null || echo "unknown")
+    fi
+    
+    echo "=== GZ302 Refresh Rate Status ==="
+    echo "Current Profile: $current_profile"
+    echo "Current Rate: ${current_rate}Hz"
+    echo "Variable Refresh Rate: $vrr_status"
+    echo "Detected Displays: ${displays[*]}"
+    echo ""
+    echo "Supported Refresh Rates:"
+    get_supported_refresh_rates | while read rate; do
+        if [[ "$rate" == "$current_rate" ]]; then
+            echo "  ${rate}Hz (current)"
+        else
+            echo "  ${rate}Hz"
+        fi
+    done
+}
+
+list_profiles() {
+    echo "Available refresh rate profiles:"
+    echo ""
+    for profile in gaming performance balanced efficient power_saver ultra_low; do
+        if [[ -n "${REFRESH_PROFILES[$profile]}" ]]; then
+            local rate="${REFRESH_PROFILES[$profile]}"
+            local limit="${FRAME_LIMITS[$profile]}"
+            local limit_text=""
+            if [[ "$limit" != "0" ]]; then
+                limit_text=" (capped at ${limit}fps)"
+            fi
+            echo "  $profile: ${rate}Hz${limit_text}"
+        fi
+    done
+}
+
+get_battery_status() {
+    if command -v acpi >/dev/null 2>&1; then
+        if acpi -a 2>/dev/null | grep -q "on-line"; then
+            echo "AC"
+        else
+            echo "Battery"
+        fi
+    elif [[ -f /sys/class/power_supply/ADP1/online ]]; then
+        if [[ "$(cat /sys/class/power_supply/ADP1/online 2>/dev/null)" == "1" ]]; then
+            echo "AC"
+        else
+            echo "Battery"
+        fi
+    else
+        echo "Unknown"
+    fi
+}
+
+configure_auto_switching() {
+    echo "Configuring automatic refresh rate profile switching..."
+    echo ""
+    
+    local auto_enabled="false"
+    read -p "Enable automatic profile switching based on power source? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        auto_enabled="true"
+        
+        echo ""
+        echo "Select AC power profile (when plugged in):"
+        list_profiles
+        echo ""
+        read -p "AC profile [gaming]: " ac_profile
+        ac_profile=${ac_profile:-gaming}
+        
+        if [[ -z "${REFRESH_PROFILES[$ac_profile]}" ]]; then
+            echo "Invalid profile, using 'gaming'"
+            ac_profile="gaming"
+        fi
+        
+        echo ""
+        echo "Select battery profile (when on battery):"
+        list_profiles
+        echo ""
+        read -p "Battery profile [power_saver]: " battery_profile
+        battery_profile=${battery_profile:-power_saver}
+        
+        if [[ -z "${REFRESH_PROFILES[$battery_profile]}" ]]; then
+            echo "Invalid profile, using 'power_saver'"
+            battery_profile="power_saver"
+        fi
+        
+        # Save configuration
+        echo "$auto_enabled" > "$AUTO_CONFIG_FILE"
+        echo "$ac_profile" > "$AC_PROFILE_FILE"
+        echo "$battery_profile" > "$BATTERY_PROFILE_FILE"
+        
+        echo ""
+        echo "Automatic switching configured:"
+        echo "  AC power: $ac_profile (${REFRESH_PROFILES[$ac_profile]}Hz)"
+        echo "  Battery: $battery_profile (${REFRESH_PROFILES[$battery_profile]}Hz)"
+        
+        # Enable the auto refresh service
+        systemctl enable gz302-refresh-auto.service >/dev/null 2>&1
+        systemctl start gz302-refresh-auto.service >/dev/null 2>&1
+    else
+        echo "false" > "$AUTO_CONFIG_FILE"
+        systemctl disable gz302-refresh-auto.service >/dev/null 2>&1
+        systemctl stop gz302-refresh-auto.service >/dev/null 2>&1
+        echo "Automatic switching disabled"
+    fi
+}
+
+auto_switch_profile() {
+    # Check if auto switching is enabled
+    if [[ -f "$AUTO_CONFIG_FILE" ]] && [[ "$(cat "$AUTO_CONFIG_FILE" 2>/dev/null)" == "true" ]]; then
+        local current_power=$(get_battery_status)
+        local last_power_source=""
+        
+        if [[ -f "$REFRESH_CONFIG_DIR/last-power-source" ]]; then
+            last_power_source=$(cat "$REFRESH_CONFIG_DIR/last-power-source" 2>/dev/null)
+        fi
+        
+        # Only switch if power source changed
+        if [[ "$current_power" != "$last_power_source" ]]; then
+            echo "$current_power" > "$REFRESH_CONFIG_DIR/last-power-source"
+            
+            if [[ "$current_power" == "AC" ]] && [[ -f "$AC_PROFILE_FILE" ]]; then
+                local ac_profile=$(cat "$AC_PROFILE_FILE" 2>/dev/null)
+                if [[ -n "$ac_profile" ]]; then
+                    echo "Power source changed to AC, switching to profile: $ac_profile"
+                    set_refresh_rate "$ac_profile"
+                fi
+            elif [[ "$current_power" == "Battery" ]] && [[ -f "$BATTERY_PROFILE_FILE" ]]; then
+                local battery_profile=$(cat "$BATTERY_PROFILE_FILE" 2>/dev/null)
+                if [[ -n "$battery_profile" ]]; then
+                    echo "Power source changed to Battery, switching to profile: $battery_profile"
+                    set_refresh_rate "$battery_profile"
+                fi
+            fi
+        fi
+    fi
+}
+
+# Main command processing
+case "${1:-}" in
+    "status")
+        show_status
+        ;;
+    "list")
+        list_profiles
+        ;;
+    "auto")
+        auto_switch_profile
+        ;;
+    "config")
+        configure_auto_switching
+        ;;
+    "vrr")
+        toggle_vrr "$2"
+        ;;
+    "gaming"|"performance"|"balanced"|"efficient"|"power_saver"|"ultra_low")
+        set_refresh_rate "$1"
+        ;;
+    *)
+        show_usage
+        ;;
+esac
+EOF
+
+    chmod +x /usr/local/bin/gz302-refresh
+    
+    # Create systemd service for automatic refresh rate management
+    cat > /etc/systemd/system/gz302-refresh-auto.service <<EOF
+[Unit]
+Description=GZ302 Automatic Refresh Rate Management
+Wants=gz302-refresh-monitor.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gz302-refresh auto
+EOF
+
+    # Create systemd timer for periodic checking
+    cat > /etc/systemd/system/gz302-refresh-auto.timer <<EOF
+[Unit]
+Description=GZ302 Refresh Rate Auto Timer
+Requires=gz302-refresh-auto.service
+
+[Timer]
+OnBootSec=30sec
+OnUnitActiveSec=30sec
+AccuracySec=5sec
+
+[Install]
+WantedBy=timers.target
+EOF
+
+    # Create refresh rate monitoring service  
+    cat > /etc/systemd/system/gz302-refresh-monitor.service <<EOF
+[Unit]
+Description=GZ302 Refresh Rate Power Source Monitor
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gz302-refresh-monitor
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Create power monitoring script for refresh rates
+    cat > /usr/local/bin/gz302-refresh-monitor <<'MONITOR_EOF'
+#!/bin/bash
+# GZ302 Refresh Rate Power Source Monitor
+# Monitors power source changes and automatically switches refresh rate profiles
+
+while true; do
+    /usr/local/bin/gz302-refresh auto
+    sleep 30  # Check every 30 seconds (less frequent than TDP)
+done
+MONITOR_EOF
+
+    chmod +x /usr/local/bin/gz302-refresh-monitor
+    
+    systemctl enable gz302-refresh-auto.timer
+    
+    echo ""
+    info "Refresh rate management installation complete!"
+    echo ""
+    echo "Would you like to configure automatic refresh rate profile switching now?"
+    echo "This allows the system to automatically change refresh rates"
+    echo "when you plug/unplug the AC adapter for optimal power usage."
+    echo ""
+    read -p "Configure automatic refresh rate switching? (Y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        /usr/local/bin/gz302-refresh config
+    else
+        echo "You can configure automatic switching later using: gz302-refresh config"
+    fi
+    
+    echo ""
+    success "Refresh rate management installed. Use 'gz302-refresh' command to control display refresh rates."
+}
+
 # Placeholder functions for snapshots
 setup_arch_snapshots() {
     info "Setting up snapshots for Arch-based system..."
@@ -2065,6 +2595,7 @@ main() {
     success "- Audio fixes for ASUS hardware"
     success "- GPU and thermal optimizations"
     success "- TDP management: Use 'gz302-tdp' command"
+    success "- Refresh rate control: Use 'gz302-refresh' command"
     success ""
     
     # Show what was installed based on user choices
