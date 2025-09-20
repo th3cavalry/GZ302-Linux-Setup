@@ -1,8 +1,8 @@
 # GZ302 Linux Setup - Python Conversion Summary
 
-## Conversion Complete ✅ - Version 4.2
+## Conversion Complete ✅ - Version 4.3
 
-The bash script has been successfully converted to Python while maintaining 100% feature parity. This marks the release of Version 4.2 with the new Python implementation.
+The bash script has been successfully converted to Python while maintaining 100% feature parity. This marks the release of Version 4.3 with the new virtual refresh rate management system.
 
 ## Files Added
 - `gz302_setup.py` - Complete Python version (1,111 lines)

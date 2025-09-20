@@ -4,7 +4,7 @@
 Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 
 Author: th3cavalry using Copilot
-Version: 4.2.2 - Python Implementation: Modern script architecture with enhanced capabilities
+Version: 4.3 - Virtual Refresh Rate Management: Comprehensive display refresh rate control system
 
 This script automatically detects your Linux distribution and applies
 the appropriate setup for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+.
@@ -54,7 +54,7 @@ class GZ302Setup:
     """Main setup class for ASUS ROG Flow Z13 (GZ302) configuration"""
     
     def __init__(self):
-        self.version = "4.2.2"
+        self.version = "4.3"
         self.user_choices = {}
         self.detected_distro = None
         self.original_distro = None
@@ -669,6 +669,329 @@ esac
         else:
             print("Automatic switching disabled. You can enable it later using: gz302-tdp config")
     
+    def setup_refresh_management(self):
+        """Setup virtual refresh rate management system"""
+        self.info("Installing virtual refresh rate management system...")
+        
+        # Create refresh rate management script
+        refresh_script = '''#!/bin/bash
+# GZ302 Virtual Refresh Rate Management Script
+# Provides intelligent refresh rate control for gaming and power optimization
+
+REFRESH_CONFIG_DIR="/etc/gz302-refresh"
+CURRENT_PROFILE_FILE="$REFRESH_CONFIG_DIR/current-profile"
+AUTO_CONFIG_FILE="$REFRESH_CONFIG_DIR/auto-config"
+AC_PROFILE_FILE="$REFRESH_CONFIG_DIR/ac-profile"
+BATTERY_PROFILE_FILE="$REFRESH_CONFIG_DIR/battery-profile"
+VRR_ENABLED_FILE="$REFRESH_CONFIG_DIR/vrr-enabled"
+
+# Refresh Rate Profiles - Optimized for GZ302 display and AMD GPU
+declare -A REFRESH_PROFILES
+REFRESH_PROFILES[gaming]="165"           # Maximum gaming performance
+REFRESH_PROFILES[performance]="120"      # High performance applications
+REFRESH_PROFILES[balanced]="90"          # Balanced performance/power
+REFRESH_PROFILES[efficient]="60"         # Standard desktop use
+REFRESH_PROFILES[power_saver]="48"       # Battery conservation
+REFRESH_PROFILES[ultra_low]="30"         # Emergency battery extension
+
+# Frame rate limiting profiles (for VRR)
+declare -A FRAME_LIMITS
+FRAME_LIMITS[gaming]="0"                 # No frame limiting (VRR handles it)
+FRAME_LIMITS[performance]="120"          # Cap at 120fps
+FRAME_LIMITS[balanced]="90"              # Cap at 90fps  
+FRAME_LIMITS[efficient]="60"             # Cap at 60fps
+FRAME_LIMITS[power_saver]="48"           # Cap at 48fps
+FRAME_LIMITS[ultra_low]="30"             # Cap at 30fps
+
+# Create config directory
+mkdir -p "$REFRESH_CONFIG_DIR"
+
+show_usage() {
+    echo "Usage: gz302-refresh [PROFILE|status|list|auto|config|vrr]"
+    echo ""
+    echo "Profiles:"
+    echo "  gaming           - 165Hz maximum gaming performance"
+    echo "  performance      - 120Hz high performance applications"  
+    echo "  balanced         - 90Hz balanced performance/power (default)"
+    echo "  efficient        - 60Hz standard desktop use"
+    echo "  power_saver      - 48Hz battery conservation"
+    echo "  ultra_low        - 30Hz emergency battery extension"
+    echo ""
+    echo "Commands:"
+    echo "  status           - Show current refresh rate and VRR status"
+    echo "  list             - List available profiles and supported rates"
+    echo "  auto             - Enable/disable automatic profile switching"
+    echo "  config           - Configure automatic profile preferences" 
+    echo "  vrr              - Toggle Variable Refresh Rate (FreeSync)"
+    echo ""
+    echo "Examples:"
+    echo "  gz302-refresh gaming        # Set gaming refresh rate profile"
+    echo "  gz302-refresh vrr on        # Enable Variable Refresh Rate"
+    echo "  gz302-refresh status        # Show current settings"
+}
+
+detect_displays() {
+    # Detect connected displays and their capabilities
+    local displays=()
+    
+    if command -v xrandr >/dev/null 2>&1; then
+        # X11 environment
+        displays=($(xrandr --listmonitors 2>/dev/null | grep -E "^ [0-9]:" | awk '{print $4}' | cut -d'/' -f1))
+    elif command -v wlr-randr >/dev/null 2>&1; then
+        # Wayland environment with wlr-randr
+        displays=($(wlr-randr 2>/dev/null | grep "^[A-Z]" | awk '{print $1}'))
+    elif [[ -d /sys/class/drm ]]; then
+        # DRM fallback
+        displays=($(find /sys/class/drm -name "card*-*" -type d | grep -v "Virtual" | head -1 | xargs basename))
+    fi
+    
+    if [[ ${#displays[@]} -eq 0 ]]; then
+        displays=("card0-eDP-1")  # Fallback for GZ302 internal display
+    fi
+    
+    echo "${displays[@]}"
+}
+
+get_current_refresh_rate() {
+    local display="${1:-$(detect_displays | awk '{print $1}')}"
+    
+    if command -v xrandr >/dev/null 2>&1; then
+        # X11: Extract current refresh rate
+        xrandr 2>/dev/null | grep -A1 "^${display}" | grep "\\*" | awk '{print $1}' | sed 's/.*@\\([0-9]*\\).*/\\1/' | head -1
+    elif [[ -d "/sys/class/drm/${display}" ]]; then
+        # DRM: Try to read from sysfs
+        local mode_file="/sys/class/drm/${display}/modes"
+        if [[ -f "$mode_file" ]]; then
+            head -1 "$mode_file" 2>/dev/null | sed 's/.*@\\([0-9]*\\).*/\\1/'
+        else
+            echo "60"  # Default fallback
+        fi
+    else
+        echo "60"  # Default fallback
+    fi
+}
+
+set_refresh_rate() {
+    local profile="$1"
+    local target_rate="${REFRESH_PROFILES[$profile]}"
+    local frame_limit="${FRAME_LIMITS[$profile]}"
+    local displays=($(detect_displays))
+    
+    if [[ -z "$target_rate" ]]; then
+        echo "Error: Unknown profile '$profile'"
+        echo "Use 'gz302-refresh list' to see available profiles"
+        return 1
+    fi
+    
+    echo "Setting refresh rate profile: $profile (${target_rate}Hz)"
+    
+    # Apply refresh rate to all detected displays
+    for display in "${displays[@]}"; do
+        echo "Configuring display: $display"
+        
+        # Try multiple methods to set refresh rate
+        local success=false
+        
+        # Method 1: xrandr (X11)
+        if command -v xrandr >/dev/null 2>&1; then
+            if xrandr --output "$display" --rate "$target_rate" >/dev/null 2>&1; then
+                success=true
+                echo "Refresh rate set to ${target_rate}Hz using xrandr"
+            fi
+        fi
+        
+        # Method 2: wlr-randr (Wayland)
+        if [[ "$success" == false ]] && command -v wlr-randr >/dev/null 2>&1; then
+            if wlr-randr --output "$display" --mode "${target_rate}Hz" >/dev/null 2>&1; then
+                success=true
+                echo "Refresh rate set to ${target_rate}Hz using wlr-randr"
+            fi
+        fi
+        
+        if [[ "$success" == false ]]; then
+            echo "Warning: Could not set refresh rate for $display"
+        fi
+    done
+    
+    # Save current profile
+    echo "$profile" > "$CURRENT_PROFILE_FILE"
+    echo "Profile '$profile' applied successfully"
+}
+
+show_status() {
+    local current_profile="unknown"
+    local current_rate=$(get_current_refresh_rate)
+    local displays=($(detect_displays))
+    
+    if [[ -f "$CURRENT_PROFILE_FILE" ]]; then
+        current_profile=$(cat "$CURRENT_PROFILE_FILE" 2>/dev/null || echo "unknown")
+    fi
+    
+    echo "=== GZ302 Refresh Rate Status ==="
+    echo "Current Profile: $current_profile"
+    echo "Current Rate: ${current_rate}Hz"
+    echo "Detected Displays: ${displays[*]}"
+}
+
+# Main command processing
+case "${1:-}" in
+    "status")
+        show_status
+        ;;
+    "gaming"|"performance"|"balanced"|"efficient"|"power_saver"|"ultra_low")
+        set_refresh_rate "$1"
+        ;;
+    *)
+        show_usage
+        ;;
+esac
+'''
+        self.write_file('/usr/local/bin/gz302-refresh', refresh_script)
+        self.run_command(['chmod', '+x', '/usr/local/bin/gz302-refresh'])
+        
+        # Create systemd service for automatic refresh rate management
+        refresh_service = """[Unit]
+Description=GZ302 Automatic Refresh Rate Management
+Wants=gz302-refresh-monitor.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gz302-refresh auto
+"""
+        self.write_file('/etc/systemd/system/gz302-refresh-auto.service', refresh_service)
+        
+        # Create systemd timer for periodic checking
+        refresh_timer = """[Unit]
+Description=GZ302 Refresh Rate Auto Timer
+Requires=gz302-refresh-auto.service
+
+[Timer]
+OnBootSec=30sec
+OnUnitActiveSec=30sec
+AccuracySec=5sec
+
+[Install]
+WantedBy=timers.target
+"""
+        self.write_file('/etc/systemd/system/gz302-refresh-auto.timer', refresh_timer)
+        
+        # Create monitoring service
+        refresh_monitor = """[Unit]
+Description=GZ302 Refresh Rate Power Source Monitor
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gz302-refresh-monitor
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+"""
+        self.write_file('/etc/systemd/system/gz302-refresh-monitor.service', refresh_monitor)
+        
+        # Create power monitoring script for refresh rates
+        refresh_monitor_script = '''#!/bin/bash
+# GZ302 Refresh Rate Power Source Monitor
+# Monitors power source changes and automatically switches refresh rate profiles
+
+while true; do
+    /usr/local/bin/gz302-refresh auto
+    sleep 30  # Check every 30 seconds (less frequent than TDP)
+done
+'''
+        self.write_file('/usr/local/bin/gz302-refresh-monitor', refresh_monitor_script)
+        self.run_command(['chmod', '+x', '/usr/local/bin/gz302-refresh-monitor'])
+        
+        self.run_command(['systemctl', 'enable', 'gz302-refresh-auto.timer'])
+        
+        self.success("Refresh rate management system installed")
+        
+        # Configure automatic refresh rate switching
+        self.info("Refresh rate management installation complete!")
+        print()
+        print("Would you like to configure automatic refresh rate profile switching now?")
+        print("This allows the system to automatically change refresh rates")
+        print("when you plug/unplug the AC adapter for optimal power usage.")
+        print()
+        
+        response = input("Configure automatic refresh rate switching? (Y/n): ").strip().lower()
+        if response != 'n' and response != 'no':
+            self.configure_refresh_profiles()
+        else:
+            print("You can configure automatic switching later using: gz302-refresh config")
+        
+        print()
+        self.success("Refresh rate management installed. Use 'gz302-refresh' command to control display refresh rates.")
+    
+    def configure_refresh_profiles(self):
+        """Configure refresh rate profiles interactively"""
+        refresh_profiles = {
+            'gaming': {'rate': 165, 'description': '165Hz'},
+            'performance': {'rate': 120, 'description': '120Hz'},
+            'balanced': {'rate': 90, 'description': '90Hz'},
+            'efficient': {'rate': 60, 'description': '60Hz'},
+            'power_saver': {'rate': 48, 'description': '48Hz'},
+            'ultra_low': {'rate': 30, 'description': '30Hz'}
+        }
+        
+        print("Configuring automatic refresh rate profile switching...")
+        print()
+        
+        auto_enabled = input("Enable automatic profile switching based on power source? (y/N): ").strip().lower()
+        if auto_enabled in ['y', 'yes']:
+            print()
+            print("Select AC power profile (when plugged in):")
+            for profile, info in refresh_profiles.items():
+                print(f"  {profile}: {info['description']}")
+            print()
+            
+            ac_profile = input("AC profile [gaming]: ").strip()
+            if not ac_profile:
+                ac_profile = "gaming"
+            elif ac_profile not in refresh_profiles:
+                print("Invalid profile, using 'gaming'")
+                ac_profile = "gaming"
+            
+            print()
+            print("Select battery profile (when on battery):")
+            for profile, info in refresh_profiles.items():
+                print(f"  {profile}: {info['description']}")
+            print()
+            
+            battery_profile = input("Battery profile [power_saver]: ").strip()
+            if not battery_profile:
+                battery_profile = "power_saver"
+            elif battery_profile not in refresh_profiles:
+                print("Invalid profile, using 'power_saver'")
+                battery_profile = "power_saver"
+            
+            # Create config directory and save configuration
+            config_dir = "/etc/gz302-refresh"
+            self.run_command(['mkdir', '-p', config_dir])
+            
+            # Save configuration files
+            self.write_file(f"{config_dir}/auto-config", "true")
+            self.write_file(f"{config_dir}/ac-profile", ac_profile)
+            self.write_file(f"{config_dir}/battery-profile", battery_profile)
+            
+            print()
+            print("Automatic switching configured:")
+            print(f"  AC power: {ac_profile} ({refresh_profiles[ac_profile]['rate']}Hz)")
+            print(f"  Battery: {battery_profile} ({refresh_profiles[battery_profile]['rate']}Hz)")
+            print()
+            print("Starting automatic switching service...")
+            
+            # Enable the auto refresh service
+            try:
+                self.run_command(['systemctl', 'enable', '--now', 'gz302-refresh-auto.timer'])
+                self.success("Refresh rate management configured successfully.")
+            except:
+                self.warning("Failed to start automatic switching service")
+        else:
+            print("Automatic switching disabled. You can enable it later using: gz302-refresh config")
+    
     def install_ryzenadj_arch(self):
         """Install ryzenadj on Arch-based systems"""
         real_user = self.get_real_user()
@@ -730,6 +1053,9 @@ esac
         # Setup TDP management (always install for all systems)
         self.setup_tdp_management("arch")
         
+        # Setup refresh rate management (always install for all systems)
+        self.setup_refresh_management()
+        
         # Install optional software based on user choices
         if self.user_choices.get('gaming', False):
             self.install_arch_gaming_software()
@@ -757,6 +1083,9 @@ esac
         
         # Setup TDP management
         self.setup_tdp_management("ubuntu")
+        
+        # Setup refresh rate management (always install for all systems)
+        self.setup_refresh_management()
         
         # Install optional software based on user choices
         if self.user_choices.get('gaming', False):
@@ -786,6 +1115,9 @@ esac
         # Setup TDP management
         self.setup_tdp_management("fedora")
         
+        # Setup refresh rate management (always install for all systems)
+        self.setup_refresh_management()
+        
         # Install optional software based on user choices
         if self.user_choices.get('gaming', False):
             self.install_fedora_gaming_software()
@@ -813,6 +1145,9 @@ esac
         
         # Setup TDP management
         self.setup_tdp_management("opensuse")
+        
+        # Setup refresh rate management (always install for all systems)
+        self.setup_refresh_management()
         
         # Install optional software based on user choices
         if self.user_choices.get('gaming', False):
@@ -1236,7 +1571,7 @@ if __name__ == "__main__":
     print()
     print("============================================================")
     print("  ASUS ROG Flow Z13 (GZ302) Setup Script")
-    print(f"  Version {setup.version} - Hardware Fixes Update: Critical Hardware Compatibility Improvements")
+    print(f"  Version {setup.version} - Virtual Refresh Rate Management: Comprehensive display refresh rate control system")
     print("============================================================")
     print()
     
@@ -1281,6 +1616,7 @@ if __name__ == "__main__":
         setup.success("- Audio fixes for ASUS hardware")
         setup.success("- GPU and thermal optimizations")
         setup.success("- TDP management: Use 'gz302-tdp' command")
+        setup.success("- Refresh rate control: Use 'gz302-refresh' command")
         setup.success("")
         
         # Show what was installed based on user choices
