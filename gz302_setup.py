@@ -4,7 +4,7 @@
 Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 
 Author: th3cavalry using Copilot
-Version: 4.2.2 - Python Implementation: Modern script architecture with enhanced capabilities
+Version: 4.6 - Virtual Refresh Rate Management: Comprehensive display refresh rate control system
 
 This script automatically detects your Linux distribution and applies
 the appropriate setup for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+.
@@ -54,7 +54,7 @@ class GZ302Setup:
     """Main setup class for ASUS ROG Flow Z13 (GZ302) configuration"""
     
     def __init__(self):
-        self.version = "4.2.2"
+        self.version = "4.6"
         self.user_choices = {}
         self.detected_distro = None
         self.original_distro = None
@@ -1571,7 +1571,7 @@ if __name__ == "__main__":
     print()
     print("============================================================")
     print("  ASUS ROG Flow Z13 (GZ302) Setup Script")
-    print(f"  Version {setup.version} - Hardware Fixes Update: Critical Hardware Compatibility Improvements")
+    print(f"  Version {setup.version} - Virtual Refresh Rate Management: Comprehensive display refresh rate control system")
     print("============================================================")
     print()
     

@@ -2,7 +2,7 @@
 
 **Professional-grade Linux setup script specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional software stacks for gaming, AI development, and virtualization.
 
-> **🔥 Version 4.2.2 - Python Implementation Fix!** Complete Python version of the setup script with enhanced error handling, maintainability, and cross-platform compatibility. Fixed missing ASUS packages for Arch-based systems. Choose between Bash and Python implementations.
+> **🔥 Version 4.6 - Virtual Refresh Rate Management!** Complete virtual refresh rate control system with 6-tier profiles, VRR/FreeSync support, and intelligent power optimization. Includes gz302-refresh command for gaming enhancements and battery life improvements.
 
 ## ✨ Key Features
 
@@ -402,7 +402,18 @@ If something goes wrong:
 <summary>Click to view complete changelog from project start</summary>
 
 ```
-Version 4.2.2 (Latest) - Python Implementation Fix
+Version 4.6 (Latest) - Virtual Refresh Rate Management
+• Implemented comprehensive virtual refresh rate management system
+• Added gz302-refresh command with 6-tier refresh rate profiles (30Hz-165Hz)
+• Variable Refresh Rate (VRR/FreeSync) support for AMD GPUs
+• Intelligent power-aware refresh rate switching (AC/battery optimization)
+• Multi-platform compatibility: X11, Wayland, and DRM interfaces
+• Automatic refresh rate monitoring and profile switching via systemd
+• Integration with existing TDP management for coordinated power optimization
+• Gaming enhancements: 165Hz gaming profiles with tear-free VRR experience
+• Battery life improvements: Automatic low refresh rates for power conservation
+
+Version 4.2.2 - Python Implementation Fix
 • Fixed missing ASUS packages in Python script for Arch-based systems
 • Resolved "no compatible ryzen_smu kernel module found" error
 • Added GPU detection logic and conditional package installation
