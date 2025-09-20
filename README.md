@@ -2,7 +2,7 @@
 
 **Professional-grade Linux setup script specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional software stacks for gaming, AI development, and virtualization.
 
-> **🔥 Version 4.6 - Virtual Refresh Rate Management!** Complete virtual refresh rate control system with 6-tier profiles, VRR/FreeSync support, and intelligent power optimization. Includes gz302-refresh command for gaming enhancements and battery life improvements.
+> **🔥 Version 4.3 - Virtual Refresh Rate Management!** Complete virtual refresh rate control system with 6-tier profiles, VRR/FreeSync support, and intelligent power optimization. Includes gz302-refresh command for gaming enhancements and battery life improvements.
 
 ## ✨ Key Features
 
@@ -402,7 +402,7 @@ If something goes wrong:
 <summary>Click to view complete changelog from project start</summary>
 
 ```
-Version 4.6 (Latest) - Virtual Refresh Rate Management
+Version 4.3 (Latest) - Virtual Refresh Rate Management
 • Implemented comprehensive virtual refresh rate management system
 • Added gz302-refresh command with 6-tier refresh rate profiles (30Hz-165Hz)
 • Variable Refresh Rate (VRR/FreeSync) support for AMD GPUs
