@@ -2,7 +2,7 @@
 
 **Professional-grade Linux setup script specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional software stacks for gaming, AI development, and virtualization.
 
-> **🔥 Version 4.3 - Virtual Refresh Rate Management!** Complete virtual refresh rate control system with 6-tier profiles, VRR/FreeSync support, and intelligent power optimization. Includes gz302-refresh command for gaming enhancements and battery life improvements.
+> **🔥 Version 4.4 - Enhanced Display Management!** Complete display management system with game-specific profiles, advanced VRR controls, multi-monitor support, MangoHUD integration, power monitoring, thermal awareness, and color temperature management. Major upgrade to gz302-refresh with comprehensive monitoring and optimization features.
 
 ## ✨ Key Features
 
@@ -18,15 +18,19 @@
 - **Real-time monitoring** - Live power status, battery level, and performance metrics
 - **Optimized for GZ302 hardware** - Profiles tuned specifically for AMD Ryzen AI 395+
 
-### 🖥️ **Virtual Refresh Rate Control**
-- **6-tier refresh rate profiles** - From 30Hz power saving to 165Hz gaming
-- **Variable Refresh Rate (VRR/FreeSync)** - Adaptive sync for smooth gaming
-- **Power-aware switching** - Automatic refresh rate optimization for battery life
-- **Multi-display support** - X11, Wayland, and DRM compatibility
+### 🖥️ **Advanced Display Management**
+- **6-tier refresh rate profiles** - From 30Hz power saving to 180Hz gaming
+- **Game-specific profiles** - Automatic refresh rate switching for detected games
+- **Advanced VRR/FreeSync controls** - Configurable min/max refresh ranges per profile
+- **Multi-monitor independent control** - Different refresh rates per display
+- **MangoHUD FPS limiting** - Real-time frame rate caps synchronized with refresh rates
+- **Color temperature management** - Automatic day/night cycle and manual color control
+- **Power consumption monitoring** - Real-time display power usage and battery predictions
+- **Thermal throttling detection** - Smart recommendations based on temperature monitoring
 
 ### 🎮 **Complete Gaming Stack**
 - **Steam + compatibility layers** - Proton, Wine, and Windows game support
-- **Performance monitoring** - MangoHUD overlay with FPS, temps, and utilization
+- **Enhanced MangoHUD integration** - FPS limiting synchronized with refresh profiles, performance overlays
 - **Automatic optimizations** - GameMode system tuning during gameplay
 - **Multiple game stores** - Lutris for GOG, Epic, and other platforms
 
@@ -120,7 +124,7 @@ Our script installs comprehensive **TDP (Thermal Design Power) management** that
 
 #### 🎮 Gaming Software Suite
 - **Game Stores**: Steam, Lutris, ProtonUp-Qt for easy game management
-- **Performance Tools**: MangoHUD (performance overlay), GameMode (system optimization)
+- **Performance Tools**: MangoHUD (FPS limiting + performance overlay), GameMode (system optimization)
 - **Compatibility**: Wine, Proton, and Windows game compatibility layers
 - **Optimizations**: Automatic gaming performance tweaks and kernel optimizations
 
@@ -183,12 +187,12 @@ gz302-tdp auto             # Enable/disable automatic switching
 - **AC Power**: Automatically switches to `gaming` or `performance` profile
 - **Battery Power**: Automatically switches to `efficient` or `power_saver` profile
 
-### 🖥️ Virtual Refresh Rate Management
+### 🖥️ Advanced Display Management
 
 #### Basic Refresh Rate Control:
 ```bash
 # Set refresh rate profiles
-gz302-refresh gaming           # 165Hz maximum gaming performance
+gz302-refresh gaming           # 180Hz maximum gaming performance
 gz302-refresh performance      # 120Hz high performance applications  
 gz302-refresh balanced         # 90Hz balanced performance/power (default)
 gz302-refresh efficient        # 60Hz standard desktop use
@@ -196,17 +200,49 @@ gz302-refresh power_saver      # 48Hz battery conservation
 gz302-refresh ultra_low        # 30Hz emergency battery extension
 ```
 
-#### Variable Refresh Rate (FreeSync) Control:
+#### 🎮 Game-Specific Profile Management:
+```bash
+# Add game-specific profiles for automatic switching
+gz302-refresh game add steam gaming        # Steam games use gaming profile (180Hz)
+gz302-refresh game add minecraft balanced  # Minecraft uses balanced profile (90Hz)
+gz302-refresh game add discord efficient   # Discord uses efficient profile (60Hz)
+gz302-refresh game list                     # List all configured game profiles
+gz302-refresh game remove steam            # Remove game-specific profile
+
+# Quick game profile switching
+gz302-refresh steam            # Apply Steam's configured profile directly
+```
+
+#### 🔧 Advanced VRR/FreeSync Control:
 ```bash
 gz302-refresh vrr on           # Enable Variable Refresh Rate/FreeSync
 gz302-refresh vrr off          # Disable Variable Refresh Rate
-gz302-refresh vrr toggle       # Toggle VRR on/off
+gz302-refresh vrr ranges       # Configure custom min/max VRR ranges
+# Example ranges: gaming (48-180Hz), balanced (30-90Hz), power_saver (30-48Hz)
 ```
 
-#### Refresh Rate Monitoring & Status:
+#### 🖥️ Multi-Monitor Independent Control:
 ```bash
-gz302-refresh status           # Show current rate, VRR status, detected displays
-gz302-refresh list             # List all available profiles with refresh rates
+gz302-refresh monitor          # List all connected displays
+gz302-refresh monitor DP-1 120 # Set DP-1 to 120Hz independently
+gz302-refresh monitor HDMI-1 60 # Set HDMI-1 to 60Hz independently
+```
+
+#### 🎨 Display Color Temperature Management:
+```bash
+gz302-refresh color set 6500K  # Set daylight color temperature
+gz302-refresh color set 3200K  # Set warm evening color temperature
+gz302-refresh color auto       # Enable automatic day/night cycle
+gz302-refresh color reset      # Reset to default color temperature
+```
+
+#### 📊 Advanced Monitoring & Status:
+```bash
+gz302-refresh status           # Enhanced status with thermal and power info
+gz302-refresh monitor-power    # Real-time power consumption monitoring
+gz302-refresh thermal-status   # Check thermal throttling status
+gz302-refresh battery-predict  # Predict battery life by refresh profile
+gz302-refresh list             # List all available profiles with power estimates
 ```
 
 #### 🤖 Automatic Refresh Rate Switching:
@@ -216,7 +252,7 @@ gz302-refresh auto             # Enable/disable automatic switching
 ```
 
 **Example automatic setup:**
-- **AC Power**: Automatically switches to `gaming` (165Hz) or `performance` (120Hz) 
+- **AC Power**: Automatically switches to `gaming` (180Hz) or `performance` (120Hz) 
 - **Battery Power**: Automatically switches to `power_saver` (48Hz) or `ultra_low` (30Hz)
 - **Smart Detection**: Only switches when power source actually changes
 
@@ -310,15 +346,33 @@ clinfo                             # OpenCL device information
 - **Check display detection**: Look for "Detected Displays" in status output
 
 #### Gaming Feels Choppy or Stuttering
-- **Use gaming refresh profile**: `gz302-refresh gaming` (165Hz)
+- **Use gaming refresh profile**: `gz302-refresh gaming` (180Hz)
 - **Enable Variable Refresh Rate**: `gz302-refresh vrr on`
-- **Check VRR support**: `gz302-refresh status` should show VRR capabilities
-- **Verify X11/Wayland compatibility**: Different tools for X11 vs Wayland
+- **Configure VRR ranges**: `gz302-refresh vrr ranges` (set 48-180Hz for gaming)
+- **Check FPS limiting**: MangoHUD should show frame caps matching refresh rate
+- **Add game-specific profile**: `gz302-refresh game add [game_name] gaming`
 
 #### Poor Battery Life with High Refresh Rate
 - **Switch to power-saving refresh**: `gz302-refresh power_saver` (48Hz)
+- **Check battery predictions**: `gz302-refresh battery-predict`
 - **Enable automatic switching**: `gz302-refresh config` (set battery to `ultra_low`)
-- **Check current refresh rate**: `gz302-refresh status`
+- **Monitor power consumption**: `gz302-refresh monitor-power`
+
+#### Multi-Monitor Issues
+- **Check connected displays**: `gz302-refresh monitor`
+- **Set individual rates**: `gz302-refresh monitor DP-1 120` (for specific displays)
+- **Check current rates**: Each display shows independently in `gz302-refresh status`
+
+#### Thermal Throttling During Gaming
+- **Check thermal status**: `gz302-refresh thermal-status`
+- **Monitor CPU temperature**: Should show current temp and throttling warnings
+- **Auto-adjust for heat**: Use `efficient` or `balanced` profiles when CPU > 75°C
+- **Combine with TDP management**: `gz302-tdp efficient` + `gz302-refresh balanced`
+
+#### Color/Display Quality Issues
+- **Adjust color temperature**: `gz302-refresh color set 6500K` (daylight) or `3200K` (warm)
+- **Enable automatic adjustment**: `gz302-refresh color auto` (day/night cycle)
+- **Reset to defaults**: `gz302-refresh color reset`
 
 ### 📶 Wi-Fi Issues
 
@@ -339,7 +393,7 @@ clinfo                             # OpenCL device information
 
 #### Games Running Slowly
 - **Use gaming TDP profile**: `gz302-tdp gaming`
-- **Use gaming refresh rate**: `gz302-refresh gaming` (165Hz)
+- **Use gaming refresh rate**: `gz302-refresh gaming` (180Hz)
 - **Enable Variable Refresh Rate**: `gz302-refresh vrr on`
 - **Verify correct kernel**: Make sure you selected the right kernel at boot
 - **Check GameMode**: `gamemoded -s` (should show "gamemode is active")
@@ -402,15 +456,27 @@ If something goes wrong:
 <summary>Click to view complete changelog from project start</summary>
 
 ```
-Version 4.3 (Latest) - Virtual Refresh Rate Management
+Version 4.4 (Latest) - Enhanced Display Management
+• Major upgrade to refresh rate management with comprehensive new features
+• Game-specific profile system: Automatic refresh rate switching for detected games
+• Advanced VRR controls: Configurable min/max refresh ranges per profile (48-180Hz gaming, 30-60Hz efficient)
+• Multi-monitor independent control: Different refresh rates per display
+• MangoHUD FPS limiting integration: Real-time frame rate caps synchronized with refresh profiles
+• Display color temperature management: Automatic day/night cycle and manual color control
+• Real-time power consumption monitoring: Display power usage tracking and battery predictions
+• Thermal throttling detection: Smart recommendations based on CPU temperature monitoring
+• Enhanced status and monitoring: Comprehensive system information with thermal and power data
+• Over 400 lines of new functionality while maintaining backward compatibility
+
+Version 4.3 - Virtual Refresh Rate Management
 • Implemented comprehensive virtual refresh rate management system
-• Added gz302-refresh command with 6-tier refresh rate profiles (30Hz-165Hz)
+• Added gz302-refresh command with 6-tier refresh rate profiles (30Hz-180Hz)
 • Variable Refresh Rate (VRR/FreeSync) support for AMD GPUs
 • Intelligent power-aware refresh rate switching (AC/battery optimization)
 • Multi-platform compatibility: X11, Wayland, and DRM interfaces
 • Automatic refresh rate monitoring and profile switching via systemd
 • Integration with existing TDP management for coordinated power optimization
-• Gaming enhancements: 165Hz gaming profiles with tear-free VRR experience
+• Gaming enhancements: 180Hz gaming profiles with tear-free VRR experience
 • Battery life improvements: Automatic low refresh rates for power conservation
 
 Version 4.2.2 - Python Implementation Fix
