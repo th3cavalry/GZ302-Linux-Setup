@@ -691,7 +691,7 @@ POWER_MONITORING_FILE="$REFRESH_CONFIG_DIR/power-monitoring"
 
 # Refresh Rate Profiles - Optimized for GZ302 display and AMD GPU
 declare -A REFRESH_PROFILES
-REFRESH_PROFILES[gaming]="165"           # Maximum gaming performance
+REFRESH_PROFILES[gaming]="180"           # Maximum gaming performance
 REFRESH_PROFILES[performance]="120"      # High performance applications
 REFRESH_PROFILES[balanced]="90"          # Balanced performance/power
 REFRESH_PROFILES[efficient]="60"         # Standard desktop use
@@ -710,8 +710,8 @@ FRAME_LIMITS[ultra_low]="30"             # Cap at 30fps
 # VRR min/max refresh ranges by profile
 declare -A VRR_MIN_RANGES
 declare -A VRR_MAX_RANGES
-VRR_MIN_RANGES[gaming]="48"              # Allow 48-165Hz range for VRR
-VRR_MAX_RANGES[gaming]="165"
+VRR_MIN_RANGES[gaming]="48"              # Allow 48-180Hz range for VRR
+VRR_MAX_RANGES[gaming]="180"
 VRR_MIN_RANGES[performance]="48"         # Allow 48-120Hz range
 VRR_MAX_RANGES[performance]="120"
 VRR_MIN_RANGES[balanced]="30"           # Allow 30-90Hz range
@@ -739,7 +739,7 @@ show_usage() {
     echo "Usage: gz302-refresh [PROFILE|COMMAND|GAME_NAME]"
     echo ""
     echo "Profiles:"
-    echo "  gaming           - 165Hz maximum gaming performance"
+    echo "  gaming           - 180Hz maximum gaming performance"
     echo "  performance      - 120Hz high performance applications"  
     echo "  balanced         - 90Hz balanced performance/power (default)"
     echo "  efficient        - 60Hz standard desktop use"
@@ -817,7 +817,7 @@ get_supported_refresh_rates() {
         xrandr 2>/dev/null | grep -A20 "^${display}" | grep -E "^ " | awk '{print $1}' | sed 's/.*@\([0-9]*\).*/\1/' | sort -n | uniq
     else
         # Fallback: Common refresh rates for GZ302
-        echo -e "30\n48\n60\n90\n120\n165"
+        echo -e "30\n48\n60\n90\n120\n180"
     fi
 }
 
@@ -1638,9 +1638,9 @@ case "${1:-}" in
                 echo "Enter minimum refresh rate (default: 30): "
                 read -r min_range
                 min_range="${min_range:-30}"
-                echo "Enter maximum refresh rate (default: 165): "
+                echo "Enter maximum refresh rate (default: 180): "
                 read -r max_range
-                max_range="${max_range:-165}"
+                max_range="${max_range:-180}"
                 echo "${min_range}:${max_range}" > "$VRR_RANGES_FILE"
                 apply_vrr_ranges "$min_range" "$max_range"
                 echo "VRR range set to ${min_range}Hz - ${max_range}Hz"
@@ -1773,7 +1773,7 @@ done
     def configure_refresh_profiles(self):
         """Configure refresh rate profiles interactively"""
         refresh_profiles = {
-            'gaming': {'rate': 165, 'description': '165Hz'},
+            'gaming': {'rate': 180, 'description': '180Hz'},
             'performance': {'rate': 120, 'description': '120Hz'},
             'balanced': {'rate': 90, 'description': '90Hz'},
             'efficient': {'rate': 60, 'description': '60Hz'},

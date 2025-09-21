@@ -19,7 +19,7 @@
 - **Optimized for GZ302 hardware** - Profiles tuned specifically for AMD Ryzen AI 395+
 
 ### 🖥️ **Advanced Display Management**
-- **6-tier refresh rate profiles** - From 30Hz power saving to 165Hz gaming
+- **6-tier refresh rate profiles** - From 30Hz power saving to 180Hz gaming
 - **Game-specific profiles** - Automatic refresh rate switching for detected games
 - **Advanced VRR/FreeSync controls** - Configurable min/max refresh ranges per profile
 - **Multi-monitor independent control** - Different refresh rates per display
@@ -192,7 +192,7 @@ gz302-tdp auto             # Enable/disable automatic switching
 #### Basic Refresh Rate Control:
 ```bash
 # Set refresh rate profiles
-gz302-refresh gaming           # 165Hz maximum gaming performance
+gz302-refresh gaming           # 180Hz maximum gaming performance
 gz302-refresh performance      # 120Hz high performance applications  
 gz302-refresh balanced         # 90Hz balanced performance/power (default)
 gz302-refresh efficient        # 60Hz standard desktop use
@@ -203,7 +203,7 @@ gz302-refresh ultra_low        # 30Hz emergency battery extension
 #### 🎮 Game-Specific Profile Management:
 ```bash
 # Add game-specific profiles for automatic switching
-gz302-refresh game add steam gaming        # Steam games use gaming profile (165Hz)
+gz302-refresh game add steam gaming        # Steam games use gaming profile (180Hz)
 gz302-refresh game add minecraft balanced  # Minecraft uses balanced profile (90Hz)
 gz302-refresh game add discord efficient   # Discord uses efficient profile (60Hz)
 gz302-refresh game list                     # List all configured game profiles
@@ -218,7 +218,7 @@ gz302-refresh steam            # Apply Steam's configured profile directly
 gz302-refresh vrr on           # Enable Variable Refresh Rate/FreeSync
 gz302-refresh vrr off          # Disable Variable Refresh Rate
 gz302-refresh vrr ranges       # Configure custom min/max VRR ranges
-# Example ranges: gaming (48-165Hz), balanced (30-90Hz), power_saver (30-48Hz)
+# Example ranges: gaming (48-180Hz), balanced (30-90Hz), power_saver (30-48Hz)
 ```
 
 #### 🖥️ Multi-Monitor Independent Control:
@@ -252,7 +252,7 @@ gz302-refresh auto             # Enable/disable automatic switching
 ```
 
 **Example automatic setup:**
-- **AC Power**: Automatically switches to `gaming` (165Hz) or `performance` (120Hz) 
+- **AC Power**: Automatically switches to `gaming` (180Hz) or `performance` (120Hz) 
 - **Battery Power**: Automatically switches to `power_saver` (48Hz) or `ultra_low` (30Hz)
 - **Smart Detection**: Only switches when power source actually changes
 
@@ -346,9 +346,9 @@ clinfo                             # OpenCL device information
 - **Check display detection**: Look for "Detected Displays" in status output
 
 #### Gaming Feels Choppy or Stuttering
-- **Use gaming refresh profile**: `gz302-refresh gaming` (165Hz)
+- **Use gaming refresh profile**: `gz302-refresh gaming` (180Hz)
 - **Enable Variable Refresh Rate**: `gz302-refresh vrr on`
-- **Configure VRR ranges**: `gz302-refresh vrr ranges` (set 48-165Hz for gaming)
+- **Configure VRR ranges**: `gz302-refresh vrr ranges` (set 48-180Hz for gaming)
 - **Check FPS limiting**: MangoHUD should show frame caps matching refresh rate
 - **Add game-specific profile**: `gz302-refresh game add [game_name] gaming`
 
@@ -393,7 +393,7 @@ clinfo                             # OpenCL device information
 
 #### Games Running Slowly
 - **Use gaming TDP profile**: `gz302-tdp gaming`
-- **Use gaming refresh rate**: `gz302-refresh gaming` (165Hz)
+- **Use gaming refresh rate**: `gz302-refresh gaming` (180Hz)
 - **Enable Variable Refresh Rate**: `gz302-refresh vrr on`
 - **Verify correct kernel**: Make sure you selected the right kernel at boot
 - **Check GameMode**: `gamemoded -s` (should show "gamemode is active")
@@ -459,7 +459,7 @@ If something goes wrong:
 Version 4.4 (Latest) - Enhanced Display Management
 • Major upgrade to refresh rate management with comprehensive new features
 • Game-specific profile system: Automatic refresh rate switching for detected games
-• Advanced VRR controls: Configurable min/max refresh ranges per profile (48-165Hz gaming, 30-60Hz efficient)
+• Advanced VRR controls: Configurable min/max refresh ranges per profile (48-180Hz gaming, 30-60Hz efficient)
 • Multi-monitor independent control: Different refresh rates per display
 • MangoHUD FPS limiting integration: Real-time frame rate caps synchronized with refresh profiles
 • Display color temperature management: Automatic day/night cycle and manual color control
@@ -470,13 +470,13 @@ Version 4.4 (Latest) - Enhanced Display Management
 
 Version 4.3 - Virtual Refresh Rate Management
 • Implemented comprehensive virtual refresh rate management system
-• Added gz302-refresh command with 6-tier refresh rate profiles (30Hz-165Hz)
+• Added gz302-refresh command with 6-tier refresh rate profiles (30Hz-180Hz)
 • Variable Refresh Rate (VRR/FreeSync) support for AMD GPUs
 • Intelligent power-aware refresh rate switching (AC/battery optimization)
 • Multi-platform compatibility: X11, Wayland, and DRM interfaces
 • Automatic refresh rate monitoring and profile switching via systemd
 • Integration with existing TDP management for coordinated power optimization
-• Gaming enhancements: 165Hz gaming profiles with tear-free VRR experience
+• Gaming enhancements: 180Hz gaming profiles with tear-free VRR experience
 • Battery life improvements: Automatic low refresh rates for power conservation
 
 Version 4.2.2 - Python Implementation Fix
