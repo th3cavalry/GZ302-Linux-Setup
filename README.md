@@ -157,30 +157,27 @@ Our script installs comprehensive **TDP (Thermal Design Power) management** that
 
 ## Useful Commands (After Setup)
 
-### 🔋 Advanced Power Management
+### 🔋 ASUS Power Management
 
-#### Basic TDP Profile Control:
+#### Native ASUS Profile Control:
 ```bash
-# Set performance profiles
-gz302-tdp max_performance  # 65W maximum (AC only)
-gz302-tdp gaming           # 54W gaming optimized
-gz302-tdp performance      # 45W high performance  
-gz302-tdp balanced         # 35W balanced (default)
-gz302-tdp efficient        # 25W efficient performance
-gz302-tdp power_saver      # 15W maximum battery life
-gz302-tdp ultra_low        # 10W emergency extension
+# Set power profiles (uses asusctl + powerprofilesctl)
+asus-power performance     # Maximum performance (for gaming, intensive tasks)
+asus-power balanced        # Balanced performance/efficiency (default)
+asus-power quiet           # Quiet operation with good efficiency
+asus-power power-saver     # Maximum battery life
 ```
 
 #### System Monitoring & Status:
 ```bash
-gz302-tdp status           # Show current profile, power source, battery %
-gz302-tdp list             # List all available profiles with wattage
+asus-power status          # Show current ASUS and system power profiles
+asus-power list            # List all available profiles
 ```
 
 #### 🤖 Automatic Profile Switching:
 ```bash
-gz302-tdp config           # Configure automatic AC/battery switching
-gz302-tdp auto             # Enable/disable automatic switching
+asus-power config          # Configure automatic AC/battery switching
+asus-power auto            # Enable/disable automatic switching
 ```
 
 **Example automatic setup:**
@@ -258,16 +255,23 @@ gz302-refresh auto             # Enable/disable automatic switching
 
 ### 📸 System Snapshots & Recovery
 
-#### Snapshot Management:
+#### Snapshot Management (Standard Tools):
 ```bash
-gz302-snapshot create      # Create a new system backup
-gz302-snapshot list        # View all available snapshots  
-gz302-snapshot cleanup     # Remove old snapshots (keeps last 5)
-gz302-snapshot restore     # Interactive snapshot restoration
+# For Btrfs systems (Arch, Fedora, OpenSUSE)
+snapper create --description "Manual snapshot"  # Create new snapshot
+snapper list                                    # View all snapshots
+snapper cleanup number                          # Remove old snapshots
+snapper undochange 1..2                        # Restore between snapshots
+
+# For all systems (Timeshift)
+timeshift --create --comments "Manual backup"   # Create new backup
+timeshift --list                                # View all backups
+timeshift --delete --snapshot '2024-01-01_12-00-01'  # Remove specific backup
+timeshift --restore --snapshot '2024-01-01_12-00-01' # Restore system
 ```
 
-**Supported Filesystems:** ZFS, Btrfs, ext4 (with LVM), XFS
-**Automatic Schedule:** Daily snapshots created automatically
+**Available Tools:** snapper (Btrfs), timeshift (all filesystems)
+**Automatic Schedule:** Daily snapshots/backups created automatically
 
 ### 🎮 Gaming Performance Tools
 
@@ -321,20 +325,20 @@ clinfo                             # OpenCL device information
 
 ### 🔋 Power & Performance Issues
 
-#### TDP Profile Not Working
-- **Check current status**: `gz302-tdp status`
-- **Verify installation**: `which gz302-tdp` (should show `/usr/local/bin/gz302-tdp`)
-- **Manual profile test**: `sudo gz302-tdp balanced`
-- **Check logs**: `journalctl -u gz302-tdp-auto.service -f`
+#### Power Profile Not Working
+- **Check current status**: `asus-power status`
+- **Verify ASUS services**: `systemctl status asusd power-profiles-daemon`
+- **Manual profile test**: `sudo asus-power balanced`
+- **Check available profiles**: `asus-power list`
 
 #### Battery Draining Too Fast
-- **Switch to power-saving profile**: `gz302-tdp power_saver` or `gz302-tdp ultra_low`
-- **Enable automatic switching**: `gz302-tdp config` (set battery profile to `efficient`)
-- **Check current profile**: `gz302-tdp status`
+- **Switch to power-saving profile**: `asus-power power-saver`
+- **Enable automatic switching**: `asus-power config` (set battery profile to `power-saver`)
+- **Check current profile**: `asus-power status`
 
 #### Performance Lower Than Expected
-- **Use high-performance profile**: `gz302-tdp gaming` or `gz302-tdp max_performance` (AC power only)
-- **Verify AC power**: `gz302-tdp status` should show "Power Source: AC"
+- **Use high-performance profile**: `asus-power performance` (AC power recommended)
+- **Verify AC power**: `asus-power status` should show current power source
 - **Check thermal throttling**: Monitor temperatures during use
 
 ### 🖥️ Display & Refresh Rate Issues
@@ -367,7 +371,7 @@ clinfo                             # OpenCL device information
 - **Check thermal status**: `gz302-refresh thermal-status`
 - **Monitor CPU temperature**: Should show current temp and throttling warnings
 - **Auto-adjust for heat**: Use `efficient` or `balanced` profiles when CPU > 75°C
-- **Combine with TDP management**: `gz302-tdp efficient` + `gz302-refresh balanced`
+- **Combine with power management**: `asus-power balanced` + `gz302-refresh balanced`
 
 #### Color/Display Quality Issues
 - **Adjust color temperature**: `gz302-refresh color set 6500K` (daylight) or `3200K` (warm)
@@ -392,7 +396,7 @@ clinfo                             # OpenCL device information
 ### 🎮 Gaming Performance Issues
 
 #### Games Running Slowly
-- **Use gaming TDP profile**: `gz302-tdp gaming`
+- **Use performance profile**: `asus-power performance`
 - **Use gaming refresh rate**: `gz302-refresh gaming` (180Hz)
 - **Enable Variable Refresh Rate**: `gz302-refresh vrr on`
 - **Verify correct kernel**: Make sure you selected the right kernel at boot
@@ -424,9 +428,11 @@ If you see repeated error messages like `[ERROR supergfxctl::zbus_iface] get_run
 ### 📸 Snapshot Issues
 
 #### Snapshots Failing to Create
-- **Check filesystem**: `gz302-snapshot list` will show supported filesystem
+- **Check available tools**: `which snapper timeshift` to see what's installed
+- **For Btrfs**: `snapper list` will show available snapshots
+- **For other filesystems**: `timeshift --list` to check backups
 - **Disk space**: Ensure sufficient free space (at least 20% recommended)
-- **Permissions**: Run as root: `sudo gz302-snapshot create`
+- **Permissions**: Run as root: `sudo snapper create` or `sudo timeshift --create`
 
 ### 🤖 AI/LLM Issues (If Installed)
 

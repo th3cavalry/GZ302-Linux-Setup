@@ -238,7 +238,7 @@ class GZ302Setup:
         print("- Automatic daily system backups")
         print("- Easy system recovery and rollback")
         print("- Supports ZFS, Btrfs, ext4 (with LVM), and XFS filesystems")
-        print("- 'gz302-snapshot' command for manual management")
+        print("- Standard snapshot tools (snapper/timeshift) for manual management")
         print()
         install_snapshots = input("Do you want to enable system snapshots? (y/n): ").strip().lower()
         
@@ -487,7 +487,7 @@ options mt7925e disable_aspm=1
         
         self.success("Comprehensive hardware fixes applied for OpenSUSE")
     
-    def setup_tdp_management(self, distro: str):
+    def setup_asus_power_management(self, distro: str):
         """Setup TDP management system"""
         self.info("Setting up TDP management...")
         
@@ -1080,7 +1080,7 @@ done
         self.apply_arch_hardware_fixes()
         
         # Setup TDP management (always install for all systems)
-        self.setup_tdp_management("arch")
+        self.setup_asus_power_management("arch")
         
         # Setup refresh rate management (always install for all systems)
         self.setup_refresh_management()
@@ -1111,7 +1111,7 @@ done
         self.apply_debian_hardware_fixes()
         
         # Setup TDP management
-        self.setup_tdp_management("ubuntu")
+        self.setup_asus_power_management("ubuntu")
         
         # Setup refresh rate management (always install for all systems)
         self.setup_refresh_management()
@@ -1142,7 +1142,7 @@ done
         self.apply_fedora_hardware_fixes()
         
         # Setup TDP management
-        self.setup_tdp_management("fedora")
+        self.setup_asus_power_management("fedora")
         
         # Setup refresh rate management (always install for all systems)
         self.setup_refresh_management()
@@ -1173,7 +1173,7 @@ done
         self.apply_opensuse_hardware_fixes()
         
         # Setup TDP management
-        self.setup_tdp_management("opensuse")
+        self.setup_asus_power_management("opensuse")
         
         # Setup refresh rate management (always install for all systems)
         self.setup_refresh_management()

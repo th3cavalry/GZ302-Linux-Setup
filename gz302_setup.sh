@@ -236,7 +236,7 @@ get_user_choices() {
     echo "- Automatic daily system backups"
     echo "- Easy system recovery and rollback"
     echo "- Supports ZFS, Btrfs, ext4 (with LVM), and XFS filesystems"
-    echo "- 'gz302-snapshot' command for manual management"
+    echo "- Standard snapshot tools (snapper/timeshift) for manual management"
     echo ""
     read -p "Do you want to enable system snapshots? (y/n): " install_snapshots
     
@@ -285,8 +285,8 @@ EOF
     # Apply hardware fixes
     apply_arch_hardware_fixes
     
-    # Setup TDP management (always install for all systems)
-    setup_tdp_management "arch"
+    # Setup ASUS power management (always install for all systems)
+    setup_asus_power_management "arch"
     
     # Setup refresh rate management (always install for all systems)
     install_refresh_management
@@ -330,8 +330,8 @@ setup_debian_based() {
     # Apply hardware fixes
     apply_debian_hardware_fixes
     
-    # Setup TDP management (always install for all systems)
-    setup_tdp_management "debian"
+    # Setup ASUS power management (always install for all systems)
+    setup_asus_power_management "debian"
     
     # Setup refresh rate management (always install for all systems)
     install_refresh_management
@@ -374,8 +374,8 @@ setup_fedora_based() {
     # Apply hardware fixes
     apply_fedora_hardware_fixes
     
-    # Setup TDP management (always install for all systems)
-    setup_tdp_management "fedora"
+    # Setup ASUS power management (always install for all systems)
+    setup_asus_power_management "fedora"
     
     # Setup refresh rate management (always install for all systems)
     install_refresh_management
@@ -418,8 +418,8 @@ setup_opensuse() {
     # Apply hardware fixes
     apply_opensuse_hardware_fixes
     
-    # Setup TDP management (always install for all systems)
-    setup_tdp_management "opensuse"
+    # Setup ASUS power management (always install for all systems)
+    setup_asus_power_management "opensuse"
     
     # Setup refresh rate management (always install for all systems)
     install_refresh_management
@@ -1368,7 +1368,7 @@ install_ryzenadj_opensuse() {
     success "ryzenadj compiled and installed"
 }
 
-setup_tdp_management() {
+setup_asus_power_management() {
     local distro_family="$1"
     
     info "Setting up TDP management for GZ302..."
@@ -1389,45 +1389,31 @@ setup_tdp_management() {
             ;;
     esac
     
-    # Create TDP management script
-    cat > /usr/local/bin/gz302-tdp <<'EOF'
+    # Create power management wrapper script that uses asusctl and powerprofilesctl
+    cat > /usr/local/bin/asus-power <<'EOF'
 #!/bin/bash
-# GZ302 TDP Management Script
-# Based on research from Shahzebqazi's Asus-Z13-Flow-2025-PCMR
+# ASUS Power Management Wrapper
+# Uses native asusctl and powerprofilesctl instead of custom TDP management
 
-TDP_CONFIG_DIR="/etc/gz302-tdp"
-CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
-AUTO_CONFIG_FILE="$TDP_CONFIG_DIR/auto-config"
-AC_PROFILE_FILE="$TDP_CONFIG_DIR/ac-profile"
-BATTERY_PROFILE_FILE="$TDP_CONFIG_DIR/battery-profile"
-
-# TDP Profiles (in mW) - Optimized for GZ302 AMD Ryzen AI 395+
-declare -A TDP_PROFILES
-TDP_PROFILES[max_performance]="65000"    # Absolute maximum (AC only, short bursts)
-TDP_PROFILES[gaming]="54000"             # Gaming optimized (AC recommended)
-TDP_PROFILES[performance]="45000"        # High performance (AC recommended)
-TDP_PROFILES[balanced]="35000"           # Balanced performance/efficiency
-TDP_PROFILES[efficient]="25000"          # Better efficiency, good performance
-TDP_PROFILES[power_saver]="15000"        # Maximum battery life
-TDP_PROFILES[ultra_low]="10000"          # Emergency battery extension
+POWER_CONFIG_DIR="/etc/asus-power"
+AUTO_CONFIG_FILE="$POWER_CONFIG_DIR/auto-config"
+AC_PROFILE_FILE="$POWER_CONFIG_DIR/ac-profile"
+BATTERY_PROFILE_FILE="$POWER_CONFIG_DIR/battery-profile"
 
 # Create config directory
-mkdir -p "$TDP_CONFIG_DIR"
+mkdir -p "$POWER_CONFIG_DIR"
 
 show_usage() {
-    echo "Usage: gz302-tdp [PROFILE|status|list|auto|config]"
+    echo "Usage: asus-power [PROFILE|status|list|auto|config]"
     echo ""
-    echo "Profiles:"
-    echo "  max_performance  - 65W absolute maximum (AC only, short bursts)"
-    echo "  gaming           - 54W gaming optimized (AC recommended)"
-    echo "  performance      - 45W high performance (AC recommended)"
-    echo "  balanced         - 35W balanced performance/efficiency (default)"
-    echo "  efficient        - 25W better efficiency, good performance"
-    echo "  power_saver      - 15W maximum battery life"
-    echo "  ultra_low        - 10W emergency battery extension"
+    echo "Power Profiles (uses asusctl and powerprofilesctl):"
+    echo "  performance      - Maximum performance (asusctl performance + powerprofilesctl performance)"
+    echo "  balanced         - Balanced performance/efficiency (asusctl balanced + powerprofilesctl balanced)"
+    echo "  quiet            - Quiet operation (asusctl quiet + powerprofilesctl balanced)"
+    echo "  power-saver      - Maximum battery life (asusctl low-power + powerprofilesctl power-saver)"
     echo ""
     echo "Commands:"
-    echo "  status           - Show current TDP and power source"
+    echo "  status           - Show current power profile and source"
     echo "  list             - List available profiles"
     echo "  auto             - Enable/disable automatic profile switching"
     echo "  config           - Configure automatic profile preferences"
@@ -1555,23 +1541,27 @@ get_battery_percentage() {
     echo "N/A"
 }
 
-set_tdp_profile() {
+set_power_profile() {
     local profile="$1"
-    local tdp_value="${TDP_PROFILES[$profile]}"
     
-    if [ -z "$tdp_value" ]; then
-        echo "Error: Unknown profile '$profile'"
-        echo "Use 'gz302-tdp list' to see available profiles"
-        return 1
-    fi
+    # Validate profile
+    case "$profile" in
+        performance|balanced|quiet|power-saver)
+            ;;
+        *)
+            echo "Error: Unknown profile '$profile'"
+            echo "Use 'asus-power list' to see available profiles"
+            return 1
+            ;;
+    esac
     
-    echo "Setting TDP profile: $profile ($(($tdp_value / 1000))W)"
+    echo "Setting power profile: $profile"
     
     # Check if we're on AC power for high-power profiles
     local power_source=$(get_battery_status)
-    if [ "$power_source" = "Battery" ] && [ "$tdp_value" -gt 35000 ]; then
-        echo "Warning: High power profile ($profile) selected while on battery power"
-        echo "This may cause rapid battery drain. Consider using 'balanced' or lower profiles."
+    if [ "$power_source" = "Battery" ] && [ "$profile" = "performance" ]; then
+        echo "Warning: Performance profile selected while on battery power"
+        echo "This may cause rapid battery drain. Consider using 'balanced' or 'power-saver'."
         read -p "Continue anyway? (y/N): " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -1580,79 +1570,58 @@ set_tdp_profile() {
         fi
     fi
     
-    # Try multiple methods to apply TDP settings
     local success=false
     
-    # Method 1: Try ryzenadj first
-    if command -v ryzenadj >/dev/null 2>&1; then
-        echo "Attempting to apply TDP using ryzenadj..."
-        if ryzenadj --stapm-limit="$tdp_value" --fast-limit="$tdp_value" --slow-limit="$tdp_value" >/dev/null 2>&1; then
-            success=true
-            echo "TDP applied successfully using ryzenadj"
-        else
-            echo "ryzenadj failed, checking for common issues..."
-            
-            # Check for secure boot issues
-            if dmesg | grep -i "secure boot" >/dev/null 2>&1; then
-                echo "Secure boot may be preventing direct hardware access"
-                echo "Consider disabling secure boot in BIOS for full TDP control"
-            fi
-            
-            # Check for permissions
-            if [ ! -w /dev/mem ] 2>/dev/null; then
-                echo "Insufficient permissions for direct memory access"
-            fi
-            
-            echo "Trying alternative methods..."
-        fi
-    else
-        echo "ryzenadj not found, trying alternative methods..."
-    fi
-    
-    # Method 2: Try power profiles daemon if available
-    if [ "$success" = false ] && command -v powerprofilesctl >/dev/null 2>&1; then
-        echo "Attempting to use power-profiles-daemon..."
+    # Method 1: Try asusctl for ASUS platform profiles
+    if command -v asusctl >/dev/null 2>&1; then
+        echo "Setting ASUS platform profile using asusctl..."
         case "$profile" in
-            max_performance|gaming|performance)
-                if powerprofilesctl set performance >/dev/null 2>&1; then
-                    echo "Set system power profile to performance mode"
+            performance)
+                if asusctl profile -s performance >/dev/null 2>&1; then
+                    echo "ASUS platform profile set to performance"
                     success=true
                 fi
                 ;;
-            balanced|efficient)
-                if powerprofilesctl set balanced >/dev/null 2>&1; then
-                    echo "Set system power profile to balanced mode"
+            balanced)
+                if asusctl profile -s balanced >/dev/null 2>&1; then
+                    echo "ASUS platform profile set to balanced"
                     success=true
                 fi
                 ;;
-            power_saver|ultra_low)
-                if powerprofilesctl set power-saver >/dev/null 2>&1; then
-                    echo "Set system power profile to power-saver mode"
+            quiet)
+                if asusctl profile -s quiet >/dev/null 2>&1; then
+                    echo "ASUS platform profile set to quiet"
+                    success=true
+                fi
+                ;;
+            power-saver)
+                if asusctl profile -s low-power >/dev/null 2>&1; then
+                    echo "ASUS platform profile set to low-power"
                     success=true
                 fi
                 ;;
         esac
     fi
     
-    # Method 3: Try cpupower if available (frequency scaling)
-    if [ "$success" = false ] && command -v cpupower >/dev/null 2>&1; then
-        echo "Attempting to use cpupower for frequency scaling..."
+    # Method 2: Try power-profiles-daemon
+    if command -v powerprofilesctl >/dev/null 2>&1; then
+        echo "Setting system power profile using powerprofilesctl..."
         case "$profile" in
-            max_performance|gaming|performance)
-                if cpupower frequency-set -g performance >/dev/null 2>&1; then
-                    echo "Set CPU governor to performance"
+            performance)
+                if powerprofilesctl set performance >/dev/null 2>&1; then
+                    echo "System power profile set to performance"
                     success=true
                 fi
                 ;;
-            power_saver|ultra_low)
-                if cpupower frequency-set -g powersave >/dev/null 2>&1; then
-                    echo "Set CPU governor to powersave"
+            balanced|quiet)
+                if powerprofilesctl set balanced >/dev/null 2>&1; then
+                    echo "System power profile set to balanced"
                     success=true
                 fi
                 ;;
-            *)
-                if cpupower frequency-set -g ondemand >/dev/null 2>&1 || cpupower frequency-set -g schedutil >/dev/null 2>&1; then
-                    echo "Set CPU governor to dynamic scaling"
+            power-saver)
+                if powerprofilesctl set power-saver >/dev/null 2>&1; then
+                    echo "System power profile set to power-saver"
                     success=true
                 fi
                 ;;
@@ -1660,22 +1629,21 @@ set_tdp_profile() {
     fi
     
     if [ "$success" = true ]; then
-        echo "$profile" > "$CURRENT_PROFILE_FILE"
-        echo "TDP profile '$profile' applied successfully"
+        echo "$profile" > "$POWER_CONFIG_DIR/current-profile"
+        echo "Power profile '$profile' applied successfully"
         
         # Store timestamp and power source for automatic switching
-        echo "$(date +%s)" > "$TDP_CONFIG_DIR/last-change"
-        echo "$power_source" > "$TDP_CONFIG_DIR/last-power-source"
+        echo "$(date +%s)" > "$POWER_CONFIG_DIR/last-change"
+        echo "$power_source" > "$POWER_CONFIG_DIR/last-power-source"
         
         return 0
     else
-        echo "Error: Failed to apply TDP profile using any available method"
+        echo "Error: Failed to apply power profile"
         echo ""
         echo "Troubleshooting steps:"
-        echo "1. Ensure you're running as root (sudo)"
-        echo "2. Check if secure boot is disabled in BIOS"
-        echo "3. Verify ryzenadj is properly installed"
-        echo "4. Try rebooting and running the command again"
+        echo "1. Ensure asusctl and power-profiles-daemon are installed and running"
+        echo "2. Check service status: systemctl status asusd power-profiles-daemon"
+        echo "3. Try rebooting and running the command again"
         return 1
     fi
 }
@@ -1685,33 +1653,55 @@ show_status() {
     local battery_pct=$(get_battery_percentage)
     local current_profile="Unknown"
     
-    if [ -f "$CURRENT_PROFILE_FILE" ]; then
-        current_profile=$(cat "$CURRENT_PROFILE_FILE")
+    if [ -f "$POWER_CONFIG_DIR/current-profile" ]; then
+        current_profile=$(cat "$POWER_CONFIG_DIR/current-profile")
     fi
     
-    echo "GZ302 Power Status:"
+    echo "ASUS Power Management Status:"
     echo "  Power Source: $power_source"
     echo "  Battery: $battery_pct%"
     echo "  Current Profile: $current_profile"
     
-    if [ "$current_profile" != "Unknown" ] && [ -n "${TDP_PROFILES[$current_profile]}" ]; then
-        echo "  TDP Limit: $(( ${TDP_PROFILES[$current_profile]} / 1000 ))W"
+    # Show ASUS platform profile status if available
+    if command -v asusctl >/dev/null 2>&1; then
+        echo ""
+        echo "ASUS Platform Profile:"
+        asusctl profile -g 2>/dev/null || echo "  Unable to read ASUS profile"
+    fi
+    
+    # Show system power profile status if available
+    if command -v powerprofilesctl >/dev/null 2>&1; then
+        echo ""
+        echo "System Power Profile:"
+        powerprofilesctl get 2>/dev/null || echo "  Unable to read system profile"
     fi
 }
 
 list_profiles() {
-    echo "Available TDP profiles:"
-    for profile in max_performance gaming performance balanced efficient power_saver ultra_low; do
-        if [ -n "${TDP_PROFILES[$profile]}" ]; then
-            local tdp_watts=$(( ${TDP_PROFILES[$profile]} / 1000 ))
-            echo "  $profile: ${tdp_watts}W"
-        fi
-    done
+    echo "Available power profiles:"
+    echo "  performance  - Maximum performance (for gaming, intensive tasks)"
+    echo "  balanced     - Balanced performance and efficiency (default)"
+    echo "  quiet        - Quiet operation with good efficiency"
+    echo "  power-saver  - Maximum battery life"
+    echo ""
+    
+    # Show available ASUS profiles if asusctl is available
+    if command -v asusctl >/dev/null 2>&1; then
+        echo "Available ASUS platform profiles:"
+        asusctl profile -l 2>/dev/null || echo "  Unable to list ASUS profiles"
+        echo ""
+    fi
+    
+    # Show available system profiles if powerprofilesctl is available
+    if command -v powerprofilesctl >/dev/null 2>&1; then
+        echo "Available system power profiles:"
+        powerprofilesctl list 2>/dev/null || echo "  Unable to list system profiles"
+    fi
 }
 
 # Configuration management functions
 configure_auto_switching() {
-    echo "Configuring automatic TDP profile switching..."
+    echo "Configuring automatic power profile switching..."
     echo ""
     
     local auto_enabled="false"
@@ -1724,25 +1714,35 @@ configure_auto_switching() {
         echo "Select AC power profile (when plugged in):"
         list_profiles
         echo ""
-        read -p "AC profile [gaming]: " ac_profile
-        ac_profile=${ac_profile:-gaming}
+        read -p "AC profile [performance]: " ac_profile
+        ac_profile=${ac_profile:-performance}
         
-        if [ -z "${TDP_PROFILES[$ac_profile]}" ]; then
-            echo "Invalid profile, using 'gaming'"
-            ac_profile="gaming"
-        fi
+        # Validate AC profile
+        case "$ac_profile" in
+            performance|balanced|quiet|power-saver)
+                ;;
+            *)
+                echo "Invalid profile, using 'performance'"
+                ac_profile="performance"
+                ;;
+        esac
         
         echo ""
         echo "Select battery profile (when on battery):"
         list_profiles
         echo ""
-        read -p "Battery profile [efficient]: " battery_profile
-        battery_profile=${battery_profile:-efficient}
+        read -p "Battery profile [balanced]: " battery_profile
+        battery_profile=${battery_profile:-balanced}
         
-        if [ -z "${TDP_PROFILES[$battery_profile]}" ]; then
-            echo "Invalid profile, using 'efficient'"
-            battery_profile="efficient"
-        fi
+        # Validate battery profile
+        case "$battery_profile" in
+            performance|balanced|quiet|power-saver)
+                ;;
+            *)
+                echo "Invalid profile, using 'balanced'"
+                battery_profile="balanced"
+                ;;
+        esac
         
         # Save configuration
         echo "$auto_enabled" > "$AUTO_CONFIG_FILE"
@@ -1755,12 +1755,12 @@ configure_auto_switching() {
         echo "  Battery: $battery_profile"
         echo ""
         echo "Starting automatic switching service..."
-        systemctl enable gz302-tdp-auto.service >/dev/null 2>&1
-        systemctl start gz302-tdp-auto.service >/dev/null 2>&1
+        systemctl enable asus-power-auto.service >/dev/null 2>&1
+        systemctl start asus-power-auto.service >/dev/null 2>&1
     else
         echo "false" > "$AUTO_CONFIG_FILE"
-        systemctl disable gz302-tdp-auto.service >/dev/null 2>&1
-        systemctl stop gz302-tdp-auto.service >/dev/null 2>&1
+        systemctl disable asus-power-auto.service >/dev/null 2>&1
+        systemctl stop asus-power-auto.service >/dev/null 2>&1
         echo "Automatic switching disabled"
     fi
 }
@@ -1771,8 +1771,8 @@ auto_switch_profile() {
         local current_power=$(get_battery_status)
         local last_power_source=""
         
-        if [ -f "$TDP_CONFIG_DIR/last-power-source" ]; then
-            last_power_source=$(cat "$TDP_CONFIG_DIR/last-power-source" 2>/dev/null)
+        if [ -f "$POWER_CONFIG_DIR/last-power-source" ]; then
+            last_power_source=$(cat "$POWER_CONFIG_DIR/last-power-source" 2>/dev/null)
         fi
         
         # Only switch if power source changed
@@ -1781,19 +1781,23 @@ auto_switch_profile() {
                 "AC")
                     if [ -f "$AC_PROFILE_FILE" ]; then
                         local ac_profile=$(cat "$AC_PROFILE_FILE" 2>/dev/null)
-                        if [ -n "$ac_profile" ] && [ -n "${TDP_PROFILES[$ac_profile]}" ]; then
-                            echo "Power source changed to AC, switching to profile: $ac_profile"
-                            set_tdp_profile "$ac_profile"
-                        fi
+                        case "$ac_profile" in
+                            performance|balanced|quiet|power-saver)
+                                echo "Power source changed to AC, switching to profile: $ac_profile"
+                                set_power_profile "$ac_profile"
+                                ;;
+                        esac
                     fi
                     ;;
                 "Battery")
                     if [ -f "$BATTERY_PROFILE_FILE" ]; then
                         local battery_profile=$(cat "$BATTERY_PROFILE_FILE" 2>/dev/null)
-                        if [ -n "$battery_profile" ] && [ -n "${TDP_PROFILES[$battery_profile]}" ]; then
-                            echo "Power source changed to Battery, switching to profile: $battery_profile"
-                            set_tdp_profile "$battery_profile"
-                        fi
+                        case "$battery_profile" in
+                            performance|balanced|quiet|power-saver)
+                                echo "Power source changed to Battery, switching to profile: $battery_profile"
+                                set_power_profile "$battery_profile"
+                                ;;
+                        esac
                     fi
                     ;;
             esac
@@ -1803,8 +1807,8 @@ auto_switch_profile() {
 
 # Main script logic
 case "$1" in
-    max_performance|gaming|performance|balanced|efficient|power_saver|ultra_low)
-        set_tdp_profile "$1"
+    performance|balanced|quiet|power-saver)
+        set_power_profile "$1"
         ;;
     status)
         show_status
@@ -1829,18 +1833,18 @@ case "$1" in
 esac
 EOF
 
-    chmod +x /usr/local/bin/gz302-tdp
+    chmod +x /usr/local/bin/asus-power
     
-    # Create systemd service for automatic TDP management
-    cat > /etc/systemd/system/gz302-tdp-auto.service <<EOF
+    # Create systemd service for automatic power management
+    cat > /etc/systemd/system/asus-power-auto.service <<EOF
 [Unit]
-Description=GZ302 Automatic TDP Management
-After=multi-user.target
-Wants=gz302-tdp-monitor.service
+Description=ASUS Automatic Power Management
+After=multi-user.target asusd.service power-profiles-daemon.service
+Wants=asus-power-monitor.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/gz302-tdp balanced
+ExecStart=/usr/local/bin/asus-power balanced
 RemainAfterExit=yes
 
 [Install]
@@ -1848,14 +1852,14 @@ WantedBy=multi-user.target
 EOF
 
     # Create systemd service for power monitoring
-    cat > /etc/systemd/system/gz302-tdp-monitor.service <<EOF
+    cat > /etc/systemd/system/asus-power-monitor.service <<EOF
 [Unit]
-Description=GZ302 TDP Power Source Monitor
-After=multi-user.target
+Description=ASUS Power Source Monitor
+After=multi-user.target asusd.service power-profiles-daemon.service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/gz302-tdp-monitor
+ExecStart=/usr/local/bin/asus-power-monitor
 Restart=always
 RestartSec=5
 
@@ -1864,38 +1868,38 @@ WantedBy=multi-user.target
 EOF
 
     # Create power monitoring script
-    cat > /usr/local/bin/gz302-tdp-monitor <<'MONITOR_EOF'
+    cat > /usr/local/bin/asus-power-monitor <<'MONITOR_EOF'
 #!/bin/bash
-# GZ302 TDP Power Source Monitor
-# Monitors power source changes and automatically switches TDP profiles
+# ASUS Power Source Monitor
+# Monitors power source changes and automatically switches power profiles
 
 while true; do
-    /usr/local/bin/gz302-tdp auto
+    /usr/local/bin/asus-power auto
     sleep 10  # Check every 10 seconds
 done
 MONITOR_EOF
 
-    chmod +x /usr/local/bin/gz302-tdp-monitor
+    chmod +x /usr/local/bin/asus-power-monitor
     
-    systemctl enable gz302-tdp-auto.service
+    systemctl enable asus-power-auto.service
     
     echo ""
-    info "TDP management installation complete!"
+    info "ASUS power management installation complete!"
     echo ""
-    echo "Would you like to configure automatic TDP profile switching now?"
-    echo "This allows the system to automatically change performance profiles"
-    echo "when you plug/unplug the AC adapter."
+    echo "Would you like to configure automatic power profile switching now?"
+    echo "This uses native asusctl and powerprofilesctl instead of custom TDP management."
+    echo "Profiles will automatically change when you plug/unplug the AC adapter."
     echo ""
     read -p "Configure automatic switching? (Y/n): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-        /usr/local/bin/gz302-tdp config
+        /usr/local/bin/asus-power config
     else
-        echo "You can configure automatic switching later using: gz302-tdp config"
+        echo "You can configure automatic switching later using: asus-power config"
     fi
     
     echo ""
-    success "TDP management installed. Use 'gz302-tdp' command to manage power profiles."
+    success "ASUS power management installed. Use 'asus-power' command to manage power profiles."
 }
 
 # Refresh Rate Management Installation
@@ -3005,21 +3009,78 @@ MONITOR_EOF
 # Placeholder functions for snapshots
 setup_arch_snapshots() {
     info "Setting up snapshots for Arch-based system..."
+    
+    # Install snapper for Btrfs systems or timeshift for general use
+    if mount | grep -q "btrfs"; then
+        info "Btrfs filesystem detected, installing snapper..."
+        pacman -S --noconfirm --needed snapper
+        # Configure snapper for root subvolume
+        if [ ! -f /etc/snapper/configs/root ]; then
+            snapper -c root create-config /
+            systemctl enable --now snapper-timeline.timer
+            systemctl enable --now snapper-cleanup.timer
+        fi
+    else
+        info "Installing timeshift for snapshot management..."
+        pacman -S --noconfirm --needed timeshift
+    fi
+    
+    info "Snapshot tools installed. Use 'snapper' or 'timeshift-gtk' to manage snapshots."
     success "Snapshots configured"
 }
 
 setup_debian_snapshots() {
     info "Setting up snapshots for Debian-based system..."
+    
+    # Install timeshift (works with all filesystems)
+    apt update
+    apt install -y timeshift
+    
+    info "Timeshift installed. Use 'timeshift-gtk' to configure and manage snapshots."
     success "Snapshots configured"
 }
 
 setup_fedora_snapshots() {
     info "Setting up snapshots for Fedora-based system..."
+    
+    # Fedora has native Btrfs snapper support
+    if mount | grep -q "btrfs"; then
+        info "Btrfs filesystem detected, installing snapper..."
+        dnf install -y snapper
+        # Configure snapper for root subvolume
+        if [ ! -f /etc/snapper/configs/root ]; then
+            snapper -c root create-config /
+            systemctl enable --now snapper-timeline.timer
+            systemctl enable --now snapper-cleanup.timer
+        fi
+    else
+        info "Installing timeshift for snapshot management..."
+        dnf install -y timeshift
+    fi
+    
+    info "Snapshot tools installed. Use 'snapper' or 'timeshift-gtk' to manage snapshots."
     success "Snapshots configured"
 }
 
 setup_opensuse_snapshots() {
     info "Setting up snapshots for OpenSUSE..."
+    
+    # OpenSUSE has snapper pre-configured for Btrfs
+    if command -v snapper >/dev/null 2>&1; then
+        info "Snapper already available on OpenSUSE"
+        systemctl enable --now snapper-timeline.timer
+        systemctl enable --now snapper-cleanup.timer
+    else
+        info "Installing snapper..."
+        zypper install -y snapper
+        if [ ! -f /etc/snapper/configs/root ]; then
+            snapper -c root create-config /
+            systemctl enable --now snapper-timeline.timer
+            systemctl enable --now snapper-cleanup.timer
+        fi
+    fi
+    
+    info "Use 'snapper' command or YaST snapshots module to manage snapshots."
     success "Snapshots configured"
 }
 

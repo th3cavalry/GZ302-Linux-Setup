@@ -238,7 +238,7 @@ class GZ302Setup:
         print("- Automatic daily system backups")
         print("- Easy system recovery and rollback")
         print("- Supports ZFS, Btrfs, ext4 (with LVM), and XFS filesystems")
-        print("- 'gz302-snapshot' command for manual management")
+        print("- Standard snapshot tools (snapper/timeshift) for manual management")
         print()
         install_snapshots = input("Do you want to enable system snapshots? (y/n): ").strip().lower()
         
@@ -487,187 +487,179 @@ options mt7925e disable_aspm=1
         
         self.success("Comprehensive hardware fixes applied for OpenSUSE")
     
-    def setup_tdp_management(self, distro: str):
-        """Setup TDP management system"""
-        self.info("Setting up TDP management...")
+    def setup_asus_power_management(self, distro: str):
+        """Setup ASUS power management using asusctl and powerprofilesctl"""
+        self.info("Setting up ASUS power management...")
         
-        # Install ryzenadj based on distribution
-        if distro == 'arch':
-            self.install_ryzenadj_arch()
-        elif distro == 'ubuntu':
-            self.install_ryzenadj_debian()
-        elif distro == 'fedora':
-            self.install_ryzenadj_fedora()
-        elif distro == 'opensuse':
-            self.install_ryzenadj_opensuse()
-        
-        # Create TDP management script
-        tdp_script = '''#!/bin/bash
+        # Create ASUS power management wrapper script
+        asus_power_script = '''#!/bin/bash
+# ASUS Power Management Wrapper
+# Uses native asusctl and powerprofilesctl instead of custom TDP management
 
-# TDP Management Script for ASUS ROG Flow Z13 (GZ302)
-# Usage: gz302-tdp [profile|status]
+POWER_CONFIG_DIR="/etc/asus-power"
+AUTO_CONFIG_FILE="$POWER_CONFIG_DIR/auto-config"
+AC_PROFILE_FILE="$POWER_CONFIG_DIR/ac-profile"
+BATTERY_PROFILE_FILE="$POWER_CONFIG_DIR/battery-profile"
+
+# Create config directory
+mkdir -p "$POWER_CONFIG_DIR"
 
 show_usage() {
-    echo "Usage: gz302-tdp [COMMAND]"
+    echo "Usage: asus-power [PROFILE|status|list|auto|config]"
+    echo ""
+    echo "Power Profiles (uses asusctl and powerprofilesctl):"
+    echo "  performance      - Maximum performance (asusctl performance + powerprofilesctl performance)"
+    echo "  balanced         - Balanced performance/efficiency (asusctl balanced + powerprofilesctl balanced)"
+    echo "  quiet            - Quiet operation (asusctl quiet + powerprofilesctl balanced)"
+    echo "  power-saver      - Maximum battery life (asusctl low-power + powerprofilesctl power-saver)"
     echo ""
     echo "Commands:"
-    echo "  gaming          - High performance gaming profile (35W TDP)"
-    echo "  performance     - Maximum performance profile (45W TDP, AC only)"
-    echo "  balanced        - Balanced performance profile (25W TDP)"
-    echo "  efficient       - Power efficient profile (15W TDP)"
-    echo "  power_saver     - Maximum power saving (8W TDP)"
-    echo "  status          - Show current TDP and power status"
-    echo "  auto            - Enable/disable automatic profile switching"
-    echo "  config          - Configure automatic AC/battery switching"
-    echo ""
-    echo "Profile Details:"
-    echo "  gaming:         35W TDP, boost enabled, performance governor"
-    echo "  performance:    45W TDP, max boost, performance governor (AC only)"
-    echo "  balanced:       25W TDP, moderate boost, schedutil governor"
-    echo "  efficient:      15W TDP, conservative boost, powersave governor"
-    echo "  power_saver:    8W TDP, minimal boost, powersave governor"
+    echo "  status           - Show current power profile and source"
+    echo "  list             - List available profiles"
+    echo "  auto             - Enable/disable automatic profile switching"
+    echo "  config           - Configure automatic profile preferences"
 }
 
-# Check if ryzenadj is available
-if ! command -v ryzenadj >/dev/null 2>&1; then
-    echo "[ERROR] ryzenadj not found. Please install it first."
-    exit 1
-fi
+set_power_profile() {
+    local profile="$1"
+    
+    # Validate profile
+    case "$profile" in
+        performance|balanced|quiet|power-saver)
+            ;;
+        *)
+            echo "Error: Unknown profile '$profile'"
+            echo "Use 'asus-power list' to see available profiles"
+            return 1
+            ;;
+    esac
+    
+    echo "Setting power profile: $profile"
+    
+    local success=false
+    
+    # Method 1: Try asusctl for ASUS platform profiles
+    if command -v asusctl >/dev/null 2>&1; then
+        echo "Setting ASUS platform profile using asusctl..."
+        case "$profile" in
+            performance)
+                if asusctl profile -s performance >/dev/null 2>&1; then
+                    echo "ASUS platform profile set to performance"
+                    success=true
+                fi
+                ;;
+            balanced)
+                if asusctl profile -s balanced >/dev/null 2>&1; then
+                    echo "ASUS platform profile set to balanced"
+                    success=true
+                fi
+                ;;
+            quiet)
+                if asusctl profile -s quiet >/dev/null 2>&1; then
+                    echo "ASUS platform profile set to quiet"
+                    success=true
+                fi
+                ;;
+            power-saver)
+                if asusctl profile -s low-power >/dev/null 2>&1; then
+                    echo "ASUS platform profile set to low-power"
+                    success=true
+                fi
+                ;;
+        esac
+    fi
+    
+    # Method 2: Try power-profiles-daemon
+    if command -v powerprofilesctl >/dev/null 2>&1; then
+        echo "Setting system power profile using powerprofilesctl..."
+        case "$profile" in
+            performance)
+                if powerprofilesctl set performance >/dev/null 2>&1; then
+                    echo "System power profile set to performance"
+                    success=true
+                fi
+                ;;
+            balanced|quiet)
+                if powerprofilesctl set balanced >/dev/null 2>&1; then
+                    echo "System power profile set to balanced"
+                    success=true
+                fi
+                ;;
+            power-saver)
+                if powerprofilesctl set power-saver >/dev/null 2>&1; then
+                    echo "System power profile set to power-saver"
+                    success=true
+                fi
+                ;;
+        esac
+    fi
+    
+    if [ "$success" = true ]; then
+        echo "$profile" > "$POWER_CONFIG_DIR/current-profile"
+        echo "Power profile '$profile' applied successfully"
+        return 0
+    else
+        echo "Error: Failed to apply power profile"
+        return 1
+    fi
+}
 
-case "${1:-status}" in
-    "gaming")
-        echo "[INFO] Applying gaming profile (35W TDP)..."
-        ryzenadj --stapm-limit=35000 --fast-limit=35000 --slow-limit=35000 --tctl-temp=90
-        echo 'performance' | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
-        echo "[SUCCESS] Gaming profile applied"
+show_status() {
+    echo "ASUS Power Management Status:"
+    
+    # Show ASUS platform profile status if available
+    if command -v asusctl >/dev/null 2>&1; then
+        echo "ASUS Platform Profile:"
+        asusctl profile -g 2>/dev/null || echo "  Unable to read ASUS profile"
+    fi
+    
+    # Show system power profile status if available
+    if command -v powerprofilesctl >/dev/null 2>&1; then
+        echo "System Power Profile:"
+        powerprofilesctl get 2>/dev/null || echo "  Unable to read system profile"
+    fi
+}
+
+list_profiles() {
+    echo "Available power profiles:"
+    echo "  performance  - Maximum performance (for gaming, intensive tasks)"
+    echo "  balanced     - Balanced performance and efficiency (default)"
+    echo "  quiet        - Quiet operation with good efficiency"
+    echo "  power-saver  - Maximum battery life"
+    echo ""
+    
+    # Show available ASUS profiles if asusctl is available
+    if command -v asusctl >/dev/null 2>&1; then
+        echo "Available ASUS platform profiles:"
+        asusctl profile -l 2>/dev/null || echo "  Unable to list ASUS profiles"
+    fi
+}
+
+# Main script logic
+case "$1" in
+    performance|balanced|quiet|power-saver)
+        set_power_profile "$1"
         ;;
-    "performance")
-        echo "[INFO] Applying maximum performance profile (45W TDP)..."
-        ryzenadj --stapm-limit=45000 --fast-limit=45000 --slow-limit=45000 --tctl-temp=95
-        echo 'performance' | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
-        echo "[SUCCESS] Maximum performance profile applied"
+    status)
+        show_status
         ;;
-    "balanced")
-        echo "[INFO] Applying balanced profile (25W TDP)..."
-        ryzenadj --stapm-limit=25000 --fast-limit=25000 --slow-limit=25000 --tctl-temp=85
-        echo 'schedutil' | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
-        echo "[SUCCESS] Balanced profile applied"
+    list)
+        list_profiles
         ;;
-    "efficient")
-        echo "[INFO] Applying efficient profile (15W TDP)..."
-        ryzenadj --stapm-limit=15000 --fast-limit=15000 --slow-limit=15000 --tctl-temp=80
-        echo 'powersave' | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
-        echo "[SUCCESS] Efficient profile applied"
-        ;;
-    "power_saver")
-        echo "[INFO] Applying power saver profile (8W TDP)..."
-        ryzenadj --stapm-limit=8000 --fast-limit=8000 --slow-limit=8000 --tctl-temp=75
-        echo 'powersave' | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
-        echo "[SUCCESS] Power saver profile applied"
-        ;;
-    "status")
-        echo "=== GZ302 TDP Status ==="
-        if command -v ryzenadj >/dev/null 2>&1; then
-            ryzenadj -i | grep -E "(STAPM|PPT|TjMax)" || echo "Unable to read TDP values"
-        fi
-        echo ""
-        echo "CPU Governor: $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo 'Unknown')"
-        echo "Power Source: $(acpi -a 2>/dev/null | grep -q 'on-line' && echo 'AC' || echo 'Battery')"
+    "")
+        show_usage
         ;;
     *)
+        echo "Error: Unknown command '$1'"
         show_usage
+        exit 1
         ;;
 esac
 '''
-        self.write_file('/usr/local/bin/gz302-tdp', tdp_script)
-        self.run_command(['chmod', '+x', '/usr/local/bin/gz302-tdp'])
+        self.write_file('/usr/local/bin/asus-power', asus_power_script)
+        self.run_command(['chmod', '+x', '/usr/local/bin/asus-power'])
         
-        self.success("TDP management system installed")
-        
-        # Configure automatic TDP switching like bash version
-        self.info("TDP management installation complete!")
-        print()
-        print("Would you like to configure automatic TDP profile switching now?")
-        print("This allows the system to automatically change performance profiles")
-        print("when you plug/unplug the AC adapter.")
-        print()
-        
-        response = input("Configure automatic switching? (Y/n): ").strip().lower()
-        if response != 'n' and response != 'no':
-            self.configure_tdp_profiles()
-        else:
-            print("You can configure automatic switching later using: gz302-tdp config")
-    
-    def configure_tdp_profiles(self):
-        """Configure TDP profiles interactively like bash script"""
-        # TDP profiles dictionary matching bash script
-        tdp_profiles = {
-            'max_performance': {'watts': 65, 'description': '65W'},
-            'gaming': {'watts': 54, 'description': '54W'},
-            'performance': {'watts': 45, 'description': '45W'},
-            'balanced': {'watts': 35, 'description': '35W'},
-            'efficient': {'watts': 25, 'description': '25W'},
-            'power_saver': {'watts': 15, 'description': '15W'},
-            'ultra_low': {'watts': 10, 'description': '10W'}
-        }
-        
-        print("Configuring automatic TDP profile switching...")
-        print()
-        
-        response = input("Enable automatic profile switching based on power source? (y/N): ").strip().lower()
-        if response == 'y' or response == 'yes':
-            print()
-            print("Select AC power profile (when plugged in):")
-            print("Available TDP profiles:")
-            for profile, info in tdp_profiles.items():
-                print(f"  {profile}: {info['description']}")
-            print()
-            
-            ac_profile = input("AC profile [gaming]: ").strip()
-            if not ac_profile:
-                ac_profile = "gaming"
-            elif ac_profile not in tdp_profiles:
-                print("Invalid profile, using 'gaming'")
-                ac_profile = "gaming"
-            
-            print()
-            print("Select battery profile (when on battery):")
-            print("Available TDP profiles:")
-            for profile, info in tdp_profiles.items():
-                print(f"  {profile}: {info['description']}")
-            print()
-            
-            battery_profile = input("Battery profile [efficient]: ").strip()
-            if not battery_profile:
-                battery_profile = "efficient"
-            elif battery_profile not in tdp_profiles:
-                print("Invalid profile, using 'efficient'")
-                battery_profile = "efficient"
-            
-            # Create config directory and save configuration
-            config_dir = "/etc/gz302-tdp"
-            self.run_command(['mkdir', '-p', config_dir])
-            
-            # Save configuration files
-            self.write_file(f"{config_dir}/auto-config", "true")
-            self.write_file(f"{config_dir}/ac-profile", ac_profile)
-            self.write_file(f"{config_dir}/battery-profile", battery_profile)
-            
-            print()
-            print("Automatic switching configured:")
-            print(f"  AC power: {ac_profile}")
-            print(f"  Battery: {battery_profile}")
-            print()
-            print("Starting automatic switching service...")
-            
-            # Enable the auto TDP service
-            try:
-                self.run_command(['systemctl', 'enable', '--now', 'gz302-tdp-auto.service'])
-                self.success("TDP management installed. Use 'gz302-tdp' command to manage power profiles.")
-            except:
-                self.warning("Failed to start automatic switching service")
-        else:
-            print("Automatic switching disabled. You can enable it later using: gz302-tdp config")
+        self.success("ASUS power management installed. Use 'asus-power' command to manage power profiles.")
     
     def setup_refresh_management(self):
         """Setup virtual refresh rate management system"""
@@ -1895,8 +1887,8 @@ done
         # Apply hardware fixes
         self.apply_arch_hardware_fixes()
         
-        # Setup TDP management (always install for all systems)
-        self.setup_tdp_management("arch")
+        # Setup ASUS power management (always install for all systems)
+        self.setup_asus_power_management("arch")
         
         # Setup refresh rate management (always install for all systems)
         self.setup_refresh_management()
@@ -1926,8 +1918,8 @@ done
         # Apply hardware fixes
         self.apply_debian_hardware_fixes()
         
-        # Setup TDP management
-        self.setup_tdp_management("ubuntu")
+        # Setup ASUS power management
+        self.setup_asus_power_management("ubuntu")
         
         # Setup refresh rate management (always install for all systems)
         self.setup_refresh_management()
@@ -1957,8 +1949,8 @@ done
         # Apply hardware fixes
         self.apply_fedora_hardware_fixes()
         
-        # Setup TDP management
-        self.setup_tdp_management("fedora")
+        # Setup ASUS power management
+        self.setup_asus_power_management("fedora")
         
         # Setup refresh rate management (always install for all systems)
         self.setup_refresh_management()
@@ -1988,8 +1980,8 @@ done
         # Apply hardware fixes
         self.apply_opensuse_hardware_fixes()
         
-        # Setup TDP management
-        self.setup_tdp_management("opensuse")
+        # Setup ASUS power management
+        self.setup_asus_power_management("opensuse")
         
         # Setup refresh rate management (always install for all systems)
         self.setup_refresh_management()
@@ -2133,7 +2125,7 @@ end=notify-send "GameMode ended"
         self.success("Hypervisor installation completed")
     
     def setup_arch_snapshots(self):
-        """Setup snapshots for Arch-based systems"""
+        """Setup snapshots for Arch-based systems using standard tools"""
         self.info("Setting up snapshots for Arch-based system...")
         
         # Check filesystem type
@@ -2144,60 +2136,23 @@ end=notify-send "GameMode ended"
         except:
             pass
         
+        # Install snapper for Btrfs systems or timeshift for general use
         if fs_type == 'btrfs':
-            self.info("Detected Btrfs filesystem - setting up Btrfs snapshots")
+            self.info("Btrfs filesystem detected, installing snapper...")
             self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'snapper'])
-            
-            # Create snapper configuration
-            self.run_command(['snapper', 'create-config', '/'])
-            self.run_command(['systemctl', 'enable', '--now', 'snapper-timeline.timer'])
-            self.run_command(['systemctl', 'enable', '--now', 'snapper-cleanup.timer'])
-            
-        elif fs_type == 'ext4':
-            self.info("Detected ext4 filesystem - setting up LVM snapshots")
-            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'lvm2'])
-            self.warning("LVM snapshot setup requires manual configuration")
-            
+            # Configure snapper for root subvolume
+            try:
+                if not Path('/etc/snapper/configs/root').exists():
+                    self.run_command(['snapper', '-c', 'root', 'create-config', '/'])
+                    self.run_command(['systemctl', 'enable', '--now', 'snapper-timeline.timer'])
+                    self.run_command(['systemctl', 'enable', '--now', 'snapper-cleanup.timer'])
+            except:
+                self.warning("Snapper configuration may need manual setup")
         else:
-            self.warning(f"Filesystem {fs_type} - limited snapshot support")
+            self.info("Installing timeshift for snapshot management...")
+            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'timeshift'])
         
-        # Create snapshot management script
-        snapshot_script = '''#!/bin/bash
-# GZ302 Snapshot Management Script
-
-case "$1" in
-    "create")
-        echo "[INFO] Creating system snapshot..."
-        if command -v snapper >/dev/null 2>&1; then
-            snapper create --description "Manual snapshot $(date)"
-        else
-            echo "[WARNING] Snapper not available"
-        fi
-        ;;
-    "list")
-        echo "[INFO] Listing snapshots..."
-        if command -v snapper >/dev/null 2>&1; then
-            snapper list
-        else
-            echo "[WARNING] Snapper not available"
-        fi
-        ;;
-    "cleanup")
-        echo "[INFO] Cleaning up old snapshots..."
-        if command -v snapper >/dev/null 2>&1; then
-            snapper cleanup number
-        else
-            echo "[WARNING] Snapper not available"
-        fi
-        ;;
-    *)
-        echo "Usage: gz302-snapshot [create|list|cleanup]"
-        ;;
-esac
-'''
-        self.write_file('/usr/local/bin/gz302-snapshot', snapshot_script)
-        self.run_command(['chmod', '+x', '/usr/local/bin/gz302-snapshot'])
-        
+        self.info("Snapshot tools installed. Use 'snapper' or 'timeshift-gtk' to manage snapshots.")
         self.success("Snapshots configured")
     
     def setup_arch_secureboot(self):
@@ -2297,15 +2252,68 @@ esac
     
     # Snapshot setup functions
     def setup_debian_snapshots(self):
+        """Setup snapshots for Debian-based systems using timeshift"""
         self.info("Setting up snapshots for Debian-based system...")
+        
+        # Install timeshift (works with all filesystems)
+        self.run_command(['apt', 'update'])
+        self.run_command(['apt', 'install', '-y', 'timeshift'])
+        
+        self.info("Timeshift installed. Use 'timeshift-gtk' to configure and manage snapshots.")
         self.success("Snapshots configured")
     
     def setup_fedora_snapshots(self):
+        """Setup snapshots for Fedora-based systems"""
         self.info("Setting up snapshots for Fedora-based system...")
+        
+        # Check filesystem type
+        fs_type = None
+        try:
+            findmnt_output = subprocess.check_output(['findmnt', '-n', '-o', 'FSTYPE', '/'], text=True).strip()
+            fs_type = findmnt_output
+        except:
+            pass
+        
+        # Fedora has native Btrfs snapper support
+        if fs_type == 'btrfs':
+            self.info("Btrfs filesystem detected, installing snapper...")
+            self.run_command(['dnf', 'install', '-y', 'snapper'])
+            # Configure snapper for root subvolume
+            try:
+                if not Path('/etc/snapper/configs/root').exists():
+                    self.run_command(['snapper', '-c', 'root', 'create-config', '/'])
+                    self.run_command(['systemctl', 'enable', '--now', 'snapper-timeline.timer'])
+                    self.run_command(['systemctl', 'enable', '--now', 'snapper-cleanup.timer'])
+            except:
+                self.warning("Snapper configuration may need manual setup")
+        else:
+            self.info("Installing timeshift for snapshot management...")
+            self.run_command(['dnf', 'install', '-y', 'timeshift'])
+        
+        self.info("Snapshot tools installed. Use 'snapper' or 'timeshift-gtk' to manage snapshots.")
         self.success("Snapshots configured")
     
     def setup_opensuse_snapshots(self):
+        """Setup snapshots for OpenSUSE using snapper"""
         self.info("Setting up snapshots for OpenSUSE...")
+        
+        # OpenSUSE has snapper pre-configured for Btrfs
+        if shutil.which('snapper'):
+            self.info("Snapper already available on OpenSUSE")
+            self.run_command(['systemctl', 'enable', '--now', 'snapper-timeline.timer'])
+            self.run_command(['systemctl', 'enable', '--now', 'snapper-cleanup.timer'])
+        else:
+            self.info("Installing snapper...")
+            self.run_command(['zypper', 'install', '-y', 'snapper'])
+            try:
+                if not Path('/etc/snapper/configs/root').exists():
+                    self.run_command(['snapper', '-c', 'root', 'create-config', '/'])
+                    self.run_command(['systemctl', 'enable', '--now', 'snapper-timeline.timer'])
+                    self.run_command(['systemctl', 'enable', '--now', 'snapper-cleanup.timer'])
+            except:
+                self.warning("Snapper configuration may need manual setup")
+        
+        self.info("Use 'snapper' command or YaST snapshots module to manage snapshots.")
         self.success("Snapshots configured")
     
     # Secure boot setup functions
@@ -2460,7 +2468,7 @@ if __name__ == "__main__":
         setup.success("- Touchpad detection and functionality")
         setup.success("- Audio fixes for ASUS hardware")
         setup.success("- GPU and thermal optimizations")
-        setup.success("- TDP management: Use 'gz302-tdp' command")
+        setup.success("- Power management: Use 'asus-power' command")
         setup.success("- Refresh rate control: Use 'gz302-refresh' command")
         setup.success("")
         
@@ -2488,8 +2496,8 @@ if __name__ == "__main__":
             setup.success("System snapshots configuration initiated")
         
         setup.success("")
-        setup.success("Available TDP profiles: gaming, performance, balanced, efficient")
-        setup.success("Check power status with: gz302-tdp status")
+        setup.success("Available power profiles: performance, balanced, quiet, power-saver")
+        setup.success("Check power status with: asus-power status")
         setup.success("")
         setup.success(f"Your ROG Flow Z13 (GZ302) is now optimized for {setup.detected_distro}-based systems!")
         setup.success("============================================================")
