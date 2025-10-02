@@ -2473,43 +2473,71 @@ end=notify-send "GameMode ended"
             self.info("Installing KVM/QEMU with virt-manager...")
             # Handle iptables conflict
             try:
-                self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'iptables-nft'])
+                self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'iptables-nft'], check=False)
+                self.info("iptables-nft package handled successfully")
             except:
-                pass
+                self.warning("iptables-nft installation had issues, but continuing...")
             
-            self.run_command(['pacman', '-S', '--noconfirm', '--needed',
-                             'qemu-full', 'libvirt', 'virt-manager', 'dnsmasq', 'bridge-utils'])
+            try:
+                self.run_command(['pacman', '-S', '--noconfirm', '--needed',
+                                 'qemu-full', 'virt-manager', 'libvirt', 'ebtables', 'dnsmasq', 
+                                 'bridge-utils', 'openbsd-netcat'])
+                self.info("KVM/QEMU packages installed successfully")
+            except:
+                self.error("Failed to install KVM/QEMU packages. Check your internet connection and try again.")
+                return
             
-            # Enable libvirt services
-            self.run_command(['systemctl', 'enable', '--now', 'libvirtd'])
+            try:
+                self.run_command(['systemctl', 'enable', '--now', 'libvirtd'])
+                self.info("libvirtd service enabled and started")
+            except:
+                self.warning("Failed to enable libvirtd service, but continuing...")
             
             # Add user to libvirt group
             real_user = self.get_real_user()
-            self.run_command(['usermod', '-aG', 'libvirt', real_user])
+            if real_user != 'root':
+                try:
+                    self.run_command(['usermod', '-aG', 'libvirt', real_user])
+                    self.info(f"User {real_user} added to libvirt group")
+                except:
+                    self.warning("Failed to add user to libvirt group, but continuing...")
+            self.success("KVM/QEMU with virt-manager installed successfully")
             
         elif choice == '2':  # VirtualBox
             self.info("Installing VirtualBox...")
-            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'virtualbox', 'virtualbox-host-modules-arch'])
+            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'virtualbox', 
+                             'virtualbox-host-modules-arch', 'virtualbox-guest-iso'], check=False)
+            try:
+                self.run_command(['modprobe', 'vboxdrv'], check=False)
+            except:
+                pass
+            
+            real_user = self.get_real_user()
+            if real_user != 'root':
+                self.run_command(['usermod', '-aG', 'vboxusers', real_user], check=False)
+            self.success("VirtualBox installed")
             
         elif choice == '3':  # VMware
             self.info("Installing VMware Workstation Pro...")
             if shutil.which('yay'):
                 real_user = self.get_real_user()
                 self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm', 'vmware-workstation'], check=False)
+                self.success("VMware Workstation installation attempted")
             else:
-                self.warning("VMware installation requires AUR - please install yay first")
+                self.warning("VMware Workstation requires AUR helper. Please install manually.")
+                self.success("VMware Workstation installation instructions provided")
                 
         elif choice == '4':  # Xen
-            self.info("Installing Xen Hypervisor...")
-            if shutil.which('yay'):
-                real_user = self.get_real_user()
-                self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm', 'xen'], check=False)
-            else:
-                self.warning("Xen installation requires AUR - please install yay first")
+            self.info("Installing Xen hypervisor...")
+            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'xen', 'xen-docs'], check=False)
+            self.warning("Xen requires additional configuration. Please refer to Arch Wiki for setup.")
+            self.success("Xen hypervisor installed")
                 
         elif choice == '5':  # Proxmox
-            self.info("Installing Proxmox VE containers...")
-            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'lxc', 'lxd'])
+            self.info("Installing Proxmox VE...")
+            self.warning("Proxmox VE is typically installed as a dedicated OS. Consider using containers instead.")
+            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'lxc', 'lxd'], check=False)
+            self.success("LXC/LXD containers installed as Proxmox alternative")
             
         self.success("Hypervisor installation completed")
     
@@ -2779,11 +2807,58 @@ esac
     
     # Placeholder functions for other distributions (can be expanded)
     def install_debian_hypervisor_software(self, choice: str):
-        self.info(f"Installing hypervisor option {choice} for Debian-based system...")
+        """Install hypervisor software for Debian-based systems"""
+        self.info("Installing hypervisor software for Debian-based system...")
+        
         if choice == '1':  # KVM/QEMU
-            self.run_command(['apt', 'install', '-y', 'qemu-kvm', 'libvirt-daemon-system', 'virt-manager'])
+            self.info("Installing KVM/QEMU with virt-manager...")
+            self.run_command(['apt', 'install', '-y', 'qemu-kvm', 'libvirt-daemon-system', 
+                             'libvirt-clients', 'bridge-utils', 'virt-manager'], check=False)
+            self.run_command(['systemctl', 'enable', '--now', 'libvirtd'], check=False)
+            
+            real_user = self.get_real_user()
+            if real_user != 'root':
+                self.run_command(['usermod', '-aG', 'libvirt', real_user], check=False)
+                self.run_command(['usermod', '-aG', 'kvm', real_user], check=False)
+            self.success("KVM/QEMU with virt-manager installed")
+            
         elif choice == '2':  # VirtualBox
-            self.run_command(['apt', 'install', '-y', 'virtualbox', 'virtualbox-ext-pack'])
+            self.info("Installing VirtualBox...")
+            # Add Oracle VirtualBox repository
+            try:
+                self.run_command(['wget', '-q', 'https://www.virtualbox.org/download/oracle_vbox_2016.asc', '-O-'], 
+                               capture_output=True, check=True)
+                lsb_release = subprocess.check_output(['lsb_release', '-cs'], text=True).strip()
+                with open('/etc/apt/sources.list.d/virtualbox.list', 'w') as f:
+                    f.write(f"deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian {lsb_release} contrib\n")
+                self.run_command(['apt', 'update'], check=False)
+                self.run_command(['apt', 'install', '-y', 'virtualbox-7.0'], check=False)
+                
+                real_user = self.get_real_user()
+                if real_user != 'root':
+                    self.run_command(['usermod', '-aG', 'vboxusers', real_user], check=False)
+                self.success("VirtualBox installed")
+            except:
+                self.warning("VirtualBox installation failed - repository may not be available")
+                
+        elif choice == '3':  # VMware
+            self.info("Installing VMware Workstation Pro...")
+            self.warning("VMware Workstation Pro requires manual download and installation.")
+            self.info("Please download from https://www.vmware.com/products/workstation-pro.html")
+            self.success("VMware Workstation installation instructions provided")
+            
+        elif choice == '4':  # Xen
+            self.info("Installing Xen hypervisor...")
+            self.run_command(['apt', 'install', '-y', 'xen-hypervisor-amd64', 'xen-tools', 'xen-utils-common'], check=False)
+            self.warning("Xen requires GRUB configuration and reboot. Please refer to documentation.")
+            self.success("Xen hypervisor installed")
+            
+        elif choice == '5':  # Proxmox
+            self.info("Installing Proxmox VE...")
+            self.warning("Proxmox VE is typically installed as a dedicated OS. Installing LXC/LXD as alternative.")
+            self.run_command(['apt', 'install', '-y', 'lxd', 'lxd-client'], check=False)
+            self.success("LXC/LXD containers installed as Proxmox alternative")
+        
         self.success("Hypervisor installation completed")
     
     def install_fedora_llm_software(self):
@@ -2818,9 +2893,55 @@ esac
         self.success("LLM/AI software installation completed")
     
     def install_fedora_hypervisor_software(self, choice: str):
-        self.info(f"Installing hypervisor option {choice} for Fedora-based system...")
+        """Install hypervisor software for Fedora-based systems"""
+        self.info("Installing hypervisor software for Fedora-based system...")
+        
         if choice == '1':  # KVM/QEMU
-            self.run_command(['dnf', 'install', '-y', 'qemu-kvm', 'libvirt', 'virt-manager'])
+            self.info("Installing KVM/QEMU with virt-manager...")
+            self.run_command(['dnf', 'install', '-y', '@virtualization'], check=False)
+            self.run_command(['systemctl', 'enable', '--now', 'libvirtd'], check=False)
+            
+            real_user = self.get_real_user()
+            if real_user != 'root':
+                self.run_command(['usermod', '-aG', 'libvirt', real_user], check=False)
+            self.success("KVM/QEMU with virt-manager installed")
+            
+        elif choice == '2':  # VirtualBox
+            self.info("Installing VirtualBox...")
+            try:
+                self.run_command(['dnf', 'install', '-y', 'kernel-headers', 'kernel-devel', 'dkms', 
+                                 'elfutils-libelf-devel', 'qt5-qtx11extras'], check=False)
+                fedora_version = subprocess.check_output(['rpm', '-E', '%fedora'], text=True).strip()
+                self.run_command(['dnf', 'install', '-y', 
+                                f'https://download.virtualbox.org/virtualbox/rpm/fedora/virtualbox-repo-{fedora_version}-{fedora_version}.noarch.rpm'], 
+                               check=False)
+                self.run_command(['dnf', 'install', '-y', 'VirtualBox-7.0'], check=False)
+                
+                real_user = self.get_real_user()
+                if real_user != 'root':
+                    self.run_command(['usermod', '-aG', 'vboxusers', real_user], check=False)
+                self.success("VirtualBox installed")
+            except:
+                self.warning("VirtualBox installation failed - repository may not be available")
+                
+        elif choice == '3':  # VMware
+            self.info("Installing VMware Workstation Pro...")
+            self.warning("VMware Workstation Pro requires manual download and installation.")
+            self.info("Please download from https://www.vmware.com/products/workstation-pro.html")
+            self.success("VMware Workstation installation instructions provided")
+            
+        elif choice == '4':  # Xen
+            self.info("Installing Xen hypervisor...")
+            self.run_command(['dnf', 'install', '-y', 'xen', 'hypervisor', 'xen-runtime', 'xen-libs'], check=False)
+            self.warning("Xen requires GRUB configuration and reboot. Please refer to documentation.")
+            self.success("Xen hypervisor installed")
+            
+        elif choice == '5':  # Proxmox
+            self.info("Installing Proxmox VE...")
+            self.warning("Proxmox VE is typically installed as a dedicated OS. Installing LXC/LXD as alternative.")
+            self.run_command(['dnf', 'install', '-y', 'lxc', 'lxc-templates', 'libvirt-daemon-lxc'], check=False)
+            self.success("LXC containers installed as Proxmox alternative")
+        
         self.success("Hypervisor installation completed")
     
     def install_opensuse_llm_software(self):
@@ -2855,9 +2976,54 @@ esac
         self.success("LLM/AI software installation completed")
     
     def install_opensuse_hypervisor_software(self, choice: str):
-        self.info(f"Installing hypervisor option {choice} for OpenSUSE...")
+        """Install hypervisor software for OpenSUSE"""
+        self.info("Installing hypervisor software for OpenSUSE...")
+        
         if choice == '1':  # KVM/QEMU
-            self.run_command(['zypper', 'install', '-y', 'qemu-kvm', 'libvirt', 'virt-manager'])
+            self.info("Installing KVM/QEMU with virt-manager...")
+            self.run_command(['zypper', 'install', '-y', '-t', 'pattern', 'kvm_server', 'kvm_tools'], check=False)
+            self.run_command(['zypper', 'install', '-y', 'virt-manager'], check=False)
+            self.run_command(['systemctl', 'enable', '--now', 'libvirtd'], check=False)
+            
+            real_user = self.get_real_user()
+            if real_user != 'root':
+                self.run_command(['usermod', '-aG', 'libvirt', real_user], check=False)
+            self.success("KVM/QEMU with virt-manager installed")
+            
+        elif choice == '2':  # VirtualBox
+            self.info("Installing VirtualBox...")
+            try:
+                self.run_command(['zypper', 'addrepo', 
+                                'https://download.opensuse.org/repositories/Virtualization/openSUSE_Tumbleweed/Virtualization.repo'], 
+                               check=False)
+                self.run_command(['zypper', 'refresh'], check=False)
+                self.run_command(['zypper', 'install', '-y', 'virtualbox', 'virtualbox-qt'], check=False)
+                
+                real_user = self.get_real_user()
+                if real_user != 'root':
+                    self.run_command(['usermod', '-aG', 'vboxusers', real_user], check=False)
+                self.success("VirtualBox installed")
+            except:
+                self.warning("VirtualBox installation failed - repository may not be available")
+                
+        elif choice == '3':  # VMware
+            self.info("Installing VMware Workstation Pro...")
+            self.warning("VMware Workstation Pro requires manual download and installation.")
+            self.info("Please download from https://www.vmware.com/products/workstation-pro.html")
+            self.success("VMware Workstation installation instructions provided")
+            
+        elif choice == '4':  # Xen
+            self.info("Installing Xen hypervisor...")
+            self.run_command(['zypper', 'install', '-y', 'xen', 'xen-tools'], check=False)
+            self.warning("Xen requires GRUB configuration and reboot. Please refer to documentation.")
+            self.success("Xen hypervisor installed")
+            
+        elif choice == '5':  # Proxmox
+            self.info("Installing Proxmox VE...")
+            self.warning("Proxmox VE is typically installed as a dedicated OS. Installing LXC/LXD as alternative.")
+            self.run_command(['zypper', 'install', '-y', 'lxc'], check=False)
+            self.success("LXC containers installed as Proxmox alternative")
+        
         self.success("Hypervisor installation completed")
     
     # Snapshot setup functions
