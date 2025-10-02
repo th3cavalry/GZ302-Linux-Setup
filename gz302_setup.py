@@ -36,6 +36,7 @@ import subprocess
 import shutil
 import getpass
 import re
+import tempfile
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 import logging
@@ -1872,21 +1873,67 @@ done
     
     def install_ryzenadj_debian(self):
         """Install ryzenadj on Debian-based systems"""
-        self.info("Installing ryzenadj from source...")
-        # In real implementation, would clone and build ryzenadj
-        self.warning("Manual ryzenadj installation required - building from source")
+        self.info("Installing ryzenadj for Debian-based system...")
+        self.run_command(['apt-get', 'update'])
+        self.run_command(['apt-get', 'install', '-y', 'build-essential', 'cmake', 'libpci-dev', 'git'])
+        
+        # Clone and build RyzenAdj
+        original_dir = os.getcwd()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.chdir(tmpdir)
+            self.run_command(['git', 'clone', 'https://github.com/FlyGoat/RyzenAdj.git'])
+            os.chdir('RyzenAdj')
+            os.makedirs('build', exist_ok=True)
+            os.chdir('build')
+            self.run_command(['cmake', '-DCMAKE_BUILD_TYPE=Release', '..'])
+            self.run_command(['make', '-j' + str(os.cpu_count() or 1)])
+            self.run_command(['make', 'install'])
+            os.chdir(original_dir)
+        
+        self.run_command(['ldconfig'])
+        self.success("ryzenadj compiled and installed")
     
     def install_ryzenadj_fedora(self):
         """Install ryzenadj on Fedora-based systems"""
-        self.info("Installing ryzenadj dependencies...")
-        self.run_command(['dnf', 'install', '-y', 'git', 'cmake', 'gcc'])
-        self.warning("Manual ryzenadj installation required - building from source")
+        self.info("Installing ryzenadj for Fedora-based system...")
+        self.run_command(['dnf', 'install', '-y', 'gcc', 'gcc-c++', 'cmake', 'pciutils-devel', 'git'])
+        
+        # Clone and build RyzenAdj
+        original_dir = os.getcwd()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.chdir(tmpdir)
+            self.run_command(['git', 'clone', 'https://github.com/FlyGoat/RyzenAdj.git'])
+            os.chdir('RyzenAdj')
+            os.makedirs('build', exist_ok=True)
+            os.chdir('build')
+            self.run_command(['cmake', '-DCMAKE_BUILD_TYPE=Release', '..'])
+            self.run_command(['make', '-j' + str(os.cpu_count() or 1)])
+            self.run_command(['make', 'install'])
+            os.chdir(original_dir)
+        
+        self.run_command(['ldconfig'])
+        self.success("ryzenadj compiled and installed")
     
     def install_ryzenadj_opensuse(self):
         """Install ryzenadj on OpenSUSE systems"""
-        self.info("Installing ryzenadj dependencies...")
-        self.run_command(['zypper', 'install', '-y', 'git', 'cmake', 'gcc'])
-        self.warning("Manual ryzenadj installation required - building from source")
+        self.info("Installing ryzenadj for OpenSUSE...")
+        self.run_command(['zypper', 'install', '-y', 'gcc', 'gcc-c++', 'cmake', 'pciutils-devel', 'git'])
+        
+        # Clone and build RyzenAdj
+        original_dir = os.getcwd()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.chdir(tmpdir)
+            self.run_command(['git', 'clone', 'https://github.com/FlyGoat/RyzenAdj.git'])
+            os.chdir('RyzenAdj')
+            os.makedirs('build', exist_ok=True)
+            os.chdir('build')
+            self.run_command(['cmake', '-DCMAKE_BUILD_TYPE=Release', '..'])
+            self.run_command(['make', '-j' + str(os.cpu_count() or 1)])
+            self.run_command(['make', 'install'])
+            os.chdir(original_dir)
+        
+        self.run_command(['ldconfig'])
+        self.success("ryzenadj compiled and installed")
     
     def setup_arch_based(self):
         """Setup process for Arch-based systems"""
