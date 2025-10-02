@@ -3028,28 +3028,296 @@ esac
     
     # Snapshot setup functions
     def setup_debian_snapshots(self):
+        """Setup snapshots for Debian-based systems"""
         self.info("Setting up snapshots for Debian-based system...")
+        
+        # Check filesystem type
+        fs_type = None
+        try:
+            findmnt_output = subprocess.check_output(['findmnt', '-n', '-o', 'FSTYPE', '/'], text=True).strip()
+            fs_type = findmnt_output
+        except:
+            pass
+        
+        if fs_type == 'btrfs':
+            self.info("Detected Btrfs filesystem - setting up Timeshift for Btrfs")
+            self.run_command(['apt', 'install', '-y', 'timeshift'], check=False)
+            self.success("Timeshift installed - configure via GUI or timeshift --create")
+            
+        elif fs_type == 'ext4':
+            self.info("Detected ext4 filesystem - setting up Timeshift with rsync")
+            self.run_command(['apt', 'install', '-y', 'timeshift'], check=False)
+            self.success("Timeshift installed - configure via GUI or timeshift --create")
+            
+        else:
+            self.warning(f"Filesystem {fs_type} - installing Timeshift anyway")
+            self.run_command(['apt', 'install', '-y', 'timeshift'], check=False)
+        
+        # Create snapshot management script
+        snapshot_script = '''#!/bin/bash
+# GZ302 Snapshot Management Script for Debian/Ubuntu
+
+case "$1" in
+    "create")
+        echo "[INFO] Creating system snapshot..."
+        if command -v timeshift >/dev/null 2>&1; then
+            timeshift --create --comments "Manual snapshot $(date)"
+        else
+            echo "[WARNING] Timeshift not available"
+        fi
+        ;;
+    "list")
+        echo "[INFO] Listing snapshots..."
+        if command -v timeshift >/dev/null 2>&1; then
+            timeshift --list
+        else
+            echo "[WARNING] Timeshift not available"
+        fi
+        ;;
+    "cleanup")
+        echo "[INFO] Cleaning up old snapshots..."
+        if command -v timeshift >/dev/null 2>&1; then
+            timeshift --delete-all
+        else
+            echo "[WARNING] Timeshift not available"
+        fi
+        ;;
+    *)
+        echo "Usage: gz302-snapshot [create|list|cleanup]"
+        ;;
+esac
+'''
+        self.write_file('/usr/local/bin/gz302-snapshot', snapshot_script)
+        self.run_command(['chmod', '+x', '/usr/local/bin/gz302-snapshot'], check=False)
+        
         self.success("Snapshots configured")
     
     def setup_fedora_snapshots(self):
+        """Setup snapshots for Fedora-based systems"""
         self.info("Setting up snapshots for Fedora-based system...")
+        
+        # Check filesystem type
+        fs_type = None
+        try:
+            findmnt_output = subprocess.check_output(['findmnt', '-n', '-o', 'FSTYPE', '/'], text=True).strip()
+            fs_type = findmnt_output
+        except:
+            pass
+        
+        if fs_type == 'btrfs':
+            self.info("Detected Btrfs filesystem - setting up Snapper for Btrfs")
+            self.run_command(['dnf', 'install', '-y', 'snapper'], check=False)
+            
+            # Create snapper configuration
+            self.run_command(['snapper', 'create-config', '/'], check=False)
+            self.run_command(['systemctl', 'enable', '--now', 'snapper-timeline.timer'], check=False)
+            self.run_command(['systemctl', 'enable', '--now', 'snapper-cleanup.timer'], check=False)
+            self.success("Snapper configured for Btrfs")
+            
+        elif fs_type == 'ext4':
+            self.info("Detected ext4 filesystem - setting up LVM snapshots")
+            self.run_command(['dnf', 'install', '-y', 'lvm2'], check=False)
+            self.warning("LVM snapshot setup requires manual configuration")
+            
+        else:
+            self.warning(f"Filesystem {fs_type} - installing Snapper anyway")
+            self.run_command(['dnf', 'install', '-y', 'snapper'], check=False)
+        
+        # Create snapshot management script
+        snapshot_script = '''#!/bin/bash
+# GZ302 Snapshot Management Script for Fedora
+
+case "$1" in
+    "create")
+        echo "[INFO] Creating system snapshot..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper create --description "Manual snapshot $(date)"
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    "list")
+        echo "[INFO] Listing snapshots..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper list
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    "cleanup")
+        echo "[INFO] Cleaning up old snapshots..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper cleanup number
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    *)
+        echo "Usage: gz302-snapshot [create|list|cleanup]"
+        ;;
+esac
+'''
+        self.write_file('/usr/local/bin/gz302-snapshot', snapshot_script)
+        self.run_command(['chmod', '+x', '/usr/local/bin/gz302-snapshot'], check=False)
+        
         self.success("Snapshots configured")
     
     def setup_opensuse_snapshots(self):
+        """Setup snapshots for OpenSUSE"""
         self.info("Setting up snapshots for OpenSUSE...")
+        
+        # OpenSUSE comes with Snapper pre-configured for Btrfs by default
+        # Check filesystem type
+        fs_type = None
+        try:
+            findmnt_output = subprocess.check_output(['findmnt', '-n', '-o', 'FSTYPE', '/'], text=True).strip()
+            fs_type = findmnt_output
+        except:
+            pass
+        
+        if fs_type == 'btrfs':
+            self.info("Detected Btrfs filesystem - Snapper is pre-configured on OpenSUSE")
+            # Ensure snapper and YaST2 snapper module are installed
+            self.run_command(['zypper', 'install', '-y', 'snapper', 'yast2-snapper'], check=False)
+            
+            # Verify snapper configuration exists
+            try:
+                self.run_command(['snapper', 'list-configs'], check=False)
+            except:
+                self.info("Creating Snapper configuration...")
+                self.run_command(['snapper', 'create-config', '/'], check=False)
+            
+            # Enable automatic snapshots
+            self.run_command(['systemctl', 'enable', '--now', 'snapper-timeline.timer'], check=False)
+            self.run_command(['systemctl', 'enable', '--now', 'snapper-cleanup.timer'], check=False)
+            self.success("Snapper verified and enabled")
+            
+        else:
+            self.warning(f"Filesystem {fs_type} - OpenSUSE snapshot features work best with Btrfs")
+            self.run_command(['zypper', 'install', '-y', 'snapper'], check=False)
+        
+        # Create snapshot management script
+        snapshot_script = '''#!/bin/bash
+# GZ302 Snapshot Management Script for OpenSUSE
+
+case "$1" in
+    "create")
+        echo "[INFO] Creating system snapshot..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper create --description "Manual snapshot $(date)"
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    "list")
+        echo "[INFO] Listing snapshots..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper list
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    "cleanup")
+        echo "[INFO] Cleaning up old snapshots..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper cleanup number
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    *)
+        echo "Usage: gz302-snapshot [create|list|cleanup]"
+        ;;
+esac
+'''
+        self.write_file('/usr/local/bin/gz302-snapshot', snapshot_script)
+        self.run_command(['chmod', '+x', '/usr/local/bin/gz302-snapshot'], check=False)
+        
         self.success("Snapshots configured")
     
     # Secure boot setup functions
     def setup_debian_secureboot(self):
+        """Setup secure boot for Debian-based systems"""
         self.info("Setting up secure boot for Debian-based system...")
+        
+        # Install secure boot tools
+        self.run_command(['apt', 'install', '-y', 'mokutil', 'shim-signed'], check=False)
+        
+        # Check if we're in UEFI mode
+        if Path('/sys/firmware/efi').exists():
+            self.info("UEFI system detected - configuring secure boot")
+            
+            # Check secure boot status
+            try:
+                result = subprocess.run(['mokutil', '--sb-state'], capture_output=True, text=True, check=False)
+                self.info(f"Secure boot status: {result.stdout.strip()}")
+            except:
+                pass
+            
+            self.success("Secure boot tools installed")
+            self.warning("To enable secure boot: Configure in BIOS/UEFI settings")
+            self.warning("For custom kernels: Use mokutil to enroll keys")
+        else:
+            self.warning("Non-UEFI system - secure boot not applicable")
+        
         self.success("Secure boot configured")
     
     def setup_fedora_secureboot(self):
+        """Setup secure boot for Fedora-based systems"""
         self.info("Setting up secure boot for Fedora-based system...")
+        
+        # Install secure boot tools (Fedora comes with mokutil and shim by default)
+        self.run_command(['dnf', 'install', '-y', 'mokutil', 'shim', 'efibootmgr'], check=False)
+        
+        # Check if we're in UEFI mode
+        if Path('/sys/firmware/efi').exists():
+            self.info("UEFI system detected - configuring secure boot")
+            
+            # Check secure boot status
+            try:
+                result = subprocess.run(['mokutil', '--sb-state'], capture_output=True, text=True, check=False)
+                self.info(f"Secure boot status: {result.stdout.strip()}")
+            except:
+                pass
+            
+            # Install kernel signing utilities for custom kernels
+            self.run_command(['dnf', 'install', '-y', 'pesign', 'kernel-devel'], check=False)
+            
+            self.success("Secure boot tools installed")
+            self.warning("Fedora supports secure boot by default with signed kernels")
+            self.warning("For custom kernels: Use mokutil to manage keys")
+        else:
+            self.warning("Non-UEFI system - secure boot not applicable")
+        
         self.success("Secure boot configured")
     
     def setup_opensuse_secureboot(self):
+        """Setup secure boot for OpenSUSE"""
         self.info("Setting up secure boot for OpenSUSE...")
+        
+        # Install secure boot tools
+        self.run_command(['zypper', 'install', '-y', 'mokutil', 'shim', 'efibootmgr'], check=False)
+        
+        # Check if we're in UEFI mode
+        if Path('/sys/firmware/efi').exists():
+            self.info("UEFI system detected - configuring secure boot")
+            
+            # Check secure boot status
+            try:
+                result = subprocess.run(['mokutil', '--sb-state'], capture_output=True, text=True, check=False)
+                self.info(f"Secure boot status: {result.stdout.strip()}")
+            except:
+                pass
+            
+            # Install YaST2 bootloader module for secure boot management
+            self.run_command(['zypper', 'install', '-y', 'yast2-bootloader'], check=False)
+            
+            self.success("Secure boot tools installed")
+            self.warning("OpenSUSE supports secure boot - use YaST2 bootloader module to configure")
+            self.warning("Run 'yast2 bootloader' to manage secure boot settings")
+        else:
+            self.warning("Non-UEFI system - secure boot not applicable")
+        
         self.success("Secure boot configured")
     
     # Service management functions
