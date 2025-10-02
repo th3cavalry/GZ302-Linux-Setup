@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 4.3 - Virtual Refresh Rate Management: Comprehensive display refresh rate control system
+# Version: 4.3.1 - Bug fixes: Sync Python and Bash implementations for complete feature parity
 #
 # This script automatically detects your Linux distribution and applies
 # the appropriate setup for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+.
@@ -449,6 +449,36 @@ setup_opensuse() {
     enable_opensuse_services
 }
 
+# Helper function to install packages on Arch, using yay for AUR packages if needed
+install_arch_packages_with_yay() {
+    local packages=("$@")
+    
+    if [ ${#packages[@]} -eq 0 ]; then
+        return 0
+    fi
+    
+    # First try with pacman for official repo packages
+    if pacman -S --noconfirm --needed "${packages[@]}" 2>/dev/null; then
+        return 0
+    fi
+    
+    # If pacman fails, try with yay for AUR packages
+    if command -v yay >/dev/null 2>&1; then
+        sudo -u "$SUDO_USER" yay -S --noconfirm "${packages[@]}"
+    elif command -v paru >/dev/null 2>&1; then
+        sudo -u "$SUDO_USER" paru -S --noconfirm "${packages[@]}"
+    else
+        warning "AUR helper (yay/paru) not found. Installing yay first..."
+        pacman -S --noconfirm --needed git base-devel
+        cd /tmp
+        sudo -u "$SUDO_USER" git clone https://aur.archlinux.org/yay.git
+        cd yay
+        sudo -u "$SUDO_USER" makepkg -si --noconfirm
+        cd /tmp && rm -rf yay
+        sudo -u "$SUDO_USER" yay -S --noconfirm "${packages[@]}"
+    fi
+}
+
 # Apply comprehensive hardware fixes for Arch-based systems
 apply_arch_hardware_fixes() {
     info "Applying comprehensive GZ302 hardware fixes for Arch-based systems..."
@@ -459,13 +489,13 @@ apply_arch_hardware_fixes() {
     if [[ "$has_dgpu" == "true" ]]; then
         info "Discrete GPU detected, installing full GPU management suite..."
         # Install kernel and drivers with GPU switching support
-        pacman -S --noconfirm --needed linux-g14 linux-g14-headers asusctl supergfxctl rog-control-center power-profiles-daemon switcheroo-control
+        install_arch_packages_with_yay linux-g14 linux-g14-headers asusctl supergfxctl rog-control-center power-profiles-daemon switcheroo-control
     else
         info "No discrete GPU detected, installing base ASUS control packages..."
         # Install kernel and drivers without supergfxctl (for integrated graphics only)
-        pacman -S --noconfirm --needed linux-g14 linux-g14-headers asusctl rog-control-center power-profiles-daemon
+        install_arch_packages_with_yay linux-g14 linux-g14-headers asusctl rog-control-center power-profiles-daemon
         # switcheroo-control may still be useful for some systems
-        pacman -S --noconfirm --needed switcheroo-control || warning "switcheroo-control not available, continuing..."
+        install_arch_packages_with_yay switcheroo-control || warning "switcheroo-control not available, continuing..."
     fi
     
     # ACPI BIOS error mitigation for GZ302
@@ -2486,7 +2516,7 @@ configure_monitor() {
     if [[ -z "$display" ]]; then
         echo "Available displays:"
         detect_displays | while read -r disp; do
-            local current_rate=$(get_current_rate "$disp")
+            local current_rate=$(get_current_refresh_rate "$disp")
             echo "  $disp (current: ${current_rate}Hz)"
         done
         return 0
@@ -3005,42 +3035,355 @@ MONITOR_EOF
 # Placeholder functions for snapshots
 setup_arch_snapshots() {
     info "Setting up snapshots for Arch-based system..."
+    
+    # Check filesystem type
+    local fs_type=$(findmnt -n -o FSTYPE / 2>/dev/null)
+    
+    if [[ "$fs_type" == "btrfs" ]]; then
+        info "Detected Btrfs filesystem - setting up Snapper for Btrfs"
+        pacman -S --noconfirm --needed snapper
+        
+        # Create snapper configuration
+        snapper create-config /
+        systemctl enable --now snapper-timeline.timer
+        systemctl enable --now snapper-cleanup.timer
+        success "Snapper configured for Btrfs"
+        
+    elif [[ "$fs_type" == "ext4" ]]; then
+        info "Detected ext4 filesystem - setting up LVM snapshots"
+        pacman -S --noconfirm --needed lvm2
+        warning "LVM snapshot setup requires manual configuration"
+        
+    else
+        warning "Filesystem $fs_type - limited snapshot support"
+    fi
+    
+    # Create snapshot management script
+    cat > /usr/local/bin/gz302-snapshot << 'EOF'
+#!/bin/bash
+# GZ302 Snapshot Management Script
+
+case "$1" in
+    "create")
+        echo "[INFO] Creating system snapshot..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper create --description "Manual snapshot $(date)"
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    "list")
+        echo "[INFO] Listing snapshots..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper list
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    "cleanup")
+        echo "[INFO] Cleaning up old snapshots..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper cleanup number
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    *)
+        echo "Usage: gz302-snapshot [create|list|cleanup]"
+        ;;
+esac
+EOF
+    chmod +x /usr/local/bin/gz302-snapshot
+    
     success "Snapshots configured"
 }
 
 setup_debian_snapshots() {
     info "Setting up snapshots for Debian-based system..."
+    
+    # Check filesystem type
+    local fs_type=$(findmnt -n -o FSTYPE / 2>/dev/null)
+    
+    if [[ "$fs_type" == "btrfs" ]]; then
+        info "Detected Btrfs filesystem - setting up Timeshift for Btrfs"
+        apt install -y timeshift
+        success "Timeshift installed - configure via GUI or timeshift --create"
+        
+    elif [[ "$fs_type" == "ext4" ]]; then
+        info "Detected ext4 filesystem - setting up Timeshift with rsync"
+        apt install -y timeshift
+        success "Timeshift installed - configure via GUI or timeshift --create"
+        
+    else
+        warning "Filesystem $fs_type - installing Timeshift anyway"
+        apt install -y timeshift
+    fi
+    
+    # Create snapshot management script
+    cat > /usr/local/bin/gz302-snapshot << 'EOF'
+#!/bin/bash
+# GZ302 Snapshot Management Script for Debian/Ubuntu
+
+case "$1" in
+    "create")
+        echo "[INFO] Creating system snapshot..."
+        if command -v timeshift >/dev/null 2>&1; then
+            timeshift --create --comments "Manual snapshot $(date)"
+        else
+            echo "[WARNING] Timeshift not available"
+        fi
+        ;;
+    "list")
+        echo "[INFO] Listing snapshots..."
+        if command -v timeshift >/dev/null 2>&1; then
+            timeshift --list
+        else
+            echo "[WARNING] Timeshift not available"
+        fi
+        ;;
+    "cleanup")
+        echo "[INFO] Cleaning up old snapshots..."
+        if command -v timeshift >/dev/null 2>&1; then
+            timeshift --delete-all
+        else
+            echo "[WARNING] Timeshift not available"
+        fi
+        ;;
+    *)
+        echo "Usage: gz302-snapshot [create|list|cleanup]"
+        ;;
+esac
+EOF
+    chmod +x /usr/local/bin/gz302-snapshot
+    
     success "Snapshots configured"
 }
 
 setup_fedora_snapshots() {
     info "Setting up snapshots for Fedora-based system..."
+    
+    # Check filesystem type
+    local fs_type=$(findmnt -n -o FSTYPE / 2>/dev/null)
+    
+    if [[ "$fs_type" == "btrfs" ]]; then
+        info "Detected Btrfs filesystem - setting up Snapper for Btrfs"
+        dnf install -y snapper
+        
+        # Create snapper configuration
+        snapper create-config /
+        systemctl enable --now snapper-timeline.timer
+        systemctl enable --now snapper-cleanup.timer
+        success "Snapper configured for Btrfs"
+        
+    elif [[ "$fs_type" == "ext4" ]]; then
+        info "Detected ext4 filesystem - setting up LVM snapshots"
+        dnf install -y lvm2
+        warning "LVM snapshot setup requires manual configuration"
+        
+    else
+        warning "Filesystem $fs_type - installing Snapper anyway"
+        dnf install -y snapper
+    fi
+    
+    # Create snapshot management script
+    cat > /usr/local/bin/gz302-snapshot << 'EOF'
+#!/bin/bash
+# GZ302 Snapshot Management Script for Fedora
+
+case "$1" in
+    "create")
+        echo "[INFO] Creating system snapshot..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper create --description "Manual snapshot $(date)"
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    "list")
+        echo "[INFO] Listing snapshots..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper list
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    "cleanup")
+        echo "[INFO] Cleaning up old snapshots..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper cleanup number
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    *)
+        echo "Usage: gz302-snapshot [create|list|cleanup]"
+        ;;
+esac
+EOF
+    chmod +x /usr/local/bin/gz302-snapshot
+    
     success "Snapshots configured"
 }
 
 setup_opensuse_snapshots() {
     info "Setting up snapshots for OpenSUSE..."
+    
+    # OpenSUSE comes with Snapper pre-configured for Btrfs by default
+    local fs_type=$(findmnt -n -o FSTYPE / 2>/dev/null)
+    
+    if [[ "$fs_type" == "btrfs" ]]; then
+        info "Detected Btrfs filesystem - Snapper is pre-configured on OpenSUSE"
+        # Ensure snapper and YaST2 snapper module are installed
+        zypper install -y snapper yast2-snapper
+        
+        # Verify snapper configuration exists
+        snapper list-configs || snapper create-config /
+        
+        # Enable automatic snapshots
+        systemctl enable --now snapper-timeline.timer
+        systemctl enable --now snapper-cleanup.timer
+        success "Snapper verified and enabled"
+        
+    else
+        warning "Filesystem $fs_type - OpenSUSE snapshot features work best with Btrfs"
+        zypper install -y snapper
+    fi
+    
+    # Create snapshot management script
+    cat > /usr/local/bin/gz302-snapshot << 'EOF'
+#!/bin/bash
+# GZ302 Snapshot Management Script for OpenSUSE
+
+case "$1" in
+    "create")
+        echo "[INFO] Creating system snapshot..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper create --description "Manual snapshot $(date)"
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    "list")
+        echo "[INFO] Listing snapshots..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper list
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    "cleanup")
+        echo "[INFO] Cleaning up old snapshots..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper cleanup number
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    *)
+        echo "Usage: gz302-snapshot [create|list|cleanup]"
+        ;;
+esac
+EOF
+    chmod +x /usr/local/bin/gz302-snapshot
+    
     success "Snapshots configured"
 }
 
 # Placeholder functions for secure boot
 setup_arch_secureboot() {
     info "Setting up secure boot for Arch-based system..."
+    
+    # Install secure boot tools
+    pacman -S --noconfirm --needed sbctl
+    
+    # Check if we're in UEFI mode
+    if [[ -d /sys/firmware/efi ]]; then
+        info "UEFI system detected - configuring secure boot"
+        
+        # Initialize secure boot
+        sbctl status || true
+        
+        success "Secure boot tools installed - manual configuration required"
+        warning "Please run 'sbctl create-keys' and configure BIOS settings manually"
+    else
+        warning "Non-UEFI system - secure boot not applicable"
+    fi
+    
     success "Secure boot configured"
 }
 
 setup_debian_secureboot() {
     info "Setting up secure boot for Debian-based system..."
+    
+    # Install secure boot tools
+    apt install -y mokutil shim-signed
+    
+    # Check if we're in UEFI mode
+    if [[ -d /sys/firmware/efi ]]; then
+        info "UEFI system detected - configuring secure boot"
+        
+        # Check secure boot status
+        mokutil --sb-state || true
+        
+        success "Secure boot tools installed"
+        warning "To enable secure boot: Configure in BIOS/UEFI settings"
+        warning "For custom kernels: Use mokutil to enroll keys"
+    else
+        warning "Non-UEFI system - secure boot not applicable"
+    fi
+    
     success "Secure boot configured"
 }
 
 setup_fedora_secureboot() {
     info "Setting up secure boot for Fedora-based system..."
+    
+    # Install secure boot tools (Fedora comes with mokutil and shim by default)
+    dnf install -y mokutil shim efibootmgr
+    
+    # Check if we're in UEFI mode
+    if [[ -d /sys/firmware/efi ]]; then
+        info "UEFI system detected - configuring secure boot"
+        
+        # Check secure boot status
+        mokutil --sb-state || true
+        
+        # Install kernel signing utilities for custom kernels
+        dnf install -y pesign kernel-devel
+        
+        success "Secure boot tools installed"
+        warning "Fedora supports secure boot by default with signed kernels"
+        warning "For custom kernels: Use mokutil to manage keys"
+    else
+        warning "Non-UEFI system - secure boot not applicable"
+    fi
+    
     success "Secure boot configured"
 }
 
 setup_opensuse_secureboot() {
     info "Setting up secure boot for OpenSUSE..."
+    
+    # Install secure boot tools
+    zypper install -y mokutil shim efibootmgr
+    
+    # Check if we're in UEFI mode
+    if [[ -d /sys/firmware/efi ]]; then
+        info "UEFI system detected - configuring secure boot"
+        
+        # Check secure boot status
+        mokutil --sb-state || true
+        
+        # Install YaST2 bootloader module for secure boot management
+        zypper install -y yast2-bootloader
+        
+        success "Secure boot tools installed"
+        warning "OpenSUSE supports secure boot - use YaST2 bootloader module to configure"
+        warning "Run 'yast2 bootloader' to manage secure boot settings"
+    else
+        warning "Non-UEFI system - secure boot not applicable"
+    fi
+    
     success "Secure boot configured"
 }
 

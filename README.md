@@ -2,7 +2,7 @@
 
 **Professional-grade Linux setup script specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional software stacks for gaming, AI development, and virtualization.
 
-> **🔥 Version 4.4 - Enhanced Display Management!** Complete display management system with game-specific profiles, advanced VRR controls, multi-monitor support, MangoHUD integration, power monitoring, thermal awareness, and color temperature management. Major upgrade to gz302-refresh with comprehensive monitoring and optimization features.
+> **🔥 Version 4.3.1 - Complete Feature Parity & Distribution Equality!** Both Python and Bash scripts now provide identical functionality across all 4 supported distributions (Arch, Debian, Fedora, OpenSUSE). Comprehensive gaming software with repository setup, complete LLM/AI stack with Ollama and ROCm, enhanced error handling, and version management system. All distributions now have equal priority with identical feature sets.
 
 ## ✨ Key Features
 
@@ -456,17 +456,26 @@ If something goes wrong:
 <summary>Click to view complete changelog from project start</summary>
 
 ```
-Version 4.4 (Latest) - Enhanced Display Management
-• Major upgrade to refresh rate management with comprehensive new features
-• Game-specific profile system: Automatic refresh rate switching for detected games
-• Advanced VRR controls: Configurable min/max refresh ranges per profile (48-180Hz gaming, 30-60Hz efficient)
-• Multi-monitor independent control: Different refresh rates per display
-• MangoHUD FPS limiting integration: Real-time frame rate caps synchronized with refresh profiles
-• Display color temperature management: Automatic day/night cycle and manual color control
-• Real-time power consumption monitoring: Display power usage tracking and battery predictions
-• Thermal throttling detection: Smart recommendations based on CPU temperature monitoring
-• Enhanced status and monitoring: Comprehensive system information with thermal and power data
-• Over 400 lines of new functionality while maintaining backward compatibility
+Version 4.3.1 (Latest) - Complete Feature Parity & Distribution Equality
+• Synchronized Python and Bash scripts to identical version 4.3.1
+• Comprehensive Python/Bash feature parity achieved across all functions
+• Added signal handlers (SIGINT/SIGTERM) and cleanup for Python script
+• Enhanced gaming software across all distributions:
+  - Arch: Full AUR package support with yay/paru helper
+  - Debian: multiverse/universe repos, steam-installer, ProtonUp-Qt via Flatpak
+  - Fedora: RPM Fusion repositories, complete multimedia stack
+  - OpenSUSE: Packman repository, comprehensive gaming utilities
+• Complete LLM/AI software parity across all distributions:
+  - Ollama installation via official script
+  - PyTorch with ROCm 5.7 support for AMD GPU acceleration
+  - transformers and accelerate libraries
+  - ROCm runtime support where available
+• Fixed function name typo: get_current_rate → get_current_refresh_rate
+• All 4 distributions (Arch, Debian, Fedora, OpenSUSE) now have equal priority
+• Identical feature sets across all supported distributions
+• Established version management system (PATCH for bugs, MINOR for features)
+• Added VERSION_INCREMENT_GUIDE.md for future development
+• Fixed AUR package installation for Arch (linux-g14, asusctl, rog-control-center)
 
 Version 4.3 - Virtual Refresh Rate Management
 • Implemented comprehensive virtual refresh rate management system

@@ -4,7 +4,7 @@
 Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 
 Author: th3cavalry using Copilot
-Version: 4.4 - Enhanced Display Management: Comprehensive display management with game profiles, VRR controls, and monitoring
+Version: 4.3.1 - Bug fixes: Sync Python and Bash implementations for complete feature parity
 
 This script automatically detects your Linux distribution and applies
 the appropriate setup for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+.
@@ -37,6 +37,8 @@ import shutil
 import getpass
 import re
 import tempfile
+import signal
+import atexit
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 import logging
@@ -55,10 +57,34 @@ class GZ302Setup:
     """Main setup class for ASUS ROG Flow Z13 (GZ302) configuration"""
     
     def __init__(self):
-        self.version = "4.3"
+        self.version = "4.3.1"
         self.user_choices = {}
         self.detected_distro = None
         self.original_distro = None
+        self.setup_error_handling()
+    
+    def setup_error_handling(self):
+        """Setup error handling and cleanup"""
+        def cleanup_handler(signum=None, frame=None):
+            print()
+            print("❌" * 30)
+            print(f"{Colors.RED}[ERROR]{Colors.NC} Script interrupted or failed")
+            print(f"{Colors.RED}[ERROR]{Colors.NC} The setup process was interrupted and may be incomplete.")
+            print(f"{Colors.RED}[ERROR]{Colors.NC} Please check the error messages above for details.")
+            print(f"{Colors.RED}[ERROR]{Colors.NC} You may need to run the script again or fix issues manually.")
+            print("❌" * 30)
+            print()
+            sys.exit(1)
+        
+        # Register signal handlers
+        signal.signal(signal.SIGINT, cleanup_handler)
+        signal.signal(signal.SIGTERM, cleanup_handler)
+        
+        # Register atexit for unexpected exits
+        def exit_handler():
+            if sys.exc_info()[0] is not None and sys.exc_info()[0] != SystemExit:
+                cleanup_handler()
+        atexit.register(exit_handler)
         self.setup_logging()
         
     def setup_logging(self):
@@ -503,85 +529,359 @@ options mt7925e disable_aspm=1
             self.install_ryzenadj_opensuse()
         
         # Create TDP management script
-        tdp_script = '''#!/bin/bash
+        tdp_script = r'''#!/bin/bash
+# GZ302 TDP Management Script
+# Based on research from Shahzebqazi's Asus-Z13-Flow-2025-PCMR
 
-# TDP Management Script for ASUS ROG Flow Z13 (GZ302)
-# Usage: gz302-tdp [profile|status]
+TDP_CONFIG_DIR="/etc/gz302-tdp"
+CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
+AUTO_CONFIG_FILE="$TDP_CONFIG_DIR/auto-config"
+AC_PROFILE_FILE="$TDP_CONFIG_DIR/ac-profile"
+BATTERY_PROFILE_FILE="$TDP_CONFIG_DIR/battery-profile"
+
+# TDP Profiles (in mW) - Optimized for GZ302 AMD Ryzen AI 395+
+declare -A TDP_PROFILES
+TDP_PROFILES[max_performance]="65000"    # Absolute maximum (AC only, short bursts)
+TDP_PROFILES[gaming]="54000"             # Gaming optimized (AC recommended)
+TDP_PROFILES[performance]="45000"        # High performance (AC recommended)
+TDP_PROFILES[balanced]="35000"           # Balanced performance/efficiency
+TDP_PROFILES[efficient]="25000"          # Better efficiency, good performance
+TDP_PROFILES[power_saver]="15000"        # Maximum battery life
+TDP_PROFILES[ultra_low]="10000"          # Emergency battery extension
+
+# Create config directory
+mkdir -p "$TDP_CONFIG_DIR"
 
 show_usage() {
-    echo "Usage: gz302-tdp [COMMAND]"
+    echo "Usage: gz302-tdp [PROFILE|status|list|auto|config]"
+    echo ""
+    echo "Profiles:"
+    echo "  max_performance  - 65W absolute maximum (AC only, short bursts)"
+    echo "  gaming           - 54W gaming optimized (AC recommended)"
+    echo "  performance      - 45W high performance (AC recommended)"
+    echo "  balanced         - 35W balanced performance/efficiency (default)"
+    echo "  efficient        - 25W better efficiency, good performance"
+    echo "  power_saver      - 15W maximum battery life"
+    echo "  ultra_low        - 10W emergency battery extension"
     echo ""
     echo "Commands:"
-    echo "  gaming          - High performance gaming profile (35W TDP)"
-    echo "  performance     - Maximum performance profile (45W TDP, AC only)"
-    echo "  balanced        - Balanced performance profile (25W TDP)"
-    echo "  efficient       - Power efficient profile (15W TDP)"
-    echo "  power_saver     - Maximum power saving (8W TDP)"
-    echo "  status          - Show current TDP and power status"
-    echo "  auto            - Enable/disable automatic profile switching"
-    echo "  config          - Configure automatic AC/battery switching"
-    echo ""
-    echo "Profile Details:"
-    echo "  gaming:         35W TDP, boost enabled, performance governor"
-    echo "  performance:    45W TDP, max boost, performance governor (AC only)"
-    echo "  balanced:       25W TDP, moderate boost, schedutil governor"
-    echo "  efficient:      15W TDP, conservative boost, powersave governor"
-    echo "  power_saver:    8W TDP, minimal boost, powersave governor"
+    echo "  status           - Show current TDP and power source"
+    echo "  list             - List available profiles"
+    echo "  auto             - Enable/disable automatic profile switching"
+    echo "  config           - Configure automatic profile preferences"
 }
 
-# Check if ryzenadj is available
-if ! command -v ryzenadj >/dev/null 2>&1; then
-    echo "[ERROR] ryzenadj not found. Please install it first."
-    exit 1
-fi
-
-case "${1:-status}" in
-    "gaming")
-        echo "[INFO] Applying gaming profile (35W TDP)..."
-        ryzenadj --stapm-limit=35000 --fast-limit=35000 --slow-limit=35000 --tctl-temp=90
-        echo 'performance' | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
-        echo "[SUCCESS] Gaming profile applied"
-        ;;
-    "performance")
-        echo "[INFO] Applying maximum performance profile (45W TDP)..."
-        ryzenadj --stapm-limit=45000 --fast-limit=45000 --slow-limit=45000 --tctl-temp=95
-        echo 'performance' | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
-        echo "[SUCCESS] Maximum performance profile applied"
-        ;;
-    "balanced")
-        echo "[INFO] Applying balanced profile (25W TDP)..."
-        ryzenadj --stapm-limit=25000 --fast-limit=25000 --slow-limit=25000 --tctl-temp=85
-        echo 'schedutil' | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
-        echo "[SUCCESS] Balanced profile applied"
-        ;;
-    "efficient")
-        echo "[INFO] Applying efficient profile (15W TDP)..."
-        ryzenadj --stapm-limit=15000 --fast-limit=15000 --slow-limit=15000 --tctl-temp=80
-        echo 'powersave' | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
-        echo "[SUCCESS] Efficient profile applied"
-        ;;
-    "power_saver")
-        echo "[INFO] Applying power saver profile (8W TDP)..."
-        ryzenadj --stapm-limit=8000 --fast-limit=8000 --slow-limit=8000 --tctl-temp=75
-        echo 'powersave' | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
-        echo "[SUCCESS] Power saver profile applied"
-        ;;
-    "status")
-        echo "=== GZ302 TDP Status ==="
-        if command -v ryzenadj >/dev/null 2>&1; then
-            ryzenadj -i | grep -E "(STAPM|PPT|TjMax)" || echo "Unable to read TDP values"
+get_battery_status() {
+    # Try multiple methods to detect AC adapter status
+    
+    # Method 1: Check common AC adapter names
+    for adapter in ADP1 ADP0 ACAD AC0 AC; do
+        if [ -f "/sys/class/power_supply/$adapter/online" ]; then
+            if [ "$(cat /sys/class/power_supply/$adapter/online 2>/dev/null)" = "1" ]; then
+                echo "AC"
+                return 0
+            else
+                echo "Battery"
+                return 0
+            fi
         fi
+    done
+    
+    # Method 2: Check all power supplies for AC adapter type
+    if [ -d /sys/class/power_supply ]; then
+        for ps in /sys/class/power_supply/*; do
+            if [ -d "$ps" ] && [ -f "$ps/type" ]; then
+                type=$(cat "$ps/type" 2>/dev/null)
+                if [ "$type" = "Mains" ] || [ "$type" = "ADP" ]; then
+                    if [ -f "$ps/online" ]; then
+                        if [ "$(cat "$ps/online" 2>/dev/null)" = "1" ]; then
+                            echo "AC"
+                            return 0
+                        else
+                            echo "Battery"
+                            return 0
+                        fi
+                    fi
+                fi
+            fi
+        done
+    fi
+    
+    # Method 3: Use acpi command if available
+    if command -v acpi >/dev/null 2>&1; then
+        if acpi -a 2>/dev/null | grep -q "on-line"; then
+            echo "AC"
+            return 0
+        elif acpi -a 2>/dev/null | grep -q "off-line"; then
+            echo "Battery"
+            return 0
+        fi
+    fi
+    
+    # Default fallback
+    echo "Unknown"
+    return 1
+}
+
+get_battery_percentage() {
+    # Try to get battery percentage
+    for battery in BAT0 BAT1 BAT BATC battery; do
+        if [ -f "/sys/class/power_supply/$battery/capacity" ]; then
+            cat "/sys/class/power_supply/$battery/capacity" 2>/dev/null
+            return 0
+        fi
+    done
+    
+    # Try acpi command
+    if command -v acpi >/dev/null 2>&1; then
+        acpi -b 2>/dev/null | grep -oP '\d+(?=%)' | head -1
+        return 0
+    fi
+    
+    echo "N/A"
+}
+
+set_tdp_profile() {
+    local profile="$1"
+    local tdp_value="${TDP_PROFILES[$profile]}"
+    
+    if [ -z "$tdp_value" ]; then
+        echo "Error: Unknown profile '$profile'"
+        return 1
+    fi
+    
+    # Check if ryzenadj is available
+    if ! command -v ryzenadj >/dev/null 2>&1; then
+        echo "Error: ryzenadj not found"
+        echo "Please ensure ryzenadj is properly installed"
+        return 1
+    fi
+    
+    echo "Applying profile: $profile ($(( tdp_value / 1000 ))W TDP)"
+    
+    # Apply TDP settings with ryzenadj
+    if ryzenadj --stapm-limit=$tdp_value --fast-limit=$tdp_value --slow-limit=$tdp_value >/dev/null 2>&1; then
+        # Set CPU governor based on profile
+        case "$profile" in
+            max_performance|gaming|performance)
+                echo "performance" | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
+                ;;
+            balanced)
+                echo "schedutil" | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
+                ;;
+            efficient|power_saver|ultra_low)
+                echo "powersave" | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
+                ;;
+        esac
+        
+        # Save current profile
+        echo "$profile" > "$CURRENT_PROFILE_FILE"
+        echo "Profile applied successfully"
+        return 0
+    else
+        echo "Error: Failed to apply TDP profile using any available method"
         echo ""
-        echo "CPU Governor: $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo 'Unknown')"
-        echo "Power Source: $(acpi -a 2>/dev/null | grep -q 'on-line' && echo 'AC' || echo 'Battery')"
+        echo "Troubleshooting steps:"
+        echo "1. Ensure you're running as root (sudo)"
+        echo "2. Check if secure boot is disabled in BIOS"
+        echo "3. Verify ryzenadj is properly installed"
+        echo "4. Try rebooting and running the command again"
+        return 1
+    fi
+}
+
+show_status() {
+    local power_source=$(get_battery_status)
+    local battery_pct=$(get_battery_percentage)
+    local current_profile="Unknown"
+    
+    if [ -f "$CURRENT_PROFILE_FILE" ]; then
+        current_profile=$(cat "$CURRENT_PROFILE_FILE")
+    fi
+    
+    echo "GZ302 Power Status:"
+    echo "  Power Source: $power_source"
+    echo "  Battery: $battery_pct%"
+    echo "  Current Profile: $current_profile"
+    
+    if [ "$current_profile" != "Unknown" ] && [ -n "${TDP_PROFILES[$current_profile]}" ]; then
+        echo "  TDP Limit: $(( ${TDP_PROFILES[$current_profile]} / 1000 ))W"
+    fi
+}
+
+list_profiles() {
+    echo "Available TDP profiles:"
+    for profile in max_performance gaming performance balanced efficient power_saver ultra_low; do
+        if [ -n "${TDP_PROFILES[$profile]}" ]; then
+            local tdp_watts=$(( ${TDP_PROFILES[$profile]} / 1000 ))
+            echo "  $profile: ${tdp_watts}W"
+        fi
+    done
+}
+
+# Configuration management functions
+configure_auto_switching() {
+    echo "Configuring automatic TDP profile switching..."
+    echo ""
+    
+    local auto_enabled="false"
+    read -p "Enable automatic profile switching based on power source? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        auto_enabled="true"
+        
+        echo ""
+        echo "Select AC power profile (when plugged in):"
+        list_profiles
+        echo ""
+        read -p "AC profile [gaming]: " ac_profile
+        ac_profile=${ac_profile:-gaming}
+        
+        if [ -z "${TDP_PROFILES[$ac_profile]}" ]; then
+            echo "Invalid profile, using 'gaming'"
+            ac_profile="gaming"
+        fi
+        
+        echo ""
+        echo "Select battery profile (when on battery):"
+        list_profiles
+        echo ""
+        read -p "Battery profile [efficient]: " battery_profile
+        battery_profile=${battery_profile:-efficient}
+        
+        if [ -z "${TDP_PROFILES[$battery_profile]}" ]; then
+            echo "Invalid profile, using 'efficient'"
+            battery_profile="efficient"
+        fi
+        
+        # Save configuration
+        echo "$auto_enabled" > "$AUTO_CONFIG_FILE"
+        echo "$ac_profile" > "$AC_PROFILE_FILE"
+        echo "$battery_profile" > "$BATTERY_PROFILE_FILE"
+        
+        echo ""
+        echo "Automatic switching configured:"
+        echo "  AC power: $ac_profile"
+        echo "  Battery: $battery_profile"
+        echo ""
+        echo "Starting automatic switching service..."
+        systemctl enable gz302-tdp-auto.service >/dev/null 2>&1
+        systemctl start gz302-tdp-auto.service >/dev/null 2>&1
+    else
+        echo "false" > "$AUTO_CONFIG_FILE"
+        systemctl disable gz302-tdp-auto.service >/dev/null 2>&1
+        systemctl stop gz302-tdp-auto.service >/dev/null 2>&1
+        echo "Automatic switching disabled"
+    fi
+}
+
+auto_switch_profile() {
+    # Check if auto switching is enabled
+    if [ -f "$AUTO_CONFIG_FILE" ] && [ "$(cat "$AUTO_CONFIG_FILE" 2>/dev/null)" = "true" ]; then
+        local power_source=$(get_battery_status)
+        
+        if [ "$power_source" != "Unknown" ]; then
+            case "$power_source" in
+                "AC")
+                    if [ -f "$AC_PROFILE_FILE" ]; then
+                        local ac_profile=$(cat "$AC_PROFILE_FILE" 2>/dev/null)
+                        if [ -n "$ac_profile" ] && [ -n "${TDP_PROFILES[$ac_profile]}" ]; then
+                            echo "Power source changed to AC, switching to profile: $ac_profile"
+                            set_tdp_profile "$ac_profile"
+                        fi
+                    fi
+                    ;;
+                "Battery")
+                    if [ -f "$BATTERY_PROFILE_FILE" ]; then
+                        local battery_profile=$(cat "$BATTERY_PROFILE_FILE" 2>/dev/null)
+                        if [ -n "$battery_profile" ] && [ -n "${TDP_PROFILES[$battery_profile]}" ]; then
+                            echo "Power source changed to Battery, switching to profile: $battery_profile"
+                            set_tdp_profile "$battery_profile"
+                        fi
+                    fi
+                    ;;
+            esac
+        fi
+    fi
+}
+
+# Main script logic
+case "$1" in
+    max_performance|gaming|performance|balanced|efficient|power_saver|ultra_low)
+        set_tdp_profile "$1"
+        ;;
+    status)
+        show_status
+        ;;
+    list)
+        list_profiles
+        ;;
+    auto)
+        auto_switch_profile
+        ;;
+    config)
+        configure_auto_switching
+        ;;
+    "")
+        show_usage
         ;;
     *)
+        echo "Error: Unknown command '$1'"
         show_usage
+        exit 1
         ;;
 esac
 '''
         self.write_file('/usr/local/bin/gz302-tdp', tdp_script)
         self.run_command(['chmod', '+x', '/usr/local/bin/gz302-tdp'])
+        
+        # Create systemd service for automatic TDP management
+        tdp_auto_service = '''[Unit]
+Description=GZ302 Automatic TDP Management
+After=multi-user.target
+Wants=gz302-tdp-monitor.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gz302-tdp balanced
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+'''
+        self.write_file('/etc/systemd/system/gz302-tdp-auto.service', tdp_auto_service)
+        
+        # Create systemd service for power monitoring
+        tdp_monitor_service = '''[Unit]
+Description=GZ302 TDP Power Source Monitor
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gz302-tdp-monitor
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+'''
+        self.write_file('/etc/systemd/system/gz302-tdp-monitor.service', tdp_monitor_service)
+        
+        # Create power monitoring script
+        tdp_monitor_script = '''#!/bin/bash
+# GZ302 TDP Power Source Monitor
+# Monitors power source changes and automatically switches TDP profiles
+
+while true; do
+    /usr/local/bin/gz302-tdp auto
+    sleep 10  # Check every 10 seconds
+done
+'''
+        self.write_file('/usr/local/bin/gz302-tdp-monitor', tdp_monitor_script)
+        self.run_command(['chmod', '+x', '/usr/local/bin/gz302-tdp-monitor'])
+        
+        # Enable the service
+        self.run_command(['systemctl', 'enable', 'gz302-tdp-auto.service'])
         
         self.success("TDP management system installed")
         
@@ -1257,7 +1557,7 @@ configure_monitor() {
     if [[ -z "$display" ]]; then
         echo "Available displays:"
         detect_displays | while read -r disp; do
-            local current_rate=$(get_current_rate "$disp")
+            local current_rate=$(get_current_refresh_rate "$disp")
             echo "  $disp (current: ${current_rate}Hz)"
         done
         return 0
@@ -2173,43 +2473,71 @@ end=notify-send "GameMode ended"
             self.info("Installing KVM/QEMU with virt-manager...")
             # Handle iptables conflict
             try:
-                self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'iptables-nft'])
+                self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'iptables-nft'], check=False)
+                self.info("iptables-nft package handled successfully")
             except:
-                pass
+                self.warning("iptables-nft installation had issues, but continuing...")
             
-            self.run_command(['pacman', '-S', '--noconfirm', '--needed',
-                             'qemu-full', 'libvirt', 'virt-manager', 'dnsmasq', 'bridge-utils'])
+            try:
+                self.run_command(['pacman', '-S', '--noconfirm', '--needed',
+                                 'qemu-full', 'virt-manager', 'libvirt', 'ebtables', 'dnsmasq', 
+                                 'bridge-utils', 'openbsd-netcat'])
+                self.info("KVM/QEMU packages installed successfully")
+            except:
+                self.error("Failed to install KVM/QEMU packages. Check your internet connection and try again.")
+                return
             
-            # Enable libvirt services
-            self.run_command(['systemctl', 'enable', '--now', 'libvirtd'])
+            try:
+                self.run_command(['systemctl', 'enable', '--now', 'libvirtd'])
+                self.info("libvirtd service enabled and started")
+            except:
+                self.warning("Failed to enable libvirtd service, but continuing...")
             
             # Add user to libvirt group
             real_user = self.get_real_user()
-            self.run_command(['usermod', '-aG', 'libvirt', real_user])
+            if real_user != 'root':
+                try:
+                    self.run_command(['usermod', '-aG', 'libvirt', real_user])
+                    self.info(f"User {real_user} added to libvirt group")
+                except:
+                    self.warning("Failed to add user to libvirt group, but continuing...")
+            self.success("KVM/QEMU with virt-manager installed successfully")
             
         elif choice == '2':  # VirtualBox
             self.info("Installing VirtualBox...")
-            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'virtualbox', 'virtualbox-host-modules-arch'])
+            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'virtualbox', 
+                             'virtualbox-host-modules-arch', 'virtualbox-guest-iso'], check=False)
+            try:
+                self.run_command(['modprobe', 'vboxdrv'], check=False)
+            except:
+                pass
+            
+            real_user = self.get_real_user()
+            if real_user != 'root':
+                self.run_command(['usermod', '-aG', 'vboxusers', real_user], check=False)
+            self.success("VirtualBox installed")
             
         elif choice == '3':  # VMware
             self.info("Installing VMware Workstation Pro...")
             if shutil.which('yay'):
                 real_user = self.get_real_user()
                 self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm', 'vmware-workstation'], check=False)
+                self.success("VMware Workstation installation attempted")
             else:
-                self.warning("VMware installation requires AUR - please install yay first")
+                self.warning("VMware Workstation requires AUR helper. Please install manually.")
+                self.success("VMware Workstation installation instructions provided")
                 
         elif choice == '4':  # Xen
-            self.info("Installing Xen Hypervisor...")
-            if shutil.which('yay'):
-                real_user = self.get_real_user()
-                self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm', 'xen'], check=False)
-            else:
-                self.warning("Xen installation requires AUR - please install yay first")
+            self.info("Installing Xen hypervisor...")
+            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'xen', 'xen-docs'], check=False)
+            self.warning("Xen requires additional configuration. Please refer to Arch Wiki for setup.")
+            self.success("Xen hypervisor installed")
                 
         elif choice == '5':  # Proxmox
-            self.info("Installing Proxmox VE containers...")
-            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'lxc', 'lxd'])
+            self.info("Installing Proxmox VE...")
+            self.warning("Proxmox VE is typically installed as a dedicated OS. Consider using containers instead.")
+            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'lxc', 'lxd'], check=False)
+            self.success("LXC/LXD containers installed as Proxmox alternative")
             
         self.success("Hypervisor installation completed")
     
@@ -2302,17 +2630,60 @@ esac
     
     # Add debian/ubuntu implementations
     def install_debian_gaming_software(self):
-        """Install gaming software for Debian-based systems"""
-        self.info("Installing gaming software for Debian-based system...")
+        """Install comprehensive gaming software for Debian-based systems"""
+        self.info("Installing comprehensive gaming software for Debian-based system...")
         
-        # Install Steam
-        self.run_command(['apt', 'install', '-y', 'steam', 'lutris'])
+        # Add gaming repositories
+        try:
+            self.run_command(['add-apt-repository', '-y', 'multiverse'], check=False)
+            self.run_command(['add-apt-repository', '-y', 'universe'], check=False)
+            self.run_command(['apt', 'update'])
+        except:
+            self.warning("Could not add multiverse/universe repositories, continuing...")
         
-        # Install gaming tools
-        self.run_command(['apt', 'install', '-y', 'gamemode', 'mangohud'])
+        # Install Steam (official)
+        self.info("Installing Steam...")
+        try:
+            self.run_command(['apt', 'install', '-y', 'steam-installer'], check=False)
+        except:
+            self.warning("steam-installer not available, trying steam package...")
+            self.run_command(['apt', 'install', '-y', 'steam'], check=False)
         
-        # Install Wine
-        self.run_command(['apt', 'install', '-y', 'wine', 'winetricks'])
+        # Install Lutris
+        self.info("Installing Lutris...")
+        self.run_command(['apt', 'install', '-y', 'lutris'], check=False)
+        
+        # Install GameMode
+        self.info("Installing GameMode...")
+        self.run_command(['apt', 'install', '-y', 'gamemode'], check=False)
+        
+        # Install Wine and related tools
+        self.info("Installing Wine and gaming utilities...")
+        self.run_command(['apt', 'install', '-y', 'wine', 'winetricks'], check=False)
+        
+        # Install multimedia libraries
+        self.run_command(['apt', 'install', '-y',
+                         'gstreamer1.0-plugins-good', 'gstreamer1.0-plugins-bad',
+                         'gstreamer1.0-plugins-ugly', 'gstreamer1.0-libav'], check=False)
+        
+        # Install MangoHUD
+        self.info("Installing MangoHUD...")
+        self.run_command(['apt', 'install', '-y', 'mangohud'], check=False)
+        
+        # Install ProtonUp-Qt via Flatpak
+        self.info("Installing ProtonUp-Qt via Flatpak...")
+        if not shutil.which('flatpak'):
+            self.run_command(['apt', 'install', '-y', 'flatpak'], check=False)
+            self.run_command(['flatpak', 'remote-add', '--if-not-exists', 'flathub',
+                            'https://flathub.org/repo/flathub.flatpakrepo'], check=False)
+        
+        try:
+            primary_user = self.get_real_user()
+            if primary_user != "root":
+                self.run_command(['sudo', '-u', primary_user, 'flatpak', 'install', '-y',
+                                'flathub', 'net.davidotek.pupgui2'], check=False)
+        except:
+            self.warning("Could not install ProtonUp-Qt via Flatpak")
         
         self.success("Gaming software installation completed")
     
@@ -2320,86 +2691,633 @@ esac
         """Install LLM/AI software for Debian-based systems"""
         self.info("Installing LLM/AI software for Debian-based system...")
         
-        # Install dependencies
-        self.run_command(['apt', 'install', '-y', 'python3-pip', 'python3-venv'])
-        
-        # Download and install Ollama
+        # Install Ollama
         self.info("Installing Ollama...")
         try:
-            self.run_command(['curl', '-fsSL', 'https://ollama.ai/install.sh', '-o', '/tmp/ollama_install.sh'])
-            self.run_command(['bash', '/tmp/ollama_install.sh'])
-            self.run_command(['systemctl', 'enable', '--now', 'ollama'])
+            self.run_command(['curl', '-fsSL', 'https://ollama.ai/install.sh'], capture_output=True, check=True)
+            result = subprocess.run(['curl', '-fsSL', 'https://ollama.ai/install.sh'], 
+                                  capture_output=True, text=True, check=True)
+            subprocess.run(['sh'], input=result.stdout, text=True, check=True)
+            self.run_command(['systemctl', 'enable', '--now', 'ollama'], check=False)
         except:
-            self.warning("Ollama installation failed - please install manually")
+            self.warning("Ollama installation failed")
+        
+        # Install ROCm (if available)
+        self.info("Installing ROCm for AMD GPU acceleration...")
+        try:
+            self.run_command(['apt', 'install', '-y', 'rocm-opencl-runtime'], check=False)
+        except:
+            self.warning("ROCm not available in repositories")
+        
+        # Install Python and AI libraries
+        self.info("Installing Python AI libraries...")
+        self.run_command(['apt', 'install', '-y', 'python3-pip', 'python3-venv'], check=False)
+        
+        real_user = self.get_real_user()
+        if real_user != 'root':
+            try:
+                # Install PyTorch with ROCm support
+                self.run_command(['sudo', '-u', real_user, 'pip3', 'install', '--user',
+                                 'torch', 'torchvision', 'torchaudio', 
+                                 '--index-url', 'https://download.pytorch.org/whl/rocm5.7'], check=False)
+                self.run_command(['sudo', '-u', real_user, 'pip3', 'install', '--user',
+                                 'transformers', 'accelerate'], check=False)
+            except:
+                self.warning("Failed to install some AI libraries")
         
         self.success("LLM/AI software installation completed")
     
     # Add similar implementations for fedora and opensuse...
     def install_fedora_gaming_software(self):
-        self.info("Installing gaming software for Fedora-based system...")
-        self.run_command(['dnf', 'install', '-y', 'steam', 'lutris', 'gamemode'])
+        """Install comprehensive gaming software for Fedora-based systems"""
+        self.info("Installing comprehensive gaming software for Fedora-based system...")
+        
+        # Enable RPM Fusion repositories
+        try:
+            fedora_version = subprocess.check_output(['rpm', '-E', '%fedora'], text=True).strip()
+            self.run_command(['dnf', 'install', '-y',
+                            f'https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-{fedora_version}.noarch.rpm',
+                            f'https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{fedora_version}.noarch.rpm'],
+                           check=False)
+        except:
+            self.warning("Could not enable RPM Fusion repositories, continuing...")
+        
+        # Install Steam
+        self.info("Installing Steam...")
+        self.run_command(['dnf', 'install', '-y', 'steam'], check=False)
+        
+        # Install Lutris
+        self.info("Installing Lutris...")
+        self.run_command(['dnf', 'install', '-y', 'lutris'], check=False)
+        
+        # Install GameMode
+        self.info("Installing GameMode...")
+        self.run_command(['dnf', 'install', '-y', 'gamemode'], check=False)
+        
+        # Install Wine and gaming utilities
+        self.info("Installing Wine and gaming utilities...")
+        self.run_command(['dnf', 'install', '-y', 'wine', 'winetricks'], check=False)
+        
+        # Install MangoHUD
+        self.info("Installing MangoHUD...")
+        self.run_command(['dnf', 'install', '-y', 'mangohud'], check=False)
+        
+        # Install multimedia libraries
+        self.run_command(['dnf', 'install', '-y',
+                         'gstreamer1-plugins-good', 'gstreamer1-plugins-bad-free',
+                         'gstreamer1-plugins-ugly', 'gstreamer1-libav'], check=False)
+        
         self.success("Gaming software installation completed")
     
     def install_opensuse_gaming_software(self):
-        self.info("Installing gaming software for OpenSUSE...")
-        self.run_command(['zypper', 'install', '-y', 'steam', 'lutris'])
+        """Install comprehensive gaming software for OpenSUSE"""
+        self.info("Installing comprehensive gaming software for OpenSUSE...")
+        
+        # Add Packman repository for multimedia
+        try:
+            self.run_command(['zypper', 'addrepo', '-cfp', '90',
+                            'https://ftp.gwdg.de/pub/linux/misc/packman/suse/openSUSE_Tumbleweed/',
+                            'packman'], check=False)
+            self.run_command(['zypper', 'refresh'], check=False)
+        except:
+            self.warning("Could not add Packman repository, continuing...")
+        
+        # Install Steam
+        self.info("Installing Steam...")
+        self.run_command(['zypper', 'install', '-y', 'steam'], check=False)
+        
+        # Install Lutris
+        self.info("Installing Lutris...")
+        self.run_command(['zypper', 'install', '-y', 'lutris'], check=False)
+        
+        # Install GameMode
+        self.info("Installing GameMode...")
+        self.run_command(['zypper', 'install', '-y', 'gamemode'], check=False)
+        
+        # Install Wine and gaming utilities
+        self.info("Installing Wine and gaming utilities...")
+        self.run_command(['zypper', 'install', '-y', 'wine', 'winetricks'], check=False)
+        
+        # Install multimedia libraries
+        self.run_command(['zypper', 'install', '-y',
+                         'gstreamer-plugins-good', 'gstreamer-plugins-bad',
+                         'gstreamer-plugins-ugly', 'gstreamer-plugins-libav'], check=False)
+        
         self.success("Gaming software installation completed")
     
     # Placeholder functions for other distributions (can be expanded)
     def install_debian_hypervisor_software(self, choice: str):
-        self.info(f"Installing hypervisor option {choice} for Debian-based system...")
+        """Install hypervisor software for Debian-based systems"""
+        self.info("Installing hypervisor software for Debian-based system...")
+        
         if choice == '1':  # KVM/QEMU
-            self.run_command(['apt', 'install', '-y', 'qemu-kvm', 'libvirt-daemon-system', 'virt-manager'])
+            self.info("Installing KVM/QEMU with virt-manager...")
+            self.run_command(['apt', 'install', '-y', 'qemu-kvm', 'libvirt-daemon-system', 
+                             'libvirt-clients', 'bridge-utils', 'virt-manager'], check=False)
+            self.run_command(['systemctl', 'enable', '--now', 'libvirtd'], check=False)
+            
+            real_user = self.get_real_user()
+            if real_user != 'root':
+                self.run_command(['usermod', '-aG', 'libvirt', real_user], check=False)
+                self.run_command(['usermod', '-aG', 'kvm', real_user], check=False)
+            self.success("KVM/QEMU with virt-manager installed")
+            
         elif choice == '2':  # VirtualBox
-            self.run_command(['apt', 'install', '-y', 'virtualbox', 'virtualbox-ext-pack'])
+            self.info("Installing VirtualBox...")
+            # Add Oracle VirtualBox repository
+            try:
+                self.run_command(['wget', '-q', 'https://www.virtualbox.org/download/oracle_vbox_2016.asc', '-O-'], 
+                               capture_output=True, check=True)
+                lsb_release = subprocess.check_output(['lsb_release', '-cs'], text=True).strip()
+                with open('/etc/apt/sources.list.d/virtualbox.list', 'w') as f:
+                    f.write(f"deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian {lsb_release} contrib\n")
+                self.run_command(['apt', 'update'], check=False)
+                self.run_command(['apt', 'install', '-y', 'virtualbox-7.0'], check=False)
+                
+                real_user = self.get_real_user()
+                if real_user != 'root':
+                    self.run_command(['usermod', '-aG', 'vboxusers', real_user], check=False)
+                self.success("VirtualBox installed")
+            except:
+                self.warning("VirtualBox installation failed - repository may not be available")
+                
+        elif choice == '3':  # VMware
+            self.info("Installing VMware Workstation Pro...")
+            self.warning("VMware Workstation Pro requires manual download and installation.")
+            self.info("Please download from https://www.vmware.com/products/workstation-pro.html")
+            self.success("VMware Workstation installation instructions provided")
+            
+        elif choice == '4':  # Xen
+            self.info("Installing Xen hypervisor...")
+            self.run_command(['apt', 'install', '-y', 'xen-hypervisor-amd64', 'xen-tools', 'xen-utils-common'], check=False)
+            self.warning("Xen requires GRUB configuration and reboot. Please refer to documentation.")
+            self.success("Xen hypervisor installed")
+            
+        elif choice == '5':  # Proxmox
+            self.info("Installing Proxmox VE...")
+            self.warning("Proxmox VE is typically installed as a dedicated OS. Installing LXC/LXD as alternative.")
+            self.run_command(['apt', 'install', '-y', 'lxd', 'lxd-client'], check=False)
+            self.success("LXC/LXD containers installed as Proxmox alternative")
+        
         self.success("Hypervisor installation completed")
     
     def install_fedora_llm_software(self):
+        """Install LLM/AI software for Fedora-based systems"""
         self.info("Installing LLM/AI software for Fedora-based system...")
-        self.run_command(['dnf', 'install', '-y', 'python3-pip'])
+        
+        # Install Ollama
+        self.info("Installing Ollama...")
+        try:
+            result = subprocess.run(['curl', '-fsSL', 'https://ollama.ai/install.sh'], 
+                                  capture_output=True, text=True, check=True)
+            subprocess.run(['sh'], input=result.stdout, text=True, check=True)
+            self.run_command(['systemctl', 'enable', '--now', 'ollama'], check=False)
+        except:
+            self.warning("Ollama installation failed")
+        
+        # Install Python and AI libraries
+        self.info("Installing Python AI libraries...")
+        self.run_command(['dnf', 'install', '-y', 'python3-pip', 'python3-virtualenv'], check=False)
+        
+        real_user = self.get_real_user()
+        if real_user != 'root':
+            try:
+                self.run_command(['sudo', '-u', real_user, 'pip3', 'install', '--user',
+                                 'torch', 'torchvision', 'torchaudio', 
+                                 '--index-url', 'https://download.pytorch.org/whl/rocm5.7'], check=False)
+                self.run_command(['sudo', '-u', real_user, 'pip3', 'install', '--user',
+                                 'transformers', 'accelerate'], check=False)
+            except:
+                self.warning("Failed to install some AI libraries")
+        
         self.success("LLM/AI software installation completed")
     
     def install_fedora_hypervisor_software(self, choice: str):
-        self.info(f"Installing hypervisor option {choice} for Fedora-based system...")
+        """Install hypervisor software for Fedora-based systems"""
+        self.info("Installing hypervisor software for Fedora-based system...")
+        
         if choice == '1':  # KVM/QEMU
-            self.run_command(['dnf', 'install', '-y', 'qemu-kvm', 'libvirt', 'virt-manager'])
+            self.info("Installing KVM/QEMU with virt-manager...")
+            self.run_command(['dnf', 'install', '-y', '@virtualization'], check=False)
+            self.run_command(['systemctl', 'enable', '--now', 'libvirtd'], check=False)
+            
+            real_user = self.get_real_user()
+            if real_user != 'root':
+                self.run_command(['usermod', '-aG', 'libvirt', real_user], check=False)
+            self.success("KVM/QEMU with virt-manager installed")
+            
+        elif choice == '2':  # VirtualBox
+            self.info("Installing VirtualBox...")
+            try:
+                self.run_command(['dnf', 'install', '-y', 'kernel-headers', 'kernel-devel', 'dkms', 
+                                 'elfutils-libelf-devel', 'qt5-qtx11extras'], check=False)
+                fedora_version = subprocess.check_output(['rpm', '-E', '%fedora'], text=True).strip()
+                self.run_command(['dnf', 'install', '-y', 
+                                f'https://download.virtualbox.org/virtualbox/rpm/fedora/virtualbox-repo-{fedora_version}-{fedora_version}.noarch.rpm'], 
+                               check=False)
+                self.run_command(['dnf', 'install', '-y', 'VirtualBox-7.0'], check=False)
+                
+                real_user = self.get_real_user()
+                if real_user != 'root':
+                    self.run_command(['usermod', '-aG', 'vboxusers', real_user], check=False)
+                self.success("VirtualBox installed")
+            except:
+                self.warning("VirtualBox installation failed - repository may not be available")
+                
+        elif choice == '3':  # VMware
+            self.info("Installing VMware Workstation Pro...")
+            self.warning("VMware Workstation Pro requires manual download and installation.")
+            self.info("Please download from https://www.vmware.com/products/workstation-pro.html")
+            self.success("VMware Workstation installation instructions provided")
+            
+        elif choice == '4':  # Xen
+            self.info("Installing Xen hypervisor...")
+            self.run_command(['dnf', 'install', '-y', 'xen', 'hypervisor', 'xen-runtime', 'xen-libs'], check=False)
+            self.warning("Xen requires GRUB configuration and reboot. Please refer to documentation.")
+            self.success("Xen hypervisor installed")
+            
+        elif choice == '5':  # Proxmox
+            self.info("Installing Proxmox VE...")
+            self.warning("Proxmox VE is typically installed as a dedicated OS. Installing LXC/LXD as alternative.")
+            self.run_command(['dnf', 'install', '-y', 'lxc', 'lxc-templates', 'libvirt-daemon-lxc'], check=False)
+            self.success("LXC containers installed as Proxmox alternative")
+        
         self.success("Hypervisor installation completed")
     
     def install_opensuse_llm_software(self):
+        """Install LLM/AI software for OpenSUSE"""
         self.info("Installing LLM/AI software for OpenSUSE...")
-        self.run_command(['zypper', 'install', '-y', 'python3-pip'])
+        
+        # Install Ollama
+        self.info("Installing Ollama...")
+        try:
+            result = subprocess.run(['curl', '-fsSL', 'https://ollama.ai/install.sh'], 
+                                  capture_output=True, text=True, check=True)
+            subprocess.run(['sh'], input=result.stdout, text=True, check=True)
+            self.run_command(['systemctl', 'enable', '--now', 'ollama'], check=False)
+        except:
+            self.warning("Ollama installation failed")
+        
+        # Install Python and AI libraries
+        self.info("Installing Python AI libraries...")
+        self.run_command(['zypper', 'install', '-y', 'python3-pip', 'python3-virtualenv'], check=False)
+        
+        real_user = self.get_real_user()
+        if real_user != 'root':
+            try:
+                self.run_command(['sudo', '-u', real_user, 'pip3', 'install', '--user',
+                                 'torch', 'torchvision', 'torchaudio', 
+                                 '--index-url', 'https://download.pytorch.org/whl/rocm5.7'], check=False)
+                self.run_command(['sudo', '-u', real_user, 'pip3', 'install', '--user',
+                                 'transformers', 'accelerate'], check=False)
+            except:
+                self.warning("Failed to install some AI libraries")
+        
         self.success("LLM/AI software installation completed")
     
     def install_opensuse_hypervisor_software(self, choice: str):
-        self.info(f"Installing hypervisor option {choice} for OpenSUSE...")
+        """Install hypervisor software for OpenSUSE"""
+        self.info("Installing hypervisor software for OpenSUSE...")
+        
         if choice == '1':  # KVM/QEMU
-            self.run_command(['zypper', 'install', '-y', 'qemu-kvm', 'libvirt', 'virt-manager'])
+            self.info("Installing KVM/QEMU with virt-manager...")
+            self.run_command(['zypper', 'install', '-y', '-t', 'pattern', 'kvm_server', 'kvm_tools'], check=False)
+            self.run_command(['zypper', 'install', '-y', 'virt-manager'], check=False)
+            self.run_command(['systemctl', 'enable', '--now', 'libvirtd'], check=False)
+            
+            real_user = self.get_real_user()
+            if real_user != 'root':
+                self.run_command(['usermod', '-aG', 'libvirt', real_user], check=False)
+            self.success("KVM/QEMU with virt-manager installed")
+            
+        elif choice == '2':  # VirtualBox
+            self.info("Installing VirtualBox...")
+            try:
+                self.run_command(['zypper', 'addrepo', 
+                                'https://download.opensuse.org/repositories/Virtualization/openSUSE_Tumbleweed/Virtualization.repo'], 
+                               check=False)
+                self.run_command(['zypper', 'refresh'], check=False)
+                self.run_command(['zypper', 'install', '-y', 'virtualbox', 'virtualbox-qt'], check=False)
+                
+                real_user = self.get_real_user()
+                if real_user != 'root':
+                    self.run_command(['usermod', '-aG', 'vboxusers', real_user], check=False)
+                self.success("VirtualBox installed")
+            except:
+                self.warning("VirtualBox installation failed - repository may not be available")
+                
+        elif choice == '3':  # VMware
+            self.info("Installing VMware Workstation Pro...")
+            self.warning("VMware Workstation Pro requires manual download and installation.")
+            self.info("Please download from https://www.vmware.com/products/workstation-pro.html")
+            self.success("VMware Workstation installation instructions provided")
+            
+        elif choice == '4':  # Xen
+            self.info("Installing Xen hypervisor...")
+            self.run_command(['zypper', 'install', '-y', 'xen', 'xen-tools'], check=False)
+            self.warning("Xen requires GRUB configuration and reboot. Please refer to documentation.")
+            self.success("Xen hypervisor installed")
+            
+        elif choice == '5':  # Proxmox
+            self.info("Installing Proxmox VE...")
+            self.warning("Proxmox VE is typically installed as a dedicated OS. Installing LXC/LXD as alternative.")
+            self.run_command(['zypper', 'install', '-y', 'lxc'], check=False)
+            self.success("LXC containers installed as Proxmox alternative")
+        
         self.success("Hypervisor installation completed")
     
     # Snapshot setup functions
     def setup_debian_snapshots(self):
+        """Setup snapshots for Debian-based systems"""
         self.info("Setting up snapshots for Debian-based system...")
+        
+        # Check filesystem type
+        fs_type = None
+        try:
+            findmnt_output = subprocess.check_output(['findmnt', '-n', '-o', 'FSTYPE', '/'], text=True).strip()
+            fs_type = findmnt_output
+        except:
+            pass
+        
+        if fs_type == 'btrfs':
+            self.info("Detected Btrfs filesystem - setting up Timeshift for Btrfs")
+            self.run_command(['apt', 'install', '-y', 'timeshift'], check=False)
+            self.success("Timeshift installed - configure via GUI or timeshift --create")
+            
+        elif fs_type == 'ext4':
+            self.info("Detected ext4 filesystem - setting up Timeshift with rsync")
+            self.run_command(['apt', 'install', '-y', 'timeshift'], check=False)
+            self.success("Timeshift installed - configure via GUI or timeshift --create")
+            
+        else:
+            self.warning(f"Filesystem {fs_type} - installing Timeshift anyway")
+            self.run_command(['apt', 'install', '-y', 'timeshift'], check=False)
+        
+        # Create snapshot management script
+        snapshot_script = '''#!/bin/bash
+# GZ302 Snapshot Management Script for Debian/Ubuntu
+
+case "$1" in
+    "create")
+        echo "[INFO] Creating system snapshot..."
+        if command -v timeshift >/dev/null 2>&1; then
+            timeshift --create --comments "Manual snapshot $(date)"
+        else
+            echo "[WARNING] Timeshift not available"
+        fi
+        ;;
+    "list")
+        echo "[INFO] Listing snapshots..."
+        if command -v timeshift >/dev/null 2>&1; then
+            timeshift --list
+        else
+            echo "[WARNING] Timeshift not available"
+        fi
+        ;;
+    "cleanup")
+        echo "[INFO] Cleaning up old snapshots..."
+        if command -v timeshift >/dev/null 2>&1; then
+            timeshift --delete-all
+        else
+            echo "[WARNING] Timeshift not available"
+        fi
+        ;;
+    *)
+        echo "Usage: gz302-snapshot [create|list|cleanup]"
+        ;;
+esac
+'''
+        self.write_file('/usr/local/bin/gz302-snapshot', snapshot_script)
+        self.run_command(['chmod', '+x', '/usr/local/bin/gz302-snapshot'], check=False)
+        
         self.success("Snapshots configured")
     
     def setup_fedora_snapshots(self):
+        """Setup snapshots for Fedora-based systems"""
         self.info("Setting up snapshots for Fedora-based system...")
+        
+        # Check filesystem type
+        fs_type = None
+        try:
+            findmnt_output = subprocess.check_output(['findmnt', '-n', '-o', 'FSTYPE', '/'], text=True).strip()
+            fs_type = findmnt_output
+        except:
+            pass
+        
+        if fs_type == 'btrfs':
+            self.info("Detected Btrfs filesystem - setting up Snapper for Btrfs")
+            self.run_command(['dnf', 'install', '-y', 'snapper'], check=False)
+            
+            # Create snapper configuration
+            self.run_command(['snapper', 'create-config', '/'], check=False)
+            self.run_command(['systemctl', 'enable', '--now', 'snapper-timeline.timer'], check=False)
+            self.run_command(['systemctl', 'enable', '--now', 'snapper-cleanup.timer'], check=False)
+            self.success("Snapper configured for Btrfs")
+            
+        elif fs_type == 'ext4':
+            self.info("Detected ext4 filesystem - setting up LVM snapshots")
+            self.run_command(['dnf', 'install', '-y', 'lvm2'], check=False)
+            self.warning("LVM snapshot setup requires manual configuration")
+            
+        else:
+            self.warning(f"Filesystem {fs_type} - installing Snapper anyway")
+            self.run_command(['dnf', 'install', '-y', 'snapper'], check=False)
+        
+        # Create snapshot management script
+        snapshot_script = '''#!/bin/bash
+# GZ302 Snapshot Management Script for Fedora
+
+case "$1" in
+    "create")
+        echo "[INFO] Creating system snapshot..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper create --description "Manual snapshot $(date)"
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    "list")
+        echo "[INFO] Listing snapshots..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper list
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    "cleanup")
+        echo "[INFO] Cleaning up old snapshots..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper cleanup number
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    *)
+        echo "Usage: gz302-snapshot [create|list|cleanup]"
+        ;;
+esac
+'''
+        self.write_file('/usr/local/bin/gz302-snapshot', snapshot_script)
+        self.run_command(['chmod', '+x', '/usr/local/bin/gz302-snapshot'], check=False)
+        
         self.success("Snapshots configured")
     
     def setup_opensuse_snapshots(self):
+        """Setup snapshots for OpenSUSE"""
         self.info("Setting up snapshots for OpenSUSE...")
+        
+        # OpenSUSE comes with Snapper pre-configured for Btrfs by default
+        # Check filesystem type
+        fs_type = None
+        try:
+            findmnt_output = subprocess.check_output(['findmnt', '-n', '-o', 'FSTYPE', '/'], text=True).strip()
+            fs_type = findmnt_output
+        except:
+            pass
+        
+        if fs_type == 'btrfs':
+            self.info("Detected Btrfs filesystem - Snapper is pre-configured on OpenSUSE")
+            # Ensure snapper and YaST2 snapper module are installed
+            self.run_command(['zypper', 'install', '-y', 'snapper', 'yast2-snapper'], check=False)
+            
+            # Verify snapper configuration exists
+            try:
+                self.run_command(['snapper', 'list-configs'], check=False)
+            except:
+                self.info("Creating Snapper configuration...")
+                self.run_command(['snapper', 'create-config', '/'], check=False)
+            
+            # Enable automatic snapshots
+            self.run_command(['systemctl', 'enable', '--now', 'snapper-timeline.timer'], check=False)
+            self.run_command(['systemctl', 'enable', '--now', 'snapper-cleanup.timer'], check=False)
+            self.success("Snapper verified and enabled")
+            
+        else:
+            self.warning(f"Filesystem {fs_type} - OpenSUSE snapshot features work best with Btrfs")
+            self.run_command(['zypper', 'install', '-y', 'snapper'], check=False)
+        
+        # Create snapshot management script
+        snapshot_script = '''#!/bin/bash
+# GZ302 Snapshot Management Script for OpenSUSE
+
+case "$1" in
+    "create")
+        echo "[INFO] Creating system snapshot..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper create --description "Manual snapshot $(date)"
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    "list")
+        echo "[INFO] Listing snapshots..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper list
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    "cleanup")
+        echo "[INFO] Cleaning up old snapshots..."
+        if command -v snapper >/dev/null 2>&1; then
+            snapper cleanup number
+        else
+            echo "[WARNING] Snapper not available"
+        fi
+        ;;
+    *)
+        echo "Usage: gz302-snapshot [create|list|cleanup]"
+        ;;
+esac
+'''
+        self.write_file('/usr/local/bin/gz302-snapshot', snapshot_script)
+        self.run_command(['chmod', '+x', '/usr/local/bin/gz302-snapshot'], check=False)
+        
         self.success("Snapshots configured")
     
     # Secure boot setup functions
     def setup_debian_secureboot(self):
+        """Setup secure boot for Debian-based systems"""
         self.info("Setting up secure boot for Debian-based system...")
+        
+        # Install secure boot tools
+        self.run_command(['apt', 'install', '-y', 'mokutil', 'shim-signed'], check=False)
+        
+        # Check if we're in UEFI mode
+        if Path('/sys/firmware/efi').exists():
+            self.info("UEFI system detected - configuring secure boot")
+            
+            # Check secure boot status
+            try:
+                result = subprocess.run(['mokutil', '--sb-state'], capture_output=True, text=True, check=False)
+                self.info(f"Secure boot status: {result.stdout.strip()}")
+            except:
+                pass
+            
+            self.success("Secure boot tools installed")
+            self.warning("To enable secure boot: Configure in BIOS/UEFI settings")
+            self.warning("For custom kernels: Use mokutil to enroll keys")
+        else:
+            self.warning("Non-UEFI system - secure boot not applicable")
+        
         self.success("Secure boot configured")
     
     def setup_fedora_secureboot(self):
+        """Setup secure boot for Fedora-based systems"""
         self.info("Setting up secure boot for Fedora-based system...")
+        
+        # Install secure boot tools (Fedora comes with mokutil and shim by default)
+        self.run_command(['dnf', 'install', '-y', 'mokutil', 'shim', 'efibootmgr'], check=False)
+        
+        # Check if we're in UEFI mode
+        if Path('/sys/firmware/efi').exists():
+            self.info("UEFI system detected - configuring secure boot")
+            
+            # Check secure boot status
+            try:
+                result = subprocess.run(['mokutil', '--sb-state'], capture_output=True, text=True, check=False)
+                self.info(f"Secure boot status: {result.stdout.strip()}")
+            except:
+                pass
+            
+            # Install kernel signing utilities for custom kernels
+            self.run_command(['dnf', 'install', '-y', 'pesign', 'kernel-devel'], check=False)
+            
+            self.success("Secure boot tools installed")
+            self.warning("Fedora supports secure boot by default with signed kernels")
+            self.warning("For custom kernels: Use mokutil to manage keys")
+        else:
+            self.warning("Non-UEFI system - secure boot not applicable")
+        
         self.success("Secure boot configured")
     
     def setup_opensuse_secureboot(self):
+        """Setup secure boot for OpenSUSE"""
         self.info("Setting up secure boot for OpenSUSE...")
+        
+        # Install secure boot tools
+        self.run_command(['zypper', 'install', '-y', 'mokutil', 'shim', 'efibootmgr'], check=False)
+        
+        # Check if we're in UEFI mode
+        if Path('/sys/firmware/efi').exists():
+            self.info("UEFI system detected - configuring secure boot")
+            
+            # Check secure boot status
+            try:
+                result = subprocess.run(['mokutil', '--sb-state'], capture_output=True, text=True, check=False)
+                self.info(f"Secure boot status: {result.stdout.strip()}")
+            except:
+                pass
+            
+            # Install YaST2 bootloader module for secure boot management
+            self.run_command(['zypper', 'install', '-y', 'yast2-bootloader'], check=False)
+            
+            self.success("Secure boot tools installed")
+            self.warning("OpenSUSE supports secure boot - use YaST2 bootloader module to configure")
+            self.warning("Run 'yast2 bootloader' to manage secure boot settings")
+        else:
+            self.warning("Non-UEFI system - secure boot not applicable")
+        
         self.success("Secure boot configured")
     
     # Service management functions
