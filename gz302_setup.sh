@@ -449,6 +449,36 @@ setup_opensuse() {
     enable_opensuse_services
 }
 
+# Helper function to install packages on Arch, using yay for AUR packages if needed
+install_arch_packages_with_yay() {
+    local packages=("$@")
+    
+    if [ ${#packages[@]} -eq 0 ]; then
+        return 0
+    fi
+    
+    # First try with pacman for official repo packages
+    if pacman -S --noconfirm --needed "${packages[@]}" 2>/dev/null; then
+        return 0
+    fi
+    
+    # If pacman fails, try with yay for AUR packages
+    if command -v yay >/dev/null 2>&1; then
+        sudo -u "$SUDO_USER" yay -S --noconfirm "${packages[@]}"
+    elif command -v paru >/dev/null 2>&1; then
+        sudo -u "$SUDO_USER" paru -S --noconfirm "${packages[@]}"
+    else
+        warning "AUR helper (yay/paru) not found. Installing yay first..."
+        pacman -S --noconfirm --needed git base-devel
+        cd /tmp
+        sudo -u "$SUDO_USER" git clone https://aur.archlinux.org/yay.git
+        cd yay
+        sudo -u "$SUDO_USER" makepkg -si --noconfirm
+        cd /tmp && rm -rf yay
+        sudo -u "$SUDO_USER" yay -S --noconfirm "${packages[@]}"
+    fi
+}
+
 # Apply comprehensive hardware fixes for Arch-based systems
 apply_arch_hardware_fixes() {
     info "Applying comprehensive GZ302 hardware fixes for Arch-based systems..."
@@ -459,13 +489,13 @@ apply_arch_hardware_fixes() {
     if [[ "$has_dgpu" == "true" ]]; then
         info "Discrete GPU detected, installing full GPU management suite..."
         # Install kernel and drivers with GPU switching support
-        pacman -S --noconfirm --needed linux-g14 linux-g14-headers asusctl supergfxctl rog-control-center power-profiles-daemon switcheroo-control
+        install_arch_packages_with_yay linux-g14 linux-g14-headers asusctl supergfxctl rog-control-center power-profiles-daemon switcheroo-control
     else
         info "No discrete GPU detected, installing base ASUS control packages..."
         # Install kernel and drivers without supergfxctl (for integrated graphics only)
-        pacman -S --noconfirm --needed linux-g14 linux-g14-headers asusctl rog-control-center power-profiles-daemon
+        install_arch_packages_with_yay linux-g14 linux-g14-headers asusctl rog-control-center power-profiles-daemon
         # switcheroo-control may still be useful for some systems
-        pacman -S --noconfirm --needed switcheroo-control || warning "switcheroo-control not available, continuing..."
+        install_arch_packages_with_yay switcheroo-control || warning "switcheroo-control not available, continuing..."
     fi
     
     # ACPI BIOS error mitigation for GZ302
