@@ -4,7 +4,7 @@
 Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 
 Author: th3cavalry using Copilot
-Version: 4.4 - Enhanced Display Management: Comprehensive display management with game profiles, VRR controls, and monitoring
+Version: 4.3.1 - Bug fixes: Sync Python and Bash implementations for complete feature parity
 
 This script automatically detects your Linux distribution and applies
 the appropriate setup for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+.
@@ -37,6 +37,8 @@ import shutil
 import getpass
 import re
 import tempfile
+import signal
+import atexit
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 import logging
@@ -55,10 +57,34 @@ class GZ302Setup:
     """Main setup class for ASUS ROG Flow Z13 (GZ302) configuration"""
     
     def __init__(self):
-        self.version = "4.3"
+        self.version = "4.3.1"
         self.user_choices = {}
         self.detected_distro = None
         self.original_distro = None
+        self.setup_error_handling()
+    
+    def setup_error_handling(self):
+        """Setup error handling and cleanup"""
+        def cleanup_handler(signum=None, frame=None):
+            print()
+            print("❌" * 30)
+            print(f"{Colors.RED}[ERROR]{Colors.NC} Script interrupted or failed")
+            print(f"{Colors.RED}[ERROR]{Colors.NC} The setup process was interrupted and may be incomplete.")
+            print(f"{Colors.RED}[ERROR]{Colors.NC} Please check the error messages above for details.")
+            print(f"{Colors.RED}[ERROR]{Colors.NC} You may need to run the script again or fix issues manually.")
+            print("❌" * 30)
+            print()
+            sys.exit(1)
+        
+        # Register signal handlers
+        signal.signal(signal.SIGINT, cleanup_handler)
+        signal.signal(signal.SIGTERM, cleanup_handler)
+        
+        # Register atexit for unexpected exits
+        def exit_handler():
+            if sys.exc_info()[0] is not None and sys.exc_info()[0] != SystemExit:
+                cleanup_handler()
+        atexit.register(exit_handler)
         self.setup_logging()
         
     def setup_logging(self):
@@ -2576,17 +2602,60 @@ esac
     
     # Add debian/ubuntu implementations
     def install_debian_gaming_software(self):
-        """Install gaming software for Debian-based systems"""
-        self.info("Installing gaming software for Debian-based system...")
+        """Install comprehensive gaming software for Debian-based systems"""
+        self.info("Installing comprehensive gaming software for Debian-based system...")
         
-        # Install Steam
-        self.run_command(['apt', 'install', '-y', 'steam', 'lutris'])
+        # Add gaming repositories
+        try:
+            self.run_command(['add-apt-repository', '-y', 'multiverse'], check=False)
+            self.run_command(['add-apt-repository', '-y', 'universe'], check=False)
+            self.run_command(['apt', 'update'])
+        except:
+            self.warning("Could not add multiverse/universe repositories, continuing...")
         
-        # Install gaming tools
-        self.run_command(['apt', 'install', '-y', 'gamemode', 'mangohud'])
+        # Install Steam (official)
+        self.info("Installing Steam...")
+        try:
+            self.run_command(['apt', 'install', '-y', 'steam-installer'], check=False)
+        except:
+            self.warning("steam-installer not available, trying steam package...")
+            self.run_command(['apt', 'install', '-y', 'steam'], check=False)
         
-        # Install Wine
-        self.run_command(['apt', 'install', '-y', 'wine', 'winetricks'])
+        # Install Lutris
+        self.info("Installing Lutris...")
+        self.run_command(['apt', 'install', '-y', 'lutris'], check=False)
+        
+        # Install GameMode
+        self.info("Installing GameMode...")
+        self.run_command(['apt', 'install', '-y', 'gamemode'], check=False)
+        
+        # Install Wine and related tools
+        self.info("Installing Wine and gaming utilities...")
+        self.run_command(['apt', 'install', '-y', 'wine', 'winetricks'], check=False)
+        
+        # Install multimedia libraries
+        self.run_command(['apt', 'install', '-y',
+                         'gstreamer1.0-plugins-good', 'gstreamer1.0-plugins-bad',
+                         'gstreamer1.0-plugins-ugly', 'gstreamer1.0-libav'], check=False)
+        
+        # Install MangoHUD
+        self.info("Installing MangoHUD...")
+        self.run_command(['apt', 'install', '-y', 'mangohud'], check=False)
+        
+        # Install ProtonUp-Qt via Flatpak
+        self.info("Installing ProtonUp-Qt via Flatpak...")
+        if not shutil.which('flatpak'):
+            self.run_command(['apt', 'install', '-y', 'flatpak'], check=False)
+            self.run_command(['flatpak', 'remote-add', '--if-not-exists', 'flathub',
+                            'https://flathub.org/repo/flathub.flatpakrepo'], check=False)
+        
+        try:
+            primary_user = self.get_real_user()
+            if primary_user != "root":
+                self.run_command(['sudo', '-u', primary_user, 'flatpak', 'install', '-y',
+                                'flathub', 'net.davidotek.pupgui2'], check=False)
+        except:
+            self.warning("Could not install ProtonUp-Qt via Flatpak")
         
         self.success("Gaming software installation completed")
     
@@ -2610,13 +2679,80 @@ esac
     
     # Add similar implementations for fedora and opensuse...
     def install_fedora_gaming_software(self):
-        self.info("Installing gaming software for Fedora-based system...")
-        self.run_command(['dnf', 'install', '-y', 'steam', 'lutris', 'gamemode'])
+        """Install comprehensive gaming software for Fedora-based systems"""
+        self.info("Installing comprehensive gaming software for Fedora-based system...")
+        
+        # Enable RPM Fusion repositories
+        try:
+            fedora_version = subprocess.check_output(['rpm', '-E', '%fedora'], text=True).strip()
+            self.run_command(['dnf', 'install', '-y',
+                            f'https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-{fedora_version}.noarch.rpm',
+                            f'https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{fedora_version}.noarch.rpm'],
+                           check=False)
+        except:
+            self.warning("Could not enable RPM Fusion repositories, continuing...")
+        
+        # Install Steam
+        self.info("Installing Steam...")
+        self.run_command(['dnf', 'install', '-y', 'steam'], check=False)
+        
+        # Install Lutris
+        self.info("Installing Lutris...")
+        self.run_command(['dnf', 'install', '-y', 'lutris'], check=False)
+        
+        # Install GameMode
+        self.info("Installing GameMode...")
+        self.run_command(['dnf', 'install', '-y', 'gamemode'], check=False)
+        
+        # Install Wine and gaming utilities
+        self.info("Installing Wine and gaming utilities...")
+        self.run_command(['dnf', 'install', '-y', 'wine', 'winetricks'], check=False)
+        
+        # Install MangoHUD
+        self.info("Installing MangoHUD...")
+        self.run_command(['dnf', 'install', '-y', 'mangohud'], check=False)
+        
+        # Install multimedia libraries
+        self.run_command(['dnf', 'install', '-y',
+                         'gstreamer1-plugins-good', 'gstreamer1-plugins-bad-free',
+                         'gstreamer1-plugins-ugly', 'gstreamer1-libav'], check=False)
+        
         self.success("Gaming software installation completed")
     
     def install_opensuse_gaming_software(self):
-        self.info("Installing gaming software for OpenSUSE...")
-        self.run_command(['zypper', 'install', '-y', 'steam', 'lutris'])
+        """Install comprehensive gaming software for OpenSUSE"""
+        self.info("Installing comprehensive gaming software for OpenSUSE...")
+        
+        # Add Packman repository for multimedia
+        try:
+            self.run_command(['zypper', 'addrepo', '-cfp', '90',
+                            'https://ftp.gwdg.de/pub/linux/misc/packman/suse/openSUSE_Tumbleweed/',
+                            'packman'], check=False)
+            self.run_command(['zypper', 'refresh'], check=False)
+        except:
+            self.warning("Could not add Packman repository, continuing...")
+        
+        # Install Steam
+        self.info("Installing Steam...")
+        self.run_command(['zypper', 'install', '-y', 'steam'], check=False)
+        
+        # Install Lutris
+        self.info("Installing Lutris...")
+        self.run_command(['zypper', 'install', '-y', 'lutris'], check=False)
+        
+        # Install GameMode
+        self.info("Installing GameMode...")
+        self.run_command(['zypper', 'install', '-y', 'gamemode'], check=False)
+        
+        # Install Wine and gaming utilities
+        self.info("Installing Wine and gaming utilities...")
+        self.run_command(['zypper', 'install', '-y', 'wine', 'winetricks'], check=False)
+        
+        # Install multimedia libraries
+        self.run_command(['zypper', 'install', '-y',
+                         'gstreamer-plugins-good', 'gstreamer-plugins-bad',
+                         'gstreamer-plugins-ugly', 'gstreamer-plugins-libav'], check=False)
+        
         self.success("Gaming software installation completed")
     
     # Placeholder functions for other distributions (can be expanded)
