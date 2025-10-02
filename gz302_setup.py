@@ -2663,17 +2663,39 @@ esac
         """Install LLM/AI software for Debian-based systems"""
         self.info("Installing LLM/AI software for Debian-based system...")
         
-        # Install dependencies
-        self.run_command(['apt', 'install', '-y', 'python3-pip', 'python3-venv'])
-        
-        # Download and install Ollama
+        # Install Ollama
         self.info("Installing Ollama...")
         try:
-            self.run_command(['curl', '-fsSL', 'https://ollama.ai/install.sh', '-o', '/tmp/ollama_install.sh'])
-            self.run_command(['bash', '/tmp/ollama_install.sh'])
-            self.run_command(['systemctl', 'enable', '--now', 'ollama'])
+            self.run_command(['curl', '-fsSL', 'https://ollama.ai/install.sh'], capture_output=True, check=True)
+            result = subprocess.run(['curl', '-fsSL', 'https://ollama.ai/install.sh'], 
+                                  capture_output=True, text=True, check=True)
+            subprocess.run(['sh'], input=result.stdout, text=True, check=True)
+            self.run_command(['systemctl', 'enable', '--now', 'ollama'], check=False)
         except:
-            self.warning("Ollama installation failed - please install manually")
+            self.warning("Ollama installation failed")
+        
+        # Install ROCm (if available)
+        self.info("Installing ROCm for AMD GPU acceleration...")
+        try:
+            self.run_command(['apt', 'install', '-y', 'rocm-opencl-runtime'], check=False)
+        except:
+            self.warning("ROCm not available in repositories")
+        
+        # Install Python and AI libraries
+        self.info("Installing Python AI libraries...")
+        self.run_command(['apt', 'install', '-y', 'python3-pip', 'python3-venv'], check=False)
+        
+        real_user = self.get_real_user()
+        if real_user != 'root':
+            try:
+                # Install PyTorch with ROCm support
+                self.run_command(['sudo', '-u', real_user, 'pip3', 'install', '--user',
+                                 'torch', 'torchvision', 'torchaudio', 
+                                 '--index-url', 'https://download.pytorch.org/whl/rocm5.7'], check=False)
+                self.run_command(['sudo', '-u', real_user, 'pip3', 'install', '--user',
+                                 'transformers', 'accelerate'], check=False)
+            except:
+                self.warning("Failed to install some AI libraries")
         
         self.success("LLM/AI software installation completed")
     
@@ -2765,8 +2787,34 @@ esac
         self.success("Hypervisor installation completed")
     
     def install_fedora_llm_software(self):
+        """Install LLM/AI software for Fedora-based systems"""
         self.info("Installing LLM/AI software for Fedora-based system...")
-        self.run_command(['dnf', 'install', '-y', 'python3-pip'])
+        
+        # Install Ollama
+        self.info("Installing Ollama...")
+        try:
+            result = subprocess.run(['curl', '-fsSL', 'https://ollama.ai/install.sh'], 
+                                  capture_output=True, text=True, check=True)
+            subprocess.run(['sh'], input=result.stdout, text=True, check=True)
+            self.run_command(['systemctl', 'enable', '--now', 'ollama'], check=False)
+        except:
+            self.warning("Ollama installation failed")
+        
+        # Install Python and AI libraries
+        self.info("Installing Python AI libraries...")
+        self.run_command(['dnf', 'install', '-y', 'python3-pip', 'python3-virtualenv'], check=False)
+        
+        real_user = self.get_real_user()
+        if real_user != 'root':
+            try:
+                self.run_command(['sudo', '-u', real_user, 'pip3', 'install', '--user',
+                                 'torch', 'torchvision', 'torchaudio', 
+                                 '--index-url', 'https://download.pytorch.org/whl/rocm5.7'], check=False)
+                self.run_command(['sudo', '-u', real_user, 'pip3', 'install', '--user',
+                                 'transformers', 'accelerate'], check=False)
+            except:
+                self.warning("Failed to install some AI libraries")
+        
         self.success("LLM/AI software installation completed")
     
     def install_fedora_hypervisor_software(self, choice: str):
@@ -2776,8 +2824,34 @@ esac
         self.success("Hypervisor installation completed")
     
     def install_opensuse_llm_software(self):
+        """Install LLM/AI software for OpenSUSE"""
         self.info("Installing LLM/AI software for OpenSUSE...")
-        self.run_command(['zypper', 'install', '-y', 'python3-pip'])
+        
+        # Install Ollama
+        self.info("Installing Ollama...")
+        try:
+            result = subprocess.run(['curl', '-fsSL', 'https://ollama.ai/install.sh'], 
+                                  capture_output=True, text=True, check=True)
+            subprocess.run(['sh'], input=result.stdout, text=True, check=True)
+            self.run_command(['systemctl', 'enable', '--now', 'ollama'], check=False)
+        except:
+            self.warning("Ollama installation failed")
+        
+        # Install Python and AI libraries
+        self.info("Installing Python AI libraries...")
+        self.run_command(['zypper', 'install', '-y', 'python3-pip', 'python3-virtualenv'], check=False)
+        
+        real_user = self.get_real_user()
+        if real_user != 'root':
+            try:
+                self.run_command(['sudo', '-u', real_user, 'pip3', 'install', '--user',
+                                 'torch', 'torchvision', 'torchaudio', 
+                                 '--index-url', 'https://download.pytorch.org/whl/rocm5.7'], check=False)
+                self.run_command(['sudo', '-u', real_user, 'pip3', 'install', '--user',
+                                 'transformers', 'accelerate'], check=False)
+            except:
+                self.warning("Failed to install some AI libraries")
+        
         self.success("LLM/AI software installation completed")
     
     def install_opensuse_hypervisor_software(self, choice: str):
