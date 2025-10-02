@@ -1257,7 +1257,7 @@ configure_monitor() {
     if [[ -z "$display" ]]; then
         echo "Available displays:"
         detect_displays | while read -r disp; do
-            local current_rate=$(get_current_rate "$disp")
+            local current_rate=$(get_current_refresh_rate "$disp")
             echo "  $disp (current: ${current_rate}Hz)"
         done
         return 0
