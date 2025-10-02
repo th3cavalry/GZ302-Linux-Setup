@@ -1939,6 +1939,18 @@ done
         """Setup process for Arch-based systems"""
         self.info("Setting up Arch-based system...")
         
+        # Update system and install base dependencies
+        self.info("Updating system and installing base dependencies...")
+        self.run_command(['pacman', '-Syu', '--noconfirm', '--needed'])
+        self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'git', 'base-devel', 'wget', 'curl'])
+        
+        # Install AUR helper if not present
+        if not shutil.which('yay'):
+            self.info("Installing yay AUR helper...")
+            real_user = self.get_real_user()
+            self.run_command(['sudo', '-u', real_user, '-H', 'bash', '-c',
+                             'cd /tmp && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm'])
+        
         # Apply hardware fixes
         self.apply_arch_hardware_fixes()
         
@@ -1969,6 +1981,14 @@ done
     def setup_debian_based(self):
         """Setup process for Debian-based systems"""
         self.info("Setting up Debian-based system...")
+        
+        # Update system and install base dependencies
+        self.info("Updating system and installing base dependencies...")
+        self.run_command(['apt', 'update'])
+        self.run_command(['apt', 'upgrade', '-y'])
+        self.run_command(['apt', 'install', '-y', 'curl', 'wget', 'git', 'build-essential', 
+                         'software-properties-common', 'apt-transport-https', 'ca-certificates', 
+                         'gnupg', 'lsb-release'])
         
         # Apply hardware fixes
         self.apply_debian_hardware_fixes()
@@ -2001,6 +2021,13 @@ done
         """Setup process for Fedora-based systems"""
         self.info("Setting up Fedora-based system...")
         
+        # Update system and install base dependencies
+        self.info("Updating system and installing base dependencies...")
+        self.run_command(['dnf', 'update', '-y'])
+        self.run_command(['dnf', 'install', '-y', 'curl', 'wget', 'git', 'gcc', 'gcc-c++', 
+                         'make', 'kernel-headers', 'kernel-devel', 'rpmfusion-free-release', 
+                         'rpmfusion-nonfree-release'], check=False)
+        
         # Apply hardware fixes
         self.apply_fedora_hardware_fixes()
         
@@ -2031,6 +2058,13 @@ done
     def setup_opensuse(self):
         """Setup process for OpenSUSE systems"""
         self.info("Setting up OpenSUSE system...")
+        
+        # Update system and install base dependencies
+        self.info("Updating system and installing base dependencies...")
+        self.run_command(['zypper', 'refresh'])
+        self.run_command(['zypper', 'update', '-y'])
+        self.run_command(['zypper', 'install', '-y', 'curl', 'wget', 'git', 'gcc', 'gcc-c++', 
+                         'make', 'kernel-default-devel'])
         
         # Apply hardware fixes
         self.apply_opensuse_hardware_fixes()
