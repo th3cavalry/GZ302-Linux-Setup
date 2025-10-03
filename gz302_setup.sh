@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 4.3.2 - Bug fix: False-positive discrete GPU detection in bash script
+# Version: 4.3.3 - Bug fix: Replace linux-g14 kernel with linux-zen, use correct ASUS packages from asus-linux.org
 #
 # This script automatically detects your Linux distribution and applies
 # the appropriate setup for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+.
@@ -487,14 +487,18 @@ apply_arch_hardware_fixes() {
     # Check for discrete GPU to determine which packages to install
     local has_dgpu=$(detect_discrete_gpu)
     
+    # Install standard kernel and drivers (using linux-zen for better performance on GZ302)
+    info "Installing optimized kernel and base drivers..."
+    pacman -S --noconfirm --needed linux-zen linux-zen-headers linux-firmware
+    
     if [[ "$has_dgpu" == "true" ]]; then
         info "Discrete GPU detected, installing full GPU management suite..."
-        # Install kernel and drivers with GPU switching support
-        install_arch_packages_with_yay linux-g14 linux-g14-headers asusctl supergfxctl rog-control-center power-profiles-daemon switcheroo-control
+        # Install ASUS control tools with GPU switching support from AUR
+        install_arch_packages_with_yay asusctl supergfxctl rog-control-center power-profiles-daemon switcheroo-control
     else
         info "No discrete GPU detected, installing base ASUS control packages..."
-        # Install kernel and drivers without supergfxctl (for integrated graphics only)
-        install_arch_packages_with_yay linux-g14 linux-g14-headers asusctl rog-control-center power-profiles-daemon
+        # Install ASUS control tools without supergfxctl (for integrated graphics only)
+        install_arch_packages_with_yay asusctl rog-control-center power-profiles-daemon
         # switcheroo-control may still be useful for some systems
         install_arch_packages_with_yay switcheroo-control || warning "switcheroo-control not available, continuing..."
     fi

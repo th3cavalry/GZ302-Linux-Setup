@@ -4,7 +4,7 @@
 Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 
 Author: th3cavalry using Copilot
-Version: 4.3.2 - Bug fix: False-positive discrete GPU detection in bash script
+Version: 4.3.3 - Bug fix: Replace linux-g14 kernel with linux-zen, use correct ASUS packages from asus-linux.org
 
 This script automatically detects your Linux distribution and applies
 the appropriate setup for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+.
@@ -338,21 +338,25 @@ class GZ302Setup:
         has_dgpu = self.detect_discrete_gpu()
         real_user = self.get_real_user()
         
+        # Install standard kernel and drivers (using linux-zen for better performance on GZ302)
+        self.info("Installing optimized kernel and base drivers...")
+        self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'linux-zen', 'linux-zen-headers', 'linux-firmware'])
+        
         if has_dgpu:
             self.info("Discrete GPU detected, installing full GPU management suite...")
-            # Install kernel and drivers with GPU switching support
-            self._install_arch_packages_with_yay(['linux-g14', 'linux-g14-headers', 'asusctl', 'supergfxctl', 'rog-control-center', 'power-profiles-daemon', 'switcheroo-control'], real_user)
+            # Install ASUS control tools with GPU switching support from AUR
+            self._install_arch_packages_with_yay(['asusctl', 'supergfxctl', 'rog-control-center', 'power-profiles-daemon', 'switcheroo-control'], real_user)
         else:
             self.info("No discrete GPU detected, installing base ASUS control packages...")
-            # Install kernel and drivers without supergfxctl (for integrated graphics only)
-            self._install_arch_packages_with_yay(['linux-g14', 'linux-g14-headers', 'asusctl', 'rog-control-center', 'power-profiles-daemon'], real_user)
+            # Install ASUS control tools without supergfxctl (for integrated graphics only)
+            self._install_arch_packages_with_yay(['asusctl', 'rog-control-center', 'power-profiles-daemon'], real_user)
             # switcheroo-control may still be useful for some systems
             try:
                 self._install_arch_packages_with_yay(['switcheroo-control'], real_user)
             except:
                 self.warning("switcheroo-control not available, continuing...")
         
-        # Install kernel and drivers
+        # Install additional kernel build tools
         self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'linux-headers', 'base-devel'])
         
         # ACPI BIOS error mitigation for GZ302
