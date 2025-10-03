@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 4.3.1 - Bug fixes: Sync Python and Bash implementations for complete feature parity
+# Version: 4.3.2 - Bug fix: False-positive discrete GPU detection in bash script
 #
 # This script automatically detects your Linux distribution and applies
 # the appropriate setup for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+.
@@ -112,9 +112,10 @@ detect_discrete_gpu() {
     
     # Additional check using /sys/class/drm if lspci is not available
     if [[ "$dgpu_found" == false ]] && [[ -d /sys/class/drm ]]; then
-        # Count the number of GPU cards, integrated usually shows as card0
-        local gpu_count=$(find /sys/class/drm -name "card[0-9]*" -type d | wc -l)
-        if [[ $gpu_count -gt 1 ]]; then
+        # Count the number of unique GPU cards, integrated usually shows as card0
+        # Extract unique card IDs (card0, card1, etc.) from paths like card0-eDP-1, card0-HDMI-A-1
+        local unique_cards=$(find /sys/class/drm -name "card[0-9]*" -type d | sed 's/.*\/\(card[0-9]*\).*/\1/' | sort -u | wc -l)
+        if [[ $unique_cards -gt 1 ]]; then
             dgpu_found=true
         fi
     fi
