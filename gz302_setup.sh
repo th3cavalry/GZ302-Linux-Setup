@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 4.3.2 - Bug fix: Fix GPU detection false positive in bash script
+# Version: 4.3.3 - Bug fix: Fix Arch package installation fallback to AUR helpers
 #
 # This script automatically detects your Linux distribution and applies
 # the appropriate setup for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+.
