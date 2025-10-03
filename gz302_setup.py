@@ -4,7 +4,7 @@
 Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 
 Author: th3cavalry using Copilot
-Version: 4.3.2 - Bug fix: Fix GPU detection false positive in bash script
+Version: 4.3.3 - Bug fix: Fix Arch package installation fallback to AUR helpers
 
 This script automatically detects your Linux distribution and applies
 the appropriate setup for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+.
@@ -311,24 +311,27 @@ class GZ302Setup:
             return
             
         # First try with pacman for official repo packages
-        try:
-            self.run_command(['pacman', '-S', '--noconfirm', '--needed'] + packages, check=False)
-        except:
-            # If pacman fails, try with yay for AUR packages
-            if shutil.which('yay'):
-                self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm'] + packages)
-            elif shutil.which('paru'):
-                self.run_command(['sudo', '-u', real_user, 'paru', '-S', '--noconfirm'] + packages)
-            else:
-                self.warning("AUR helper (yay/paru) not found. Installing yay first...")
-                self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'git', 'base-devel'])
-                
-                # Install yay as the real user
-                self.run_command(['sudo', '-u', real_user, 'bash', '-c', 
-                                 'cd /tmp && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm'])
-                
-                # Now install packages using yay
-                self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm'] + packages)
+        result = self.run_command(['pacman', '-S', '--noconfirm', '--needed'] + packages, check=False)
+        
+        # If pacman succeeded (returncode 0), we're done
+        if result and result.returncode == 0:
+            return
+            
+        # If pacman failed, try with yay for AUR packages
+        if shutil.which('yay'):
+            self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm'] + packages)
+        elif shutil.which('paru'):
+            self.run_command(['sudo', '-u', real_user, 'paru', '-S', '--noconfirm'] + packages)
+        else:
+            self.warning("AUR helper (yay/paru) not found. Installing yay first...")
+            self.run_command(['pacman', '-S', '--noconfirm', '--needed', 'git', 'base-devel'])
+            
+            # Install yay as the real user
+            self.run_command(['sudo', '-u', real_user, 'bash', '-c', 
+                             'cd /tmp && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm'])
+            
+            # Now install packages using yay
+            self.run_command(['sudo', '-u', real_user, 'yay', '-S', '--noconfirm'] + packages)
     
     def apply_arch_hardware_fixes(self):
         """Apply comprehensive hardware fixes for Arch-based systems"""
