@@ -169,8 +169,13 @@ class GZ302Setup:
         
         # Additional check using /sys/class/drm if lspci is not available
         if not dgpu_found and Path('/sys/class/drm').exists():
+            # extract cardid from path
+            def getCardId(path):
+                match = re.search(r'card[0-9]*', str(path))
+                return match.group()
+
             # Count the number of GPU cards, integrated usually shows as card0
-            gpu_cards = list(Path('/sys/class/drm').glob('card[0-9]*'))
+            gpu_cards = set(map(getCardId, Path('/sys/class/drm').glob('card[0-9]*')))
             if len(gpu_cards) > 1:
                 dgpu_found = True
         
