@@ -9,7 +9,7 @@
 ### 🔧 **Core Hardware Support** (Always Installed)
 - **Automated MediaTek MT7925e Wi-Fi fixes** - Eliminates disconnection issues
 - **Complete ASUS touchpad integration** - Full gesture and precision support  
-- **Optimized AMD Ryzen AI 395+ performance** - Unlocks full processor potential
+- **Optimized AMD Ryzen AI 9 performance** - Unlocks full processor potential
 - **Advanced thermal management** - Sustained performance without throttling
 - **TDP control system** - 7-tier TDP profiles from 10W to 65W
 - **Display management** - 6-tier refresh rate profiles from 30Hz to 180Hz

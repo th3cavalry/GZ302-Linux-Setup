@@ -7,7 +7,7 @@
 # Version: 0.1.0-pre-release - Modular architecture with downloadable components
 #
 # This script automatically detects your Linux distribution and applies
-# the appropriate hardware fixes for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 395+.
+# the appropriate hardware fixes for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 9.
 # It applies critical hardware fixes and TDP/refresh rate management.
 #
 # Optional software can be installed via modular scripts:
@@ -137,7 +137,7 @@ detect_distribution() {
 apply_hardware_fixes() {
     info "Applying GZ302 hardware fixes for all distributions..."
     
-    # Kernel parameters for AMD Ryzen AI 9 HX 395 (Strix Point) and Radeon 880M
+    # Kernel parameters for AMD Ryzen AI 9 (Strix Point) and Radeon 880M
     info "Adding kernel parameters for AMD Strix Point optimization..."
     if [ -f /etc/default/grub ]; then
         # Check if parameters already exist
@@ -311,7 +311,7 @@ AUTO_CONFIG_FILE="$TDP_CONFIG_DIR/auto-config"
 AC_PROFILE_FILE="$TDP_CONFIG_DIR/ac-profile"
 BATTERY_PROFILE_FILE="$TDP_CONFIG_DIR/battery-profile"
 
-# TDP Profiles (in mW) - Optimized for GZ302 AMD Ryzen AI 395+
+# TDP Profiles (in mW) - Optimized for GZ302 AMD Ryzen AI 9 (Strix Point)
 declare -A TDP_PROFILES
 TDP_PROFILES[max_performance]="65000"    # Absolute maximum (AC only, short bursts)
 TDP_PROFILES[gaming]="54000"             # Gaming optimized (AC recommended)
