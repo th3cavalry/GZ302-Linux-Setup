@@ -2260,12 +2260,13 @@ offer_optional_modules() {
 
 # --- Main Execution Logic ---
 main() {
+    # Verify script is run with root privileges (required for system configuration)
     check_root
     
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 0.1.0-pre-release - Modular Architecture"
+    echo "  Version 0.1.1-pre-release - Modular Architecture"
     echo "============================================================"
     echo
     
