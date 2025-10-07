@@ -43,6 +43,13 @@ set -euo pipefail # Exit on error, undefined variable, or pipe failure
 # GitHub repository base URL for downloading modules
 GITHUB_RAW_URL="https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main"
 
+# --- Color codes for output (must be defined before error handler) ---
+C_BLUE='\033[0;34m'
+C_GREEN='\033[0;32m'
+C_YELLOW='\033[1;33m'
+C_RED='\033[0;31m'
+C_NC='\033[0m' # No Color
+
 # Add error handling trap
 cleanup_on_error() {
     local exit_code=$?
@@ -60,12 +67,6 @@ cleanup_on_error() {
 trap cleanup_on_error ERR
 
 # --- Helper Functions for User Feedback ---
-# Color codes for output
-C_BLUE='\033[0;34m'
-C_GREEN='\033[0;32m'
-C_YELLOW='\033[1;33m'
-C_RED='\033[0;31m'
-C_NC='\033[0m' # No Color
 
 info() {
     echo -e "${C_BLUE}[INFO]${C_NC} $1"
@@ -89,6 +90,22 @@ check_root() {
     if [[ $EUID -ne 0 ]]; then
         error "This script must be run as root. Please use sudo."
     fi
+}
+
+# --- Check Network Connectivity ---
+check_network() {
+    local test_urls=(
+        "https://raw.githubusercontent.com"
+        "8.8.8.8"
+    )
+    
+    for url in "${test_urls[@]}"; do
+        if curl -s --connect-timeout 5 --max-time 10 "$url" > /dev/null 2>&1 || ping -c 1 -W 2 "$url" > /dev/null 2>&1; then
+            return 0
+        fi
+    done
+    
+    return 1
 }
 
 # Get the real user (not root when using sudo)
@@ -2033,16 +2050,29 @@ download_and_execute_module() {
     local module_url="${GITHUB_RAW_URL}/${module_name}.sh"
     local temp_script="/tmp/${module_name}.sh"
     
+    # Check network connectivity before attempting download
+    if ! check_network; then
+        error "No network connectivity detected. Cannot download ${module_name} module.\nPlease check your internet connection and try again."
+        return 1
+    fi
+    
     info "Downloading ${module_name} module..."
-    if curl -fsSL "$module_url" -o "$temp_script"; then
+    if curl -fsSL "$module_url" -o "$temp_script" 2>/dev/null; then
         chmod +x "$temp_script"
         info "Executing ${module_name} module..."
         bash "$temp_script" "$distro"
+        local exec_result=$?
         rm -f "$temp_script"
-        success "${module_name} module completed"
-        return 0
+        
+        if [[ $exec_result -eq 0 ]]; then
+            success "${module_name} module completed"
+            return 0
+        else
+            warning "${module_name} module completed with errors"
+            return 1
+        fi
     else
-        error "Failed to download ${module_name} module from ${module_url}"
+        error "Failed to download ${module_name} module from ${module_url}\nPlease verify:\n  1. Internet connection is active\n  2. GitHub is accessible\n  3. Repository URL is correct"
         return 1
     fi
 }
@@ -2230,13 +2260,31 @@ offer_optional_modules() {
 
 # --- Main Execution Logic ---
 main() {
+    # Verify script is run with root privileges (required for system configuration)
     check_root
     
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 0.1.0-pre-release - Modular Architecture"
+    echo "  Version 0.1.1-pre-release - Modular Architecture"
     echo "============================================================"
+    echo
+    
+    # Check network connectivity early
+    info "Checking network connectivity..."
+    if ! check_network; then
+        warning "Network connectivity check failed."
+        warning "Some features may not work without internet access."
+        warning "Please ensure you have an active internet connection."
+        echo
+        read -p "Do you want to continue anyway? (y/N): " continue_choice
+        if [[ ! "$continue_choice" =~ ^[Yy]$ ]]; then
+            error "Setup cancelled. Please connect to the internet and try again."
+        fi
+        warning "Continuing without network validation..."
+    else
+        success "Network connectivity confirmed"
+    fi
     echo
     
     info "Detecting your Linux distribution..."
