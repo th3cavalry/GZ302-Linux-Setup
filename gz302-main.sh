@@ -161,7 +161,7 @@ apply_hardware_fixes() {
     cat > /etc/modprobe.d/mt7925.conf <<'EOF'
 # MediaTek MT7925 Wi-Fi fixes for GZ302
 # Disable ASPM for stability (primary fix for disconnection issues)
-options mt7925 disable_aspm=1
+options mt7925e disable_aspm=1
 EOF
 
     # Disable NetworkManager Wi-Fi power saving
