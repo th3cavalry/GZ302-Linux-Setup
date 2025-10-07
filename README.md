@@ -2,7 +2,7 @@
 
 **Modular Linux setup scripts specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional downloadable modules for gaming, AI development, virtualization, and more.
 
-> **🚀 Version 0.1.0-pre-release - Modular Architecture!** New modular design with a lightweight main script that applies core hardware fixes and downloads optional software modules on demand. Simplified maintenance with bash-only implementation. All distributions have equal priority with identical feature sets.
+> **🚀 Version 0.1.1-pre-release - Modular Architecture!** New modular design with a lightweight main script that applies core hardware fixes and downloads optional software modules on demand. Simplified maintenance with bash-only implementation. All distributions have equal priority with identical feature sets.
 
 ## ✨ Key Features
 
@@ -202,5 +202,5 @@ This project is provided as-is for the GZ302 community.
 
 ---
 
-**Version:** 0.1.0-pre-release  
+**Version:** 0.1.1-pre-release  
 **Last Updated:** October 2024
