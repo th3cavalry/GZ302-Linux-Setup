@@ -7,7 +7,7 @@
 # Version: 0.1.0-pre-release - Modular architecture with downloadable components
 #
 # This script automatically detects your Linux distribution and applies
-# the appropriate hardware fixes for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI 9.
+# the appropriate hardware fixes for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.
 # It applies critical hardware fixes and TDP/refresh rate management.
 #
 # Optional software can be installed via modular scripts:
@@ -132,19 +132,20 @@ detect_distribution() {
 # --- Hardware Fixes for All Distributions ---
 # Simplified and modernized based on latest kernel support and research
 # Sources: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org
-# GZ302 has integrated AMD Radeon 880M only (NO discrete GPU)
+# GZ302 has AMD Ryzen AI MAX+ 395 with NVIDIA GeForce RTX 8060s discrete GPU
 
 apply_hardware_fixes() {
     info "Applying GZ302 hardware fixes for all distributions..."
     
-    # Kernel parameters for AMD Ryzen AI 9 (Strix Point) and Radeon 880M
-    info "Adding kernel parameters for AMD Strix Point optimization..."
+    # Kernel parameters for AMD Ryzen AI MAX+ 395 (Strix Halo) and NVIDIA RTX 8060s
+    info "Adding kernel parameters for AMD Strix Halo and NVIDIA GPU optimization..."
     if [ -f /etc/default/grub ]; then
         # Check if parameters already exist
         if ! grep -q "amd_pstate=guided" /etc/default/grub; then
             # Add AMD P-State (guided mode) and GPU parameters
-            # guided is better than active for Strix Point according to community testing
-            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="amd_pstate=guided amdgpu.ppfeaturemask=0xffffffff /' /etc/default/grub
+            # guided is better than active for Strix Halo according to community testing
+            # Added NVIDIA parameters for hybrid graphics support
+            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="amd_pstate=guided nvidia-drm.modeset=1 /' /etc/default/grub
             
             # Regenerate GRUB config
             if [ -f /boot/grub/grub.cfg ]; then
@@ -170,12 +171,14 @@ EOF
 wifi.powersave = 2
 EOF
 
-    # AMD GPU module configuration for Radeon 880M (integrated)
-    info "Configuring AMD Radeon 880M GPU..."
-    cat > /etc/modprobe.d/amdgpu.conf <<'EOF'
-# AMD GPU configuration for Radeon 880M (RDNA 3.5, integrated)
-# Enable all power features for better performance and efficiency
-options amdgpu ppfeaturemask=0xffffffff
+    # NVIDIA GPU module configuration for RTX 8060s (discrete)
+    info "Configuring NVIDIA GeForce RTX 8060s GPU..."
+    cat > /etc/modprobe.d/nvidia.conf <<'EOF'
+# NVIDIA GPU configuration for RTX 8060s
+# Enable DRM kernel mode setting for Wayland support
+options nvidia-drm modeset=1
+# Power management for hybrid graphics
+options nvidia NVreg_DynamicPowerManagement=0x02
 EOF
 
     # ASUS HID (keyboard/touchpad) configuration
@@ -198,84 +201,88 @@ EOF
 # GZ302 has NO discrete GPU, so no supergfxctl needed
 
 install_arch_asus_packages() {
-    info "Installing ASUS control packages for Arch..."
+    info "Installing ASUS control packages and NVIDIA drivers for Arch..."
     
     # Install from official repos first
-    pacman -S --noconfirm --needed power-profiles-daemon
+    pacman -S --noconfirm --needed power-profiles-daemon nvidia nvidia-utils
     
-    # Install asusctl from AUR (requires yay)
+    # Install asusctl and supergfxctl from AUR (requires yay)
     if command -v yay >/dev/null 2>&1; then
         local primary_user=$(get_real_user)
-        sudo -u "$primary_user" yay -S --noconfirm --needed asusctl
+        # Install ASUS control tools
+        sudo -u "$primary_user" yay -S --noconfirm --needed asusctl supergfxctl
         
-        # Install switcheroo-control (useful for display management even without dGPU)
+        # Install switcheroo-control for display management
         sudo -u "$primary_user" yay -S --noconfirm --needed switcheroo-control || warning "switcheroo-control install failed"
     else
-        warning "yay not available - skipping asusctl installation"
-        info "Install yay and run: yay -S asusctl switcheroo-control"
+        warning "yay not available - skipping asusctl/supergfxctl installation"
+        info "Install yay and run: yay -S asusctl supergfxctl switcheroo-control"
     fi
     
     # Enable services
     systemctl enable --now power-profiles-daemon || true
+    systemctl enable --now supergfxd || true
     
-    success "ASUS packages installed"
+    success "ASUS packages and NVIDIA drivers installed"
 }
 
 install_debian_asus_packages() {
-    info "Installing ASUS control packages for Debian/Ubuntu..."
+    info "Installing ASUS control packages and NVIDIA drivers for Debian/Ubuntu..."
     
-    # Install power-profiles-daemon
-    apt install -y power-profiles-daemon || warning "power-profiles-daemon install failed"
+    # Install power-profiles-daemon and NVIDIA drivers
+    apt install -y power-profiles-daemon nvidia-driver nvidia-settings || warning "NVIDIA driver install failed"
     
     # Install switcheroo-control
     apt install -y switcheroo-control || warning "switcheroo-control install failed"
     
-    # Note about asusctl
-    info "Note: asusctl requires manual installation from source or PPA"
+    # Note about asusctl and supergfxctl
+    info "Note: asusctl and supergfxctl require manual installation from source or PPA"
     info "See: https://asus-linux.org for installation instructions"
     
     # Enable services
     systemctl enable --now power-profiles-daemon || true
     
-    success "ASUS packages installed"
+    success "ASUS packages and NVIDIA drivers installed"
 }
 
 install_fedora_asus_packages() {
-    info "Installing ASUS control packages for Fedora..."
+    info "Installing ASUS control packages and NVIDIA drivers for Fedora..."
     
-    # Install power-profiles-daemon (usually already installed)
+    # Install power-profiles-daemon (usually already installed) and NVIDIA drivers
     dnf install -y power-profiles-daemon || warning "power-profiles-daemon install failed"
+    dnf install -y akmod-nvidia xorg-x11-drv-nvidia-cuda || warning "NVIDIA driver install failed"
     
     # Install switcheroo-control
     dnf install -y switcheroo-control || warning "switcheroo-control install failed"
     
-    # Note about asusctl
-    info "Note: asusctl available from COPR"
-    info "Run: dnf copr enable lukenukem/asus-linux && dnf install asusctl"
+    # Note about asusctl and supergfxctl
+    info "Note: asusctl and supergfxctl available from COPR"
+    info "Run: dnf copr enable lukenukem/asus-linux && dnf install asusctl supergfxctl"
     
     # Enable services
     systemctl enable --now power-profiles-daemon || true
     
-    success "ASUS packages installed"
+    success "ASUS packages and NVIDIA drivers installed"
 }
 
 install_opensuse_asus_packages() {
-    info "Installing ASUS control packages for OpenSUSE..."
+    info "Installing ASUS control packages and NVIDIA drivers for OpenSUSE..."
     
-    # Install power-profiles-daemon
+    # Install power-profiles-daemon and NVIDIA drivers
     zypper install -y power-profiles-daemon || warning "power-profiles-daemon install failed"
+    zypper install -y nvidia-glG06 nvidia-video-G06 || warning "NVIDIA driver install failed"
     
     # Install switcheroo-control if available
     zypper install -y switcheroo-control || warning "switcheroo-control install failed"
     
-    # Note about asusctl
-    info "Note: asusctl requires manual installation from source"
+    # Note about asusctl and supergfxctl
+    info "Note: asusctl and supergfxctl require manual installation from source"
     info "See: https://asus-linux.org for installation instructions"
     
     # Enable services
     systemctl enable --now power-profiles-daemon || true
     
-    success "ASUS packages installed"
+    success "ASUS packages and NVIDIA drivers installed"
 }
 
 setup_tdp_management() {
@@ -311,7 +318,7 @@ AUTO_CONFIG_FILE="$TDP_CONFIG_DIR/auto-config"
 AC_PROFILE_FILE="$TDP_CONFIG_DIR/ac-profile"
 BATTERY_PROFILE_FILE="$TDP_CONFIG_DIR/battery-profile"
 
-# TDP Profiles (in mW) - Optimized for GZ302 AMD Ryzen AI 9 (Strix Point)
+# TDP Profiles (in mW) - Optimized for GZ302 AMD Ryzen AI MAX+ 395 (Strix Halo)
 declare -A TDP_PROFILES
 TDP_PROFILES[max_performance]="65000"    # Absolute maximum (AC only, short bursts)
 TDP_PROFILES[gaming]="54000"             # Gaming optimized (AC recommended)

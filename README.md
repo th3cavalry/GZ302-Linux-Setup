@@ -9,7 +9,7 @@
 ### 🔧 **Core Hardware Support** (Always Installed)
 - **Automated MediaTek MT7925e Wi-Fi fixes** - Eliminates disconnection issues
 - **Complete ASUS touchpad integration** - Full gesture and precision support  
-- **Optimized AMD Ryzen AI 9 performance** - Unlocks full processor potential
+- **Optimized AMD Ryzen AI MAX+ 395 performance** - Unlocks full processor potential
 - **Advanced thermal management** - Sustained performance without throttling
 - **TDP control system** - 7-tier TDP profiles from 10W to 65W
 - **Display management** - 6-tier refresh rate profiles from 30Hz to 180Hz
@@ -52,17 +52,19 @@ All distributions receive identical treatment with equal priority:
 
 ### Hardware Fixes (Always Applied)
 Based on latest research from GZ302 community (kernel 6.11+ recommended):
-- **Kernel parameters**: AMD P-State driver (`amd_pstate=guided`) - optimal for Strix Point
-- **GPU optimization**: Full AMD GPU feature mask for Radeon 880M (integrated, RDNA 3.5)
+- **Kernel parameters**: AMD P-State driver (`amd_pstate=guided`) - optimal for Strix Halo
+- **GPU optimization**: NVIDIA GeForce RTX 8060s driver and hybrid graphics support
 - **Wi-Fi stability**: MediaTek MT7925 fixes (disable ASPM, power save off)
 - **ASUS HID**: Keyboard and touchpad module configuration
 
 ### ASUS-Specific Packages (Distribution-dependent)
 - **asusctl**: ASUS laptop controls (keyboard backlight, fan curves, power profiles)
+- **supergfxctl**: GPU switching between NVIDIA and integrated graphics
 - **power-profiles-daemon**: System power management integration
-- **switcheroo-control**: Display management (useful even without discrete GPU)
+- **switcheroo-control**: Display management for hybrid graphics
+- **NVIDIA drivers**: Proprietary drivers for RTX 8060s
 
-Note: GZ302 has NO discrete GPU (only integrated AMD Radeon 880M). No supergfxctl needed.
+Note: GZ302 has NVIDIA GeForce RTX 8060s discrete GPU with AMD integrated graphics for hybrid mode.
 
 ### Management Tools (Always Installed)
 - **TDP Management** (`gz302-tdp` command)
