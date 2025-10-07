@@ -132,20 +132,20 @@ detect_distribution() {
 # --- Hardware Fixes for All Distributions ---
 # Simplified and modernized based on latest kernel support and research
 # Sources: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org
-# GZ302 has AMD Ryzen AI MAX+ 395 with NVIDIA GeForce RTX 8060s discrete GPU
+# GZ302EA-XS99: AMD Ryzen AI MAX+ 395 with AMD Radeon 8060S integrated graphics (100% AMD)
 
 apply_hardware_fixes() {
     info "Applying GZ302 hardware fixes for all distributions..."
     
-    # Kernel parameters for AMD Ryzen AI MAX+ 395 (Strix Halo) and NVIDIA RTX 8060s
-    info "Adding kernel parameters for AMD Strix Halo and NVIDIA GPU optimization..."
+    # Kernel parameters for AMD Ryzen AI MAX+ 395 (Strix Halo) and Radeon 8060S
+    info "Adding kernel parameters for AMD Strix Halo optimization..."
     if [ -f /etc/default/grub ]; then
         # Check if parameters already exist
         if ! grep -q "amd_pstate=guided" /etc/default/grub; then
             # Add AMD P-State (guided mode) and GPU parameters
             # guided is better than active for Strix Halo according to community testing
-            # Added NVIDIA parameters for hybrid graphics support
-            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="amd_pstate=guided nvidia-drm.modeset=1 /' /etc/default/grub
+            # Added AMD GPU parameters for optimal Radeon 8060S performance
+            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="amd_pstate=guided amdgpu.ppfeaturemask=0xffffffff /' /etc/default/grub
             
             # Regenerate GRUB config
             if [ -f /boot/grub/grub.cfg ]; then
@@ -171,14 +171,12 @@ EOF
 wifi.powersave = 2
 EOF
 
-    # NVIDIA GPU module configuration for RTX 8060s (discrete)
-    info "Configuring NVIDIA GeForce RTX 8060s GPU..."
-    cat > /etc/modprobe.d/nvidia.conf <<'EOF'
-# NVIDIA GPU configuration for RTX 8060s
-# Enable DRM kernel mode setting for Wayland support
-options nvidia-drm modeset=1
-# Power management for hybrid graphics
-options nvidia NVreg_DynamicPowerManagement=0x02
+    # AMD GPU module configuration for Radeon 8060S (integrated)
+    info "Configuring AMD Radeon 8060S GPU..."
+    cat > /etc/modprobe.d/amdgpu.conf <<'EOF'
+# AMD GPU configuration for Radeon 8060S (RDNA 3.5, integrated)
+# Enable all power features for better performance and efficiency
+options amdgpu ppfeaturemask=0xffffffff
 EOF
 
     # ASUS HID (keyboard/touchpad) configuration
@@ -201,88 +199,85 @@ EOF
 # GZ302 has NO discrete GPU, so no supergfxctl needed
 
 install_arch_asus_packages() {
-    info "Installing ASUS control packages and NVIDIA drivers for Arch..."
+    info "Installing ASUS control packages for Arch..."
     
     # Install from official repos first
-    pacman -S --noconfirm --needed power-profiles-daemon nvidia nvidia-utils
+    pacman -S --noconfirm --needed power-profiles-daemon
     
-    # Install asusctl and supergfxctl from AUR (requires yay)
+    # Install asusctl from AUR (requires yay)
     if command -v yay >/dev/null 2>&1; then
         local primary_user=$(get_real_user)
         # Install ASUS control tools
-        sudo -u "$primary_user" yay -S --noconfirm --needed asusctl supergfxctl
+        sudo -u "$primary_user" yay -S --noconfirm --needed asusctl
         
         # Install switcheroo-control for display management
         sudo -u "$primary_user" yay -S --noconfirm --needed switcheroo-control || warning "switcheroo-control install failed"
     else
-        warning "yay not available - skipping asusctl/supergfxctl installation"
-        info "Install yay and run: yay -S asusctl supergfxctl switcheroo-control"
+        warning "yay not available - skipping asusctl installation"
+        info "Install yay and run: yay -S asusctl switcheroo-control"
     fi
     
     # Enable services
     systemctl enable --now power-profiles-daemon || true
-    systemctl enable --now supergfxd || true
     
-    success "ASUS packages and NVIDIA drivers installed"
+    success "ASUS packages installed"
 }
 
 install_debian_asus_packages() {
-    info "Installing ASUS control packages and NVIDIA drivers for Debian/Ubuntu..."
+    info "Installing ASUS control packages for Debian/Ubuntu..."
     
-    # Install power-profiles-daemon and NVIDIA drivers
-    apt install -y power-profiles-daemon nvidia-driver nvidia-settings || warning "NVIDIA driver install failed"
+    # Install power-profiles-daemon
+    apt install -y power-profiles-daemon || warning "power-profiles-daemon install failed"
     
     # Install switcheroo-control
     apt install -y switcheroo-control || warning "switcheroo-control install failed"
     
-    # Note about asusctl and supergfxctl
-    info "Note: asusctl and supergfxctl require manual installation from source or PPA"
+    # Note about asusctl
+    info "Note: asusctl requires manual installation from source or PPA"
     info "See: https://asus-linux.org for installation instructions"
     
     # Enable services
     systemctl enable --now power-profiles-daemon || true
     
-    success "ASUS packages and NVIDIA drivers installed"
+    success "ASUS packages installed"
 }
 
 install_fedora_asus_packages() {
-    info "Installing ASUS control packages and NVIDIA drivers for Fedora..."
+    info "Installing ASUS control packages for Fedora..."
     
-    # Install power-profiles-daemon (usually already installed) and NVIDIA drivers
+    # Install power-profiles-daemon (usually already installed)
     dnf install -y power-profiles-daemon || warning "power-profiles-daemon install failed"
-    dnf install -y akmod-nvidia xorg-x11-drv-nvidia-cuda || warning "NVIDIA driver install failed"
     
     # Install switcheroo-control
     dnf install -y switcheroo-control || warning "switcheroo-control install failed"
     
-    # Note about asusctl and supergfxctl
-    info "Note: asusctl and supergfxctl available from COPR"
-    info "Run: dnf copr enable lukenukem/asus-linux && dnf install asusctl supergfxctl"
+    # Note about asusctl
+    info "Note: asusctl available from COPR"
+    info "Run: dnf copr enable lukenukem/asus-linux && dnf install asusctl"
     
     # Enable services
     systemctl enable --now power-profiles-daemon || true
     
-    success "ASUS packages and NVIDIA drivers installed"
+    success "ASUS packages installed"
 }
 
 install_opensuse_asus_packages() {
-    info "Installing ASUS control packages and NVIDIA drivers for OpenSUSE..."
+    info "Installing ASUS control packages for OpenSUSE..."
     
-    # Install power-profiles-daemon and NVIDIA drivers
+    # Install power-profiles-daemon
     zypper install -y power-profiles-daemon || warning "power-profiles-daemon install failed"
-    zypper install -y nvidia-glG06 nvidia-video-G06 || warning "NVIDIA driver install failed"
     
     # Install switcheroo-control if available
     zypper install -y switcheroo-control || warning "switcheroo-control install failed"
     
-    # Note about asusctl and supergfxctl
-    info "Note: asusctl and supergfxctl require manual installation from source"
+    # Note about asusctl
+    info "Note: asusctl requires manual installation from source"
     info "See: https://asus-linux.org for installation instructions"
     
     # Enable services
     systemctl enable --now power-profiles-daemon || true
     
-    success "ASUS packages and NVIDIA drivers installed"
+    success "ASUS packages installed"
 }
 
 setup_tdp_management() {

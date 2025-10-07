@@ -53,18 +53,16 @@ All distributions receive identical treatment with equal priority:
 ### Hardware Fixes (Always Applied)
 Based on latest research from GZ302 community (kernel 6.11+ recommended):
 - **Kernel parameters**: AMD P-State driver (`amd_pstate=guided`) - optimal for Strix Halo
-- **GPU optimization**: NVIDIA GeForce RTX 8060s driver and hybrid graphics support
+- **GPU optimization**: AMD Radeon 8060S integrated graphics (RDNA 3.5) - full feature mask enabled
 - **Wi-Fi stability**: MediaTek MT7925 fixes (disable ASPM, power save off)
 - **ASUS HID**: Keyboard and touchpad module configuration
 
 ### ASUS-Specific Packages (Distribution-dependent)
 - **asusctl**: ASUS laptop controls (keyboard backlight, fan curves, power profiles)
-- **supergfxctl**: GPU switching between NVIDIA and integrated graphics
 - **power-profiles-daemon**: System power management integration
-- **switcheroo-control**: Display management for hybrid graphics
-- **NVIDIA drivers**: Proprietary drivers for RTX 8060s
+- **switcheroo-control**: Display management
 
-Note: GZ302 has NVIDIA GeForce RTX 8060s discrete GPU with AMD integrated graphics for hybrid mode.
+Note: GZ302EA-XS99 has AMD Radeon 8060S integrated graphics (100% AMD system). No discrete GPU or NVIDIA components.
 
 ### Management Tools (Always Installed)
 - **TDP Management** (`gz302-tdp` command)
