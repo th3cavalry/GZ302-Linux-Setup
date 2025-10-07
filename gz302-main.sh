@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 0.1.0-pre-release - Modular architecture with downloadable components
+# Version: 0.1.1-pre-release
 #
 # This script automatically detects your Linux distribution and applies
 # the appropriate hardware fixes for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.
@@ -145,7 +145,7 @@ apply_hardware_fixes() {
             # Add AMD P-State (guided mode) and GPU parameters
             # guided is better than active for Strix Halo according to community testing
             # Added AMD GPU parameters for optimal Radeon 8060S performance
-            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="amd_pstate=guided amdgpu.ppfeaturemask=0xffffffff /' /etc/default/grub
+            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 amd_pstate=guided amdgpu.ppfeaturemask=0xffffffff"/' /etc/default/grub
             
             # Regenerate GRUB config
             if [ -f /boot/grub/grub.cfg ]; then
@@ -218,7 +218,7 @@ install_arch_asus_packages() {
     fi
     
     # Enable services
-    systemctl enable --now power-profiles-daemon || true
+    systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
     
     success "ASUS packages installed"
 }
@@ -237,7 +237,7 @@ install_debian_asus_packages() {
     info "See: https://asus-linux.org for installation instructions"
     
     # Enable services
-    systemctl enable --now power-profiles-daemon || true
+    systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
     
     success "ASUS packages installed"
 }
@@ -256,7 +256,7 @@ install_fedora_asus_packages() {
     info "Run: dnf copr enable lukenukem/asus-linux && dnf install asusctl"
     
     # Enable services
-    systemctl enable --now power-profiles-daemon || true
+    systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
     
     success "ASUS packages installed"
 }
@@ -275,9 +275,79 @@ install_opensuse_asus_packages() {
     info "See: https://asus-linux.org for installation instructions"
     
     # Enable services
-    systemctl enable --now power-profiles-daemon || true
+    systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
     
     success "ASUS packages installed"
+}
+
+# --- TDP Management Functions ---
+
+install_ryzenadj_arch() {
+    info "Installing ryzenadj for Arch-based system..."
+    
+    # Check for and remove conflicting packages first
+    if pacman -Qi ryzenadj-git >/dev/null 2>&1; then
+        warning "Removing conflicting ryzenadj-git package..."
+        pacman -R --noconfirm ryzenadj-git || warning "Failed to remove ryzenadj-git, continuing..."
+    fi
+    
+    if command -v yay >/dev/null 2>&1; then
+        sudo -u "$SUDO_USER" yay -S --noconfirm ryzenadj
+    elif command -v paru >/dev/null 2>&1; then
+        sudo -u "$SUDO_USER" paru -S --noconfirm ryzenadj
+    else
+        warning "AUR helper (yay/paru) not found. Installing yay first..."
+        pacman -S --noconfirm git base-devel
+        cd /tmp
+        sudo -u "$SUDO_USER" git clone https://aur.archlinux.org/yay.git
+        cd yay
+        sudo -u "$SUDO_USER" makepkg -si --noconfirm
+        sudo -u "$SUDO_USER" yay -S --noconfirm ryzenadj
+    fi
+    success "ryzenadj installed"
+}
+
+install_ryzenadj_debian() {
+    info "Installing ryzenadj for Debian-based system..."
+    apt-get update
+    apt-get install -y build-essential cmake libpci-dev git
+    cd /tmp
+    git clone https://github.com/FlyGoat/RyzenAdj.git
+    cd RyzenAdj
+    mkdir build && cd build
+    cmake -DCMAKE_BUILD_TYPE=Release ..
+    make -j$(nproc)
+    make install
+    ldconfig
+    success "ryzenadj compiled and installed"
+}
+
+install_ryzenadj_fedora() {
+    info "Installing ryzenadj for Fedora-based system..."
+    dnf install -y gcc gcc-c++ cmake pciutils-devel git
+    cd /tmp
+    git clone https://github.com/FlyGoat/RyzenAdj.git
+    cd RyzenAdj
+    mkdir build && cd build
+    cmake -DCMAKE_BUILD_TYPE=Release ..
+    make -j$(nproc)
+    make install
+    ldconfig
+    success "ryzenadj compiled and installed"
+}
+
+install_ryzenadj_opensuse() {
+    info "Installing ryzenadj for OpenSUSE..."
+    zypper install -y gcc gcc-c++ cmake pciutils-devel git
+    cd /tmp
+    git clone https://github.com/FlyGoat/RyzenAdj.git
+    cd RyzenAdj
+    mkdir build && cd build
+    cmake -DCMAKE_BUILD_TYPE=Release ..
+    make -j$(nproc)
+    make install
+    ldconfig
+    success "ryzenadj compiled and installed"
 }
 
 setup_tdp_management() {
@@ -312,6 +382,15 @@ CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
 AUTO_CONFIG_FILE="$TDP_CONFIG_DIR/auto-config"
 AC_PROFILE_FILE="$TDP_CONFIG_DIR/ac-profile"
 BATTERY_PROFILE_FILE="$TDP_CONFIG_DIR/battery-profile"
+
+# Get the real user (not root when using sudo)
+get_real_user() {
+    if [[ -n "${SUDO_USER:-}" ]]; then
+        echo "$SUDO_USER"
+    else
+        echo "$(logname 2>/dev/null || whoami)"
+    fi
+}
 
 # TDP Profiles (in mW) - Optimized for GZ302 AMD Ryzen AI MAX+ 395 (Strix Halo)
 declare -A TDP_PROFILES
@@ -421,7 +500,8 @@ get_battery_percentage() {
     for battery in BAT0 BAT1 BATT; do
         if [ -f "/sys/class/power_supply/$battery/capacity" ]; then
             local capacity=$(cat "/sys/class/power_supply/$battery/capacity" 2>/dev/null)
-            if [ -n "$capacity" ] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
+            # Validate that capacity is numeric
+            if [ -n "$capacity" ] && [[ "$capacity" =~ ^[0-9]+$ ]] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
                 echo "$capacity"
                 return 0
             fi
@@ -436,7 +516,8 @@ get_battery_percentage() {
                 if [ "$type" = "Battery" ]; then
                     if [ -f "$ps/capacity" ]; then
                         local capacity=$(cat "$ps/capacity" 2>/dev/null)
-                        if [ -n "$capacity" ] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
+                        # Validate that capacity is numeric
+                        if [ -n "$capacity" ] && [[ "$capacity" =~ ^[0-9]+$ ]] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
                             echo "$capacity"
                             return 0
                         fi
@@ -449,7 +530,8 @@ get_battery_percentage() {
     # Method 3: Use upower if available
     if command -v upower >/dev/null 2>&1; then
         local capacity=$(upower -i $(upower -e | grep 'BAT') 2>/dev/null | grep -E "percentage" | grep -o '[0-9]*')
-        if [ -n "$capacity" ] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
+        # Validate that capacity is numeric
+        if [ -n "$capacity" ] && [[ "$capacity" =~ ^[0-9]+$ ]] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
             echo "$capacity"
             return 0
         fi
@@ -458,7 +540,8 @@ get_battery_percentage() {
     # Method 4: Use acpi if available
     if command -v acpi >/dev/null 2>&1; then
         local capacity=$(acpi -b 2>/dev/null | grep -o '[0-9]\+%' | head -1 | tr -d '%')
-        if [ -n "$capacity" ] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
+        # Validate that capacity is numeric
+        if [ -n "$capacity" ] && [[ "$capacity" =~ ^[0-9]+$ ]] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
             echo "$capacity"
             return 0
         fi
@@ -830,6 +913,15 @@ GAME_PROFILES_FILE="$REFRESH_CONFIG_DIR/game-profiles"
 VRR_RANGES_FILE="$REFRESH_CONFIG_DIR/vrr-ranges"
 MONITOR_CONFIGS_FILE="$REFRESH_CONFIG_DIR/monitor-configs"
 POWER_MONITORING_FILE="$REFRESH_CONFIG_DIR/power-monitoring"
+
+# Get the real user (not root when using sudo)
+get_real_user() {
+    if [[ -n "${SUDO_USER:-}" ]]; then
+        echo "$SUDO_USER"
+    else
+        echo "$(logname 2>/dev/null || whoami)"
+    fi
+}
 
 # Refresh Rate Profiles - Optimized for GZ302 display and AMD GPU
 declare -A REFRESH_PROFILES
