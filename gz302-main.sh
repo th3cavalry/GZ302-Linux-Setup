@@ -100,40 +100,6 @@ get_real_user() {
     fi
 }
 
-# --- GPU Detection ---
-detect_discrete_gpu() {
-    local dgpu_found=false
-    
-    # Check for discrete GPUs using lspci
-    if command -v lspci >/dev/null 2>&1; then
-        # Look for NVIDIA or AMD discrete GPUs (excluding integrated)
-        if lspci | grep -i "vga\|3d\|display" | grep -i "nvidia\|radeon.*r[567x]\|radeon.*rx\|geforce\|quadro\|tesla" >/dev/null 2>&1; then
-            dgpu_found=true
-        fi
-    fi
-    
-    # Check dmesg for additional GPU info if available
-    if command -v dmesg >/dev/null 2>&1; then
-        if dmesg 2>/dev/null | grep -i "nvidia\|radeon.*discrete" >/dev/null 2>&1; then
-            dgpu_found=true
-        fi
-    fi
-    
-    # Check for GPU driver modules
-    if lsmod | grep -i "nvidia\|amdgpu" | grep -v "i915\|nouveau" >/dev/null 2>&1; then
-        # Further validate it's a discrete GPU by checking for VGA controller
-        if lspci | grep -i "vga.*nvidia\|vga.*amd.*radeon" >/dev/null 2>&1; then
-            dgpu_found=true
-        fi
-    fi
-    
-    if $dgpu_found; then
-        echo "true"
-    else
-        echo "false"
-    fi
-}
-
 # --- Distribution Detection ---
 detect_distribution() {
     local distro=""
@@ -165,18 +131,20 @@ detect_distribution() {
 
 # --- Hardware Fixes for All Distributions ---
 # Simplified and modernized based on latest kernel support and research
-# Sources: asus-linux.org, kernel docs, community forums
+# Sources: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org
+# GZ302 has integrated AMD Radeon 890M only (NO discrete GPU)
 
 apply_hardware_fixes() {
     info "Applying GZ302 hardware fixes for all distributions..."
     
-    # Kernel parameters for AMD Ryzen AI 395+ and RDNA 3.5 GPU
+    # Kernel parameters for AMD Ryzen AI 9 HX 395 (Strix Point) and Radeon 890M
     info "Adding kernel parameters for AMD Strix Point optimization..."
     if [ -f /etc/default/grub ]; then
         # Check if parameters already exist
-        if ! grep -q "amd_pstate=active" /etc/default/grub; then
-            # Add AMD P-State and GPU parameters
-            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="amd_pstate=active amdgpu.ppfeaturemask=0xffffffff /' /etc/default/grub
+        if ! grep -q "amd_pstate=guided" /etc/default/grub; then
+            # Add AMD P-State (guided mode) and GPU parameters
+            # guided is better than active for Strix Point according to community testing
+            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="amd_pstate=guided amdgpu.ppfeaturemask=0xffffffff /' /etc/default/grub
             
             # Regenerate GRUB config
             if [ -f /boot/grub/grub.cfg ]; then
@@ -187,10 +155,10 @@ apply_hardware_fixes() {
         fi
     fi
     
-    # Wi-Fi fixes for MediaTek MT7925e (kernel 6.8+ recommended)
-    info "Configuring MediaTek MT7925e Wi-Fi..."
-    cat > /etc/modprobe.d/mt7925e.conf <<'EOF'
-# MediaTek MT7925E Wi-Fi fixes for GZ302
+    # Wi-Fi fixes for MediaTek MT7925 (kernel 6.11+ recommended)
+    info "Configuring MediaTek MT7925 Wi-Fi..."
+    cat > /etc/modprobe.d/mt7925.conf <<'EOF'
+# MediaTek MT7925 Wi-Fi fixes for GZ302
 # Disable ASPM for stability (primary fix for disconnection issues)
 options mt7925e disable_aspm=1
 EOF
@@ -202,10 +170,10 @@ EOF
 wifi.powersave = 2
 EOF
 
-    # AMD GPU module configuration
+    # AMD GPU module configuration for Radeon 890M (integrated)
     info "Configuring AMD Radeon 890M GPU..."
     cat > /etc/modprobe.d/amdgpu.conf <<'EOF'
-# AMD GPU configuration for Radeon 890M (RDNA 3.5)
+# AMD GPU configuration for Radeon 890M (RDNA 3.5, integrated)
 # Enable all power features for better performance and efficiency
 options amdgpu ppfeaturemask=0xffffffff
 EOF
@@ -223,6 +191,91 @@ EOF
     udevadm control --reload 2>/dev/null || true
     
     success "Hardware fixes applied"
+}
+
+# --- Distribution-Specific Package Installation ---
+# Install ASUS-specific tools and power management
+# GZ302 has NO discrete GPU, so no supergfxctl needed
+
+install_arch_asus_packages() {
+    info "Installing ASUS control packages for Arch..."
+    
+    # Install from official repos first
+    pacman -S --noconfirm --needed power-profiles-daemon
+    
+    # Install asusctl from AUR (requires yay)
+    if command -v yay >/dev/null 2>&1; then
+        local primary_user=$(get_real_user)
+        sudo -u "$primary_user" yay -S --noconfirm --needed asusctl
+        
+        # Install switcheroo-control (useful for display management even without dGPU)
+        sudo -u "$primary_user" yay -S --noconfirm --needed switcheroo-control || warning "switcheroo-control install failed"
+    else
+        warning "yay not available - skipping asusctl installation"
+        info "Install yay and run: yay -S asusctl switcheroo-control"
+    fi
+    
+    # Enable services
+    systemctl enable --now power-profiles-daemon || true
+    
+    success "ASUS packages installed"
+}
+
+install_debian_asus_packages() {
+    info "Installing ASUS control packages for Debian/Ubuntu..."
+    
+    # Install power-profiles-daemon
+    apt install -y power-profiles-daemon || warning "power-profiles-daemon install failed"
+    
+    # Install switcheroo-control
+    apt install -y switcheroo-control || warning "switcheroo-control install failed"
+    
+    # Note about asusctl
+    info "Note: asusctl requires manual installation from source or PPA"
+    info "See: https://asus-linux.org for installation instructions"
+    
+    # Enable services
+    systemctl enable --now power-profiles-daemon || true
+    
+    success "ASUS packages installed"
+}
+
+install_fedora_asus_packages() {
+    info "Installing ASUS control packages for Fedora..."
+    
+    # Install power-profiles-daemon (usually already installed)
+    dnf install -y power-profiles-daemon || warning "power-profiles-daemon install failed"
+    
+    # Install switcheroo-control
+    dnf install -y switcheroo-control || warning "switcheroo-control install failed"
+    
+    # Note about asusctl
+    info "Note: asusctl available from COPR"
+    info "Run: dnf copr enable lukenukem/asus-linux && dnf install asusctl"
+    
+    # Enable services
+    systemctl enable --now power-profiles-daemon || true
+    
+    success "ASUS packages installed"
+}
+
+install_opensuse_asus_packages() {
+    info "Installing ASUS control packages for OpenSUSE..."
+    
+    # Install power-profiles-daemon
+    zypper install -y power-profiles-daemon || warning "power-profiles-daemon install failed"
+    
+    # Install switcheroo-control if available
+    zypper install -y switcheroo-control || warning "switcheroo-control install failed"
+    
+    # Note about asusctl
+    info "Note: asusctl requires manual installation from source"
+    info "See: https://asus-linux.org for installation instructions"
+    
+    # Enable services
+    systemctl enable --now power-profiles-daemon || true
+    
+    success "ASUS packages installed"
 }
 
 setup_tdp_management() {
@@ -1925,6 +1978,9 @@ EOFYAY
     # Apply hardware fixes
     apply_hardware_fixes
     
+    # Install ASUS-specific packages (asusctl, power-profiles-daemon, switcheroo-control)
+    install_arch_asus_packages
+    
     # Setup TDP management (always install for all systems)
     setup_tdp_management "arch"
     
@@ -1948,6 +2004,9 @@ setup_debian_based() {
     # Apply hardware fixes
     apply_hardware_fixes
     
+    # Install ASUS-specific packages
+    install_debian_asus_packages
+    
     # Setup TDP management (always install for all systems)
     setup_tdp_management "debian"
     
@@ -1968,6 +2027,9 @@ setup_fedora_based() {
     
     # Apply hardware fixes
     apply_hardware_fixes
+    
+    # Install ASUS-specific packages
+    install_fedora_asus_packages
     
     # Setup TDP management (always install for all systems)
     setup_tdp_management "fedora"
@@ -1990,6 +2052,9 @@ setup_opensuse() {
     
     # Apply hardware fixes
     apply_hardware_fixes
+    
+    # Install ASUS-specific packages
+    install_opensuse_asus_packages
     
     # Setup TDP management (always install for all systems)
     setup_tdp_management "opensuse"
