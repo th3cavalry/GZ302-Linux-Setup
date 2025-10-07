@@ -132,12 +132,12 @@ detect_distribution() {
 # --- Hardware Fixes for All Distributions ---
 # Simplified and modernized based on latest kernel support and research
 # Sources: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org
-# GZ302 has integrated AMD Radeon 890M only (NO discrete GPU)
+# GZ302 has integrated AMD Radeon 880M only (NO discrete GPU)
 
 apply_hardware_fixes() {
     info "Applying GZ302 hardware fixes for all distributions..."
     
-    # Kernel parameters for AMD Ryzen AI 9 HX 395 (Strix Point) and Radeon 890M
+    # Kernel parameters for AMD Ryzen AI 9 HX 395 (Strix Point) and Radeon 880M
     info "Adding kernel parameters for AMD Strix Point optimization..."
     if [ -f /etc/default/grub ]; then
         # Check if parameters already exist
@@ -170,10 +170,10 @@ EOF
 wifi.powersave = 2
 EOF
 
-    # AMD GPU module configuration for Radeon 890M (integrated)
-    info "Configuring AMD Radeon 890M GPU..."
+    # AMD GPU module configuration for Radeon 880M (integrated)
+    info "Configuring AMD Radeon 880M GPU..."
     cat > /etc/modprobe.d/amdgpu.conf <<'EOF'
-# AMD GPU configuration for Radeon 890M (RDNA 3.5, integrated)
+# AMD GPU configuration for Radeon 880M (RDNA 3.5, integrated)
 # Enable all power features for better performance and efficiency
 options amdgpu ppfeaturemask=0xffffffff
 EOF

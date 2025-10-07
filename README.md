@@ -53,7 +53,7 @@ All distributions receive identical treatment with equal priority:
 ### Hardware Fixes (Always Applied)
 Based on latest research from GZ302 community (kernel 6.11+ recommended):
 - **Kernel parameters**: AMD P-State driver (`amd_pstate=guided`) - optimal for Strix Point
-- **GPU optimization**: Full AMD GPU feature mask for Radeon 890M (integrated, RDNA 3.5)
+- **GPU optimization**: Full AMD GPU feature mask for Radeon 880M (integrated, RDNA 3.5)
 - **Wi-Fi stability**: MediaTek MT7925 fixes (disable ASPM, power save off)
 - **ASUS HID**: Keyboard and touchpad module configuration
 
@@ -62,7 +62,7 @@ Based on latest research from GZ302 community (kernel 6.11+ recommended):
 - **power-profiles-daemon**: System power management integration
 - **switcheroo-control**: Display management (useful even without discrete GPU)
 
-Note: GZ302 has NO discrete GPU (only integrated AMD Radeon 890M). No supergfxctl needed.
+Note: GZ302 has NO discrete GPU (only integrated AMD Radeon 880M). No supergfxctl needed.
 
 ### Management Tools (Always Installed)
 - **TDP Management** (`gz302-tdp` command)
