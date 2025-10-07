@@ -51,12 +51,14 @@ All distributions receive identical treatment with equal priority:
 ## 🔧 What Gets Installed (Core Script)
 
 ### Hardware Fixes (Always Applied)
-- Wi-Fi stability fixes for MediaTek MT7925e
-- Touchpad detection and precision controls
-- Audio fixes for ASUS hardware
-- GPU and thermal optimizations
-- Camera fixes
-- I/O scheduler optimizations for NVMe
+Based on latest kernel support and community research:
+- **Kernel parameters**: AMD P-State driver (`amd_pstate=active`) for better power management
+- **GPU optimization**: Full AMD GPU feature mask for Radeon 890M (RDNA 3.5)
+- **Wi-Fi stability**: MediaTek MT7925e fixes (disable ASPM, power save off)
+- **ASUS HID**: Keyboard and touchpad module configuration
+- **System updates**: Kernel and development tools for your distribution
+
+All fixes are distribution-agnostic and work on kernel 6.8+.
 
 ### Management Tools (Always Installed)
 - **TDP Management** (`gz302-tdp` command)

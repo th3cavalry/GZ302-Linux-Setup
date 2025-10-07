@@ -163,252 +163,66 @@ detect_distribution() {
     echo "$distro"
 }
 
-# --- Helper function for Arch package installation with AUR support ---
-install_arch_packages_with_yay() {
-    local packages=("$@")
-    local failed_packages=()
-    
-    for package in "${packages[@]}"; do
-        # Try pacman first
-        if pacman -S --noconfirm --needed "$package" 2>/dev/null; then
-            continue
-        fi
-        
-        # If pacman fails, try yay for AUR
-        if command -v yay >/dev/null 2>&1; then
-            local primary_user=$(get_real_user)
-            if sudo -u "$primary_user" yay -S --noconfirm --needed "$package" 2>/dev/null; then
-                continue
-            fi
-        elif command -v paru >/dev/null 2>&1; then
-            local primary_user=$(get_real_user)
-            if sudo -u "$primary_user" paru -S --noconfirm --needed "$package" 2>/dev/null; then
-                continue
-            fi
-        fi
-        
-        # If both fail, add to failed packages
-        failed_packages+=("$package")
-    done
-    
-    # Report failed packages as warnings
-    if [[ ${#failed_packages[@]} -gt 0 ]]; then
-        for pkg in "${failed_packages[@]}"; do
-            warning "Could not install package: $pkg"
-        done
-    fi
-}
-
 # --- Hardware Fixes for All Distributions ---
-apply_arch_hardware_fixes() {
-    info "Applying comprehensive GZ302 hardware fixes for Arch-based systems..."
+# Simplified and modernized based on latest kernel support and research
+# Sources: asus-linux.org, kernel docs, community forums
+
+apply_hardware_fixes() {
+    info "Applying GZ302 hardware fixes for all distributions..."
     
-    # Check for discrete GPU to determine which packages to install
-    local has_dgpu=$(detect_discrete_gpu)
-    
-    if [[ "$has_dgpu" == "true" ]]; then
-        info "Discrete GPU detected, installing full GPU management suite..."
-        # Install kernel and drivers with GPU switching support
-        install_arch_packages_with_yay linux-g14 linux-g14-headers asusctl supergfxctl rog-control-center power-profiles-daemon switcheroo-control
-    else
-        info "No discrete GPU detected, installing base ASUS control packages..."
-        # Install kernel and drivers without supergfxctl (for integrated graphics only)
-        install_arch_packages_with_yay linux-g14 linux-g14-headers asusctl rog-control-center power-profiles-daemon
-        # switcheroo-control may still be useful for some systems
-        install_arch_packages_with_yay switcheroo-control || warning "switcheroo-control not available, continuing..."
-    fi
-    
-    # ACPI BIOS error mitigation for GZ302
-    info "Adding ACPI error mitigation kernel parameters..."
+    # Kernel parameters for AMD Ryzen AI 395+ and RDNA 3.5 GPU
+    info "Adding kernel parameters for AMD Strix Point optimization..."
     if [ -f /etc/default/grub ]; then
-        # Add kernel parameters to handle ACPI BIOS errors
-        if ! grep -q "acpi_osi=" /etc/default/grub; then
-            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="acpi_osi=! acpi_osi=\\\"Windows 2020\\\" acpi_enforce_resources=lax /' /etc/default/grub
+        # Check if parameters already exist
+        if ! grep -q "amd_pstate=active" /etc/default/grub; then
+            # Add AMD P-State and GPU parameters
+            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="amd_pstate=active amdgpu.ppfeaturemask=0xffffffff /' /etc/default/grub
+            
+            # Regenerate GRUB config
+            if [ -f /boot/grub/grub.cfg ]; then
+                grub-mkconfig -o /boot/grub/grub.cfg
+            elif command -v update-grub >/dev/null 2>&1; then
+                update-grub
+            fi
         fi
     fi
     
-    # Regenerate bootloader configuration
-    if [ -f /boot/grub/grub.cfg ]; then
-        info "Regenerating GRUB configuration..."
-        grub-mkconfig -o /boot/grub/grub.cfg
-    fi
-    
-    apply_common_hardware_fixes
-    success "Comprehensive hardware fixes applied for Arch-based systems"
-}
-
-apply_debian_hardware_fixes() {
-    info "Applying GZ302 hardware fixes for Debian-based systems..."
-    
-    # Install kernel and drivers
-    apt install -y linux-image-generic linux-headers-generic
-    
-    apply_common_hardware_fixes
-    success "Comprehensive hardware fixes applied for Debian-based systems"
-}
-
-apply_fedora_hardware_fixes() {
-    info "Applying GZ302 hardware fixes for Fedora-based systems..."
-    
-    # Install kernel and drivers
-    dnf install -y kernel-devel akmod-nvidia
-    
-    apply_common_hardware_fixes
-    success "Comprehensive hardware fixes applied for Fedora-based systems"
-}
-
-apply_opensuse_hardware_fixes() {
-    info "Applying GZ302 hardware fixes for OpenSUSE..."
-    
-    # Install kernel and drivers
-    zypper install -y kernel-default-devel
-    
-    apply_common_hardware_fixes
-    success "Comprehensive hardware fixes applied for OpenSUSE"
-}
-
-# Common hardware fixes shared across all distributions
-apply_common_hardware_fixes() {
-    # Wi-Fi fixes for MediaTek MT7925e
-    info "Applying enhanced Wi-Fi stability fixes for MediaTek MT7925..."
-    cat > /etc/modprobe.d/mt7925e_wifi.conf <<EOF
-# MediaTek MT7925E stability and performance fixes
-# Only include valid module parameters to avoid kernel warnings
+    # Wi-Fi fixes for MediaTek MT7925e (kernel 6.8+ recommended)
+    info "Configuring MediaTek MT7925e Wi-Fi..."
+    cat > /etc/modprobe.d/mt7925e.conf <<'EOF'
+# MediaTek MT7925E Wi-Fi fixes for GZ302
+# Disable ASPM for stability (primary fix for disconnection issues)
 options mt7925e disable_aspm=1
 EOF
 
+    # Disable NetworkManager Wi-Fi power saving
     mkdir -p /etc/NetworkManager/conf.d/
-    cat > /etc/NetworkManager/conf.d/99-wifi-powersave-off.conf <<EOF
+    cat > /etc/NetworkManager/conf.d/wifi-powersave.conf <<'EOF'
 [connection]
 wifi.powersave = 2
-
-[device]
-wifi.scan-rand-mac-address=no
-wifi.backend=wpa_supplicant
-
-[main]
-wifi.scan-rand-mac-address=no
 EOF
 
-    # Add udev rules for Wi-Fi stability
-    cat > /etc/udev/rules.d/99-wifi-powersave.rules <<EOF
-# Disable Wi-Fi power saving for MediaTek MT7925e
-ACTION=="add", SUBSYSTEM=="net", KERNEL=="wlan*", RUN+="/usr/bin/iw dev \$name set power_save off"
-EOF
-    
-    # Touchpad fixes
-    info "Applying touchpad detection and sensitivity fixes..."
-    cat > /etc/udev/hwdb.d/61-asus-touchpad.hwdb <<EOF
-# ASUS ROG Flow Z13 folio touchpad override
-evdev:input:b0003v0b05p1a30*
- ENV{ID_INPUT_TOUCHPAD}="1"
- ENV{ID_INPUT_MULTITOUCH}="1"
- ENV{ID_INPUT_MOUSE}="0"
- EVDEV_ABS_00=::100
- EVDEV_ABS_01=::100
- EVDEV_ABS_35=::100
- EVDEV_ABS_36=::100
-EOF
-
-    # Create libinput configuration to address touch jump detection
-    mkdir -p /etc/X11/xorg.conf.d
-    cat > /etc/X11/xorg.conf.d/30-touchpad.conf <<EOF
-Section "InputClass"
-    Identifier "ASUS GZ302 Touchpad"
-    MatchIsTouchpad "on"
-    MatchDevicePath "/dev/input/event*"
-    MatchProduct "ASUSTeK Computer Inc. GZ302EA-Keyboard Touchpad"
-    Driver "libinput"
-    Option "DisableWhileTyping" "off"
-    Option "TappingDrag" "on"
-    Option "TappingDragLock" "on"
-    Option "MiddleEmulation" "on"
-    Option "NaturalScrolling" "true"
-    Option "ScrollMethod" "twofinger"
-    Option "HorizontalScrolling" "on"
-    Option "SendEventsMode" "enabled"
-EndSection
-EOF
-
-    # Create systemd service to reload hid_asus module
-    cat > /etc/systemd/system/reload-hid_asus.service <<EOF
-[Unit]
-Description=Reload hid_asus module with correct options for Z13 Touchpad
-After=multi-user.target
-
-[Service]
-Type=oneshot
-ExecStartPre=/bin/bash -c 'if ! lsmod | grep -q hid_asus; then exit 0; fi'
-ExecStart=/usr/sbin/modprobe -r hid_asus
-ExecStart=/usr/sbin/modprobe hid_asus
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    
-    # Audio fixes
-    info "Applying audio fixes for GZ302..."
-    cat > /etc/modprobe.d/alsa-gz302.conf <<EOF
-# Fix audio issues on ROG Flow Z13 GZ302
-options snd-hda-intel probe_mask=1
-options snd-hda-intel model=asus-zenbook
-# ACP70 platform fixes for newer AMD audio
-options snd_acp_pci enable=1
-options snd-soc-acp70 machine=acp70-asus
-EOF
-
-    # ASUS WMI fixes to reduce error messages
-    info "Applying ASUS WMI optimizations..."
-    cat > /etc/modprobe.d/asus-wmi.conf <<EOF
-# ASUS WMI optimizations for GZ302
-# Reduces fan curve and other WMI-related error messages
-options asus_wmi dev_id=0x00110000
-options asus_nb_wmi wapf=1
-EOF
-    
-    # HID ASUS module optimizations
-    cat > /etc/modprobe.d/hid-asus.conf <<EOF
-# HID ASUS optimizations for better touchpad/keyboard support
-options hid_asus fnlock_default=0
-options hid_asus kbd_backlight=1
-# Memory management fixes to prevent probe failures (error -12)
-options hid_asus max_hid_buflen=8192
-EOF
-    
-    # AMD GPU optimizations
-    info "Applying AMD GPU optimizations..."
-    cat > /etc/modprobe.d/amdgpu-gz302.conf <<EOF
-# AMD GPU optimizations for GZ302
-options amdgpu dc=1
-options amdgpu gpu_recovery=1
+    # AMD GPU module configuration
+    info "Configuring AMD Radeon 890M GPU..."
+    cat > /etc/modprobe.d/amdgpu.conf <<'EOF'
+# AMD GPU configuration for Radeon 890M (RDNA 3.5)
+# Enable all power features for better performance and efficiency
 options amdgpu ppfeaturemask=0xffffffff
-options amdgpu runpm=1
 EOF
-    
-    # Camera fixes
-    info "Applying camera fixes..."
-    cat > /etc/modprobe.d/uvcvideo.conf <<EOF
-# Camera fixes for GZ302
-options uvcvideo quirks=128
-options uvcvideo timeout=5000
+
+    # ASUS HID (keyboard/touchpad) configuration
+    info "Configuring ASUS keyboard and touchpad..."
+    cat > /etc/modprobe.d/hid-asus.conf <<'EOF'
+# ASUS HID configuration for GZ302
+# fnlock_default=0: F1-F12 keys work as media keys by default
+options hid_asus fnlock_default=0
 EOF
+
+    # Reload hardware database and udev
+    systemd-hwdb update 2>/dev/null || true
+    udevadm control --reload 2>/dev/null || true
     
-    # Update hardware database
-    systemd-hwdb update
-    udevadm control --reload
-    
-    # I/O scheduler fixes for NVMe devices
-    info "Applying I/O scheduler optimizations..."
-    cat > /etc/udev/rules.d/60-ioschedulers.rules <<EOF
-# Set appropriate I/O schedulers for different device types
-# NVMe drives work best with 'none' scheduler but fall back to 'mq-deadline'
-ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]", ATTR{queue/scheduler}="none", ATTR{queue/scheduler}="mq-deadline"
-# SATA SSDs work well with 'mq-deadline' 
-ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
-# Traditional HDDs work best with 'bfq'
-ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
-EOF
+    success "Hardware fixes applied"
 }
 
 setup_tdp_management() {
@@ -2048,55 +1862,21 @@ MONITOR_EOF
 # Placeholder functions for snapshots
 
 # --- Service Enable Functions ---
+# Simplified - no services needed with new lightweight hardware fixes
 enable_arch_services() {
-    info "Enabling services for Arch-based system..."
-    
-    # Check for discrete GPU before enabling supergfxd
-    local has_dgpu=$(detect_discrete_gpu)
-    
-    if [[ "$has_dgpu" == "true" ]]; then
-        info "Discrete GPU detected, enabling supergfxd for GPU switching..."
-        systemctl enable --now supergfxd power-profiles-daemon switcheroo-control
-    else
-        info "No discrete GPU detected, skipping supergfxd (integrated graphics only)..."
-        systemctl enable --now power-profiles-daemon
-        # Note: switcheroo-control may still be useful for some integrated GPU management
-        if systemctl list-unit-files | grep -q switcheroo-control; then
-            systemctl enable --now switcheroo-control
-        fi
-    fi
-    
-    # Enable touchpad fix service
-    systemctl enable --now reload-hid_asus.service
-    
-    success "Services enabled"
+    info "Services configuration complete for Arch-based system"
 }
 
 enable_debian_services() {
-    info "Enabling services for Debian-based system..."
-    
-    # Enable touchpad fix service
-    systemctl enable --now reload-hid_asus.service
-    
-    success "Services enabled"
+    info "Services configuration complete for Debian-based system"
 }
 
 enable_fedora_services() {
-    info "Enabling services for Fedora-based system..."
-    
-    # Enable touchpad fix service
-    systemctl enable --now reload-hid_asus.service
-    
-    success "Services enabled"
+    info "Services configuration complete for Fedora-based system"
 }
 
 enable_opensuse_services() {
-    info "Enabling services for OpenSUSE..."
-    
-    # Enable touchpad fix service
-    systemctl enable --now reload-hid_asus.service
-    
-    success "Services enabled"
+    info "Services configuration complete for OpenSUSE"
 }
 
 # --- Module Download and Execution ---
@@ -2143,7 +1923,7 @@ EOFYAY
     fi
     
     # Apply hardware fixes
-    apply_arch_hardware_fixes
+    apply_hardware_fixes
     
     # Setup TDP management (always install for all systems)
     setup_tdp_management "arch"
@@ -2166,7 +1946,7 @@ setup_debian_based() {
         apt-transport-https ca-certificates gnupg lsb-release
     
     # Apply hardware fixes
-    apply_debian_hardware_fixes
+    apply_hardware_fixes
     
     # Setup TDP management (always install for all systems)
     setup_tdp_management "debian"
@@ -2187,7 +1967,7 @@ setup_fedora_based() {
     dnf install -y curl wget git gcc make kernel-devel
     
     # Apply hardware fixes
-    apply_fedora_hardware_fixes
+    apply_hardware_fixes
     
     # Setup TDP management (always install for all systems)
     setup_tdp_management "fedora"
@@ -2209,7 +1989,7 @@ setup_opensuse() {
     zypper install -y curl wget git gcc make kernel-devel
     
     # Apply hardware fixes
-    apply_opensuse_hardware_fixes
+    apply_hardware_fixes
     
     # Setup TDP management (always install for all systems)
     setup_tdp_management "opensuse"
