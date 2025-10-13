@@ -2,7 +2,7 @@
 
 Hardware-specific Linux setup scripts for the ASUS ROG Flow Z13 (GZ302EA-XS99) laptop with AMD Ryzen AI MAX+ 395 processor. These scripts automate critical hardware fixes and optional software installation for multiple Linux distributions.
 
-**Current Version: 0.1.0-pre-release** - Modular architecture with bash-only implementation.
+**Current Version: 0.1.1-pre-release** - Modular architecture with bash-only implementation.
 
 **ALWAYS reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.**
 
@@ -19,12 +19,12 @@ Hardware-specific Linux setup scripts for the ASUS ROG Flow Z13 (GZ302EA-XS99) l
 .
 ├── README.md                      # User documentation
 ├── .gitignore                     # Excludes build artifacts
-├── gz302-main.sh                  # Main script (~2,200 lines) - hardware fixes, TDP, refresh rate
-├── gz302-gaming.sh                # Gaming module (~200 lines) - optional download
+├── gz302-main.sh                  # Main script (~2,360 lines) - hardware fixes, TDP, refresh rate
+├── gz302-gaming.sh                # Gaming module (~230 lines) - optional download
 ├── gz302-llm.sh                   # AI/LLM module (~180 lines) - optional download
-├── gz302-hypervisor.sh            # Hypervisor module (~110 lines) - optional download
-├── gz302-snapshots.sh             # Snapshots module (~90 lines) - optional download
-├── gz302-secureboot.sh            # Secure boot module (~80 lines) - optional download
+├── gz302-hypervisor.sh            # Hypervisor module (~130 lines) - optional download
+├── gz302-snapshots.sh             # Snapshots module (~105 lines) - optional download
+├── gz302-secureboot.sh            # Secure boot module (~95 lines) - optional download
 └── Old/                           # Archived files from previous versions
     ├── gz302_setup.sh             # Old monolithic bash script
     ├── gz302_setup.py             # Old Python implementation

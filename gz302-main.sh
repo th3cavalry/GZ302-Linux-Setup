@@ -2023,8 +2023,6 @@ MONITOR_EOF
     success "Refresh rate management installed. Use 'gz302-refresh' command to control display refresh rates."
 }
 
-# Placeholder functions for snapshots
-
 # --- Service Enable Functions ---
 # Simplified - no services needed with new lightweight hardware fixes
 enable_arch_services() {

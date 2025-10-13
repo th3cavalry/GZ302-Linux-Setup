@@ -135,7 +135,7 @@ sudo gz302-refresh vrr enable
 gz302-refresh monitor
 ```
 
-## �� Architecture
+## 🏗️ Architecture
 
 ### Modular Design
 The new architecture separates concerns:
@@ -192,6 +192,8 @@ This is an open-source project. Contributions are welcome! Please ensure:
 
 ## 📜 License
 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 This project is provided as-is for the GZ302 community.
 
 ## 🙏 Credits
@@ -203,4 +205,4 @@ This project is provided as-is for the GZ302 community.
 ---
 
 **Version:** 0.1.1-pre-release  
-**Last Updated:** October 2024
+**Last Updated:** October 2025
