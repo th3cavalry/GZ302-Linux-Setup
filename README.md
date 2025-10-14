@@ -190,6 +190,8 @@ This is an open-source project. Contributions are welcome! Please ensure:
 - All 4 distributions are equally supported
 - Changes are tested on target hardware
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guidelines, testing procedures, and code style requirements.
+
 ## 📜 License
 
 This project is provided as-is for the GZ302 community.
@@ -199,6 +201,12 @@ This project is provided as-is for the GZ302 community.
 - Author: th3cavalry using GitHub Copilot
 - Hardware research: Shahzebqazi's Asus-Z13-Flow-2025-PCMR
 - Community testing and feedback
+
+## 📖 Additional Documentation
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines and contribution process
+- [CHANGELOG.md](CHANGELOG.md) - Version history and release notes
+- [Old/ARCHIVED.md](Old/ARCHIVED.md) - Information about legacy scripts (v4.3.1)
 
 ---
 
