@@ -1,11 +1,60 @@
-# Backup folder - contains previous version archive
-backup/
-
-# Test files and temporary data
+# Temporary files
 *.tmp
+*.temp
+*~
+
+# Log files
 *.log
-test/
-.test/
+
+# Backup files
+*.bak
+*.backup
+
+# Test files
+test_*
+*_test
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
 
 # Editor files
 *.swp
@@ -14,15 +63,6 @@ test/
 .vscode/
 .idea/
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# Build artifacts
-*.o
-*.so
-*.a
-
-# Distribution testing
-testing/
-vm-testing/
+# Build artifacts (if any)
+build/
+dist/
