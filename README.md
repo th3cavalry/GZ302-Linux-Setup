@@ -1,6 +1,6 @@
 # Asus ROG Flow Z13 2025 (GZ302EA) Linux Setup Script
 
-**Version: 1.2.0**
+**Version: 1.4.0**
 
 Comprehensive post-installation setup script for the Asus ROG Flow Z13 2025 models (GZ302EA) with AMD Strix Halo processor and integrated Radeon 8060S GPU.
 
@@ -24,10 +24,10 @@ The script automatically detects and supports the following distributions:
 
 The script automatically installs and configures everything needed for the Asus ROG Flow Z13 2025 on Linux:
 
-### 1. G14 Kernel Installation
-- Automatically installs linux-g14 kernel and headers (Arch-based distros)
-- Installs latest kernel with development headers for other distros
-- Optimized for ROG laptops with specific patches
+### 1. Kernel Updates
+- Ensures kernel is at least version 6.6 or newer
+- Updates kernel and headers via distro packages if needed
+- Works with mainline kernels from all distributions
 
 ### 2. Graphics Support
 - Configures AMDGPU drivers with optimal settings
@@ -116,7 +116,7 @@ Options:
 
 The script will:
 1. Detect your Linux distribution
-2. Install the g14 kernel and headers
+2. Update kernel to latest version if needed
 3. Configure all hardware components
 4. Set up ASUS-specific tools
 5. Optimize power management

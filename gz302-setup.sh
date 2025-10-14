@@ -2,7 +2,7 @@
 
 #############################################################################
 # Asus ROG Flow Z13 2025 (GZ302EA) Linux Setup Script
-# Version: 1.3.1
+# Version: 1.4.0
 #
 # Comprehensive post-installation setup for GZ302EA models:
 # - GZ302EA-XS99 (128GB)
@@ -22,16 +22,14 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Script version
-VERSION="1.3.1"
+VERSION="1.4.0"
 
 # Distro detection
 DISTRO=""
 DISTRO_FAMILY=""
 PACKAGE_MANAGER=""
 
-# Kernel selection flags
-USE_G14="auto"   # auto | yes | no
-G14_INSTALLED="no"
+
 
 #############################################################################
 # Helper Functions
@@ -98,74 +96,29 @@ update_system() {
 }
 
 #############################################################################
-# Kernel Handling (linux-g14 optional)
+# Kernel Handling
 #############################################################################
 check_kernel_version() {
-    print_step "Evaluating kernel (mode: $USE_G14) ..."
+    print_step "Checking kernel version..."
     local kfull=$(uname -r)
     local kbase=$(echo "$kfull" | cut -d. -f1,2)
     local kmajor=$(echo $kbase | cut -d. -f1)
     local kminor=$(echo $kbase | cut -d. -f2)
     print_info "Current kernel: $kfull"
-    if [ "$DISTRO_FAMILY" != "arch" ]; then
-        # Non-Arch: rely on distro kernel; update if very old
-        if [ "$kmajor" -lt 6 ] || { [ "$kmajor" -eq 6 ] && [ "$kminor" -lt 6 ]; }; then
-            print_warning "Kernel < 6.6 detected. Updating to latest distro kernel."
-            update_kernel_generic
-        else
-            print_success "Distro kernel is modern (>=6.6)."
-        fi
-        return
+    
+    # Update kernel if very old
+    if [ "$kmajor" -lt 6 ] || { [ "$kmajor" -eq 6 ] && [ "$kminor" -lt 6 ]; }; then
+        print_warning "Kernel < 6.6 detected. Updating to latest distro kernel."
+        update_kernel_generic
+    else
+        print_success "Kernel is modern (>=6.6)."
     fi
-    # Arch-specific decision
-    case "$USE_G14" in
-        yes)
-            install_g14_kernel; return ;;
-        no)
-            print_warning "Skipping linux-g14 as requested (--no-g14).";
-            print_info "If you encounter unresolved hardware quirks (rare on >=6.6), re-run with --use-g14.";
-            return ;;
-        auto)
-            if [ "$kmajor" -lt 6 ] || { [ "$kmajor" -eq 6 ] && [ "$kminor" -lt 6 ]; }; then
-                print_warning "Kernel < 6.6 detected. Installing linux-g14 for enhanced early support."
-                install_g14_kernel
-            else
-                print_info "Mainline Arch kernel >=6.6 detected; linux-g14 not strictly required."
-                print_warning "Optional: Use --use-g14 if you need experimental ROG patches/faster feature uptake.";
-            fi ;;
-    esac
-}
-
-install_g14_kernel() {
-    print_step "Installing linux-g14 kernel and headers..."
-    case $DISTRO_FAMILY in
-        arch)
-            if command -v yay &>/dev/null; then
-                sudo -u ${SUDO_USER:-root} yay -S --noconfirm linux-g14 linux-g14-headers || true
-            elif command -v paru &>/dev/null; then
-                sudo -u ${SUDO_USER:-root} paru -S --noconfirm linux-g14 linux-g14-headers || true
-            else
-                print_warning "No AUR helper found (yay/paru). Building manually."
-                pacman -S --noconfirm --needed base-devel git
-                workdir=$(mktemp -d)
-                pushd "$workdir" >/dev/null
-                sudo -u ${SUDO_USER:-root} git clone https://aur.archlinux.org/linux-g14.git
-                sudo -u ${SUDO_USER:-root} git clone https://aur.archlinux.org/linux-g14-headers.git
-                (cd linux-g14 && sudo -u ${SUDO_USER:-root} makepkg -si --noconfirm || true)
-                (cd linux-g14-headers && sudo -u ${SUDO_USER:-root} makepkg -si --noconfirm || true)
-                popd >/dev/null
-                rm -rf "$workdir"
-            fi
-            G14_INSTALLED="yes" ;; 
-        *)
-            print_info "Non-Arch distro: ignoring linux-g14 request (not applicable)" ;; 
-    esac
-    print_success "Kernel installation step complete (reboot required if a new kernel was installed)."
 }
 
 update_kernel_generic() {
     print_step "Updating kernel via distro packages..."
     case $DISTRO_FAMILY in
+        arch) pacman -S --noconfirm linux linux-headers ;; 
         debian) apt install -y linux-image-generic linux-headers-generic ;; 
         fedora) dnf install -y kernel kernel-devel kernel-headers ;; 
         opensuse) zypper install -y kernel-default kernel-default-devel ;; 
@@ -465,15 +418,7 @@ print_summary() {
     echo -e "${GREEN}================================================${NC}"
     echo ""
     echo "What was done:"
-    if [ "$DISTRO_FAMILY" = "arch" ]; then
-        if [ "$G14_INSTALLED" = "yes" ]; then
-            echo "  ✓ linux-g14 kernel (Arch)"
-        else
-            echo "  ✓ Arch mainline kernel retained (linux-g14 skipped)"
-        fi
-    else
-        echo "  ✓ Kernel checked (distro kernel retained)"
-    fi
+    echo "  ✓ Kernel checked and updated if needed"
     echo "  ✓ System packages updated"
     echo "  ✓ Firmware (linux-firmware) ensured"
     echo "  ✓ Graphics stack (Mesa/Vulkan) configured"
@@ -491,9 +436,6 @@ print_summary() {
     echo "  • Power: tlp-stat"
     echo "  • Suspend: systemctl suspend (resume test)"
     echo ""
-    if [ "$G14_INSTALLED" = "no" ] && [ "$DISTRO_FAMILY" = "arch" ]; then
-        echo "Note: linux-g14 not installed. If you later need experimental ROG patches, re-run with --use-g14."
-    fi
     echo "Reboot is recommended to use any new kernel."
     echo ""
 }
@@ -506,13 +448,9 @@ main() {
     for arg in "$@"; do
         case $arg in
             --help)
-                echo "Usage: $0 [--use-g14 | --no-g14]"
-                echo "  --use-g14   Force install linux-g14 (Arch only)"
-                echo "  --no-g14    Skip linux-g14 even if auto logic would install"
-                echo "If neither flag is provided: Arch installs linux-g14 only if kernel < 6.6; others keep distro kernel."
+                echo "Usage: $0"
+                echo "This script automatically installs and configures your GZ302EA system."
                 exit 0 ;; 
-            --use-g14) USE_G14="yes" ;; 
-            --no-g14) USE_G14="no" ;; 
             *) print_warning "Unknown option: $arg"; echo "Use --help for usage"; exit 1 ;; 
         esac
     done
@@ -522,9 +460,6 @@ main() {
     print_warning "This script will automatically install and configure your system." \
     && print_warning "Backup is recommended before proceeding." \
     && print_warning "Detected distribution: $DISTRO ($DISTRO_FAMILY)"
-    if [ "$DISTRO_FAMILY" = "arch" ] && [ "$USE_G14" = "no" ]; then
-        print_warning "You chose to skip linux-g14. Most users will be fine; rare unresolved quirks may need linux-g14."
-    fi
     echo ""
     read -p "Press Enter to continue or Ctrl+C to cancel..." _
     echo ""
