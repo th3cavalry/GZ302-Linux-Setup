@@ -140,7 +140,18 @@ After the automatic reboot:
    - Touchscreen and stylus
    - Battery life and power management
 
-3. **Useful Commands:**
+3. **(Optional) Set up automatic power management:**
+   ```bash
+   # Enable automatic power profile switching based on AC/battery
+   sudo ./gz302-power-manager.sh install
+   
+   # Or manually control power profiles
+   sudo ./gz302-power-manager.sh performance  # Max performance
+   sudo ./gz302-power-manager.sh powersave    # Battery saving
+   sudo ./gz302-power-manager.sh status       # Check current status
+   ```
+
+4. **Useful Commands:**
    ```bash
    # Check graphics info
    glxinfo | grep "OpenGL renderer"
@@ -152,6 +163,9 @@ After the automatic reboot:
    
    # Check power management
    tlp-stat
+   
+   # Power manager tool
+   sudo ./gz302-power-manager.sh --help
    
    # Check kernel version
    uname -r
@@ -220,6 +234,86 @@ supergfxctl -m Integrated  # or Hybrid, Dedicated
 ```
 
 ### Power Management Tuning
+
+The repository includes a comprehensive power management tool (`gz302-power-manager.sh`) that provides:
+
+#### Automatic Power Profile Switching
+
+Enable automatic switching between performance and power-saving modes based on AC/battery status:
+
+```bash
+# Install automatic switching (uses udev rules)
+sudo ./gz302-power-manager.sh install
+
+# Remove automatic switching
+sudo ./gz302-power-manager.sh uninstall
+```
+
+When installed, the system will automatically:
+- Switch to **Performance mode** when plugged into AC power
+- Switch to **Powersave mode** when running on battery
+
+#### Manual Power Profile Control
+
+```bash
+# Maximum performance (high CPU/GPU, plugged in)
+sudo ./gz302-power-manager.sh performance
+
+# Balanced mode (moderate performance and power)
+sudo ./gz302-power-manager.sh balanced
+
+# Power saving mode (low CPU/GPU, battery)
+sudo ./gz302-power-manager.sh powersave
+
+# Auto-detect current power source and apply appropriate profile
+sudo ./gz302-power-manager.sh auto
+```
+
+#### Display Refresh Rate Control
+
+```bash
+# Set high refresh rate (120Hz)
+sudo ./gz302-power-manager.sh refresh-high
+
+# Set low refresh rate (60Hz, saves power)
+sudo ./gz302-power-manager.sh refresh-low
+```
+
+#### Check Power Status
+
+```bash
+# View current power settings and profiles
+sudo ./gz302-power-manager.sh status
+```
+
+#### What Each Profile Does
+
+**Performance Profile:**
+- CPU Governor: performance
+- CPU Boost: enabled
+- GPU Power Level: high
+- ASUS Profile: Performance
+- Recommended: When plugged into AC power
+
+**Balanced Profile:**
+- CPU Governor: schedutil
+- CPU Boost: enabled
+- GPU Power Level: auto
+- ASUS Profile: Balanced
+- Recommended: General use
+
+**Powersave Profile:**
+- CPU Governor: powersave
+- CPU Boost: disabled
+- GPU Power Level: low
+- ASUS Profile: Quiet
+- Recommended: When on battery
+
+The power manager works with both X11 (using xrandr) and Wayland (using wlr-randr) display servers.
+
+#### Traditional TLP Configuration
+
+You can also manually edit TLP configuration:
 
 ```bash
 # Edit TLP configuration

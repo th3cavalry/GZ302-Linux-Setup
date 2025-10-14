@@ -149,6 +149,35 @@ dmesg | grep -i amdgpu
 dmesg | grep -i mt7921
 ```
 
+## Power & Display Manager Script
+
+The `gz302-power-manager.sh` script provides comprehensive power and display management:
+
+### Quick Usage
+```bash
+# Enable automatic AC/battery switching
+sudo ./gz302-power-manager.sh install
+
+# Manually set profiles
+sudo ./gz302-power-manager.sh performance    # Maximum performance
+sudo ./gz302-power-manager.sh balanced       # Balanced mode
+sudo ./gz302-power-manager.sh powersave      # Battery saving
+
+# Change refresh rate
+sudo ./gz302-power-manager.sh refresh-high   # 120Hz
+sudo ./gz302-power-manager.sh refresh-low    # 60Hz
+
+# Check status
+sudo ./gz302-power-manager.sh status
+```
+
+### Features
+- Automatic CPU governor switching (performance/powersave)
+- GPU power level control (high/low/auto)
+- ASUS profile integration via asusctl
+- Display refresh rate switching (X11 and Wayland)
+- Auto-switching based on AC/battery status
+
 ## Performance Profiles
 
 ### Maximum Performance
