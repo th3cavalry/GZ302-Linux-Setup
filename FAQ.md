@@ -186,6 +186,43 @@ asusctl profile -P Quiet        # Low fan speed
 - In your desktop environment's display settings
 - Via xrandr (X11): `xrandr --output eDP-1 --rate 120`
 - Via wlr-randr (Wayland)
+- Using the power manager script: `sudo ./gz302-power-manager.sh refresh-high` or `refresh-low`
+
+### Q: How do I manage power profiles and battery life?
+
+**A:** The repository includes `gz302-power-manager.sh` for comprehensive power management:
+
+**Enable automatic switching:**
+```bash
+# Install udev rules for automatic AC/battery switching
+sudo ./gz302-power-manager.sh install
+```
+
+**Manual control:**
+```bash
+# Maximum performance (when plugged in)
+sudo ./gz302-power-manager.sh performance
+
+# Battery saving (for longer runtime)
+sudo ./gz302-power-manager.sh powersave
+
+# Balanced mode
+sudo ./gz302-power-manager.sh balanced
+
+# Check current status
+sudo ./gz302-power-manager.sh status
+```
+
+**Refresh rate control:**
+```bash
+# High refresh (120Hz, better responsiveness)
+sudo ./gz302-power-manager.sh refresh-high
+
+# Low refresh (60Hz, saves battery)
+sudo ./gz302-power-manager.sh refresh-low
+```
+
+The automatic mode will switch between performance (AC) and powersave (battery) profiles automatically.
 
 ## Troubleshooting
 
