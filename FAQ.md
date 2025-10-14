@@ -184,8 +184,58 @@ asusctl profile -P Quiet        # Low fan speed
 
 **A:** Yes! The display works at its native refresh rate. You can configure it:
 - In your desktop environment's display settings
+- Using the refresh rate tool: `rrcfg 120` or `rrcfg 60`
 - Via xrandr (X11): `xrandr --output eDP-1 --rate 120`
 - Via wlr-randr (Wayland)
+
+### Q: How do I manage power profiles and battery life?
+
+**A:** The repository includes `pwrcfg` and `rrcfg` commands for comprehensive power management with 6 power profiles:
+
+**Quick Start:**
+```bash
+# Configure automatic AC/battery switching
+sudo pwrcfg config
+
+# Enable automatic switching
+sudo pwrcfg auto on
+```
+
+**Manual Control:**
+```bash
+# Power profiles (6 levels)
+sudo pwrcfg max         # Maximum performance (120W TDP)
+sudo pwrcfg turbo       # High performance (100W TDP)
+sudo pwrcfg performance # Standard performance (80W TDP)
+sudo pwrcfg balanced    # Balanced (60W TDP)
+sudo pwrcfg powersave   # Battery saving (35W TDP)
+sudo pwrcfg extreme     # Extreme battery saving (20W TDP)
+
+# Check current status
+pwrcfg status
+```
+
+**Refresh Rate Control:**
+```bash
+# Set any refresh rate your display supports
+rrcfg 120               # High refresh (smooth)
+rrcfg 90                # Balanced
+rrcfg 60                # Battery saving
+rrcfg 40                # Extreme power saving
+
+# Auto-match current power profile
+rrcfg auto
+```
+
+**Power Profiles Explained:**
+- **max**: 120W TDP - Maximum performance for rendering/compilation
+- **turbo**: 100W TDP - High performance for gaming
+- **performance**: 80W TDP - Standard work and productivity
+- **balanced**: 60W TDP - General use, web browsing
+- **powersave**: 35W TDP - Battery life optimization
+- **extreme**: 20W TDP - Minimal power consumption
+
+The automatic mode will switch between your chosen AC and battery profiles automatically. You can also set them manually anytime with `sudo pwrcfg <profile>`.
 
 ## Troubleshooting
 

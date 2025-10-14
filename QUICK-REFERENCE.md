@@ -149,6 +149,64 @@ dmesg | grep -i amdgpu
 dmesg | grep -i mt7921
 ```
 
+## Power Configuration Tool: pwrcfg
+
+Simple power management with 6 profiles and TDP control:
+
+```bash
+# Set power profile
+sudo pwrcfg turbo       # High performance (100W TDP)
+sudo pwrcfg performance # Standard (80W TDP)
+sudo pwrcfg balanced    # Balanced (60W TDP)
+sudo pwrcfg powersave   # Battery saving (35W TDP)
+sudo pwrcfg extreme     # Extreme battery (20W TDP)
+sudo pwrcfg max         # Maximum (120W TDP)
+
+# Configure automatic AC/battery switching
+sudo pwrcfg config      # Interactive setup
+sudo pwrcfg auto on     # Enable auto-switching
+sudo pwrcfg auto off    # Disable auto-switching
+
+# Check status
+pwrcfg status           # Show current settings
+pwrcfg list             # List all profiles
+```
+
+## Refresh Rate Control: rrcfg
+
+Simple refresh rate management:
+
+```bash
+# Set refresh rate
+rrcfg 120              # High refresh (120Hz)
+rrcfg 90               # Balanced (90Hz)
+rrcfg 60               # Battery saving (60Hz)
+rrcfg 40               # Extreme power saving (40Hz)
+
+# Auto-match power profile
+rrcfg auto
+
+# Check status
+rrcfg status           # Show current rate
+rrcfg list             # List available rates
+```
+
+## Power & Display Quick Combos
+
+```bash
+# Maximum performance
+sudo pwrcfg max && rrcfg 120
+
+# Gaming mode
+sudo pwrcfg turbo && rrcfg 120
+
+# Battery life
+sudo pwrcfg powersave && rrcfg 60
+
+# Extreme battery saving
+sudo pwrcfg extreme && rrcfg 40
+```
+
 ## Performance Profiles
 
 ### Maximum Performance

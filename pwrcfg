@@ -1,0 +1,633 @@
+#!/bin/bash
+
+#############################################################################
+# pwrcfg - GZ302EA Power Configuration Tool
+# Version: 2.0.0
+#
+# Simple command-line tool for managing power profiles with TDP control
+#
+# Usage:
+#   pwrcfg <profile>        Set power profile
+#   pwrcfg status           Show current status
+#   pwrcfg list             List available profiles
+#   pwrcfg config           Configure AC/battery preferences
+#   pwrcfg auto on|off      Enable/disable automatic switching
+#
+# Profiles (6 levels):
+#   max         Maximum performance (highest TDP, no limits)
+#   turbo       High performance (high TDP, gaming)
+#   performance Standard performance (balanced TDP)
+#   balanced    Balanced mode (moderate TDP)
+#   powersave   Power saving (low TDP)
+#   extreme     Extreme battery saving (minimal TDP)
+#
+#############################################################################
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+VERSION="2.0.0"
+CONFIG_FILE="/etc/gz302/pwrcfg.conf"
+CONFIG_DIR="/etc/gz302"
+
+#############################################################################
+# Configuration Defaults
+#############################################################################
+
+# Default TDP values for each profile (in Watts)
+# These are for AMD Strix Halo / Radeon 8060S
+declare -A TDP_LIMITS=(
+    [max]="120"
+    [turbo]="100"
+    [performance]="80"
+    [balanced]="60"
+    [powersave]="35"
+    [extreme]="20"
+)
+
+# CPU Governor settings
+declare -A CPU_GOVERNOR=(
+    [max]="performance"
+    [turbo]="performance"
+    [performance]="performance"
+    [balanced]="schedutil"
+    [powersave]="powersave"
+    [extreme]="powersave"
+)
+
+# CPU Boost settings
+declare -A CPU_BOOST=(
+    [max]="1"
+    [turbo]="1"
+    [performance]="1"
+    [balanced]="1"
+    [powersave]="0"
+    [extreme]="0"
+)
+
+# GPU Power Level
+declare -A GPU_POWER=(
+    [max]="high"
+    [turbo]="high"
+    [performance]="auto"
+    [balanced]="auto"
+    [powersave]="low"
+    [extreme]="low"
+)
+
+# GPU Power State
+declare -A GPU_STATE=(
+    [max]="performance"
+    [turbo]="performance"
+    [performance]="performance"
+    [balanced]="balanced"
+    [powersave]="battery"
+    [extreme]="battery"
+)
+
+# ASUS Profile mapping
+declare -A ASUS_PROFILE=(
+    [max]="Performance"
+    [turbo]="Performance"
+    [performance]="Performance"
+    [balanced]="Balanced"
+    [powersave]="Quiet"
+    [extreme]="Quiet"
+)
+
+# Default refresh rates for each profile (Hz)
+declare -A DEFAULT_REFRESH=(
+    [max]="120"
+    [turbo]="120"
+    [performance]="120"
+    [balanced]="90"
+    [powersave]="60"
+    [extreme]="60"
+)
+
+#############################################################################
+# Helper Functions
+#############################################################################
+
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[✓]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[!]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[✗]${NC} $1"
+}
+
+check_root() {
+    if [ "$EUID" -ne 0 ]; then
+        print_error "Must run as root. Use: sudo pwrcfg $*"
+        exit 1
+    fi
+}
+
+#############################################################################
+# Configuration Management
+#############################################################################
+
+load_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        source "$CONFIG_FILE"
+    fi
+}
+
+save_config() {
+    mkdir -p "$CONFIG_DIR"
+    cat > "$CONFIG_FILE" << EOF
+# pwrcfg configuration
+# Auto-generated on $(date)
+
+# Automatic switching
+AUTO_SWITCHING="${AUTO_SWITCHING:-disabled}"
+
+# AC Power profile
+AC_PROFILE="${AC_PROFILE:-turbo}"
+
+# Battery profile
+BATTERY_PROFILE="${BATTERY_PROFILE:-powersave}"
+
+# Link refresh rate to power profile
+LINK_REFRESH="${LINK_REFRESH:-yes}"
+
+# Custom refresh rate (if not linked)
+CUSTOM_REFRESH="${CUSTOM_REFRESH:-120}"
+EOF
+    print_success "Configuration saved to $CONFIG_FILE"
+}
+
+#############################################################################
+# Power Detection
+#############################################################################
+
+detect_power_source() {
+    local power_supply="/sys/class/power_supply"
+    
+    for adapter in "$power_supply"/AC*/online "$power_supply"/ADP*/online; do
+        if [ -f "$adapter" ]; then
+            local status=$(cat "$adapter")
+            if [ "$status" = "1" ]; then
+                echo "AC"
+                return
+            fi
+        fi
+    done
+    
+    echo "BATTERY"
+}
+
+#############################################################################
+# TDP Control
+#############################################################################
+
+set_tdp() {
+    local tdp=$1
+    print_info "Setting TDP to ${tdp}W"
+    
+    # Method 1: Try ryzenadj if available
+    if command -v ryzenadj &> /dev/null; then
+        ryzenadj --stapm-limit=${tdp}000 --fast-limit=${tdp}000 --slow-limit=${tdp}000 &>/dev/null && \
+            print_success "TDP set via ryzenadj" && return
+    fi
+    
+    # Method 2: Try platform_profile
+    local profile_path="/sys/firmware/acpi/platform_profile"
+    if [ -f "$profile_path" ]; then
+        # Map TDP to platform profile
+        if [ "$tdp" -ge 80 ]; then
+            echo "performance" > "$profile_path" 2>/dev/null && \
+                print_success "Platform profile set to performance"
+        elif [ "$tdp" -ge 50 ]; then
+            echo "balanced" > "$profile_path" 2>/dev/null && \
+                print_success "Platform profile set to balanced"
+        else
+            echo "low-power" > "$profile_path" 2>/dev/null && \
+                print_success "Platform profile set to low-power"
+        fi
+    fi
+    
+    # Method 3: Use AMD P-State EPP (Energy Performance Preference)
+    if [ -d /sys/devices/system/cpu/cpu0/cpufreq ]; then
+        local epp_path="/sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference"
+        if [ -f "$epp_path" ]; then
+            if [ "$tdp" -ge 80 ]; then
+                echo "performance" > "$epp_path" 2>/dev/null
+            elif [ "$tdp" -ge 50 ]; then
+                echo "balance_performance" > "$epp_path" 2>/dev/null
+            elif [ "$tdp" -ge 30 ]; then
+                echo "balance_power" > "$epp_path" 2>/dev/null
+            else
+                echo "power" > "$epp_path" 2>/dev/null
+            fi
+            
+            # Copy to all CPUs
+            for cpu in /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference; do
+                if [ -f "$cpu" ]; then
+                    cat "$epp_path" > "$cpu" 2>/dev/null
+                fi
+            done
+        fi
+    fi
+    
+    print_warning "TDP control limited - install ryzenadj for full TDP management"
+}
+
+#############################################################################
+# CPU Management
+#############################################################################
+
+set_cpu_governor() {
+    local governor=$1
+    print_info "Setting CPU governor: $governor"
+    
+    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+        if [ -f "$cpu" ]; then
+            echo "$governor" > "$cpu" 2>/dev/null || true
+        fi
+    done
+    
+    print_success "CPU governor: $governor"
+}
+
+set_cpu_boost() {
+    local boost=$1
+    
+    if [ -f /sys/devices/system/cpu/cpufreq/boost ]; then
+        echo "$boost" > /sys/devices/system/cpu/cpufreq/boost 2>/dev/null || true
+        [ "$boost" = "1" ] && print_success "CPU boost: enabled" || print_success "CPU boost: disabled"
+    fi
+}
+
+#############################################################################
+# GPU Management
+#############################################################################
+
+set_gpu_power() {
+    local level=$1
+    local state=$2
+    
+    print_info "Setting GPU power: $level / $state"
+    
+    for card in /sys/class/drm/card*/device/power_dpm_force_performance_level; do
+        if [ -f "$card" ]; then
+            echo "$level" > "$card" 2>/dev/null || true
+        fi
+    done
+    
+    for card in /sys/class/drm/card*/device/power_dpm_state; do
+        if [ -f "$card" ]; then
+            echo "$state" > "$card" 2>/dev/null || true
+        fi
+    done
+    
+    print_success "GPU power configured"
+}
+
+#############################################################################
+# ASUS Control
+#############################################################################
+
+set_asus_profile() {
+    local profile=$1
+    
+    if command -v asusctl &> /dev/null; then
+        asusctl profile -P "$profile" &>/dev/null && \
+            print_success "ASUS profile: $profile"
+    fi
+}
+
+#############################################################################
+# Apply Profile
+#############################################################################
+
+apply_profile() {
+    local profile=$1
+    
+    # Validate profile
+    if [ -z "${TDP_LIMITS[$profile]}" ]; then
+        print_error "Invalid profile: $profile"
+        echo "Use: pwrcfg list"
+        exit 1
+    fi
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}Applying profile: ${YELLOW}$profile${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    # Apply settings
+    set_tdp "${TDP_LIMITS[$profile]}"
+    set_cpu_governor "${CPU_GOVERNOR[$profile]}"
+    set_cpu_boost "${CPU_BOOST[$profile]}"
+    set_gpu_power "${GPU_POWER[$profile]}" "${GPU_STATE[$profile]}"
+    set_asus_profile "${ASUS_PROFILE[$profile]}"
+    
+    # Handle refresh rate if linked
+    if [ "${LINK_REFRESH:-yes}" = "yes" ]; then
+        rrcfg "${DEFAULT_REFRESH[$profile]}" 2>/dev/null || true
+    fi
+    
+    # Save current profile
+    echo "$profile" > /tmp/pwrcfg_current 2>/dev/null || true
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    print_success "Profile applied: $profile"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
+
+#############################################################################
+# Status Display
+#############################################################################
+
+show_status() {
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}  Power Configuration Status${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    # Power source
+    local source=$(detect_power_source)
+    echo -e "${BLUE}Power Source:${NC} $source"
+    
+    # Current profile
+    if [ -f /tmp/pwrcfg_current ]; then
+        local current=$(cat /tmp/pwrcfg_current)
+        echo -e "${BLUE}Current Profile:${NC} $current"
+    else
+        echo -e "${BLUE}Current Profile:${NC} unknown"
+    fi
+    
+    # CPU info
+    if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]; then
+        local gov=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor)
+        echo -e "${BLUE}CPU Governor:${NC} $gov"
+    fi
+    
+    if [ -f /sys/devices/system/cpu/cpufreq/boost ]; then
+        local boost=$(cat /sys/devices/system/cpu/cpufreq/boost)
+        echo -e "${BLUE}CPU Boost:${NC} $boost"
+    fi
+    
+    # GPU info
+    if [ -f /sys/class/drm/card0/device/power_dpm_force_performance_level ]; then
+        local gpu=$(cat /sys/class/drm/card0/device/power_dpm_force_performance_level)
+        echo -e "${BLUE}GPU Power Level:${NC} $gpu"
+    fi
+    
+    # Auto switching
+    load_config
+    echo -e "${BLUE}Auto Switching:${NC} ${AUTO_SWITCHING:-disabled}"
+    if [ "${AUTO_SWITCHING:-disabled}" = "enabled" ]; then
+        echo -e "${BLUE}  AC Profile:${NC} ${AC_PROFILE:-turbo}"
+        echo -e "${BLUE}  Battery Profile:${NC} ${BATTERY_PROFILE:-powersave}"
+    fi
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
+
+#############################################################################
+# List Profiles
+#############################################################################
+
+list_profiles() {
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}  Available Power Profiles${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    printf "%-12s %-8s %-12s %-10s %-10s\n" "PROFILE" "TDP" "GOVERNOR" "BOOST" "USE CASE"
+    echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+    printf "%-12s %-8s %-12s %-10s %-10s\n" "max" "${TDP_LIMITS[max]}W" "${CPU_GOVERNOR[max]}" "enabled" "Maximum"
+    printf "%-12s %-8s %-12s %-10s %-10s\n" "turbo" "${TDP_LIMITS[turbo]}W" "${CPU_GOVERNOR[turbo]}" "enabled" "Gaming"
+    printf "%-12s %-8s %-12s %-10s %-10s\n" "performance" "${TDP_LIMITS[performance]}W" "${CPU_GOVERNOR[performance]}" "enabled" "Work"
+    printf "%-12s %-8s %-12s %-10s %-10s\n" "balanced" "${TDP_LIMITS[balanced]}W" "${CPU_GOVERNOR[balanced]}" "enabled" "General"
+    printf "%-12s %-8s %-12s %-10s %-10s\n" "powersave" "${TDP_LIMITS[powersave]}W" "${CPU_GOVERNOR[powersave]}" "disabled" "Battery"
+    printf "%-12s %-8s %-12s %-10s %-10s\n" "extreme" "${TDP_LIMITS[extreme]}W" "${CPU_GOVERNOR[extreme]}" "disabled" "Min Power"
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo "Usage: sudo pwrcfg <profile>"
+    echo "Example: sudo pwrcfg turbo"
+}
+
+#############################################################################
+# Interactive Configuration
+#############################################################################
+
+configure() {
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}  Power Configuration Setup${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    load_config
+    
+    # AC Profile
+    echo ""
+    echo "Select profile for AC power:"
+    echo "1) max  2) turbo  3) performance  4) balanced  5) powersave  6) extreme"
+    read -p "Choice [default: turbo]: " ac_choice
+    case $ac_choice in
+        1) AC_PROFILE="max" ;;
+        2) AC_PROFILE="turbo" ;;
+        3) AC_PROFILE="performance" ;;
+        4) AC_PROFILE="balanced" ;;
+        5) AC_PROFILE="powersave" ;;
+        6) AC_PROFILE="extreme" ;;
+        *) AC_PROFILE="turbo" ;;
+    esac
+    
+    # Battery Profile
+    echo ""
+    echo "Select profile for battery power:"
+    echo "1) max  2) turbo  3) performance  4) balanced  5) powersave  6) extreme"
+    read -p "Choice [default: powersave]: " bat_choice
+    case $bat_choice in
+        1) BATTERY_PROFILE="max" ;;
+        2) BATTERY_PROFILE="turbo" ;;
+        3) BATTERY_PROFILE="performance" ;;
+        4) BATTERY_PROFILE="balanced" ;;
+        5) BATTERY_PROFILE="powersave" ;;
+        6) BATTERY_PROFILE="extreme" ;;
+        *) BATTERY_PROFILE="powersave" ;;
+    esac
+    
+    # Link refresh rate
+    echo ""
+    read -p "Link refresh rate to power profile? (y/n) [default: y]: " link_choice
+    case $link_choice in
+        n|N) LINK_REFRESH="no" ;;
+        *) LINK_REFRESH="yes" ;;
+    esac
+    
+    # Save configuration
+    save_config
+    
+    echo ""
+    print_success "Configuration complete!"
+    echo ""
+    echo "To enable automatic switching, run:"
+    echo "  sudo pwrcfg auto on"
+}
+
+#############################################################################
+# Automatic Switching
+#############################################################################
+
+enable_auto() {
+    check_root
+    
+    print_info "Installing automatic power switching..."
+    
+    # Create udev rules
+    cat > /etc/udev/rules.d/90-gz302-pwrcfg.rules <<'EOF'
+# Automatic power profile switching for GZ302EA
+SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_ONLINE}=="1", RUN+="/usr/local/bin/pwrcfg-auto ac"
+SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_ONLINE}=="0", RUN+="/usr/local/bin/pwrcfg-auto battery"
+EOF
+    
+    # Create helper script
+    cat > /usr/local/bin/pwrcfg-auto <<'EOF'
+#!/bin/bash
+source /etc/gz302/pwrcfg.conf 2>/dev/null || exit 0
+
+if [ "$1" = "ac" ]; then
+    /usr/local/bin/pwrcfg "${AC_PROFILE:-turbo}" >/dev/null 2>&1
+elif [ "$1" = "battery" ]; then
+    /usr/local/bin/pwrcfg "${BATTERY_PROFILE:-powersave}" >/dev/null 2>&1
+fi
+EOF
+    chmod +x /usr/local/bin/pwrcfg-auto
+    
+    # Copy pwrcfg to system location
+    cp "$0" /usr/local/bin/pwrcfg 2>/dev/null || true
+    chmod +x /usr/local/bin/pwrcfg
+    
+    # Update config
+    AUTO_SWITCHING="enabled"
+    save_config
+    
+    # Reload udev
+    udevadm control --reload-rules
+    udevadm trigger
+    
+    print_success "Automatic switching enabled"
+    print_info "AC profile: ${AC_PROFILE:-turbo}"
+    print_info "Battery profile: ${BATTERY_PROFILE:-powersave}"
+}
+
+disable_auto() {
+    check_root
+    
+    if [ -f /etc/udev/rules.d/90-gz302-pwrcfg.rules ]; then
+        rm /etc/udev/rules.d/90-gz302-pwrcfg.rules
+        rm /usr/local/bin/pwrcfg-auto 2>/dev/null || true
+        udevadm control --reload-rules
+        
+        AUTO_SWITCHING="disabled"
+        save_config
+        
+        print_success "Automatic switching disabled"
+    else
+        print_warning "Automatic switching not installed"
+    fi
+}
+
+#############################################################################
+# Help
+#############################################################################
+
+show_help() {
+    cat << EOF
+${CYAN}pwrcfg${NC} - Power Configuration Tool v${VERSION}
+
+${YELLOW}USAGE:${NC}
+    pwrcfg <profile>        Apply power profile
+    pwrcfg status           Show current status
+    pwrcfg list             List available profiles
+    pwrcfg config           Configure preferences
+    pwrcfg auto on|off      Enable/disable automatic switching
+
+${YELLOW}PROFILES:${NC}
+    max                     Maximum performance (120W TDP)
+    turbo                   High performance (100W TDP)
+    performance             Standard performance (80W TDP)
+    balanced                Balanced mode (60W TDP)
+    powersave               Power saving (35W TDP)
+    extreme                 Extreme battery saving (20W TDP)
+
+${YELLOW}EXAMPLES:${NC}
+    sudo pwrcfg turbo       # Set turbo mode
+    sudo pwrcfg powersave   # Set power saving mode
+    pwrcfg status           # Check current settings
+    sudo pwrcfg auto on     # Enable automatic AC/battery switching
+
+${YELLOW}FEATURES:${NC}
+    • 6 power levels with TDP control
+    • Automatic AC/battery switching
+    • CPU governor management
+    • GPU power control
+    • ASUS profile integration
+    • Optional refresh rate linking
+
+For refresh rate control, use: rrcfg
+EOF
+}
+
+#############################################################################
+# Main
+#############################################################################
+
+main() {
+    case "${1:-}" in
+        max|turbo|performance|balanced|powersave|extreme)
+            check_root
+            apply_profile "$1"
+            ;;
+        status)
+            show_status
+            ;;
+        list)
+            list_profiles
+            ;;
+        config)
+            check_root
+            configure
+            ;;
+        auto)
+            case "${2:-}" in
+                on|enable)
+                    enable_auto
+                    ;;
+                off|disable)
+                    disable_auto
+                    ;;
+                *)
+                    print_error "Usage: pwrcfg auto on|off"
+                    exit 1
+                    ;;
+            esac
+            ;;
+        --help|-h|help|"")
+            show_help
+            ;;
+        *)
+            print_error "Unknown command: $1"
+            echo "Use: pwrcfg --help"
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"
