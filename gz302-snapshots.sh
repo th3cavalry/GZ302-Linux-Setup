@@ -41,7 +41,8 @@ setup_snapshots() {
     info "Setting up system snapshots..."
     
     # Detect filesystem type
-    local fs_type=$(findmnt -n -o FSTYPE / 2>/dev/null)
+    local fs_type
+    fs_type=$(findmnt -n -o FSTYPE / 2>/dev/null)
     
     if [[ "$fs_type" == "btrfs" ]]; then
         info "Detected Btrfs filesystem - setting up Snapper..."

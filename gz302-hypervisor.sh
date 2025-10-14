@@ -107,7 +107,7 @@ main() {
     echo "  3) Skip"
     echo
     
-    read -p "Choose a hypervisor to install (1-3): " choice
+    read -r -p "Choose a hypervisor to install (1-3): " choice
     
     case "$choice" in
         1)
