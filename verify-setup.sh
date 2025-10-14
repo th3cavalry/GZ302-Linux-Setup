@@ -2,7 +2,7 @@
 
 #############################################################################
 # GZ302EA Linux Setup - Verification Script
-# Version: 1.0.0
+# Version: 1.4.0
 # 
 # This script verifies that the setup was successful by checking:
 # - Kernel version
@@ -67,12 +67,12 @@ test_kernel() {
     
     info "Current kernel: $kernel_version"
     
-    if [ "$kernel_major" -gt 6 ] || ([ "$kernel_major" -eq 6 ] && [ "$kernel_minor" -ge 14 ]); then
-        pass "Kernel version >= 6.14"
+    if [ "$kernel_major" -gt 6 ] || ([ "$kernel_major" -eq 6 ] && [ "$kernel_minor" -ge 15 ]); then
+        pass "Kernel version >= 6.15 (optimal for Radeon 8060S)"
     elif [ "$kernel_major" -eq 6 ] && [ "$kernel_minor" -ge 7 ]; then
-        warn "Kernel version >= 6.7 but < 6.14 (6.14+ recommended)"
+        warn "Kernel version >= 6.7 but < 6.15 (6.15+ recommended for optimal Radeon 8060S support)"
     else
-        fail "Kernel version < 6.7 (at least 6.7 required, 6.14+ recommended)"
+        fail "Kernel version < 6.7 (at least 6.7 required, 6.15+ recommended)"
     fi
 }
 
