@@ -1,3 +1,6 @@
+# Backup folder
+backup/
+
 # Temporary files
 *.tmp
 *.temp
