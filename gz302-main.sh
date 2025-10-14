@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================================================================
-# Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
+# Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
 # Version: 0.1.3-pre-release
@@ -10,7 +10,7 @@
 # the appropriate hardware fixes for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.
 # It applies critical hardware fixes and TDP/refresh rate management.
 #
-# REQUIRED: Linux kernel 6.14+ minimum (6.15+ strongly recommended)
+# REQUIRED: Linux kernel 6.15+ minimum (6.17+ strongly recommended)
 #
 # Optional software can be installed via modular scripts:
 # - gz302-gaming: Gaming software (Steam, Lutris, MangoHUD, etc.)
@@ -127,20 +127,20 @@ check_kernel_version() {
     major=$(echo "$kernel_version" | cut -d. -f1)
     minor=$(echo "$kernel_version" | cut -d. -f2)
     
-    # Convert to comparable format (e.g., 6.14 -> 614)
+    # Convert to comparable format (e.g., 6.15 -> 615)
     local version_num=$((major * 100 + minor))
-    local min_version=614  # 6.14
-    local recommended_version=615  # 6.15
+    local min_version=615  # 6.15
+    local recommended_version=617  # 6.17
     
     info "Detected kernel version: $(uname -r)"
     
     if [[ $version_num -lt $min_version ]]; then
-        warning "⚠️  Your kernel version ($kernel_version) is below the minimum supported version (6.14)"
+        warning "⚠️  Your kernel version ($kernel_version) is below the minimum supported version (6.15)"
         warning "⚠️  While the script will continue, you may experience:"
         warning "    - WiFi stability issues (MediaTek MT7925)"
         warning "    - Suboptimal AMD Strix Halo performance"
         warning "    - Missing AMDGPU driver features"
-        warning "⚠️  Please upgrade to kernel 6.14+ (6.15+ recommended) for best results"
+        warning "⚠️  Please upgrade to kernel 6.15+ (6.17+ recommended) for best results"
         echo
         read -p "Continue anyway? (y/N): " -n 1 -r
         echo
@@ -149,10 +149,10 @@ check_kernel_version() {
         fi
     elif [[ $version_num -lt $recommended_version ]]; then
         warning "Your kernel version ($kernel_version) meets minimum requirements"
-        info "For best performance, consider upgrading to kernel 6.15+ which includes:"
-        info "  - Enhanced AMD Strix Halo AI inference performance"
-        info "  - Improved Radeon 8060S graphics performance"
-        info "  - Better MediaTek MT7925 WiFi stability"
+        info "For best performance, consider upgrading to kernel 6.17+ which includes:"
+        info "  - Further AMD Strix Halo performance improvements"
+        info "  - Enhanced Radeon 8060S integrated GPU scheduling"
+        info "  - Improved MediaTek MT7925 WiFi performance and stability"
         echo
     else
         success "Kernel version ($kernel_version) meets recommended requirements"
@@ -192,13 +192,13 @@ detect_distribution() {
 }
 
 # --- Hardware Fixes for All Distributions ---
-# Updated based on latest kernel support and community research (Oct 2025)
+# Updated based on latest kernel support and community research
 # Sources: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org,
 #          Strix Halo HomeLab, Ubuntu 25.10 benchmarks, Phoronix community
 # GZ302EA-XS99: AMD Ryzen AI MAX+ 395 with AMD Radeon 8060S integrated graphics (100% AMD)
-# REQUIRED: Kernel 6.14+ minimum (6.15+ strongly recommended)
-# Kernel 6.14 includes XDNA NPU driver, MT7925 WiFi improvements, better AMDGPU support
-# Kernel 6.15 includes enhanced AI inference, improved Radeon 8060S performance
+# REQUIRED: Kernel 6.15+ minimum (6.17+ strongly recommended)
+# Kernel 6.15+ includes XDNA NPU driver, native MT7925 WiFi stability, improved AMDGPU support
+# Kernel 6.17 (latest stable) includes enhanced AMD Strix Halo performance and GPU scheduling
 
 apply_hardware_fixes() {
     info "Applying GZ302 hardware fixes for all distributions..."
@@ -231,9 +231,9 @@ apply_hardware_fixes() {
     fi
     
     # Wi-Fi fixes for MediaTek MT7925
-    # Kernel 6.14+ includes MLO WiFi 7 support and improved MT7925 driver
-    # Kernel 6.15+ includes additional stability improvements
-    # ASPM workaround still recommended for kernels < 6.15
+    # Kernel 6.15+ includes native WiFi stability improvements
+    # Kernel 6.17 (latest stable) further improves performance and throughput
+    # ASPM workaround required only for kernels < 6.15
     info "Configuring MediaTek MT7925 Wi-Fi..."
     
     if [[ $version_num -lt 615 ]]; then
@@ -252,7 +252,7 @@ EOF
         cat > /etc/modprobe.d/mt7925.conf <<'EOF'
 # MediaTek MT7925 Wi-Fi configuration for GZ302
 # Kernel 6.15+ includes native improvements - ASPM workaround not needed
-# WiFi 7 MLO support and enhanced stability included in kernel 6.14+
+# WiFi 7 MLO support and enhanced stability included natively
 EOF
     fi
 
@@ -277,7 +277,7 @@ EOF
     cat > /etc/modprobe.d/hid-asus.conf <<'EOF'
 # ASUS HID configuration for GZ302
 # fnlock_default=0: F1-F12 keys work as media keys by default
-# Kernel 6.14+ includes mature touchpad gesture support and improved ASUS HID integration
+# Kernel 6.15+ includes mature touchpad gesture support and improved ASUS HID integration
 options hid_asus fnlock_default=0
 EOF
 
@@ -2399,7 +2399,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 0.1.3-pre-release - Enhanced 2025 Support"
+    echo "  Version 0.1.3-pre-release - Modular Architecture"
     echo "============================================================"
     echo
     

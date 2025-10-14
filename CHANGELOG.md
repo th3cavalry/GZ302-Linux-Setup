@@ -9,9 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.3-pre-release] - 2025-10
 
-### Changed - Major 2025 Linux Support Update
-- Updated kernel requirements to 6.14+ minimum (6.15+ strongly recommended)
-- Updated to reflect kernel 6.14 release (March 2025) and 6.15 release (May 2025)
+### Changed - Kernel Support Update
+- Updated kernel requirements to 6.15+ minimum (6.17+ strongly recommended)
+- Updated to reflect kernel 6.17 release (September 2025) as latest stable
+- Updated to reflect kernel 6.18 RC1 availability (October 2025)
 - Enhanced documentation with current Linux kernel support status
 - Modernized all kernel version references throughout repository
 
@@ -21,21 +22,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Kernels < 6.15: Automatic ASPM workaround applied
   - Kernels 6.15+: Native WiFi stability, no workaround needed
 - Comprehensive linux-g14 kernel documentation and recommendations
-  - Documented that linux-g14 is optional with mainline 6.14+
+  - Documented that linux-g14 is optional with mainline 6.15+
   - Added guidance on when to use mainline vs linux-g14
-- Kernel 6.14 benefits documentation:
-  - AMD XDNA NPU driver support
-  - MediaTek MT7925 WiFi 7 MLO support
-  - Enhanced AMDGPU power management
-- Kernel 6.15 benefits documentation:
+- Kernel 6.15+ benefits documentation:
+  - Native MT7925 WiFi stability (no ASPM workaround required)
   - Enhanced AMD Strix Halo AI inference performance
   - Improved Radeon 8060S graphics performance
-  - Native MT7925 WiFi stability improvements
+- Kernel 6.17 benefits documentation:
+  - Further AMD Strix Halo performance improvements
+  - Enhanced integrated GPU scheduling and memory management
+  - Improved MediaTek MT7925 WiFi performance
 
 ### Research Updates
-- Linux kernel 6.14 released March 2025 with XDNA driver and WiFi 7 support
-- Linux kernel 6.15 released May 2025 with significant Strix Halo improvements
-- Phoronix benchmarks showing performance gains in 6.15 and 6.16
+- Linux kernel 6.17 (latest stable) released September 2025
+- Linux kernel 6.18 RC1 released October 2025, final expected November/December 2025
+- Phoronix benchmarks showing Strix Halo performance improvements in 6.17
 - Updated asus-linux.org research on linux-g14 necessity
 
 ### Technical Improvements
@@ -62,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OpenSUSE: OBS repository (hardware:asus) with automated zypper installation
 - Note about ec_su_axb35 kernel module for advanced Strix Halo fan/power control
 - References to Strix Halo HomeLab and Phoronix community research
-- Kernel 6.14+ MediaTek MT7925 WiFi improvement notes
+- Kernel 6.15+ native MediaTek MT7925 WiFi stability notes
 
 ### Research Sources
 - Shahzebqazi/Asus-Z13-Flow-2025-PCMR GitHub repository

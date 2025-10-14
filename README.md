@@ -2,7 +2,7 @@
 
 **Modular Linux setup scripts specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional downloadable modules for gaming, AI development, virtualization, and more.
 
-> **🚀 Version 0.1.3-pre-release - 2025 Linux Support Update!** Updated for kernel 6.14+ and 6.15+ with enhanced AMD Strix Halo support, improved MediaTek MT7925 WiFi, and conditional hardware workarounds. **Required: Linux kernel 6.14+ minimum (6.15+ strongly recommended) for optimal Strix Halo and WiFi support.**
+> **🚀 Version 0.1.3-pre-release - Enhanced Kernel Support!** Updated for kernel 6.15+ and 6.17+ with enhanced AMD Strix Halo support, improved MediaTek MT7925 WiFi, and conditional hardware workarounds. **Required: Linux kernel 6.15+ minimum (6.17+ strongly recommended) for optimal Strix Halo and WiFi support.**
 
 ## ✨ Key Features
 
@@ -55,15 +55,15 @@ Based on latest research from GZ302 community and comprehensive testing:
 - **Kernel parameters**: AMD P-State driver (`amd_pstate=guided`) - optimal for Strix Halo (confirmed by benchmarks)
 - **GPU optimization**: AMD Radeon 8060S integrated graphics (RDNA 3.5) - full feature mask enabled, ROCm-compatible
 - **Wi-Fi stability**: MediaTek MT7925 conditional fixes - automatic ASPM workaround for kernels < 6.15, native support for 6.15+
-- **ASUS HID**: Keyboard and touchpad module configuration with mature gesture support (kernel 6.14+)
+- **ASUS HID**: Keyboard and touchpad module configuration with mature gesture support
 
 **Research Sources**: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org, Strix Halo HomeLab, Ubuntu 25.10 benchmarks, Phoronix community
 
 **Kernel Requirements**: 
-- **Minimum**: Linux kernel 6.14+ (required for XDNA NPU driver, WiFi 7 MLO support, improved AMDGPU)
-- **Recommended**: Linux kernel 6.15+ for enhanced AI inference, better Radeon 8060S performance, and native MT7925 WiFi stability
-- **Benefits of 6.14+**: AMD XDNA driver for NPU, MediaTek MT7925 WiFi 7 support, better power management
-- **Benefits of 6.15+**: Enhanced AMD Strix Halo AI performance, improved Radeon 8060S graphics, native MT7925 stability (no ASPM workaround needed)
+- **Minimum**: Linux kernel 6.15+ (native MT7925 WiFi stability, XDNA NPU driver, improved AMDGPU)
+- **Recommended**: Linux kernel 6.17+ (latest stable) for further AMD Strix Halo performance improvements and enhanced GPU scheduling
+- **Benefits of 6.15+**: Native MT7925 WiFi stability (no ASPM workaround), enhanced AI inference performance, improved Radeon 8060S graphics
+- **Benefits of 6.17+**: Further Strix Halo optimizations, better integrated GPU scheduling, improved memory management
 
 ### ASUS-Specific Packages (Distribution-dependent)
 Automated installation from official sources:
@@ -87,9 +87,9 @@ Note: GZ302EA-XS99 has AMD Radeon 8060S integrated graphics (100% AMD system). N
 
 ### About linux-g14 Kernel (Arch Linux)
 The `linux-g14` custom kernel is **optional** for GZ302 users:
-- **Not required** with mainline kernel 6.14+ - core hardware support is excellent
+- **Not required** with mainline kernel 6.15+ - core hardware support is excellent
 - **Still beneficial** for advanced ASUS ROG features: custom fan curves, LED management, enhanced GPU switching
-- **Recommendation**: Use mainline kernel 6.15+ for stability, or linux-g14 if you need advanced ROG-specific features
+- **Recommendation**: Use mainline kernel 6.17+ for stability, or linux-g14 if you need advanced ROG-specific features
 - The G14 repository provides asusctl regardless of which kernel you use
 - See: https://asus-linux.org for more information on linux-g14 benefits
 

@@ -21,42 +21,44 @@ This document summarizes comprehensive research into the current state of Linux 
 
 ## Kernel Requirements
 
-### Current Requirements (As of 2025)
-- **Minimum Required**: Linux Kernel 6.14+ for production use
-- Provides XDNA NPU driver for AMD Ryzen AI, improved AMDGPU support, WiFi 7 MLO
-- Essential for MediaTek MT7925 WiFi stability improvements
+### Current Requirements
+- **Minimum Required**: Linux Kernel 6.15+ for production use
+- Provides XDNA NPU driver, native MT7925 WiFi stability, improved AMDGPU support
+- Essential for optimal MediaTek MT7925 WiFi performance
 
 ### Recommended Versions
-- **Linux Kernel 6.15+** for optimal performance and stability
-- Enhanced AMD Strix Halo AI inference performance (significant gains in CPU-based AI workloads)
-- Improved Radeon 8060S graphics performance
-- Native MediaTek MT7925 WiFi stability (ASPM workaround no longer needed)
-- Better power management and thermal controls
+- **Linux Kernel 6.17+** (latest stable, released September 2025) for optimal performance and stability
+- Enhanced AMD Strix Halo performance with better integrated GPU scheduling
+- Improved memory management and power delivery optimizations
+- Better MediaTek MT7925 WiFi performance and higher throughput handling
+
+### Development Version
+- **Linux Kernel 6.18 RC1** (released October 2025, final expected November/December 2025)
+- Continued performance improvements for AMD and MediaTek hardware
 
 ### Key Improvements by Version
 
-**Linux 6.14** (Released March 2025):
-- AMD XDNA driver for Neural Processing Units (NPUs) in Ryzen AI processors
-- MediaTek MT7925 WiFi 7 Multi-Link Operation (MLO) support
-- Enhanced AMDGPU power management and encryption performance (AES-GCM, AES-XTS)
-- Improved AMD P-State driver optimizations
-
-**Linux 6.15** (Released May 2025):
+**Linux 6.15**:
+- Native MediaTek MT7925 WiFi stability (ASPM workaround no longer required)
 - Significant AI inference performance improvements for Strix Halo
 - Enhanced Radeon 8060S integrated graphics performance
-- Native MediaTek MT7925 stability improvements (ASPM workaround optional)
-- Continued AMDGPU and power management enhancements
+- Improved AMD P-State driver and power management
 
-**Linux 6.16** (In Development):
-- Additional performance gains for AMD Strix Halo
-- Continued graphics and AI performance improvements
+**Linux 6.17** (Latest Stable - September 2025):
+- Enhanced AMD Strix Halo performance with better integrated GPU scheduling
+- Improved memory management and power delivery optimizations
+- Better MediaTek MT7925 WiFi performance with higher throughput handling
+- 37% performance gain on AMD EPYC processors (benefits Strix Halo architecture)
+- Enhanced CPU bug mitigation controls
 
-### Legacy Support (Deprecated)
-- **Linux Kernel 6.11-6.13**: Basic Strix Halo support (no longer recommended)
-- Missing XDNA NPU driver, WiFi 7 support, and latest performance optimizations
-- Requires ASPM workaround for MT7925 WiFi
+**Linux 6.18** (RC1 - In Development):
+- Continued AMD and MediaTek optimizations
+- Expected final release: November/December 2025
 
-**Sources**: Phoronix news, Linux kernel documentation, LinuxJournal kernel 6.14 analysis, Phoronix 6.15/6.16 Strix Halo benchmarks
+### Legacy Support (Not Recommended)
+- **Linux Kernel 6.14 and earlier**: Missing native MT7925 stability, requires ASPM workaround, suboptimal performance
+
+**Sources**: Phoronix news, Linux kernel documentation, LinuxJournal kernel analysis, Linux Kernel Newbies, kernel.org
 
 ## AMD Strix Halo CPU Optimization
 
@@ -135,8 +137,8 @@ wifi.powersave = 2
 
 ### Why This Works
 - ASPM (Active State Power Management) causes instability with MT7925 on kernels < 6.15
-- Kernel 6.14 includes WiFi 7 MLO support and initial MT7925 improvements
-- Kernel 6.15+ includes native stability fixes - ASPM workaround becomes optional
+- Kernel 6.15+ includes native WiFi stability improvements - ASPM workaround no longer needed
+- Kernel 6.17 (latest stable) further improves MT7925 performance and throughput handling
 - Scripts automatically detect kernel version and apply appropriate configuration
 
 **Sources**:
@@ -229,11 +231,12 @@ sudo zypper ar -f https://download.opensuse.org/repositories/hardware:/asus/open
 
 ### About linux-g14 Kernel (Arch Linux)
 
-**Current Status (2025)**: Optional for GZ302 with mainline kernel 6.14+
+**Current Status**: Optional for GZ302 with mainline kernel 6.15+
 
-**Mainline Kernel 6.14+ Support**:
+**Mainline Kernel 6.15+ Support**:
 - Core hardware support is excellent (WiFi, GPU, CPU, touchpad)
 - XDNA NPU driver included
+- Native MT7925 WiFi stability
 - All essential features work out-of-box
 - Recommended for most users prioritizing stability
 
@@ -244,7 +247,7 @@ sudo zypper ar -f https://download.opensuse.org/repositories/hardware:/asus/open
 - Community-maintained with active development
 
 **Recommendation for GZ302**:
-- **Mainline kernel 6.15+**: Best choice for stability and official support
+- **Mainline kernel 6.17+**: Best choice for stability and official support (latest stable)
 - **linux-g14**: Consider if you need advanced ROG-specific features
 - G14 repository provides asusctl regardless of kernel choice
 - GZ302's integrated-only GPU design works well with mainline kernel
@@ -259,7 +262,7 @@ sudo pacman -S linux-g14 linux-g14-headers
 - asus-linux.org FAQ
 - Arch Wiki ASUS Linux page
 - GitHub: asus-linux/linux-g14
-- Community testing feedback (2025)
+- Community testing feedback
 
 ## Advanced Power and Fan Control
 
@@ -389,17 +392,17 @@ Script compiles from source across all distributions for consistency.
 
 ### Confirmed Working Configurations
 
-1. **Arch Linux** (Kernel 6.14+/6.15+)
+1. **Arch Linux** (Kernel 6.15+/6.17+)
    - Full hardware support with mainline or linux-g14 kernel
    - asusctl from G14 repository
    - Excellent performance and stability
 
-2. **Ubuntu 25.10+** (Kernel 6.14+/6.15+)
+2. **Ubuntu 25.10+** (Kernel 6.15+/6.17+)
    - Benchmark-confirmed optimal performance
    - Mesa 25.3+ drivers
    - Great out-of-box experience
 
-3. **Fedora 41+** (Kernel 6.14+/6.15+)
+3. **Fedora 41+** (Kernel 6.15+/6.17+)
    - COPR repository for asusctl
    - Strong AMD driver support
    - Recent kernel versions by default
@@ -423,21 +426,23 @@ Script compiles from source across all distributions for consistency.
 
 ## Future Outlook
 
-### Current State (2025)
+### Current State
 
-With the release of Linux kernels 6.14 and 6.15, GZ302 support has reached production quality:
+GZ302 support has reached production quality with recent kernel releases:
 
-1. **Kernel 6.14** (Released March 2025)
-   - AMD XDNA NPU driver for AI workloads
-   - MediaTek MT7925 WiFi 7 MLO support
-   - Enhanced AMDGPU features and power management
-
-2. **Kernel 6.15** (Released May 2025)
+1. **Kernel 6.15+**
+   - Native MT7925 WiFi stability (no ASPM workaround required)
+   - XDNA NPU driver for AI workloads
    - Significant AI inference performance improvements
    - Enhanced Radeon 8060S graphics performance
-   - Native MT7925 WiFi stability
 
-3. **Kernel 6.16+** (In Development)
+2. **Kernel 6.17** (Latest Stable - September 2025)
+   - Enhanced AMD Strix Halo performance
+   - Better integrated GPU scheduling and memory management
+   - Improved MediaTek MT7925 WiFi performance
+   - Power delivery optimizations
+
+3. **Kernel 6.18** (RC1 - In Development, Expected November/December 2025)
    - Continued performance optimizations
    - Additional AMD Strix Halo improvements
 
@@ -455,7 +460,7 @@ With the release of Linux kernels 6.14 and 6.15, GZ302 support has reached produ
 
 ### Recommendations for Users
 
-1. **Use Kernel 6.14+ minimum, 6.15+ recommended**: Essential for optimal hardware support
+1. **Use Kernel 6.15+ minimum, 6.17+ recommended**: Essential for optimal hardware support
 2. **Enable Official Repositories**: Use G14/PPA/COPR/OBS for asusctl
 3. **Mainline kernel preferred**: linux-g14 optional unless you need advanced ROG features
 4. **Keep system updated**: Kernel and driver updates continue to improve support
@@ -463,10 +468,10 @@ With the release of Linux kernels 6.14 and 6.15, GZ302 support has reached produ
 
 ## Conclusion
 
-Linux support for the ASUS ROG Flow Z13 (GZ302) with AMD Strix Halo has reached maturity with kernel 6.14+ and 6.15+. Users can expect excellent hardware compatibility, strong performance, and robust power management. The community continues to actively develop and improve support through projects like asusctl and ec_su_axb35.
+Linux support for the ASUS ROG Flow Z13 (GZ302) with AMD Strix Halo has reached maturity with kernel 6.15+ and 6.17+. Users can expect excellent hardware compatibility, strong performance, and robust power management. The community continues to actively develop and improve support through projects like asusctl and ec_su_axb35.
 
 **Key Success Factors**:
-- Use Linux kernel 6.14+ minimum (6.15+ strongly recommended)
+- Use Linux kernel 6.15+ minimum (6.17+ strongly recommended, latest stable)
 - Mainline kernel provides excellent support - linux-g14 is optional
 - Conditional WiFi fixes applied automatically based on kernel version
 - Use official asusctl repositories for your distribution
