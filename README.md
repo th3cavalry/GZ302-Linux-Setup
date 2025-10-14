@@ -1,6 +1,6 @@
 # Asus ROG Flow Z13 2025 (GZ302EA) Linux Setup Script
 
-**Version: 1.0.0**
+**Version: 1.1.0**
 
 Comprehensive post-installation setup script for the Asus ROG Flow Z13 2025 models (GZ302EA) with AMD Strix Halo processor and integrated Radeon 8060S GPU.
 
@@ -22,11 +22,12 @@ The script automatically detects and supports the following distributions:
 
 ## What This Script Does
 
-The script implements various fixes and optimizations for the Asus ROG Flow Z13 2025 on Linux:
+The script automatically installs and configures everything needed for the Asus ROG Flow Z13 2025 on Linux:
 
-### 1. Kernel Updates
-- Ensures you're running a kernel >= 6.14 for optimal hardware support
-- Adds necessary kernel parameters for AMD Strix Halo and Radeon 8060S
+### 1. G14 Kernel Installation
+- Automatically installs linux-g14 kernel and headers (Arch-based distros)
+- Installs latest kernel with development headers for other distros
+- Optimized for ROG laptops with specific patches
 
 ### 2. Graphics Support
 - Configures AMDGPU drivers with optimal settings
@@ -60,6 +61,11 @@ The script implements various fixes and optimizations for the Asus ROG Flow Z13 
 - Configures high-DPI display settings
 - Ensures touchscreen and stylus support
 
+### 9. Bootloader Configuration
+- Supports both GRUB and systemd-boot
+- Automatically detects and configures your bootloader
+- Adds optimal kernel parameters
+
 ## Prerequisites
 
 - Fresh Linux installation (any supported distribution)
@@ -78,7 +84,7 @@ curl -O https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz30
 # Make it executable
 chmod +x gz302-setup.sh
 
-# Run the script
+# Run the script (it will automatically install everything)
 sudo ./gz302-setup.sh
 ```
 
@@ -92,44 +98,40 @@ cd GZ302-Linux-Setup
 # Make the script executable
 chmod +x gz302-setup.sh
 
-# Run the script
+# Run the script (it will automatically install everything)
 sudo ./gz302-setup.sh
 ```
 
 ## Usage
 
-The script is interactive and will guide you through the setup process:
+The script runs fully automatically and installs all necessary components:
 
 ```bash
 sudo ./gz302-setup.sh [OPTIONS]
 
 Options:
-  --auto          Run in automatic mode (uses defaults, minimal prompts)
-  --minimal       Install only essential fixes (no optional components)
-  --full          Install everything including optional components
-  --skip-kernel   Skip kernel updates/checks
   --help          Show help message
 ```
 
-### Examples
-
-```bash
-# Interactive mode (recommended for first-time users)
-sudo ./gz302-setup.sh
-
-# Automatic mode with all features
-sudo ./gz302-setup.sh --auto --full
-
-# Minimal installation
-sudo ./gz302-setup.sh --minimal
-```
+The script will:
+1. Detect your Linux distribution
+2. Install the g14 kernel and headers
+3. Configure all hardware components
+4. Set up ASUS-specific tools
+5. Optimize power management
+6. Configure your bootloader (GRUB or systemd-boot)
+7. Automatically reboot when complete
 
 ## Post-Installation
 
-After running the script:
+After the automatic reboot:
 
-1. **Reboot your system** to apply all changes
-2. Test the following:
+1. **Verify the installation** using the verification script:
+   ```bash
+   ./verify-setup.sh
+   ```
+
+2. **Test the following:**
    - WiFi and Bluetooth connectivity
    - Graphics performance (run `glxinfo | grep "OpenGL renderer"`)
    - Suspend and resume

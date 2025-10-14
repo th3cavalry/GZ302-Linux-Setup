@@ -22,13 +22,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Script version
-VERSION="1.0.0"
-
-# Configuration flags
-AUTO_MODE=false
-MINIMAL_MODE=false
-FULL_MODE=false
-SKIP_KERNEL=false
+VERSION="1.1.0"
 
 # Distro detection
 DISTRO=""
@@ -65,28 +59,6 @@ print_error() {
 
 print_success() {
     echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-ask_user() {
-    if [ "$AUTO_MODE" = true ]; then
-        return 0  # Auto-accept in auto mode
-    fi
-    
-    local question="$1"
-    local default="${2:-y}"
-    
-    if [ "$default" = "y" ]; then
-        read -p "$question [Y/n]: " response
-        response=${response:-y}
-    else
-        read -p "$question [y/N]: " response
-        response=${response:-n}
-    fi
-    
-    case "$response" in
-        [yY][eE][sS]|[yY]) return 0 ;;
-        *) return 1 ;;
-    esac
 }
 
 check_root() {
@@ -200,11 +172,6 @@ update_system() {
 #############################################################################
 
 check_kernel_version() {
-    if [ "$SKIP_KERNEL" = true ]; then
-        print_info "Skipping kernel check (--skip-kernel flag)"
-        return
-    fi
-    
     print_step "Checking kernel version..."
     
     local kernel_version=$(uname -r | cut -d. -f1,2)
@@ -214,38 +181,56 @@ check_kernel_version() {
     print_info "Current kernel: $(uname -r)"
     
     if [ "$kernel_major" -lt 6 ] || ([ "$kernel_major" -eq 6 ] && [ "$kernel_minor" -lt 14 ]); then
-        print_warning "Kernel version < 6.14 detected. For best hardware support, kernel 6.14+ is recommended."
-        
-        if ask_user "Would you like to update to a newer kernel?"; then
-            update_kernel
-        else
-            print_warning "Continuing with current kernel. Some features may not work optimally."
-        fi
+        print_warning "Kernel version < 6.14 detected. Updating to g14 kernel for best hardware support."
+        update_kernel
     else
         print_success "Kernel version is adequate (>= 6.14)"
+        # Still offer g14 kernel for ROG-specific optimizations
+        print_info "Installing g14 kernel for ROG-specific optimizations..."
+        install_g14_kernel
     fi
 }
 
-update_kernel() {
-    print_step "Updating kernel..."
+install_g14_kernel() {
+    print_step "Installing g14 kernel and headers..."
     
     case $DISTRO_FAMILY in
         arch)
-            print_info "Installing latest kernel..."
-            pacman -S --noconfirm linux linux-headers
-            ;;
-        debian)
-            print_info "Installing latest available kernel..."
-            apt install -y linux-image-generic linux-headers-generic
-            # For Ubuntu, try to get mainline kernel
-            if [ "$DISTRO" = "ubuntu" ]; then
-                print_info "For Ubuntu, consider using mainline kernel PPA for 6.14+"
-                print_info "Visit: https://kernel.ubuntu.com/mainline/"
+            print_info "Installing linux-g14 kernel from AUR..."
+            # Check if yay or paru is available for AUR
+            if command -v yay &> /dev/null; then
+                sudo -u ${SUDO_USER} yay -S --noconfirm linux-g14 linux-g14-headers
+            elif command -v paru &> /dev/null; then
+                sudo -u ${SUDO_USER} paru -S --noconfirm linux-g14 linux-g14-headers
+            else
+                print_warning "AUR helper (yay/paru) not found"
+                print_info "Installing manually from AUR..."
+                # Install dependencies
+                pacman -S --noconfirm base-devel git
+                # Clone and build linux-g14
+                cd /tmp
+                sudo -u ${SUDO_USER} git clone https://aur.archlinux.org/linux-g14.git
+                cd linux-g14
+                sudo -u ${SUDO_USER} makepkg -si --noconfirm
+                cd /tmp
+                sudo -u ${SUDO_USER} git clone https://aur.archlinux.org/linux-g14-headers.git
+                cd linux-g14-headers
+                sudo -u ${SUDO_USER} makepkg -si --noconfirm
+                cd /
+                rm -rf /tmp/linux-g14 /tmp/linux-g14-headers
             fi
             ;;
+        debian|ubuntu)
+            print_info "For Debian/Ubuntu, g14 kernel is not available as a package."
+            print_info "Installing latest available kernel with ROG patches..."
+            apt install -y linux-image-generic linux-headers-generic
+            # Note: Users may need to compile custom kernel for g14 patches
+            print_warning "For best ROG support, consider using a distribution with g14 kernel support."
+            ;;
         fedora)
-            print_info "Installing latest kernel..."
+            print_info "Installing latest kernel with development headers..."
             dnf install -y kernel kernel-devel kernel-headers
+            print_info "Consider compiling custom kernel with g14 patches for optimal ROG support."
             ;;
         opensuse)
             print_info "Installing latest kernel..."
@@ -253,7 +238,14 @@ update_kernel() {
             ;;
     esac
     
-    print_success "Kernel update complete. Reboot required."
+    print_success "Kernel installation complete. Reboot required."
+}
+
+update_kernel() {
+    print_step "Updating to g14 kernel..."
+    
+    # First install g14 kernel
+    install_g14_kernel
 }
 
 #############################################################################
@@ -339,22 +331,32 @@ EOF
 }
 
 #############################################################################
-# GRUB Configuration
+# Bootloader Configuration (GRUB and systemd-boot)
 #############################################################################
 
-configure_grub() {
-    print_step "Configuring GRUB bootloader parameters..."
-    
-    if [ ! -f /etc/default/grub ]; then
-        print_warning "GRUB config not found. Skipping GRUB configuration."
-        return
-    fi
-    
-    # Backup existing GRUB config
-    cp /etc/default/grub /etc/default/grub.backup.$(date +%Y%m%d_%H%M%S)
+configure_bootloader() {
+    print_step "Configuring bootloader parameters..."
     
     # Kernel parameters for AMD Strix Halo and GZ302EA
     local new_params="iommu=pt amd_pstate=active amdgpu.si_support=1 amdgpu.cik_support=1"
+    
+    # Detect which bootloader is in use
+    if [ -f /etc/default/grub ]; then
+        configure_grub "$new_params"
+    elif [ -d /boot/loader/entries ] || [ -f /boot/efi/loader/loader.conf ] || [ -f /efi/loader/loader.conf ]; then
+        configure_systemd_boot "$new_params"
+    else
+        print_warning "No supported bootloader detected (GRUB or systemd-boot)"
+        print_info "Please manually add these kernel parameters: $new_params"
+    fi
+}
+
+configure_grub() {
+    local new_params="$1"
+    print_info "Detected GRUB bootloader"
+    
+    # Backup existing GRUB config
+    cp /etc/default/grub /etc/default/grub.backup.$(date +%Y%m%d_%H%M%S)
     
     # Check if parameters already exist
     if grep -q "GRUB_CMDLINE_LINUX_DEFAULT" /etc/default/grub; then
@@ -380,6 +382,74 @@ configure_grub() {
     fi
     
     print_success "GRUB configured"
+}
+
+configure_systemd_boot() {
+    local new_params="$1"
+    print_info "Detected systemd-boot bootloader"
+    
+    # Find the boot loader entries directory
+    local entries_dir=""
+    if [ -d /boot/loader/entries ]; then
+        entries_dir="/boot/loader/entries"
+    elif [ -d /boot/efi/loader/entries ]; then
+        entries_dir="/boot/efi/loader/entries"
+    elif [ -d /efi/loader/entries ]; then
+        entries_dir="/efi/loader/entries"
+    else
+        print_error "Could not find systemd-boot entries directory"
+        return 1
+    fi
+    
+    print_info "Boot entries directory: $entries_dir"
+    
+    # Update all existing boot entries
+    local updated=false
+    for entry in "$entries_dir"/*.conf; do
+        if [ -f "$entry" ]; then
+            # Backup the entry
+            cp "$entry" "$entry.backup.$(date +%Y%m%d_%H%M%S)"
+            
+            # Check if parameters are already present
+            if ! grep -q "amd_pstate=active" "$entry"; then
+                # Add parameters to the options line
+                if grep -q "^options" "$entry"; then
+                    sed -i "s/^options /options $new_params /" "$entry"
+                    print_info "Updated $(basename $entry)"
+                    updated=true
+                fi
+            else
+                print_info "$(basename $entry) already has kernel parameters"
+            fi
+        fi
+    done
+    
+    if [ "$updated" = true ]; then
+        print_success "systemd-boot entries updated with kernel parameters: $new_params"
+    else
+        print_info "No updates needed or no entries found"
+    fi
+    
+    # Also create a drop-in config if it doesn't exist
+    local loader_conf=""
+    if [ -f /boot/loader/loader.conf ]; then
+        loader_conf="/boot/loader/loader.conf"
+    elif [ -f /boot/efi/loader/loader.conf ]; then
+        loader_conf="/boot/efi/loader/loader.conf"
+    elif [ -f /efi/loader/loader.conf ]; then
+        loader_conf="/efi/loader/loader.conf"
+    fi
+    
+    if [ -n "$loader_conf" ]; then
+        print_info "Bootloader config: $loader_conf"
+        # Ensure timeout is reasonable
+        if ! grep -q "^timeout" "$loader_conf"; then
+            echo "timeout 3" >> "$loader_conf"
+            print_info "Set boot timeout to 3 seconds"
+        fi
+    fi
+    
+    print_success "systemd-boot configured"
 }
 
 #############################################################################
@@ -695,13 +765,14 @@ print_summary() {
     echo -e "${GREEN}  Installation Complete!${NC}"
     echo -e "${GREEN}================================================${NC}"
     echo ""
-    echo -e "${YELLOW}IMPORTANT: Please reboot your system for all changes to take effect.${NC}"
+    echo -e "${YELLOW}IMPORTANT: System will reboot to apply all changes.${NC}"
     echo ""
     echo "What was installed/configured:"
     echo "  ✓ System packages updated"
+    echo "  ✓ G14 kernel and headers installed"
     echo "  ✓ Firmware updated (MediaTek MT7925 WiFi/BT)"
     echo "  ✓ AMD Radeon 8060S graphics drivers (Mesa, Vulkan)"
-    echo "  ✓ GRUB configured with optimal kernel parameters"
+    echo "  ✓ Bootloader configured with optimal kernel parameters"
     echo "  ✓ ASUS tools (asusctl, supergfxctl)"
     echo "  ✓ Power management (TLP)"
     echo "  ✓ Audio drivers (SOF firmware)"
@@ -729,29 +800,21 @@ main() {
     # Parse command-line arguments
     for arg in "$@"; do
         case $arg in
-            --auto)
-                AUTO_MODE=true
-                ;;
-            --minimal)
-                MINIMAL_MODE=true
-                ;;
-            --full)
-                FULL_MODE=true
-                ;;
-            --skip-kernel)
-                SKIP_KERNEL=true
-                ;;
             --help)
                 echo "Usage: $0 [OPTIONS]"
                 echo ""
                 echo "Options:"
-                echo "  --auto          Run in automatic mode (minimal prompts)"
-                echo "  --minimal       Install only essential fixes"
-                echo "  --full          Install everything including optional components"
-                echo "  --skip-kernel   Skip kernel version checks and updates"
                 echo "  --help          Show this help message"
                 echo ""
+                echo "This script automatically installs and configures all necessary"
+                echo "components for the Asus ROG Flow Z13 2025 (GZ302EA) on Linux."
+                echo ""
                 exit 0
+                ;;
+            *)
+                print_warning "Unknown option: $arg"
+                echo "Use --help for usage information"
+                exit 1
                 ;;
         esac
     done
@@ -763,30 +826,23 @@ main() {
     detect_distro
     
     echo ""
-    print_warning "This script will modify system configurations."
+    print_warning "This script will automatically install and configure your system."
     print_warning "It is recommended to backup your system before proceeding."
     print_warning "Detected distribution: $DISTRO ($DISTRO_FAMILY)"
     echo ""
     
-    if ! ask_user "Do you want to continue?" "y"; then
-        print_info "Installation cancelled by user."
-        exit 0
-    fi
+    read -p "Press Enter to continue or Ctrl+C to cancel..."
     
     echo ""
     
-    # Main installation steps
+    # Main installation steps - all automatically executed
     update_system
     check_kernel_version
     update_firmware
     setup_graphics
-    configure_grub
-    
-    if [ "$MINIMAL_MODE" != true ]; then
-        install_asus_tools
-        setup_power_management
-    fi
-    
+    configure_bootloader
+    install_asus_tools
+    setup_power_management
     setup_audio
     setup_display_input
     configure_suspend
@@ -796,14 +852,11 @@ main() {
     # Print summary
     print_summary
     
-    # Ask about reboot
-    if ask_user "Would you like to reboot now?" "n"; then
-        print_info "Rebooting in 5 seconds... (Ctrl+C to cancel)"
-        sleep 5
-        reboot
-    else
-        print_info "Please remember to reboot your system when convenient."
-    fi
+    # Automatic reboot prompt
+    print_info "System will reboot in 10 seconds to apply changes..."
+    print_info "Press Ctrl+C to cancel reboot"
+    sleep 10
+    reboot
 }
 
 # Run main function

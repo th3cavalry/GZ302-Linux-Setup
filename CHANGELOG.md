@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-10-14
+
+### Changed
+- **BREAKING**: Removed installation modes (--auto, --minimal, --full flags)
+- Script now runs fully automatically with all features installed by default
+- Automatic reboot after installation (10-second countdown with option to cancel)
+- Simplified user interaction - only requires Enter to continue or Ctrl+C to cancel
+
+### Added
+- **G14 kernel support**: Automatically installs linux-g14 kernel and headers on Arch-based systems
+- **systemd-boot support**: Now supports both GRUB and systemd-boot bootloaders
+- Automatic bootloader detection and configuration
+- Enhanced kernel installation with ROG-specific optimizations
+
+### Removed
+- Interactive prompts for individual components
+- --auto, --minimal, --full command-line flags
+- --skip-kernel flag (kernel is always installed/updated)
+- Manual reboot prompt (now automatic)
+
 ## [1.0.0] - 2025-10-14
 
 ### Added
@@ -63,4 +83,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.1.0]: https://github.com/th3cavalry/GZ302-Linux-Setup/releases/tag/v1.1.0
 [1.0.0]: https://github.com/th3cavalry/GZ302-Linux-Setup/releases/tag/v1.0.0
