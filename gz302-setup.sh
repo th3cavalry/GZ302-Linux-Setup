@@ -2,7 +2,7 @@
 
 #############################################################################
 # Asus ROG Flow Z13 2025 (GZ302EA) Linux Setup Script
-# Version: 1.3.0
+# Version: 1.3.1
 #
 # Comprehensive post-installation setup for GZ302EA models:
 # - GZ302EA-XS99 (128GB)
@@ -22,17 +22,20 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Script version
-VERSION="1.3.0"
+VERSION="1.3.1"
 
 # Distro detection
 DISTRO=""
 DISTRO_FAMILY=""
 PACKAGE_MANAGER=""
 
+# Kernel selection flags
+USE_G14="auto"   # auto | yes | no
+G14_INSTALLED="no"
+
 #############################################################################
 # Helper Functions
 #############################################################################
-
 print_header() {
     echo -e "${BLUE}================================================${NC}"
     echo -e "${BLUE}  Asus ROG Flow Z13 2025 Linux Setup Script${NC}"
@@ -40,19 +43,13 @@ print_header() {
     echo -e "${BLUE}================================================${NC}"
     echo ""
 }
-
 print_step() { echo -e "${GREEN}==>${NC} $1"; }
 print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 
-check_root() {
-    if [ "$EUID" -ne 0 ]; then
-        print_error "This script must be run as root (use sudo)"
-        exit 1
-    fi
-}
+check_root() { if [ "$EUID" -ne 0 ]; then print_error "This script must be run as root (use sudo)"; exit 1; fi; }
 
 #############################################################################
 # Distro Detection
@@ -63,18 +60,12 @@ detect_distro() {
         . /etc/os-release
         DISTRO=$ID
         case $ID in
-            arch|manjaro|endeavouros|garuda)
-                DISTRO_FAMILY="arch"; PACKAGE_MANAGER="pacman" ;;
-            ubuntu|debian|mint|pop|elementary|zorin|linuxmint)
-                DISTRO_FAMILY="debian"; PACKAGE_MANAGER="apt" ;;
-            fedora|nobara)
-                DISTRO_FAMILY="fedora"; PACKAGE_MANAGER="dnf" ;;
-            opensuse-leap|opensuse-tumbleweed|opensuse)
-                DISTRO_FAMILY="opensuse"; PACKAGE_MANAGER="zypper" ;;
-            gentoo)
-                DISTRO_FAMILY="gentoo"; PACKAGE_MANAGER="emerge" ;;
-            void)
-                DISTRO_FAMILY="void"; PACKAGE_MANAGER="xbps-install" ;;
+            arch|manjaro|endeavouros|garuda) DISTRO_FAMILY="arch"; PACKAGE_MANAGER="pacman" ;;
+            ubuntu|debian|mint|pop|elementary|zorin|linuxmint) DISTRO_FAMILY="debian"; PACKAGE_MANAGER="apt" ;;
+            fedora|nobara) DISTRO_FAMILY="fedora"; PACKAGE_MANAGER="dnf" ;;
+            opensuse-leap|opensuse-tumbleweed|opensuse) DISTRO_FAMILY="opensuse"; PACKAGE_MANAGER="zypper" ;;
+            gentoo) DISTRO_FAMILY="gentoo"; PACKAGE_MANAGER="emerge" ;;
+            void) DISTRO_FAMILY="void"; PACKAGE_MANAGER="xbps-install" ;;
             *)
                 print_warning "Unknown distribution: $ID"
                 print_warning "Attempting to detect package manager..."
@@ -82,9 +73,7 @@ detect_distro() {
                 elif command -v apt &>/dev/null; then DISTRO_FAMILY="debian"; PACKAGE_MANAGER="apt";
                 elif command -v dnf &>/dev/null; then DISTRO_FAMILY="fedora"; PACKAGE_MANAGER="dnf";
                 elif command -v zypper &>/dev/null; then DISTRO_FAMILY="opensuse"; PACKAGE_MANAGER="zypper";
-                else
-                    print_error "Could not detect supported package manager"; exit 1;
-                fi ;;
+                else print_error "Could not detect supported package manager"; exit 1; fi ;;
         esac
     else
         print_error "/etc/os-release not found"; exit 1
@@ -103,33 +92,48 @@ update_system() {
         fedora) dnf upgrade -y ;; 
         opensuse) zypper refresh && zypper update -y ;; 
         gentoo) emerge --sync && emerge -uDN @world ;; 
-        void) xbps-install -Su ;;
+        void) xbps-install -Su ;; 
     esac
     print_success "System updated"
 }
 
 #############################################################################
-# Kernel Handling (Always installs linux-g14 on Arch for full feature set)
+# Kernel Handling (linux-g14 optional)
 #############################################################################
 check_kernel_version() {
-    print_step "Checking kernel version..."
+    print_step "Evaluating kernel (mode: $USE_G14) ..."
     local kfull=$(uname -r)
     local kbase=$(echo "$kfull" | cut -d. -f1,2)
     local kmajor=$(echo $kbase | cut -d. -f1)
     local kminor=$(echo $kbase | cut -d. -f2)
     print_info "Current kernel: $kfull"
-    # Threshold bumped to 6.6 to reflect modern upstream support
-    if [ "$DISTRO_FAMILY" = "arch" ]; then
-        print_info "Ensuring linux-g14 kernel is installed (policy: always on Arch)"
-        install_g14_kernel
-    else
+    if [ "$DISTRO_FAMILY" != "arch" ]; then
+        # Non-Arch: rely on distro kernel; update if very old
         if [ "$kmajor" -lt 6 ] || { [ "$kmajor" -eq 6 ] && [ "$kminor" -lt 6 ]; }; then
             print_warning "Kernel < 6.6 detected. Updating to latest distro kernel."
             update_kernel_generic
         else
-            print_success "Kernel is modern (>=6.6); using distro kernel"
+            print_success "Distro kernel is modern (>=6.6)."
         fi
+        return
     fi
+    # Arch-specific decision
+    case "$USE_G14" in
+        yes)
+            install_g14_kernel; return ;;
+        no)
+            print_warning "Skipping linux-g14 as requested (--no-g14).";
+            print_info "If you encounter unresolved hardware quirks (rare on >=6.6), re-run with --use-g14.";
+            return ;;
+        auto)
+            if [ "$kmajor" -lt 6 ] || { [ "$kmajor" -eq 6 ] && [ "$kminor" -lt 6 ]; }; then
+                print_warning "Kernel < 6.6 detected. Installing linux-g14 for enhanced early support."
+                install_g14_kernel
+            else
+                print_info "Mainline Arch kernel >=6.6 detected; linux-g14 not strictly required."
+                print_warning "Optional: Use --use-g14 if you need experimental ROG patches/faster feature uptake.";
+            fi ;;
+    esac
 }
 
 install_g14_kernel() {
@@ -152,13 +156,11 @@ install_g14_kernel() {
                 popd >/dev/null
                 rm -rf "$workdir"
             fi
-            ;; 
+            G14_INSTALLED="yes" ;; 
         *)
-            print_info "Non-Arch distro: using latest distro kernel packages"
-            update_kernel_generic
-            ;;
+            print_info "Non-Arch distro: ignoring linux-g14 request (not applicable)" ;; 
     esac
-    print_success "Kernel installation step complete (reboot required to use new kernel if installed)."
+    print_success "Kernel installation step complete (reboot required if a new kernel was installed)."
 }
 
 update_kernel_generic() {
@@ -187,7 +189,7 @@ update_firmware() {
             fi ;; 
         fedora) dnf install -y linux-firmware ;; 
         opensuse) zypper install -y kernel-firmware ;; 
-        void) xbps-install -y linux-firmware ;;
+        void) xbps-install -y linux-firmware ;; 
     esac
     print_success "Firmware updated (includes MediaTek MT7925 WiFi/BT)"
 }
@@ -199,7 +201,7 @@ setup_graphics() {
     print_step "Setting up graphics (Mesa / Vulkan)..."
     case $DISTRO_FAMILY in
         arch) pacman -S --noconfirm mesa lib32-mesa vulkan-radeon lib32-vulkan-radeon vulkan-icd-loader lib32-vulkan-icd-loader mesa-utils vulkan-tools xf86-video-amdgpu ;; 
-        debian) apt install -y mesa-vulkan-drivers mesa-utils vulkan-tools libvulkan1 mesa-va-drivers mesa-vdpau-drivers xserver-xorg-video-amdgpu && (dpkg --add-architecture i386 2>/dev/null || true; apt update || true; apt install -y mesa-vulkan-drivers:i386 libvulkan1:i386 || true) ;;
+        debian) apt install -y mesa-vulkan-drivers mesa-utils vulkan-tools libvulkan1 mesa-va-drivers mesa-vdpau-drivers xserver-xorg-video-amdgpu && (dpkg --add-architecture i386 2>/dev/null || true; apt update || true; apt install -y mesa-vulkan-drivers:i386 libvulkan1:i386 || true) ;; 
         fedora) dnf install -y mesa-dri-drivers mesa-vulkan-drivers vulkan-tools mesa-libGL mesa-libEGL libva-mesa-driver mesa-vdpau-drivers xorg-x11-drv-amdgpu ;; 
         opensuse) zypper install -y Mesa-dri Mesa-vulkan-dri vulkan-tools Mesa-libGL1 Mesa-libEGL1 xf86-video-amdgpu ;; 
     esac
@@ -284,7 +286,7 @@ install_asus_tools() {
     print_step "Installing ASUS-specific tools (asusctl, supergfxctl)..."
     case $DISTRO_FAMILY in
         arch)
-            if ! grep -q "\[g14\]" /etc/pacman.conf; then
+            if ! grep -q "[g14]" /etc/pacman.conf; then
                 print_info "Adding [g14] repo to pacman.conf"
                 cat >> /etc/pacman.conf <<EOF
 
@@ -302,7 +304,7 @@ EOF
             echo "deb [signed-by=/usr/local/share/keyrings/asusctl-ma-keyring.gpg] https://ppa.launchpadcontent.net/mitchellaugustin/asusctl/ubuntu $ubuntu_version main" > /etc/apt/sources.list.d/asusctl.list
             apt update && apt install -y asusctl supergfxctl
             systemctl daemon-reload
-            systemctl restart asusd 2>/dev/null || true ;;
+            systemctl restart asusd 2>/dev/null || true ;; 
         fedora)
             dnf copr enable -y lukenukem/asus-linux
             dnf update --refresh -y
@@ -313,8 +315,7 @@ EOF
             zypper addrepo -f "https://download.opensuse.org/repositories/home:luke_nukem:asus-linux/$opensuse_version/" asus-linux
             zypper --gpg-auto-import-keys refresh
             zypper install -y asusctl supergfxctl ;; 
-        *)
-            print_warning "ASUS tools installation not supported for this distro"; return ;;
+        *) print_warning "ASUS tools installation not supported for this distro"; return ;; 
     esac
     print_info "Enabling ASUS services..."
     systemctl enable --now asusd.service 2>/dev/null || true
@@ -323,7 +324,7 @@ EOF
 }
 
 #############################################################################
-# Power Management (TLP only to avoid conflicts)
+# Power Management (TLP only)
 #############################################################################
 setup_power_management() {
     print_step "Setting up power management (TLP) ..."
@@ -410,7 +411,7 @@ esac
 EOF
     chmod +x /usr/lib/systemd/system-sleep/gz302-suspend.sh
     if [ -f /sys/power/mem_sleep ]; then
-        if grep -q "\[deep\]" /sys/power/mem_sleep; then
+        if grep -q "[deep]" /sys/power/mem_sleep; then
             print_info "Deep sleep already active"
         elif grep -q "deep" /sys/power/mem_sleep; then
             echo deep > /sys/power/mem_sleep 2>/dev/null || true
@@ -464,7 +465,15 @@ print_summary() {
     echo -e "${GREEN}================================================${NC}"
     echo ""
     echo "What was done:"
-    if [ "$DISTRO_FAMILY" = "arch" ]; then echo "  ✓ linux-g14 kernel (Arch)"; else echo "  ✓ Kernel checked (distro kernel retained)"; fi
+    if [ "$DISTRO_FAMILY" = "arch" ]; then
+        if [ "$G14_INSTALLED" = "yes" ]; then
+            echo "  ✓ linux-g14 kernel (Arch)"
+        else
+            echo "  ✓ Arch mainline kernel retained (linux-g14 skipped)"
+        fi
+    else
+        echo "  ✓ Kernel checked (distro kernel retained)"
+    fi
     echo "  ✓ System packages updated"
     echo "  ✓ Firmware (linux-firmware) ensured"
     echo "  ✓ Graphics stack (Mesa/Vulkan) configured"
@@ -482,6 +491,9 @@ print_summary() {
     echo "  • Power: tlp-stat"
     echo "  • Suspend: systemctl suspend (resume test)"
     echo ""
+    if [ "$G14_INSTALLED" = "no" ] && [ "$DISTRO_FAMILY" = "arch" ]; then
+        echo "Note: linux-g14 not installed. If you later need experimental ROG patches, re-run with --use-g14."
+    fi
     echo "Reboot is recommended to use any new kernel."
     echo ""
 }
@@ -494,10 +506,14 @@ main() {
     for arg in "$@"; do
         case $arg in
             --help)
-                echo "Usage: $0"
-                echo "(All features installed automatically; no modular flags)"; exit 0 ;; 
-            *)
-                print_warning "Unknown option: $arg"; echo "Use --help for usage"; exit 1 ;; 
+                echo "Usage: $0 [--use-g14 | --no-g14]"
+                echo "  --use-g14   Force install linux-g14 (Arch only)"
+                echo "  --no-g14    Skip linux-g14 even if auto logic would install"
+                echo "If neither flag is provided: Arch installs linux-g14 only if kernel < 6.6; others keep distro kernel."
+                exit 0 ;; 
+            --use-g14) USE_G14="yes" ;; 
+            --no-g14) USE_G14="no" ;; 
+            *) print_warning "Unknown option: $arg"; echo "Use --help for usage"; exit 1 ;; 
         esac
     done
     check_root
@@ -506,6 +522,9 @@ main() {
     print_warning "This script will automatically install and configure your system." \
     && print_warning "Backup is recommended before proceeding." \
     && print_warning "Detected distribution: $DISTRO ($DISTRO_FAMILY)"
+    if [ "$DISTRO_FAMILY" = "arch" ] && [ "$USE_G14" = "no" ]; then
+        print_warning "You chose to skip linux-g14. Most users will be fine; rare unresolved quirks may need linux-g14."
+    fi
     echo ""
     read -p "Press Enter to continue or Ctrl+C to cancel..." _
     echo ""
