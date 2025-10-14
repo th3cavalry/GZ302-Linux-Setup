@@ -22,7 +22,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Script version
-VERSION="1.1.0"
+VERSION="1.2.0"
 
 # Distro detection
 DISTRO=""
@@ -461,37 +461,88 @@ install_asus_tools() {
     
     case $DISTRO_FAMILY in
         arch)
-            print_info "Installing from AUR/official repos..."
-            # Check if yay or paru is available for AUR
-            if command -v yay &> /dev/null; then
-                sudo -u ${SUDO_USER} yay -S --noconfirm asusctl supergfxctl
-            elif command -v paru &> /dev/null; then
-                sudo -u ${SUDO_USER} paru -S --noconfirm asusctl supergfxctl
+            print_info "Adding Asus Linux repository..."
+            # Add the g14 repository to pacman.conf if not already present
+            if ! grep -q "\[g14\]" /etc/pacman.conf; then
+                print_info "Adding [g14] repository to /etc/pacman.conf"
+                cat >> /etc/pacman.conf <<EOF
+
+[g14]
+Server = https://asus-linux.org/packages/\$arch
+EOF
             else
-                print_warning "AUR helper (yay/paru) not found"
-                print_info "Installing manually..."
-                # Install dependencies
-                pacman -S --noconfirm base-devel git
-                git clone https://aur.archlinux.org/asusctl.git /tmp/asusctl
-                git clone https://aur.archlinux.org/supergfxctl.git /tmp/supergfxctl
-                cd /tmp/asusctl && sudo -u ${SUDO_USER} makepkg -si --noconfirm
-                cd /tmp/supergfxctl && sudo -u ${SUDO_USER} makepkg -si --noconfirm
+                print_info "[g14] repository already configured"
             fi
+            
+            # Update package database and install
+            print_info "Installing asusctl and supergfxctl from official repository..."
+            pacman -Sy --noconfirm asusctl supergfxctl
             ;;
         debian)
-            print_info "ASUS tools not available in official repos for Debian/Ubuntu"
-            print_info "Building from source..."
-            install_asus_tools_from_source
+            print_info "Adding Asus Linux PPA for Debian/Ubuntu..."
+            
+            # Create keyrings directory
+            mkdir -p /usr/local/share/keyrings
+            
+            # Add GPG key
+            print_info "Adding GPG key..."
+            curl -s "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1d4f9ce6e1492b69c43e95a3d60afa41a606bc01" | \
+                gpg --batch --yes --dearmor --output "/usr/local/share/keyrings/asusctl-ma-keyring.gpg"
+            
+            # Detect Ubuntu version for correct repository
+            local ubuntu_version=""
+            if [ -f /etc/lsb-release ]; then
+                . /etc/lsb-release
+                case "$DISTRIB_RELEASE" in
+                    24.10) ubuntu_version="oracular" ;;
+                    24.04) ubuntu_version="noble" ;;
+                    23.10) ubuntu_version="mantic" ;;
+                    23.04) ubuntu_version="lunar" ;;
+                    22.04) ubuntu_version="jammy" ;;
+                    *) ubuntu_version="noble" ;;  # Default to latest LTS
+                esac
+            else
+                ubuntu_version="noble"  # Default to Ubuntu 24.04
+            fi
+            
+            print_info "Using repository for Ubuntu $ubuntu_version"
+            
+            # Add repository
+            echo "deb [signed-by=/usr/local/share/keyrings/asusctl-ma-keyring.gpg] https://ppa.launchpadcontent.net/mitchellaugustin/asusctl/ubuntu $ubuntu_version main" | \
+                tee /etc/apt/sources.list.d/asusctl.list
+            
+            # Update and install
+            print_info "Installing asusctl and supergfxctl..."
+            apt update
+            apt install -y asusctl supergfxctl
+            
+            # Reload daemon and restart service
+            systemctl daemon-reload
+            systemctl restart asusd 2>/dev/null || true
             ;;
         fedora)
-            print_info "Installing from Copr repository..."
+            print_info "Adding Asus Linux Copr repository..."
             dnf copr enable -y lukenukem/asus-linux
+            
+            print_info "Installing asusctl and supergfxctl..."
+            dnf update --refresh -y
             dnf install -y asusctl supergfxctl
             ;;
         opensuse)
-            print_info "Installing from OBS repository..."
-            zypper addrepo https://download.opensuse.org/repositories/home:luke_nukem:asus-linux/openSUSE_Tumbleweed/ asus-linux
+            print_info "Adding Asus Linux OBS repository..."
+            
+            # Detect openSUSE version
+            local opensuse_version="openSUSE_Tumbleweed"
+            if grep -q "Leap" /etc/os-release; then
+                opensuse_version="openSUSE_Leap_15.5"
+            fi
+            
+            print_info "Using repository for $opensuse_version"
+            
+            zypper addrepo -f "https://download.opensuse.org/repositories/home:luke_nukem:asus-linux/$opensuse_version/" asus-linux
             zypper --gpg-auto-import-keys refresh
+            
+            print_info "Installing asusctl and supergfxctl..."
             zypper install -y asusctl supergfxctl
             ;;
         *)
@@ -502,44 +553,12 @@ install_asus_tools() {
     esac
     
     # Enable and start services
+    print_info "Enabling ASUS services..."
     systemctl enable --now power-profiles-daemon.service 2>/dev/null || true
+    systemctl enable --now asusd.service 2>/dev/null || true
     systemctl enable --now supergfxd.service 2>/dev/null || true
     
-    print_success "ASUS tools installed"
-}
-
-install_asus_tools_from_source() {
-    print_info "Installing build dependencies..."
-    
-    case $DISTRO_FAMILY in
-        debian)
-            apt install -y build-essential git rustc cargo \
-                libgtk-3-dev libpango1.0-dev libgdk-pixbuf2.0-dev \
-                libudev-dev libayatana-appindicator3-dev cmake
-            ;;
-        fedora)
-            dnf install -y gcc git rust cargo \
-                gtk3-devel pango-devel gdk-pixbuf2-devel \
-                systemd-devel libappindicator-gtk3-module cmake
-            ;;
-    esac
-    
-    # Clone and build asusctl
-    print_info "Building asusctl from source..."
-    git clone https://gitlab.com/asus-linux/asusctl.git /tmp/asusctl-src
-    cd /tmp/asusctl-src
-    make
-    make install
-    
-    # Clone and build supergfxctl
-    print_info "Building supergfxctl from source..."
-    git clone https://gitlab.com/asus-linux/supergfxctl.git /tmp/supergfxctl-src
-    cd /tmp/supergfxctl-src
-    make
-    make install
-    
-    cd /
-    rm -rf /tmp/asusctl-src /tmp/supergfxctl-src
+    print_success "ASUS tools installed from official repositories"
 }
 
 #############################################################################

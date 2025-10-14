@@ -1,6 +1,6 @@
 # Asus ROG Flow Z13 2025 (GZ302EA) Linux Setup Script
 
-**Version: 1.1.0**
+**Version: 1.2.0**
 
 Comprehensive post-installation setup script for the Asus ROG Flow Z13 2025 models (GZ302EA) with AMD Strix Halo processor and integrated Radeon 8060S GPU.
 
@@ -40,9 +40,10 @@ The script automatically installs and configures everything needed for the Asus 
 - Configures Bluetooth firmware
 
 ### 4. ASUS-Specific Tools
-- Installs `asusctl` for ASUS laptop control
-- Installs `supergfxctl` for graphics switching
+- Installs `asusctl` for ASUS laptop control from official Asus Linux repositories
+- Installs `supergfxctl` for graphics switching from official repositories
 - Configures ROG-specific features
+- Uses official repositories for easy updates via package manager
 
 ### 5. Power Management
 - Installs and configures TLP for battery optimization

@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-10-14
+
+### Changed
+- **BREAKING**: ASUS tools now installed from official Asus Linux repositories
+- Arch Linux: Uses official [g14] repository instead of AUR
+- Debian/Ubuntu: Uses official PPA from Mitchell Austin with GPG key verification
+- Fedora: Uses official Copr repository (lukenukem/asus-linux)
+- openSUSE: Uses official OBS repository with version detection
+- Removed source compilation fallback - all installations use official packages
+
+### Added
+- Automatic Ubuntu version detection for correct PPA selection
+- Automatic openSUSE version detection (Tumbleweed vs Leap)
+- GPG key verification for Debian/Ubuntu installations
+- asusd service enablement alongside supergfxd
+
+### Improved
+- ASUS tools now receive automatic updates through package manager
+- More reliable installation process using official repositories
+- Better version compatibility handling for different distributions
+
 ## [1.1.0] - 2025-10-14
 
 ### Changed
@@ -83,5 +104,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.2.0]: https://github.com/th3cavalry/GZ302-Linux-Setup/releases/tag/v1.2.0
 [1.1.0]: https://github.com/th3cavalry/GZ302-Linux-Setup/releases/tag/v1.1.0
 [1.0.0]: https://github.com/th3cavalry/GZ302-Linux-Setup/releases/tag/v1.0.0
