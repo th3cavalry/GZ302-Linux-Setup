@@ -11,6 +11,7 @@
 # - Audio
 # - ASUS tools
 # - Power management
+# - Secure Boot (optional)
 #############################################################################
 
 # Colors for output
@@ -309,6 +310,57 @@ test_suspend() {
     fi
 }
 
+test_secure_boot() {
+    print_test "Secure Boot (Optional)"
+    
+    # Check if running on UEFI
+    if [ ! -d /sys/firmware/efi ]; then
+        info "Not running UEFI (Legacy BIOS mode)"
+        return
+    fi
+    
+    # Check Secure Boot status via EFI variables
+    if [ -f /sys/firmware/efi/efivars/SecureBoot-* ]; then
+        local sb_status=$(od -An -t u1 /sys/firmware/efi/efivars/SecureBoot-* 2>/dev/null | awk '{print $NF}')
+        if [ "$sb_status" = "1" ]; then
+            pass "Secure Boot is ENABLED"
+            
+            # Check for sbctl (Arch)
+            if command -v sbctl &> /dev/null; then
+                if sbctl status 2>/dev/null | grep -q "Secure Boot.*Enabled"; then
+                    pass "sbctl reports Secure Boot enabled"
+                fi
+                if sbctl status 2>/dev/null | grep -q "Setup Mode.*Disabled"; then
+                    pass "Secure Boot keys are enrolled (Setup Mode disabled)"
+                else
+                    warn "Secure Boot in Setup Mode (keys not enrolled)"
+                fi
+            fi
+            
+            # Check for mokutil (Ubuntu/Fedora)
+            if command -v mokutil &> /dev/null; then
+                if mokutil --sb-state 2>/dev/null | grep -q "SecureBoot enabled"; then
+                    pass "mokutil reports Secure Boot enabled"
+                fi
+            fi
+        elif [ "$sb_status" = "0" ]; then
+            info "Secure Boot is DISABLED (optional feature)"
+            info "See SECURE-BOOT.md for setup instructions"
+        else
+            info "Secure Boot status unknown"
+        fi
+    else
+        info "Cannot determine Secure Boot status (no EFI variables)"
+    fi
+    
+    # Check bootloader
+    if command -v bootctl &> /dev/null; then
+        if bootctl status 2>/dev/null | grep -q "Secure Boot: enabled"; then
+            pass "systemd-boot reports Secure Boot enabled"
+        fi
+    fi
+}
+
 #############################################################################
 # Main
 #############################################################################
@@ -325,6 +377,7 @@ main() {
     test_power_management
     test_grub_config
     test_suspend
+    test_secure_boot
     
     # Print summary
     echo ""

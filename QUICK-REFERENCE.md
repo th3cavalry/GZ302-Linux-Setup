@@ -331,6 +331,62 @@ sudo apt install linux-firmware
 sudo dnf install linux-firmware
 ```
 
+## Secure Boot
+
+### Check Secure Boot Status
+```bash
+# Using bootctl (systemd)
+bootctl status | grep "Secure Boot"
+
+# Using mokutil (Ubuntu/Fedora)
+mokutil --sb-state
+
+# Using sbctl (Arch)
+sbctl status
+
+# Via EFI variables
+od -An -t u1 /sys/firmware/efi/efivars/SecureBoot-* 2>/dev/null
+```
+
+### Arch Linux - Setup Secure Boot
+```bash
+# Install sbctl
+sudo pacman -S sbctl
+
+# Create and enroll keys
+sudo sbctl create-keys
+sudo sbctl enroll-keys --microsoft
+
+# Sign bootloader and kernel
+sudo sbctl sign --save /boot/EFI/systemd/systemd-bootx64.efi
+sudo sbctl sign --save /boot/vmlinuz-linux
+
+# Verify signatures
+sudo sbctl verify
+```
+
+### Ubuntu/Debian - MOK Key Management
+```bash
+# Check enrolled keys
+mokutil --list-enrolled
+
+# Import custom key
+sudo mokutil --import /path/to/key.der
+
+# Reboot to enroll key (blue MOK screen)
+```
+
+### Verify Signed Kernel
+```bash
+# Arch with sbctl
+sudo sbctl verify
+
+# Check with sbverify
+sbverify --list /boot/vmlinuz-linux
+```
+
+**Full Guide:** See [SECURE-BOOT.md](https://github.com/th3cavalry/GZ302-Linux-Setup/blob/main/SECURE-BOOT.md)
+
 ## Resources
 
 - Main Repo: https://github.com/th3cavalry/GZ302-Linux-Setup
