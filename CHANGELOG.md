@@ -1,130 +1,113 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to the GZ302 Linux Setup project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.4.0] - 2025-10-14
-
-### Changed
-- **BREAKING**: Removed linux-g14 kernel installation and all related functionality
-- Script now uses mainline distro kernels exclusively
-- Simplified kernel handling - only updates kernel if version is older than 6.6
-- Removed `--use-g14` and `--no-g14` command-line flags
-
-### Removed
-- `install_g14_kernel()` function
-- G14 kernel-specific logic and decision making
-- AUR helper installation for linux-g14 packages
-- Manual git clone and makepkg workflow for linux-g14
-- G14_INSTALLED and USE_G14 variables
-
-### Improved
-- Cleaner, more maintainable codebase
-- Faster installation process
-- Better compatibility across all distributions
-- Simplified user experience with no kernel-related decisions needed
-
-## [1.2.0] - 2025-10-14
-
-### Changed
-- **BREAKING**: ASUS tools now installed from official Asus Linux repositories
-- Arch Linux: Uses official [g14] repository instead of AUR
-- Debian/Ubuntu: Uses official PPA from Mitchell Austin with GPG key verification
-- Fedora: Uses official Copr repository (lukenukem/asus-linux)
-- openSUSE: Uses official OBS repository with version detection
-- Removed source compilation fallback - all installations use official packages
-
-### Added
-- Automatic Ubuntu version detection for correct PPA selection
-- Automatic openSUSE version detection (Tumbleweed vs Leap)
-- GPG key verification for Debian/Ubuntu installations
-- asusd service enablement alongside supergfxd
-
-### Improved
-- ASUS tools now receive automatic updates through package manager
-- More reliable installation process using official repositories
-- Better version compatibility handling for different distributions
-
-## [1.1.0] - 2025-10-14
-
-### Changed
-- **BREAKING**: Removed installation modes (--auto, --minimal, --full flags)
-- Script now runs fully automatically with all features installed by default
-- Automatic reboot after installation (10-second countdown with option to cancel)
-- Simplified user interaction - only requires Enter to continue or Ctrl+C to cancel
-
-### Added
-- **G14 kernel support**: Automatically installs linux-g14 kernel and headers on Arch-based systems
-- **systemd-boot support**: Now supports both GRUB and systemd-boot bootloaders
-- Automatic bootloader detection and configuration
-- Enhanced kernel installation with ROG-specific optimizations
-
-### Removed
-- Interactive prompts for individual components
-- --auto, --minimal, --full command-line flags
-- --skip-kernel flag (kernel is always installed/updated)
-- Manual reboot prompt (now automatic)
-
-## [1.0.0] - 2025-10-14
-
-### Added
-- Initial release of GZ302EA Linux setup script
-- Comprehensive post-installation script for Asus ROG Flow Z13 2025
-- Support for all three models: GZ302EA-XS99 (128GB), GZ302EA-XS64 (64GB), GZ302EA-XS32 (32GB)
-- Multi-distribution support:
-  - Arch-based: Arch Linux, Manjaro, EndeavourOS, Garuda Linux
-  - Debian-based: Ubuntu, Linux Mint, Pop!_OS, Debian, Elementary OS, Zorin OS
-  - Fedora-based: Fedora, Nobara
-  - openSUSE: Leap and Tumbleweed
-  - Other: Gentoo, Void Linux
-- Automatic distribution detection and package manager selection
-- Kernel version checking and update functionality
-- AMD Radeon 8060S graphics driver setup (Mesa 25.0+, Vulkan)
-- MediaTek MT7925 WiFi/Bluetooth firmware and driver configuration
-- ASUS-specific tools installation (asusctl, supergfxctl)
-- Power management optimization with TLP
-- Audio configuration with SOF firmware
-- Suspend/resume fixes with S3 sleep support
-- Display and touchscreen support
-- GRUB bootloader configuration with optimal kernel parameters
-- Interactive, automatic, and minimal installation modes
-- Comprehensive README with installation instructions
-- Detailed troubleshooting guide
-- Contributing guidelines
-- MIT License
-
-### Features
-- Color-coded terminal output for better readability
-- User confirmation prompts with auto-mode support
-- Automatic backup of configuration files before modification
-- Post-installation summary and testing instructions
-- Modular function-based architecture for easy maintenance
-- Error handling with informative messages
-
-### Documentation
-- README.md with complete usage instructions
-- TROUBLESHOOTING.md with solutions for common issues
-- CONTRIBUTING.md with guidelines for contributors
-- Inline code comments for maintainability
-- Example commands and configurations
-
 ## [Unreleased]
 
-### Planned
-- Additional distribution support
-- Automated testing framework
-- GUI installation option
-- Custom kernel build scripts
-- DSDT patching automation
-- Fingerprint reader support (when available in kernel)
-- Enhanced RGB keyboard controls
-- Performance benchmarking tools
-- Backup and restore functionality
+### Changed
+- Updated to version 0.1.2-pre-release based on extensive research
+- Enhanced hardware fixes with latest community findings and kernel requirements
+- Improved asusctl installation across all distributions with automated repository setup
+- Updated kernel parameter comments with Ubuntu 25.10 benchmark confirmation
+- Enhanced Wi-Fi configuration comments with EndeavourOS forum findings
+- Updated AMD GPU configuration with ROCm compatibility notes
+- Improved touchpad configuration with kernel 6.11+ gesture support notes
+
+### Added
+- Kernel version recommendations: 6.11+ minimum, 6.12+/6.13+ preferred for Strix Halo
+- Arch Linux: G14 repository (https://arch.asus-linux.org) as primary asusctl source with AUR fallback
+- Ubuntu/Debian: Mitchell Austin's PPA (ppa:mitchellaugustin/asusctl) with automated installation
+- Fedora: COPR repository (lukenukem/asus-linux) with automated dnf copr enable
+- OpenSUSE: OBS repository (hardware:asus) with automated zypper installation
+- Note about ec_su_axb35 kernel module for advanced Strix Halo fan/power control
+- References to Strix Halo HomeLab and Phoronix community research
+- Kernel 6.14+ MediaTek MT7925 WiFi improvement notes
+
+### Research Sources
+- Shahzebqazi/Asus-Z13-Flow-2025-PCMR GitHub repository
+- Level1Techs forums (Flow Z13 setup threads)
+- asus-linux.org official documentation
+- Strix Halo HomeLab (strixhalo-homelab.d7.wtf)
+- Ubuntu 25.10 Strix Halo benchmarks
+- Phoronix forums and community discussions
+- EndeavourOS forums for MT7925 WiFi fixes
+
+## [0.1.1-pre-release] - 2024-10
+
+### Changed
+- Version increment from 0.1.0 to 0.1.1
+- Minor fixes and improvements
+
+## [0.1.0-pre-release] - 2024-10
+
+### Added
+- Complete modular architecture redesign
+- Core hardware fixes in gz302-main.sh (~2,200 lines)
+- Gaming module (gz302-gaming.sh) - ~200 lines
+- AI/LLM module (gz302-llm.sh) - ~180 lines  
+- Hypervisor module (gz302-hypervisor.sh) - ~110 lines
+- Snapshots module (gz302-snapshots.sh) - ~90 lines
+- Secure boot module (gz302-secureboot.sh) - ~80 lines
+- TDP management system with 7 profiles (10W to 65W)
+- Refresh rate control with 6 profiles (30Hz to 180Hz)
+- Support for all 4 distribution families with equal priority
+
+### Hardware Support
+- MediaTek MT7925e Wi-Fi fixes (ASPM disable, power save off)
+- ASUS touchpad detection and functionality
+- AMD Ryzen AI MAX+ 395 (Strix Halo) optimizations
+- AMD Radeon 8060S integrated GPU configuration
+- Thermal management and power profiles
+
+### Distribution Support
+- Arch-based: Arch Linux, EndeavourOS, Manjaro
+- Debian-based: Ubuntu, Pop!_OS, Linux Mint
+- RPM-based: Fedora, Nobara
+- OpenSUSE: Tumbleweed and Leap
+
+### Removed
+- Monolithic script approach (moved to Old/ directory)
+- Python implementation (moved to Old/ directory)
+- All software installation from main script (now in modules)
+
+### Technical Details
+- Bash-only implementation (no Python dependency)
+- Lightweight main script focused on hardware fixes
+- On-demand module downloads from GitHub
+- Improved error handling with trap
+- Network connectivity validation
+- Automatic distribution detection
+
+## [4.3.1] - 2024-09 (Legacy Version)
+
+This was the last version before the modular redesign. Files archived in Old/ directory.
+
+### Features (Legacy)
+- Monolithic bash script (~3,200 lines)
+- Python alternative implementation
+- Combined hardware fixes and software installation
+- Support for 4 distribution families
 
 ---
 
-[1.2.0]: https://github.com/th3cavalry/GZ302-Linux-Setup/releases/tag/v1.2.0
-[1.1.0]: https://github.com/th3cavalry/GZ302-Linux-Setup/releases/tag/v1.1.0
-[1.0.0]: https://github.com/th3cavalry/GZ302-Linux-Setup/releases/tag/v1.0.0
+## Version Number Format
+
+- **MAJOR.MINOR.PATCH** (e.g., 0.1.1)
+- **MAJOR**: Breaking changes or major architectural updates
+- **MINOR**: New features, new hardware support, new modules
+- **PATCH**: Bug fixes, documentation updates, minor improvements
+
+## Pre-release Notation
+
+- Versions with `-pre-release` suffix indicate active development
+- Features are stable but may change before full release
+- Full release (0.2.0) planned after community testing
+
+---
+
+**Repository**: https://github.com/th3cavalry/GZ302-Linux-Setup  
+**Author**: th3cavalry using GitHub Copilot  
+**Hardware Research**: Shahzebqazi's Asus-Z13-Flow-2025-PCMR

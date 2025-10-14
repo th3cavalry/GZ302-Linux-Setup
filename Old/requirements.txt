@@ -1,0 +1,6 @@
+# Requirements for GZ302 Linux Setup Script (Python version)
+# 
+# Standard library modules used:
+# - os, sys, subprocess, shutil, getpass, re, pathlib, typing, logging
+#
+# No external dependencies required - uses only Python 3.7+ standard library

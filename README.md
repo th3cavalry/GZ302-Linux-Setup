@@ -1,496 +1,234 @@
-# Asus ROG Flow Z13 2025 (GZ302EA) Linux Setup Script
+# GZ302 Linux Setup
 
-**Version: 1.4.0**
+**Modular Linux setup scripts specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional downloadable modules for gaming, AI development, virtualization, and more.
 
-Comprehensive post-installation setup script for the Asus ROG Flow Z13 2025 models (GZ302EA) with AMD Strix Halo processor and integrated Radeon 8060S GPU.
+> **🚀 Version 0.1.2-pre-release - Enhanced Distribution Support!** Updated based on latest community research for AMD Strix Halo and GZ302 Linux compatibility. Improved automated installation of asusctl across all distributions with official repositories and PPAs. **Recommended: Linux kernel 6.11+ (6.12+ or 6.13+ preferred) for best Strix Halo support.**
 
-## Supported Models
+## ✨ Key Features
 
-This script supports all three variants of the Asus ROG Flow Z13 2025:
-- **GZ302EA-XS99** - 128GB RAM model
-- **GZ302EA-XS64** - 64GB RAM model  
-- **GZ302EA-XS32** - 32GB RAM model
+### 🔧 **Core Hardware Support** (Always Installed)
+- **Automated MediaTek MT7925e Wi-Fi fixes** - Eliminates disconnection issues
+- **Complete ASUS touchpad integration** - Full gesture and precision support  
+- **Optimized AMD Ryzen AI MAX+ 395 performance** - Unlocks full processor potential
+- **Advanced thermal management** - Sustained performance without throttling
+- **TDP control system** - 7-tier TDP profiles from 10W to 65W
+- **Display management** - 6-tier refresh rate profiles from 30Hz to 180Hz
 
-## Supported Linux Distributions
+### 📦 **Optional Modular Software** (Download On Demand)
+Download and install only what you need:
 
-The script automatically detects and supports the following distributions:
-- **Arch-based**: Arch Linux, Manjaro, EndeavourOS, Garuda Linux
-- **Debian-based**: Ubuntu, Linux Mint, Pop!_OS, Debian, Elementary OS, Zorin OS
-- **Fedora-based**: Fedora, Nobara
-- **openSUSE**: openSUSE Leap, openSUSE Tumbleweed
-- **Other**: Gentoo, Void Linux
+- **🎮 Gaming Module** - Steam, Lutris, MangoHUD, GameMode, Wine
+- **🤖 AI/LLM Module** - Ollama, ROCm, PyTorch, Transformers
+- **💻 Hypervisor Module** - KVM/QEMU or VirtualBox
+- **📸 Snapshots Module** - Automatic system backups with Snapper
+- **🔒 Secure Boot Module** - Boot integrity and security tools
 
-## What This Script Does
+## 🚀 Installation
 
-The script automatically installs and configures everything needed for the Asus ROG Flow Z13 2025 on Linux:
-
-### 1. Kernel Updates
-- Ensures kernel is at least version 6.15 or newer (required for optimal Radeon 8060S support)
-- Updates kernel and headers via distro packages if needed
-- Works with mainline kernels from all distributions
-
-### 2. Graphics Support
-- Configures AMDGPU drivers with optimal settings
-- Installs and updates Mesa drivers (24.1+ required, 25.0+ recommended)
-- Sets up Vulkan and OpenGL support
-
-### 3. WiFi & Bluetooth (MediaTek MT7925)
-- Updates linux-firmware to latest version
-- Ensures MT7925 drivers are properly loaded
-- Configures Bluetooth firmware
-
-### 4. ASUS-Specific Tools
-- Installs `asusctl` for ASUS laptop control from official Asus Linux repositories
-- Installs `supergfxctl` for graphics switching from official repositories
-- Configures ROG-specific features
-- Uses official repositories for easy updates via package manager
-
-### 5. Power Management
-- Installs and configures TLP for battery optimization
-- Sets up AMD P-State driver
-- Configures CPU frequency scaling
-
-### 6. Suspend/Resume Fixes
-- Configures S3 sleep support
-- Applies ACPI fixes for proper suspend/resume
-
-### 7. Audio Configuration
-- Ensures proper ALSA/PulseAudio/PipeWire setup
-- Applies SOF (Sound Open Firmware) configurations
-
-### 8. Display & Touchscreen
-- Configures high-DPI display settings
-- Ensures touchscreen and stylus support
-
-### 9. Bootloader Configuration
-- Supports both GRUB and systemd-boot
-- Automatically detects and configures your bootloader
-- Adds optimal kernel parameters
-
-## Prerequisites
-
-- Fresh Linux installation (any supported distribution)
-- Internet connection
-- Root/sudo access
-- Backup of your system (recommended)
-
-## Installation
-
-### Quick Start
-
+**Quick Start:**
 ```bash
-# Download the script
-curl -O https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-setup.sh
-
-# Make it executable
-chmod +x gz302-setup.sh
-
-# Run the script (it will automatically install everything)
-sudo ./gz302-setup.sh
+# Download and run the main setup script
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-main.sh -o gz302-main.sh
+chmod +x gz302-main.sh
+sudo ./gz302-main.sh
 ```
 
-### Manual Installation
+The main script will:
+1. Detect your Linux distribution automatically
+2. Apply all GZ302 hardware fixes
+3. Install TDP and refresh rate management
+4. Offer optional software modules for download
 
+## 📋 Supported Distributions
+
+All distributions receive identical treatment with equal priority:
+
+- **Arch-based:** Arch Linux, EndeavourOS, Manjaro
+- **Debian-based:** Ubuntu, Pop!_OS, Linux Mint  
+- **RPM-based:** Fedora, Nobara
+- **OpenSUSE:** Tumbleweed and Leap
+
+## 🔧 What Gets Installed (Core Script)
+
+### Hardware Fixes (Always Applied)
+Based on latest research from GZ302 community and comprehensive testing:
+- **Kernel parameters**: AMD P-State driver (`amd_pstate=guided`) - optimal for Strix Halo (confirmed by Ubuntu 25.10 benchmarks)
+- **GPU optimization**: AMD Radeon 8060S integrated graphics (RDNA 3.5) - full feature mask enabled, ROCm-compatible
+- **Wi-Fi stability**: MediaTek MT7925 fixes (disable ASPM, power save off) - fixes disconnection and suspend/resume issues
+- **ASUS HID**: Keyboard and touchpad module configuration with improved gesture support (kernel 6.11+)
+
+**Research Sources**: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org, Strix Halo HomeLab, Ubuntu 25.10 benchmarks, Phoronix community
+
+**Kernel Requirements**: 
+- **Minimum**: Linux kernel 6.11+ for basic Strix Halo support
+- **Recommended**: Linux kernel 6.12+ or 6.13+ for latest improvements and fixes
+- Kernel 6.14+ includes additional MediaTek MT7925 WiFi patches
+
+### ASUS-Specific Packages (Distribution-dependent)
+Automated installation from official sources:
+- **Arch Linux**: asusctl from G14 repository (https://arch.asus-linux.org) or AUR fallback
+- **Ubuntu/Debian**: asusctl from PPA (ppa:mitchellaugustin/asusctl) with rog-control-center
+- **Fedora**: asusctl from COPR repository (lukenukem/asus-linux)
+- **OpenSUSE**: asusctl from OBS repository (hardware:asus)
+- **power-profiles-daemon**: System power management integration
+- **switcheroo-control**: Display management
+
+**Features**: Keyboard backlight control, custom fan curves, power profiles, battery charge limits
+
+Note: GZ302EA-XS99 has AMD Radeon 8060S integrated graphics (100% AMD system). No discrete GPU or NVIDIA components.
+
+### Advanced Control Options
+- **ec_su_axb35 kernel module** (optional, manual installation): Advanced fan speed and power mode control for Strix Halo
+  - Direct fan RPM control with custom curves
+  - Power mode switching (balanced 85W, performance 100W, turbo 120W)
+  - APU temperature monitoring
+  - See: https://github.com/cmetz/ec-su_axb35-linux
+
+### Management Tools (Always Installed)
+- **TDP Management** (`gz302-tdp` command)
+  - 7 power profiles: emergency, battery, efficient, balanced, performance, gaming, maximum
+  - Automatic AC/battery switching
+  - Real-time power monitoring
+  
+- **Refresh Rate Control** (`gz302-refresh` command)
+  - 6 refresh rate profiles: powersave, battery, balanced, smooth, performance, gaming
+  - VRR/FreeSync support
+  - Multi-monitor independent control
+
+## 📦 Optional Modules
+
+### Gaming Module (`gz302-gaming`)
+- Steam with Proton compatibility
+- Lutris for GOG, Epic, and other platforms
+- MangoHUD for performance overlays
+- GameMode for automatic optimizations
+- Wine for Windows application support
+
+### AI/LLM Module (`gz302-llm`)
+- Ollama for local LLM inference (Llama, Mistral, CodeLlama)
+- ROCm for AMD GPU acceleration
+- PyTorch with ROCm support
+- Transformers and Accelerate libraries
+
+### Hypervisor Module (`gz302-hypervisor`)
+- KVM/QEMU with virt-manager (recommended)
+- VirtualBox (alternative option)
+
+### Snapshots Module (`gz302-snapshots`)
+- Automatic system snapshots
+- Btrfs/Snapper integration
+- LVM snapshot support
+
+### Secure Boot Module (`gz302-secureboot`)
+- Boot integrity tools
+- Automatic kernel signing setup
+
+## 🎯 Usage Examples
+
+### Using TDP Management
 ```bash
-# Clone the repository
-git clone https://github.com/th3cavalry/GZ302-Linux-Setup.git
-cd GZ302-Linux-Setup
+# Set TDP profile
+sudo gz302-tdp gaming
 
-# Make the script executable
-chmod +x gz302-setup.sh
+# Check current status
+gz302-tdp status
 
-# Run the script (it will automatically install everything)
-sudo ./gz302-setup.sh
+# Enable automatic AC/battery switching
+sudo gz302-tdp auto enable
+
+# List available profiles
+gz302-tdp list
 ```
 
-## Usage
-
-The script runs fully automatically and installs all necessary components:
-
+### Using Refresh Rate Management
 ```bash
-sudo ./gz302-setup.sh [OPTIONS]
+# Set refresh rate profile
+sudo gz302-refresh gaming
 
-Options:
-  --help          Show help message
+# Check current status
+gz302-refresh status
+
+# Enable VRR/FreeSync
+sudo gz302-refresh vrr enable
+
+# Monitor display power
+gz302-refresh monitor
 ```
 
-The script will:
-1. Detect your Linux distribution
-2. Update kernel to latest version if needed
-3. Configure all hardware components
-4. Set up ASUS-specific tools
-5. Optimize power management
-6. Configure your bootloader (GRUB or systemd-boot)
-7. Automatically reboot when complete
-
-## Post-Installation
-
-After the automatic reboot:
-
-1. **Verify the installation** using the verification script:
-   ```bash
-   ./verify-setup.sh
-   ```
-
-2. **Test the following:**
-   - WiFi and Bluetooth connectivity
-   - Graphics performance (run `glxinfo | grep "OpenGL renderer"`)
-   - Suspend and resume
-   - Audio output and input
-   - Touchscreen and stylus
-   - Battery life and power management
-
-3. **(Optional) Set up power management:**
-   ```bash
-   # Configure power profiles for AC/battery
-   sudo pwrcfg config
-   
-   # Enable automatic switching
-   sudo pwrcfg auto on
-   
-   # Or manually control power profiles
-   sudo pwrcfg turbo       # High performance
-   sudo pwrcfg powersave   # Battery saving
-   pwrcfg status           # Check current status
-   
-   # Control refresh rate
-   rrcfg 120               # High refresh (120Hz)
-   rrcfg 60                # Low refresh (60Hz)
-   ```
-
-4. **Useful Commands:**
-   ```bash
-   # Check graphics info
-   glxinfo | grep "OpenGL renderer"
-   vulkaninfo | grep "deviceName"
-   
-   # Check ASUS controls
-   asusctl --help
-   supergfxctl --status
-   
-   # Check power management
-   tlp-stat
-   
-   # Power configuration tools
-   pwrcfg --help
-   rrcfg --help
-   
-   # Check kernel version
-   uname -r
-   ```
-
-## Troubleshooting
-
-### WiFi Not Working
-```bash
-# Update firmware manually
-sudo update-linux-firmware
-# Or for specific distros:
-sudo pacman -S linux-firmware  # Arch
-sudo apt install linux-firmware  # Debian/Ubuntu
-```
-
-### Suspend/Resume Issues
-- The script applies S3 sleep fixes automatically
-- If issues persist, check BIOS settings for sleep mode configuration
-- Ensure secure boot is disabled if using custom DSDT patches
-
-### Graphics Performance Issues
-```bash
-# Verify AMDGPU is loaded
-lsmod | grep amdgpu
-
-# Check for errors
-dmesg | grep -i amdgpu
-
-# Reinstall Mesa (Arch example)
-sudo pacman -S mesa vulkan-radeon
-```
-
-### Audio Issues
-```bash
-# Restart audio service
-systemctl --user restart pipewire  # or pulseaudio
-
-# Check audio devices
-aplay -l
-```
-
-## Advanced Configuration
-
-### Custom Kernel Parameters
-
-The script adds kernel parameters to `/etc/default/grub`. You can customize these:
-
-```bash
-sudo nano /etc/default/grub
-# Edit GRUB_CMDLINE_LINUX_DEFAULT
-sudo update-grub  # or grub-mkconfig -o /boot/grub/grub.cfg
-```
-
-### ASUS Control Customization
-
-```bash
-# Set performance profile
-asusctl profile -P Performance
-
-# Configure keyboard backlight
-asusctl led-mode static -c ff0000
-
-# Graphics mode switching
-supergfxctl -m Integrated  # or Hybrid, Dedicated
-```
-
-### Power Management Tuning
-
-The repository includes comprehensive power management tools (`pwrcfg` and `rrcfg`) that provide fine-grained control over performance and power consumption.
-
-#### Power Configuration Tool: `pwrcfg`
-
-`pwrcfg` provides 6 power profiles with TDP (Thermal Design Power) control, ranging from maximum performance to extreme battery saving.
-
-**Available Profiles:**
-
-| Profile | TDP | CPU Governor | CPU Boost | Use Case |
-|---------|-----|--------------|-----------|----------|
-| **max** | 120W | performance | enabled | Maximum performance, rendering |
-| **turbo** | 100W | performance | enabled | Gaming, heavy workloads |
-| **performance** | 80W | performance | enabled | Standard work, productivity |
-| **balanced** | 60W | schedutil | enabled | General use, web browsing |
-| **powersave** | 35W | powersave | disabled | Battery life, light tasks |
-| **extreme** | 20W | powersave | disabled | Extreme battery saving |
-
-**Quick Usage:**
-
-```bash
-# Set a power profile
-sudo pwrcfg turbo          # High performance gaming
-sudo pwrcfg powersave      # Extend battery life
-
-# View current status
-pwrcfg status
-
-# List all profiles
-pwrcfg list
-```
-
-#### Automatic Power Profile Switching
-
-Configure automatic profile switching based on AC/battery status:
-
-```bash
-# Interactive configuration
-sudo pwrcfg config
-
-# Example configuration:
-#   AC Profile: turbo
-#   Battery Profile: powersave
-#   Link refresh rate to profile: yes
-
-# Enable automatic switching
-sudo pwrcfg auto on
-
-# Disable automatic switching
-sudo pwrcfg auto off
-```
-
-When enabled, the system automatically:
-- Switches to your chosen **AC profile** (e.g., turbo) when plugged in
-- Switches to your chosen **battery profile** (e.g., powersave) when unplugged
-- Optionally adjusts refresh rate to match the profile
-
-#### Refresh Rate Control: `rrcfg`
-
-`rrcfg` provides simple refresh rate management with support for any rate your display supports.
-
-**Quick Usage:**
-
-```bash
-# Set refresh rate
-rrcfg 120                  # High refresh (120Hz)
-rrcfg 90                   # Balanced (90Hz)
-rrcfg 60                   # Battery saving (60Hz)
-rrcfg 40                   # Extreme battery saving (40Hz)
-
-# Auto-match current power profile
-rrcfg auto
-
-# Check current refresh rate
-rrcfg status
-
-# List available rates for your display
-rrcfg list
-```
-
-**Common Refresh Rates:**
-- **40Hz**: Extreme power saving (~20% battery savings)
-- **60Hz**: Standard, good battery life
-- **90Hz**: Balanced smoothness and efficiency
-- **120Hz**: High performance, smooth scrolling
-- **165Hz/180Hz**: Maximum (if supported by your display)
-
-#### What Each Profile Does
-
-**Maximum Performance (max):**
-- TDP: 120W
-- CPU: Performance governor, boost enabled
-- GPU: High power mode
-- Refresh: 120Hz (if linked)
-- **Best for**: 3D rendering, video editing, maximum FPS gaming
-
-**Turbo Mode (turbo):**
-- TDP: 100W
-- CPU: Performance governor, boost enabled
-- GPU: High power mode
-- Refresh: 120Hz (if linked)
-- **Best for**: Gaming, compilation, heavy multitasking
-
-**Performance Mode (performance):**
-- TDP: 80W
-- CPU: Performance governor, boost enabled
-- GPU: Auto power management
-- Refresh: 120Hz (if linked)
-- **Best for**: Productivity, development, standard workloads
-
-**Balanced Mode (balanced):**
-- TDP: 60W
-- CPU: Schedutil (adaptive) governor, boost enabled
-- GPU: Auto power management
-- Refresh: 90Hz (if linked)
-- **Best for**: Web browsing, office work, general computing
-
-**Powersave Mode (powersave):**
-- TDP: 35W
-- CPU: Powersave governor, boost disabled
-- GPU: Low power mode
-- Refresh: 60Hz (if linked)
-- **Best for**: Light tasks, reading, note-taking, battery life
-
-**Extreme Battery Saving (extreme):**
-- TDP: 20W
-- CPU: Powersave governor, boost disabled
-- GPU: Low power mode
-- Refresh: 60Hz (if linked)
-- **Best for**: Minimal power consumption, emergency battery extension
-
-#### TDP Control Features
-
-The `pwrcfg` tool attempts to control TDP through multiple methods:
-
-1. **RyzenAdj** (if installed): Direct TDP control for AMD Ryzen processors
-2. **Platform Profile**: Uses `/sys/firmware/acpi/platform_profile`
-3. **AMD P-State EPP**: Energy Performance Preference control
-4. **CPU Governor**: Frequency scaling management
-
-For full TDP control on AMD Strix Halo, install `ryzenadj`:
-```bash
-# Arch Linux
-yay -S ryzenadj
-
-# Ubuntu/Debian
-# Build from source: https://github.com/FlyGoat/RyzenAdj
-
-# Enable on boot (after install)
-sudo pwrcfg auto on
-```
-
-#### Advanced Customization
-
-**Custom AC/Battery Profiles:**
-```bash
-# Configure interactively
-sudo pwrcfg config
-
-# This lets you choose:
-# - Which profile for AC power
-# - Which profile for battery
-# - Whether to link refresh rate
-```
-
-**Manual TDP Override** (requires ryzenadj):
-```bash
-# Set custom TDP (example: 70W)
-sudo ryzenadj --stapm-limit=70000 --fast-limit=70000 --slow-limit=70000
-```
-
-**Separate Refresh Rate Control:**
-```bash
-# Unlink refresh rate from power profile
-# Edit /etc/gz302/pwrcfg.conf
-LINK_REFRESH="no"
-
-# Then control refresh rate independently
-rrcfg 120
-```
-
-#### Integration with Existing Tools
-
-The power management tools work alongside existing utilities:
-
-**Compatible with TLP:**
-- TLP handles background optimizations
-- `pwrcfg` handles active profile switching
-- No conflicts between systems
-
-**Works with asusctl:**
-- Uses asusctl profiles when available
-- Gracefully degrades if not installed
-- Complements ASUS-specific features
-
-#### Installation to System
-
-To install the commands system-wide:
-
-```bash
-# Copy to system directories (done automatically on first use with sudo)
-sudo cp pwrcfg /usr/local/bin/
-sudo cp rrcfg /usr/local/bin/
-sudo chmod +x /usr/local/bin/pwrcfg /usr/local/bin/rrcfg
-
-# Now you can use from anywhere
-pwrcfg status
-rrcfg 120
-```
-
-#### Traditional TLP Configuration
-
-You can also manually edit TLP configuration:
-
-```bash
-# Edit TLP configuration
-sudo nano /etc/tlp.conf
-
-# Restart TLP
-sudo systemctl restart tlp
-```
-
-## Known Issues
-
-1. **Fingerprint Reader**: Not yet supported in Linux (as of kernel 6.17)
-2. **RGB Keyboard**: Limited support - basic functionality available via asusctl
-3. **Windows Hello Camera**: IR camera not supported
-4. **Thunderbolt 4**: May require additional configuration on some distros
-
-## Contributing
-
-Issues, suggestions, and pull requests are welcome! Please check the [GitHub repository](https://github.com/th3cavalry/GZ302-Linux-Setup).
-
-## Resources
-
-- [Asus Linux Project](https://asus-linux.org/)
-- [Level1Techs Forum - Flow Z13 Setup](https://forum.level1techs.com/t/flow-z13-asus-setup-on-linux-may-2025-wip/229551)
-- [Phoronix - AMD Radeon 8060S Linux Performance](https://www.phoronix.com/review/amd-radeon-8060s-linux)
-- [MediaTek MT7925 Driver Documentation](https://wireless.docs.kernel.org/en/latest/en/users/drivers/mediatek.html)
-
-## License
-
-MIT License - See LICENSE file for details
-
-## Disclaimer
-
-This script modifies system configurations. While tested, use at your own risk. Always backup your system before running system modification scripts.
+## �� Architecture
+
+### Modular Design
+The new architecture separates concerns:
+
+- **gz302-main.sh** - Core hardware fixes and management tools (always runs)
+- **gz302-gaming.sh** - Gaming software (optional, downloaded on demand)
+- **gz302-llm.sh** - AI/ML software (optional, downloaded on demand)
+- **gz302-hypervisor.sh** - Virtualization (optional, downloaded on demand)
+- **gz302-snapshots.sh** - System backups (optional, downloaded on demand)
+- **gz302-secureboot.sh** - Secure boot (optional, downloaded on demand)
+
+### Benefits
+- **Smaller downloads** - Only get what you need
+- **Faster setup** - Core hardware fixes complete in minutes
+- **Easy maintenance** - Update individual modules independently
+- **Flexibility** - Install optional software at any time
+
+## 📚 Documentation
+
+### TDP Profiles
+| Profile | TDP | Use Case |
+|---------|-----|----------|
+| emergency | 10W | Critical battery preservation |
+| battery | 15W | Extended battery life |
+| efficient | 20W | Light tasks, good battery |
+| balanced | 30W | General computing |
+| performance | 45W | Heavy workloads |
+| gaming | 54W | Gaming and intensive tasks |
+| maximum | 65W | Maximum performance |
+
+### Refresh Rate Profiles
+| Profile | Refresh Rate | Use Case |
+|---------|--------------|----------|
+| powersave | 30Hz | Maximum battery saving |
+| battery | 60Hz | Good balance |
+| balanced | 90Hz | Smooth general use |
+| smooth | 120Hz | Enhanced smoothness |
+| performance | 165Hz | High refresh gaming |
+| gaming | 180Hz | Maximum gaming performance |
+
+## ⚠️ Important Notes
+
+- **Root privileges required** - Scripts must be run with `sudo`
+- **Internet connection needed** - For downloading packages and modules
+- **Reboot recommended** - After hardware fixes are applied
+- **Backup your data** - Always recommended before system modifications
+
+## 🤝 Contributing
+
+This is an open-source project. Contributions are welcome! Please ensure:
+- Bash scripts follow existing style
+- All 4 distributions are equally supported
+- Changes are tested on target hardware
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guidelines, testing procedures, and code style requirements.
+
+## 📜 License
+
+This project is provided as-is for the GZ302 community.
+
+## 🙏 Credits
+
+- Author: th3cavalry using GitHub Copilot
+- Hardware research: Shahzebqazi's Asus-Z13-Flow-2025-PCMR
+- Community testing and feedback
+
+## 📖 Additional Documentation
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines and contribution process
+- [CHANGELOG.md](CHANGELOG.md) - Version history and release notes
+- [Old/ARCHIVED.md](Old/ARCHIVED.md) - Information about legacy scripts (v4.3.1)
 
 ---
 
-**Last Updated**: October 14, 2025  
-**Version**: 1.4.0
+**Version:** 0.1.1-pre-release  
+**Last Updated:** October 2024
