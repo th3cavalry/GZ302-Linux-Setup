@@ -4,11 +4,13 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 0.1.1-pre-release
+# Version: 0.1.2-pre-release
 #
 # This script automatically detects your Linux distribution and applies
 # the appropriate hardware fixes for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.
 # It applies critical hardware fixes and TDP/refresh rate management.
+#
+# RECOMMENDED: Linux kernel 6.11+ for best Strix Halo support (6.12+ or 6.13+ preferred)
 #
 # Optional software can be installed via modular scripts:
 # - gz302-gaming: Gaming software (Steam, Lutris, MangoHUD, etc.)
@@ -147,9 +149,11 @@ detect_distribution() {
 }
 
 # --- Hardware Fixes for All Distributions ---
-# Simplified and modernized based on latest kernel support and research
-# Sources: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org
+# Updated based on latest kernel support and community research (Oct 2025)
+# Sources: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org,
+#          Strix Halo HomeLab, Ubuntu 25.10 benchmarks, Phoronix community
 # GZ302EA-XS99: AMD Ryzen AI MAX+ 395 with AMD Radeon 8060S integrated graphics (100% AMD)
+# RECOMMENDED: Kernel 6.11+ for Strix Halo (6.12+ or 6.13+ preferred for latest improvements)
 
 apply_hardware_fixes() {
     info "Applying GZ302 hardware fixes for all distributions..."
@@ -160,8 +164,8 @@ apply_hardware_fixes() {
         # Check if parameters already exist
         if ! grep -q "amd_pstate=guided" /etc/default/grub; then
             # Add AMD P-State (guided mode) and GPU parameters
-            # guided is better than active for Strix Halo according to community testing
-            # Added AMD GPU parameters for optimal Radeon 8060S performance
+            # amd_pstate=guided is optimal for Strix Halo (confirmed by Ubuntu 25.10 benchmarks)
+            # amdgpu.ppfeaturemask=0xffffffff enables all power features for Radeon 8060S (RDNA 3.5)
             sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 amd_pstate=guided amdgpu.ppfeaturemask=0xffffffff"/' /etc/default/grub
             
             # Regenerate GRUB config
@@ -173,11 +177,12 @@ apply_hardware_fixes() {
         fi
     fi
     
-    # Wi-Fi fixes for MediaTek MT7925 (kernel 6.11+ recommended)
+    # Wi-Fi fixes for MediaTek MT7925 (kernel 6.11+ recommended, 6.14+ has additional fixes)
     info "Configuring MediaTek MT7925 Wi-Fi..."
     cat > /etc/modprobe.d/mt7925.conf <<'EOF'
 # MediaTek MT7925 Wi-Fi fixes for GZ302
-# Disable ASPM for stability (primary fix for disconnection issues)
+# Disable ASPM for stability (fixes disconnection and suspend/resume issues)
+# Based on community findings from EndeavourOS forums and kernel patches
 options mt7925e disable_aspm=1
 EOF
 
@@ -193,6 +198,7 @@ EOF
     cat > /etc/modprobe.d/amdgpu.conf <<'EOF'
 # AMD GPU configuration for Radeon 8060S (RDNA 3.5, integrated)
 # Enable all power features for better performance and efficiency
+# ROCm-compatible for AI/ML workloads
 options amdgpu ppfeaturemask=0xffffffff
 EOF
 
@@ -201,12 +207,17 @@ EOF
     cat > /etc/modprobe.d/hid-asus.conf <<'EOF'
 # ASUS HID configuration for GZ302
 # fnlock_default=0: F1-F12 keys work as media keys by default
+# Kernel 6.11+ provides improved touchpad gesture support
 options hid_asus fnlock_default=0
 EOF
 
     # Reload hardware database and udev
     systemd-hwdb update 2>/dev/null || true
     udevadm control --reload 2>/dev/null || true
+    
+    # Note about advanced fan/power control
+    info "Note: For advanced fan and power mode control, consider the ec_su_axb35 kernel module"
+    info "See: https://github.com/cmetz/ec-su_axb35-linux for Strix Halo-specific controls"
     
     success "Hardware fixes applied"
 }
@@ -221,18 +232,41 @@ install_arch_asus_packages() {
     # Install from official repos first
     pacman -S --noconfirm --needed power-profiles-daemon
     
-    # Install asusctl from AUR (requires yay)
-    if command -v yay >/dev/null 2>&1; then
-        local primary_user
-        primary_user=$(get_real_user)
-        # Install ASUS control tools
-        sudo -u "$primary_user" yay -S --noconfirm --needed asusctl
+    # Method 1: Try G14 repository (recommended, official asus-linux.org repo)
+    info "Attempting to install asusctl from G14 repository..."
+    if ! grep -q '\[g14\]' /etc/pacman.conf; then
+        info "Adding G14 repository..."
+        # Add repository key
+        pacman-key --recv-keys 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35 || warning "Failed to receive G14 key"
+        pacman-key --lsign-key 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35 || warning "Failed to sign G14 key"
         
-        # Install switcheroo-control for display management
-        sudo -u "$primary_user" yay -S --noconfirm --needed switcheroo-control || warning "switcheroo-control install failed"
+        # Add repository to pacman.conf
+        echo "" >> /etc/pacman.conf
+        echo "[g14]" >> /etc/pacman.conf
+        echo "Server = https://arch.asus-linux.org" >> /etc/pacman.conf
+        
+        # Update package database
+        pacman -Sy
+    fi
+    
+    # Try to install from G14 repo
+    if pacman -S --noconfirm --needed asusctl 2>/dev/null; then
+        success "asusctl installed from G14 repository"
     else
-        warning "yay not available - skipping asusctl installation"
-        info "Install yay and run: yay -S asusctl switcheroo-control"
+        warning "G14 repository installation failed, trying AUR..."
+        # Method 2: Fallback to AUR if G14 repo fails
+        if command -v yay >/dev/null 2>&1; then
+            local primary_user
+            primary_user=$(get_real_user)
+            # Install ASUS control tools from AUR
+            sudo -u "$primary_user" yay -S --noconfirm --needed asusctl || warning "AUR asusctl install failed"
+            
+            # Install switcheroo-control for display management
+            sudo -u "$primary_user" yay -S --noconfirm --needed switcheroo-control || warning "switcheroo-control install failed"
+        else
+            warning "yay not available - skipping asusctl installation"
+            info "Manually add G14 repo or install yay and run: yay -S asusctl switcheroo-control"
+        fi
     fi
     
     # Enable services
@@ -250,9 +284,26 @@ install_debian_asus_packages() {
     # Install switcheroo-control
     apt install -y switcheroo-control || warning "switcheroo-control install failed"
     
-    # Note about asusctl
-    info "Note: asusctl requires manual installation from source or PPA"
-    info "See: https://asus-linux.org for installation instructions"
+    # Try to install asusctl from PPA
+    info "Attempting to install asusctl from PPA..."
+    if command -v add-apt-repository >/dev/null 2>&1; then
+        # Add Mitchell Austin's asusctl PPA
+        add-apt-repository -y ppa:mitchellaugustin/asusctl 2>/dev/null || warning "Failed to add asusctl PPA"
+        apt update 2>/dev/null || warning "Failed to update package list"
+        
+        # Try to install rog-control-center (includes asusctl)
+        if apt install -y rog-control-center 2>/dev/null; then
+            systemctl daemon-reload
+            systemctl restart asusd 2>/dev/null || warning "Failed to restart asusd"
+            success "asusctl installed from PPA"
+        else
+            warning "PPA installation failed"
+            info "Manual installation: https://mitchellaugustin.com/asusctl.html"
+        fi
+    else
+        warning "add-apt-repository not available"
+        info "Install software-properties-common and retry, or see: https://asus-linux.org"
+    fi
     
     # Enable services
     systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
@@ -269,9 +320,21 @@ install_fedora_asus_packages() {
     # Install switcheroo-control
     dnf install -y switcheroo-control || warning "switcheroo-control install failed"
     
-    # Note about asusctl
-    info "Note: asusctl available from COPR"
-    info "Run: dnf copr enable lukenukem/asus-linux && dnf install asusctl"
+    # Install asusctl from COPR
+    info "Attempting to install asusctl from COPR repository..."
+    if command -v dnf >/dev/null 2>&1; then
+        # Enable lukenukem/asus-linux COPR repository
+        dnf copr enable -y lukenukem/asus-linux 2>/dev/null || warning "Failed to enable COPR repository"
+        
+        # Update and install asusctl
+        dnf install -y asusctl 2>/dev/null || warning "asusctl install failed"
+        
+        # Note: supergfxctl not needed for GZ302 (no discrete GPU)
+        info "Note: supergfxctl not installed (GZ302 has integrated GPU only)"
+    else
+        warning "dnf not available"
+        info "Manually enable COPR: dnf copr enable lukenukem/asus-linux && dnf install asusctl"
+    fi
     
     # Enable services
     systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
@@ -288,9 +351,25 @@ install_opensuse_asus_packages() {
     # Install switcheroo-control if available
     zypper install -y switcheroo-control || warning "switcheroo-control install failed"
     
-    # Note about asusctl
-    info "Note: asusctl requires manual installation from source"
-    info "See: https://asus-linux.org for installation instructions"
+    # Try to install asusctl from OBS repository
+    info "Attempting to install asusctl from OBS repository..."
+    # Detect OpenSUSE version
+    local opensuse_version="openSUSE_Tumbleweed"
+    if grep -q "openSUSE Leap" /etc/os-release 2>/dev/null; then
+        opensuse_version="openSUSE_Leap_15.6"
+    fi
+    
+    # Add ASUS Linux OBS repository
+    zypper ar -f "https://download.opensuse.org/repositories/hardware:/asus/${opensuse_version}/" hardware:asus 2>/dev/null || warning "Failed to add OBS repository"
+    zypper ref 2>/dev/null || warning "Failed to refresh repositories"
+    
+    # Try to install asusctl
+    if zypper install -y asusctl 2>/dev/null; then
+        success "asusctl installed from OBS repository"
+    else
+        warning "OBS repository installation failed"
+        info "Manual installation from source: https://asus-linux.org/guides/asusctl-install/"
+    fi
     
     # Enable services
     systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
