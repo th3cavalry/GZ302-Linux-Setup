@@ -106,12 +106,12 @@ check_kernel_version() {
     local kminor=$(echo $kbase | cut -d. -f2)
     print_info "Current kernel: $kfull"
     
-    # Update kernel if very old
-    if [ "$kmajor" -lt 6 ] || { [ "$kmajor" -eq 6 ] && [ "$kminor" -lt 6 ]; }; then
-        print_warning "Kernel < 6.6 detected. Updating to latest distro kernel."
+    # Update kernel if older than 6.15 (required for Radeon 8060S optimal support)
+    if [ "$kmajor" -lt 6 ] || { [ "$kmajor" -eq 6 ] && [ "$kminor" -lt 15 ]; }; then
+        print_warning "Kernel < 6.15 detected. Updating to latest distro kernel for optimal Radeon 8060S support."
         update_kernel_generic
     else
-        print_success "Kernel is modern (>=6.6)."
+        print_success "Kernel is modern (>=6.15)."
     fi
 }
 
@@ -134,17 +134,18 @@ update_kernel_generic() {
 update_firmware() {
     print_step "Updating system firmware (linux-firmware)..."
     case $DISTRO_FAMILY in
-        arch) pacman -S --noconfirm linux-firmware ;; 
+        arch) pacman -S --noconfirm linux-firmware linux-firmware-whence amd-ucode sof-firmware alsa-firmware ;; 
         debian)
             apt install -y linux-firmware || true
+            apt install -y amd64-microcode sof-firmware alsa-firmware || true
             if apt-cache search firmware-linux-nonfree | grep -q firmware-linux-nonfree; then
                 apt install -y firmware-linux-nonfree
             fi ;; 
-        fedora) dnf install -y linux-firmware ;; 
-        opensuse) zypper install -y kernel-firmware ;; 
-        void) xbps-install -y linux-firmware ;; 
+        fedora) dnf install -y linux-firmware amd-ucode-firmware sof-firmware alsa-firmware ;; 
+        opensuse) zypper install -y kernel-firmware ucode-amd sof-firmware alsa-firmware ;; 
+        void) xbps-install -y linux-firmware void-repo-nonfree && xbps-install -y amd-ucode ;; 
     esac
-    print_success "Firmware updated (includes MediaTek MT7925 WiFi/BT)"
+    print_success "Firmware updated (includes MediaTek MT7925 WiFi/BT, AMD microcode, and audio firmware)"
 }
 
 #############################################################################
@@ -158,11 +159,14 @@ setup_graphics() {
         fedora) dnf install -y mesa-dri-drivers mesa-vulkan-drivers vulkan-tools mesa-libGL mesa-libEGL libva-mesa-driver mesa-vdpau-drivers xorg-x11-drv-amdgpu ;; 
         opensuse) zypper install -y Mesa-dri Mesa-vulkan-dri vulkan-tools Mesa-libGL1 Mesa-libEGL1 xf86-video-amdgpu ;; 
     esac
-    print_info "Configuring minimal AMDGPU module options..."
+    print_info "Configuring AMDGPU module options for Radeon 8060S..."
     cat > /etc/modprobe.d/amdgpu.conf <<EOF
-# AMDGPU configuration for GZ302EA (minimal modern settings)
+# AMDGPU configuration for GZ302EA with Radeon 8060S
+options amdgpu dc=1
 options amdgpu dpm=1
 options amdgpu audio=1
+options amdgpu gpu_recovery=1
+options amdgpu runpm=1
 EOF
     print_success "Graphics drivers configured"
 }
@@ -385,9 +389,18 @@ EOF
 optimize_wifi_bluetooth() {
     print_step "Optimizing WiFi & Bluetooth (MT7925)..."
     cat > /etc/modprobe.d/mt7921.conf <<EOF
-# MediaTek MT7925 optimizations
+# MediaTek MT7925 optimizations for kernel 6.7+
 options mt7921e disable_aspm=1
-options mt7921e enable_deep_sleep=1
+options mt7921e disable_clkreq=1
+EOF
+    # Configure NetworkManager for better WiFi stability
+    mkdir -p /etc/NetworkManager/conf.d
+    cat > /etc/NetworkManager/conf.d/99-wifi-powersave.conf <<EOF
+[connection]
+wifi.powersave = 2
+
+[device]
+wifi.scan-rand-mac-address=no
 EOF
     systemctl enable bluetooth.service 2>/dev/null || true
     systemctl start bluetooth.service 2>/dev/null || true

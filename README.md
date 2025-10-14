@@ -25,13 +25,13 @@ The script automatically detects and supports the following distributions:
 The script automatically installs and configures everything needed for the Asus ROG Flow Z13 2025 on Linux:
 
 ### 1. Kernel Updates
-- Ensures kernel is at least version 6.6 or newer
+- Ensures kernel is at least version 6.15 or newer (required for optimal Radeon 8060S support)
 - Updates kernel and headers via distro packages if needed
 - Works with mainline kernels from all distributions
 
 ### 2. Graphics Support
 - Configures AMDGPU drivers with optimal settings
-- Installs and updates Mesa drivers (25.0+)
+- Installs and updates Mesa drivers (24.1+ required, 25.0+ recommended)
 - Sets up Vulkan and OpenGL support
 
 ### 3. WiFi & Bluetooth (MediaTek MT7925)
@@ -231,7 +231,7 @@ sudo systemctl restart tlp
 
 ## Known Issues
 
-1. **Fingerprint Reader**: Not yet supported in Linux (as of kernel 6.14)
+1. **Fingerprint Reader**: Not yet supported in Linux (as of kernel 6.17)
 2. **RGB Keyboard**: Limited support - basic functionality available via asusctl
 3. **Windows Hello Camera**: IR camera not supported
 4. **Thunderbolt 4**: May require additional configuration on some distros
@@ -258,4 +258,4 @@ This script modifies system configurations. While tested, use at your own risk. 
 ---
 
 **Last Updated**: October 14, 2025  
-**Version**: 1.0.0
+**Version**: 1.4.0
