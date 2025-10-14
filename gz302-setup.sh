@@ -2,7 +2,7 @@
 
 #############################################################################
 # Asus ROG Flow Z13 2025 (GZ302EA) Linux Setup Script
-# Version: 1.0.0
+# Version: 1.3.0
 # 
 # Comprehensive post-installation setup for GZ302EA models:
 # - GZ302EA-XS99 (128GB)
@@ -12,7 +12,7 @@
 # Supports: Arch, Debian/Ubuntu, Fedora, openSUSE, and other major distros
 #############################################################################
 
-set -e  # Exit on error
+set -euo pipefail  # Exit on error, undefined variables, and pipe failures
 
 # Colors for output
 RED='\033[0;31m'
@@ -22,12 +22,23 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Script version
-VERSION="1.2.0"
+VERSION="1.3.0"
+
+# Configuration flags (set by command-line arguments)
+KERNEL_MODE="auto"          # auto, native, or g14
+POWER_BACKEND="tlp"         # tlp or ppd (power-profiles-daemon)
+NO_REBOOT=false
+DRY_RUN=false
+LOG_FILE="/var/log/gz302-setup.log"
 
 # Distro detection
 DISTRO=""
 DISTRO_FAMILY=""
 PACKAGE_MANAGER=""
+
+# Track what was actually done
+INSTALLED_G14_KERNEL=false
+INSTALLED_POWER_MGMT=""
 
 #############################################################################
 # Helper Functions
@@ -61,11 +72,132 @@ print_success() {
     echo -e "${GREEN}[SUCCESS]${NC} $1"
 }
 
+# Setup logging (call after argument parsing)
+setup_logging() {
+    if [ "$DRY_RUN" = false ]; then
+        # Create log directory if needed
+        mkdir -p "$(dirname "$LOG_FILE")"
+        # Redirect stdout and stderr to log file and console
+        exec > >(tee -a "$LOG_FILE") 2>&1
+        echo "=== GZ302 Setup Script v$VERSION - $(date) ===" >> "$LOG_FILE"
+    fi
+}
+
 check_root() {
     if [ "$EUID" -ne 0 ]; then
         print_error "This script must be run as root (use sudo)"
         exit 1
     fi
+}
+
+show_help() {
+    cat <<EOF
+Asus ROG Flow Z13 2025 (GZ302EA) Linux Setup Script v$VERSION
+
+Usage: $0 [OPTIONS]
+
+Options:
+  --help                Show this help message
+  --kernel MODE         Kernel installation mode (default: auto)
+                        - auto: Install g14 kernel only if Arch + kernel < 6.6
+                        - g14: Force install g14 kernel
+                        - native: Use native/distribution kernel only
+  --no-kernel           Shortcut for --kernel native
+  --power BACKEND       Power management backend (default: tlp)
+                        - tlp: Install and enable TLP
+                        - ppd: Use power-profiles-daemon
+  --no-reboot           Don't reboot after installation (prompt user)
+  --dry-run             Show planned actions without making changes
+  --log FILE            Log file location (default: /var/log/gz302-setup.log)
+
+Examples:
+  # Default: Auto-detect kernel need, use TLP, reboot after
+  sudo $0
+
+  # Force native kernel and use power-profiles-daemon
+  sudo $0 --no-kernel --power ppd
+
+  # Install g14 kernel and see what would happen (dry-run)
+  sudo $0 --kernel g14 --dry-run
+
+  # Custom log location and no automatic reboot
+  sudo $0 --log /tmp/setup.log --no-reboot
+
+Note: On modern kernels (>= 6.6), the linux-g14 kernel is typically not required
+for basic hardware support. It may still offer ROG-specific optimizations.
+
+EOF
+    exit 0
+}
+
+parse_arguments() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --help)
+                show_help
+                ;;
+            --kernel)
+                shift
+                if [[ $# -eq 0 ]]; then
+                    print_error "--kernel requires an argument (auto, g14, or native)"
+                    exit 1
+                fi
+                case $1 in
+                    auto|g14|native)
+                        KERNEL_MODE="$1"
+                        ;;
+                    *)
+                        print_error "Invalid kernel mode: $1 (must be auto, g14, or native)"
+                        exit 1
+                        ;;
+                esac
+                shift
+                ;;
+            --no-kernel)
+                KERNEL_MODE="native"
+                shift
+                ;;
+            --power)
+                shift
+                if [[ $# -eq 0 ]]; then
+                    print_error "--power requires an argument (tlp or ppd)"
+                    exit 1
+                fi
+                case $1 in
+                    tlp|ppd)
+                        POWER_BACKEND="$1"
+                        ;;
+                    *)
+                        print_error "Invalid power backend: $1 (must be tlp or ppd)"
+                        exit 1
+                        ;;
+                esac
+                shift
+                ;;
+            --no-reboot)
+                NO_REBOOT=true
+                shift
+                ;;
+            --dry-run)
+                DRY_RUN=true
+                shift
+                ;;
+            --log)
+                shift
+                if [[ $# -eq 0 ]]; then
+                    print_error "--log requires a file path"
+                    exit 1
+                fi
+                LOG_FILE="$1"
+                shift
+                ;;
+            *)
+                print_warning "Unknown option: $1"
+                echo "Use --help for usage information"
+                exit 1
+                ;;
+        esac
+    done
 }
 
 #############################################################################
@@ -140,6 +272,11 @@ detect_distro() {
 update_system() {
     print_step "Updating system packages..."
     
+    if [ "$DRY_RUN" = true ]; then
+        print_info "[DRY RUN] Would update system packages using $PACKAGE_MANAGER"
+        return
+    fi
+    
     case $DISTRO_FAMILY in
         arch)
             pacman -Syu --noconfirm
@@ -180,13 +317,35 @@ check_kernel_version() {
     
     print_info "Current kernel: $(uname -r)"
     
-    if [ "$kernel_major" -lt 6 ] || ([ "$kernel_major" -eq 6 ] && [ "$kernel_minor" -lt 14 ]); then
-        print_warning "Kernel version < 6.14 detected. Updating to g14 kernel for best hardware support."
-        update_kernel
-    else
-        print_success "Kernel version is adequate (>= 6.14)"
-        # Still offer g14 kernel for ROG-specific optimizations
-        print_info "Installing g14 kernel for ROG-specific optimizations..."
+    # Determine if g14 kernel should be installed
+    local should_install_g14=false
+    
+    case $KERNEL_MODE in
+        native)
+            print_info "Kernel mode: native (skipping g14 kernel installation)"
+            ;;
+        g14)
+            print_info "Kernel mode: g14 (forcing g14 kernel installation)"
+            should_install_g14=true
+            ;;
+        auto)
+            print_info "Kernel mode: auto (checking if g14 kernel is needed)"
+            # Only install g14 on Arch with kernel < 6.6
+            if [ "$DISTRO_FAMILY" = "arch" ]; then
+                if [ "$kernel_major" -lt 6 ] || ([ "$kernel_major" -eq 6 ] && [ "$kernel_minor" -lt 6 ]); then
+                    print_warning "Kernel version < 6.6 detected on Arch. G14 kernel recommended for hardware support."
+                    should_install_g14=true
+                else
+                    print_success "Kernel version >= 6.6. Native kernel provides adequate support."
+                    print_info "Note: G14 kernel can still be installed with --kernel g14 for ROG-specific optimizations."
+                fi
+            else
+                print_info "Non-Arch distribution detected. Using native kernel."
+            fi
+            ;;
+    esac
+    
+    if [ "$should_install_g14" = true ]; then
         install_g14_kernel
     fi
 }
@@ -194,14 +353,30 @@ check_kernel_version() {
 install_g14_kernel() {
     print_step "Installing g14 kernel and headers..."
     
+    # Validate SUDO_USER for AUR builds
+    if [ "$DISTRO_FAMILY" = "arch" ] && [ -z "${SUDO_USER:-}" ]; then
+        print_warning "SUDO_USER not set. Script may have been run directly as root."
+        print_warning "AUR packages cannot be built as root. Falling back to native kernel."
+        print_info "To install g14 kernel, run this script with sudo from a regular user account."
+        return
+    fi
+    
+    if [ "$DRY_RUN" = true ]; then
+        print_info "[DRY RUN] Would install g14 kernel for $DISTRO_FAMILY"
+        INSTALLED_G14_KERNEL=true
+        return
+    fi
+    
     case $DISTRO_FAMILY in
         arch)
             print_info "Installing linux-g14 kernel from AUR..."
             # Check if yay or paru is available for AUR
             if command -v yay &> /dev/null; then
                 sudo -u ${SUDO_USER} yay -S --noconfirm linux-g14 linux-g14-headers
+                INSTALLED_G14_KERNEL=true
             elif command -v paru &> /dev/null; then
                 sudo -u ${SUDO_USER} paru -S --noconfirm linux-g14 linux-g14-headers
+                INSTALLED_G14_KERNEL=true
             else
                 print_warning "AUR helper (yay/paru) not found"
                 print_info "Installing manually from AUR..."
@@ -218,32 +393,31 @@ install_g14_kernel() {
                 sudo -u ${SUDO_USER} makepkg -si --noconfirm
                 cd /
                 rm -rf /tmp/linux-g14 /tmp/linux-g14-headers
+                INSTALLED_G14_KERNEL=true
             fi
+            print_success "G14 kernel installation complete. Reboot required."
             ;;
         debian|ubuntu)
             print_info "For Debian/Ubuntu, g14 kernel is not available as a package."
-            print_info "Installing latest available kernel with ROG patches..."
+            print_info "Installing latest available kernel..."
             apt install -y linux-image-generic linux-headers-generic
-            # Note: Users may need to compile custom kernel for g14 patches
-            print_warning "For best ROG support, consider using a distribution with g14 kernel support."
+            print_warning "For ROG-specific optimizations, consider using Arch Linux with g14 kernel."
             ;;
         fedora)
             print_info "Installing latest kernel with development headers..."
             dnf install -y kernel kernel-devel kernel-headers
-            print_info "Consider compiling custom kernel with g14 patches for optimal ROG support."
+            print_info "G14 kernel is primarily available for Arch. Using native kernel."
             ;;
         opensuse)
             print_info "Installing latest kernel..."
             zypper install -y kernel-default kernel-default-devel
+            print_info "G14 kernel is primarily available for Arch. Using native kernel."
             ;;
     esac
-    
-    print_success "Kernel installation complete. Reboot required."
 }
 
 update_kernel() {
     print_step "Updating to g14 kernel..."
-    
     # First install g14 kernel
     install_g14_kernel
 }
@@ -254,6 +428,11 @@ update_kernel() {
 
 update_firmware() {
     print_step "Updating system firmware (linux-firmware)..."
+    
+    if [ "$DRY_RUN" = true ]; then
+        print_info "[DRY RUN] Would update linux-firmware package"
+        return
+    fi
     
     case $DISTRO_FAMILY in
         arch)
@@ -287,6 +466,12 @@ update_firmware() {
 setup_graphics() {
     print_step "Setting up AMD Radeon 8060S graphics drivers..."
     
+    if [ "$DRY_RUN" = true ]; then
+        print_info "[DRY RUN] Would install Mesa and Vulkan drivers for $DISTRO_FAMILY"
+        print_info "[DRY RUN] Would configure AMDGPU module with audio=1"
+        return
+    fi
+    
     case $DISTRO_FAMILY in
         arch)
             print_info "Installing Mesa and Vulkan drivers..."
@@ -317,12 +502,11 @@ setup_graphics() {
             ;;
     esac
     
-    # Configure AMDGPU module options
+    # Configure AMDGPU module options (only relevant modern options)
     print_info "Configuring AMDGPU module options..."
     cat > /etc/modprobe.d/amdgpu.conf <<EOF
 # AMDGPU configuration for AMD Strix Halo (Radeon 8060S)
-options amdgpu si_support=1
-options amdgpu cik_support=1
+# Note: Legacy si_support and cik_support options removed (not needed for modern GPUs)
 options amdgpu dpm=1
 options amdgpu audio=1
 EOF
@@ -334,11 +518,39 @@ EOF
 # Bootloader Configuration (GRUB and systemd-boot)
 #############################################################################
 
+# Helper function to add kernel parameters idempotently
+add_kernel_params_idempotent() {
+    local existing_params="$1"
+    local new_params="$2"
+    
+    # Split new_params into array
+    local params_to_add=()
+    for param in $new_params; do
+        # Check if parameter already exists
+        if ! echo "$existing_params" | grep -q "\b$param\b"; then
+            params_to_add+=("$param")
+        fi
+    done
+    
+    # Return the combined result
+    if [ ${#params_to_add[@]} -gt 0 ]; then
+        echo "$existing_params ${params_to_add[*]}"
+    else
+        echo "$existing_params"
+    fi
+}
+
 configure_bootloader() {
     print_step "Configuring bootloader parameters..."
     
     # Kernel parameters for AMD Strix Halo and GZ302EA
-    local new_params="iommu=pt amd_pstate=active amdgpu.si_support=1 amdgpu.cik_support=1"
+    # Removed legacy amdgpu.si_support and amdgpu.cik_support (not needed for modern GPUs)
+    local new_params="iommu=pt amd_pstate=active"
+    
+    if [ "$DRY_RUN" = true ]; then
+        print_info "[DRY RUN] Would add kernel parameters: $new_params"
+        return
+    fi
     
     # Detect which bootloader is in use
     if [ -f /etc/default/grub ]; then
@@ -358,15 +570,21 @@ configure_grub() {
     # Backup existing GRUB config
     cp /etc/default/grub /etc/default/grub.backup.$(date +%Y%m%d_%H%M%S)
     
-    # Check if parameters already exist
-    if grep -q "GRUB_CMDLINE_LINUX_DEFAULT" /etc/default/grub; then
-        # Add parameters if not already present
-        if ! grep -q "amd_pstate=active" /etc/default/grub; then
-            sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"$new_params /" /etc/default/grub
-            print_info "Added kernel parameters: $new_params"
-        else
-            print_info "Kernel parameters already configured"
-        fi
+    # Get current parameters
+    local current_params=""
+    if grep -q "^GRUB_CMDLINE_LINUX_DEFAULT=" /etc/default/grub; then
+        current_params=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" /etc/default/grub | sed 's/^GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/\1/')
+    fi
+    
+    # Add parameters idempotently
+    local updated_params=$(add_kernel_params_idempotent "$current_params" "$new_params")
+    
+    if [ "$current_params" != "$updated_params" ]; then
+        # Update GRUB config with new parameters
+        sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$updated_params\"|" /etc/default/grub
+        print_info "Added kernel parameters: $new_params"
+    else
+        print_info "Kernel parameters already configured"
     fi
     
     # Update GRUB
@@ -410,14 +628,19 @@ configure_systemd_boot() {
             # Backup the entry
             cp "$entry" "$entry.backup.$(date +%Y%m%d_%H%M%S)"
             
-            # Check if parameters are already present
-            if ! grep -q "amd_pstate=active" "$entry"; then
-                # Add parameters to the options line
-                if grep -q "^options" "$entry"; then
-                    sed -i "s/^options /options $new_params /" "$entry"
-                    print_info "Updated $(basename $entry)"
-                    updated=true
-                fi
+            # Get current options line
+            local current_opts=""
+            if grep -q "^options " "$entry"; then
+                current_opts=$(grep "^options " "$entry" | sed 's/^options //')
+            fi
+            
+            # Add parameters idempotently
+            local updated_opts=$(add_kernel_params_idempotent "$current_opts" "$new_params")
+            
+            if [ "$current_opts" != "$updated_opts" ]; then
+                sed -i "s|^options .*|options $updated_opts|" "$entry"
+                print_info "Updated $(basename $entry)"
+                updated=true
             else
                 print_info "$(basename $entry) already has kernel parameters"
             fi
@@ -427,7 +650,7 @@ configure_systemd_boot() {
     if [ "$updated" = true ]; then
         print_success "systemd-boot entries updated with kernel parameters: $new_params"
     else
-        print_info "No updates needed or no entries found"
+        print_info "No updates needed"
     fi
     
     # Also create a drop-in config if it doesn't exist
@@ -459,6 +682,11 @@ configure_systemd_boot() {
 install_asus_tools() {
     print_step "Installing ASUS-specific tools (asusctl, supergfxctl)..."
     
+    if [ "$DRY_RUN" = true ]; then
+        print_info "[DRY RUN] Would install asusctl and supergfxctl for $DISTRO_FAMILY"
+        return
+    fi
+    
     case $DISTRO_FAMILY in
         arch)
             print_info "Adding Asus Linux repository..."
@@ -470,6 +698,7 @@ install_asus_tools() {
 [g14]
 Server = https://asus-linux.org/packages/\$arch
 EOF
+                # TODO: Import and verify GPG key for g14 repository for added security
             else
                 print_info "[g14] repository already configured"
             fi
@@ -552,42 +781,57 @@ EOF
             ;;
     esac
     
-    # Enable and start services
+    # Enable and start services (but handle power-profiles-daemon separately)
     print_info "Enabling ASUS services..."
-    systemctl enable --now power-profiles-daemon.service 2>/dev/null || true
     systemctl enable --now asusd.service 2>/dev/null || true
     systemctl enable --now supergfxd.service 2>/dev/null || true
+    
+    # Note: power-profiles-daemon will be handled in setup_power_management based on user choice
     
     print_success "ASUS tools installed from official repositories"
 }
 
 #############################################################################
-# Power Management (TLP)
+# Power Management (TLP or power-profiles-daemon)
 #############################################################################
 
 setup_power_management() {
-    print_step "Setting up power management (TLP)..."
+    print_step "Setting up power management ($POWER_BACKEND)..."
     
-    case $DISTRO_FAMILY in
-        arch)
-            pacman -S --noconfirm tlp tlp-rdw
-            # Remove conflicting services
-            systemctl mask systemd-rfkill.service systemd-rfkill.socket 2>/dev/null || true
-            ;;
-        debian)
-            apt install -y tlp tlp-rdw
-            ;;
-        fedora)
-            dnf install -y tlp tlp-rdw
-            ;;
-        opensuse)
-            zypper install -y tlp tlp-rdw
-            ;;
-    esac
+    if [ "$DRY_RUN" = true ]; then
+        print_info "[DRY RUN] Would configure power management with $POWER_BACKEND"
+        return
+    fi
     
-    # Configure TLP for optimal battery life
-    print_info "Configuring TLP..."
-    cat > /etc/tlp.d/00-gz302.conf <<EOF
+    if [ "$POWER_BACKEND" = "tlp" ]; then
+        print_info "Installing and configuring TLP..."
+        
+        # Ensure power-profiles-daemon is disabled/masked to avoid conflicts
+        print_info "Disabling power-profiles-daemon to avoid conflicts with TLP..."
+        systemctl stop power-profiles-daemon.service 2>/dev/null || true
+        systemctl disable power-profiles-daemon.service 2>/dev/null || true
+        systemctl mask power-profiles-daemon.service 2>/dev/null || true
+        
+        case $DISTRO_FAMILY in
+            arch)
+                pacman -S --noconfirm tlp tlp-rdw
+                # Remove conflicting services
+                systemctl mask systemd-rfkill.service systemd-rfkill.socket 2>/dev/null || true
+                ;;
+            debian)
+                apt install -y tlp tlp-rdw
+                ;;
+            fedora)
+                dnf install -y tlp tlp-rdw
+                ;;
+            opensuse)
+                zypper install -y tlp tlp-rdw
+                ;;
+        esac
+        
+        # Configure TLP for optimal battery life
+        print_info "Configuring TLP..."
+        cat > /etc/tlp.d/00-gz302.conf <<EOF
 # TLP configuration for Asus ROG Flow Z13 2025 (GZ302EA)
 
 # CPU Settings
@@ -621,12 +865,33 @@ USB_AUTOSUSPEND=1
 SOUND_POWER_SAVE_ON_AC=0
 SOUND_POWER_SAVE_ON_BAT=1
 EOF
-    
-    # Enable and start TLP
-    systemctl enable tlp.service
-    systemctl start tlp.service 2>/dev/null || true
-    
-    print_success "Power management configured"
+        
+        # Enable and start TLP
+        systemctl enable tlp.service
+        systemctl start tlp.service 2>/dev/null || true
+        
+        INSTALLED_POWER_MGMT="TLP"
+        print_success "TLP power management configured"
+        
+    elif [ "$POWER_BACKEND" = "ppd" ]; then
+        print_info "Using power-profiles-daemon..."
+        
+        # Ensure TLP is disabled if installed
+        if systemctl list-unit-files | grep -q tlp.service; then
+            print_info "Disabling TLP to avoid conflicts with power-profiles-daemon..."
+            systemctl stop tlp.service 2>/dev/null || true
+            systemctl disable tlp.service 2>/dev/null || true
+            systemctl mask tlp.service 2>/dev/null || true
+        fi
+        
+        # power-profiles-daemon should already be installed by the distro or asusctl dependencies
+        # Just ensure it's enabled
+        systemctl unmask power-profiles-daemon.service 2>/dev/null || true
+        systemctl enable --now power-profiles-daemon.service 2>/dev/null || true
+        
+        INSTALLED_POWER_MGMT="power-profiles-daemon"
+        print_success "power-profiles-daemon configured"
+    fi
 }
 
 #############################################################################
@@ -635,6 +900,11 @@ EOF
 
 setup_audio() {
     print_step "Configuring audio (SOF firmware)..."
+    
+    if [ "$DRY_RUN" = true ]; then
+        print_info "[DRY RUN] Would install audio packages (SOF firmware, PipeWire/PulseAudio)"
+        return
+    fi
     
     case $DISTRO_FAMILY in
         arch)
@@ -665,6 +935,11 @@ setup_audio() {
 setup_display_input() {
     print_step "Configuring display and touchscreen support..."
     
+    if [ "$DRY_RUN" = true ]; then
+        print_info "[DRY RUN] Would install display/input packages (libinput, wacom)"
+        return
+    fi
+    
     case $DISTRO_FAMILY in
         arch)
             pacman -S --noconfirm xf86-input-libinput xf86-input-wacom
@@ -689,6 +964,11 @@ setup_display_input() {
 
 configure_suspend() {
     print_step "Configuring suspend/resume settings..."
+    
+    if [ "$DRY_RUN" = true ]; then
+        print_info "[DRY RUN] Would create systemd sleep hooks and configure S3 sleep mode"
+        return
+    fi
     
     # Create systemd sleep hook for better suspend/resume
     mkdir -p /usr/lib/systemd/system-sleep
@@ -741,6 +1021,11 @@ EOF
 optimize_wifi_bluetooth() {
     print_step "Optimizing WiFi and Bluetooth (MediaTek MT7925)..."
     
+    if [ "$DRY_RUN" = true ]; then
+        print_info "[DRY RUN] Would create MT7921 modprobe config and enable bluetooth service"
+        return
+    fi
+    
     # Create modprobe config for MT7921 (MT7925 uses different driver name in newer kernels)
     cat > /etc/modprobe.d/mt7921.conf <<EOF
 # MediaTek MT7925 WiFi/BT optimization
@@ -762,6 +1047,11 @@ EOF
 apply_system_tweaks() {
     print_step "Applying additional system tweaks..."
     
+    if [ "$DRY_RUN" = true ]; then
+        print_info "[DRY RUN] Would apply sysctl tweaks (inotify, swappiness)"
+        return
+    fi
+    
     # Increase inotify watches (useful for development)
     cat > /etc/sysctl.d/99-gz302.conf <<EOF
 # System tweaks for GZ302EA
@@ -781,32 +1071,66 @@ EOF
 print_summary() {
     echo ""
     echo -e "${GREEN}================================================${NC}"
-    echo -e "${GREEN}  Installation Complete!${NC}"
+    if [ "$DRY_RUN" = true ]; then
+        echo -e "${GREEN}  Dry Run Complete!${NC}"
+    else
+        echo -e "${GREEN}  Installation Complete!${NC}"
+    fi
     echo -e "${GREEN}================================================${NC}"
     echo ""
-    echo -e "${YELLOW}IMPORTANT: System will reboot to apply all changes.${NC}"
-    echo ""
+    
+    if [ "$DRY_RUN" = false ] && [ "$NO_REBOOT" = false ]; then
+        echo -e "${YELLOW}IMPORTANT: System will reboot to apply all changes.${NC}"
+        echo ""
+    fi
+    
     echo "What was installed/configured:"
     echo "  ✓ System packages updated"
-    echo "  ✓ G14 kernel and headers installed"
+    
+    # Kernel installation status
+    if [ "$INSTALLED_G14_KERNEL" = true ]; then
+        echo "  ✓ G14 kernel and headers installed"
+    else
+        echo "  ✓ Using native kernel (g14 kernel not installed)"
+    fi
+    
     echo "  ✓ Firmware updated (MediaTek MT7925 WiFi/BT)"
     echo "  ✓ AMD Radeon 8060S graphics drivers (Mesa, Vulkan)"
-    echo "  ✓ Bootloader configured with optimal kernel parameters"
+    echo "  ✓ Bootloader configured with kernel parameters (iommu=pt, amd_pstate=active)"
     echo "  ✓ ASUS tools (asusctl, supergfxctl)"
-    echo "  ✓ Power management (TLP)"
-    echo "  ✓ Audio drivers (SOF firmware)"
+    
+    # Power management status
+    if [ -n "$INSTALLED_POWER_MGMT" ]; then
+        echo "  ✓ Power management ($INSTALLED_POWER_MGMT)"
+    else
+        echo "  ✓ Power management (${POWER_BACKEND})"
+    fi
+    
+    echo "  ✓ Audio drivers (SOF firmware, PipeWire)"
     echo "  ✓ Suspend/resume optimization"
     echo "  ✓ Display and touchscreen support"
     echo ""
-    echo "After reboot, test the following:"
-    echo "  • WiFi and Bluetooth connectivity"
-    echo "  • Graphics: glxinfo | grep 'OpenGL renderer'"
-    echo "  • ASUS controls: asusctl --help"
-    echo "  • Power management: tlp-stat"
-    echo "  • Suspend/resume functionality"
-    echo ""
-    echo "For troubleshooting, see: https://github.com/th3cavalry/GZ302-Linux-Setup"
-    echo ""
+    
+    if [ "$DRY_RUN" = false ]; then
+        echo "After reboot, test the following:"
+        echo "  • WiFi and Bluetooth connectivity"
+        echo "  • Graphics: glxinfo | grep 'OpenGL renderer'"
+        echo "  • ASUS controls: asusctl --help"
+        if [ "$POWER_BACKEND" = "tlp" ]; then
+            echo "  • Power management: tlp-stat"
+        else
+            echo "  • Power management: powerprofilesctl status"
+        fi
+        echo "  • Suspend/resume functionality"
+        echo ""
+        echo "For troubleshooting, see: https://github.com/th3cavalry/GZ302-Linux-Setup"
+        echo ""
+        
+        if [ -n "$LOG_FILE" ] && [ "$LOG_FILE" != "/var/log/gz302-setup.log" ]; then
+            echo "Log file: $LOG_FILE"
+            echo ""
+        fi
+    fi
 }
 
 #############################################################################
@@ -814,47 +1138,47 @@ print_summary() {
 #############################################################################
 
 main() {
-    print_header
+    # Parse command-line arguments FIRST (before printing header)
+    parse_arguments "$@"
     
-    # Parse command-line arguments
-    for arg in "$@"; do
-        case $arg in
-            --help)
-                echo "Usage: $0 [OPTIONS]"
-                echo ""
-                echo "Options:"
-                echo "  --help          Show this help message"
-                echo ""
-                echo "This script automatically installs and configures all necessary"
-                echo "components for the Asus ROG Flow Z13 2025 (GZ302EA) on Linux."
-                echo ""
-                exit 0
-                ;;
-            *)
-                print_warning "Unknown option: $arg"
-                echo "Use --help for usage information"
-                exit 1
-                ;;
-        esac
-    done
+    print_header
     
     # Verify running as root
     check_root
+    
+    # Setup logging (after parsing args, before other operations)
+    setup_logging
     
     # Detect distribution
     detect_distro
     
     echo ""
-    print_warning "This script will automatically install and configure your system."
-    print_warning "It is recommended to backup your system before proceeding."
-    print_warning "Detected distribution: $DISTRO ($DISTRO_FAMILY)"
+    
+    if [ "$DRY_RUN" = true ]; then
+        print_warning "DRY RUN MODE - No changes will be made to the system"
+        echo ""
+    fi
+    
+    print_info "Configuration:"
+    print_info "  Kernel mode: $KERNEL_MODE"
+    print_info "  Power backend: $POWER_BACKEND"
+    print_info "  Auto-reboot: $([ "$NO_REBOOT" = true ] && echo "disabled" || echo "enabled")"
+    if [ "$DRY_RUN" = false ]; then
+        print_info "  Log file: $LOG_FILE"
+    fi
     echo ""
     
-    read -p "Press Enter to continue or Ctrl+C to cancel..."
+    if [ "$DRY_RUN" = false ]; then
+        print_warning "This script will install and configure your system."
+        print_warning "It is recommended to backup your system before proceeding."
+        print_warning "Detected distribution: $DISTRO ($DISTRO_FAMILY)"
+        echo ""
+        
+        read -p "Press Enter to continue or Ctrl+C to cancel..."
+        echo ""
+    fi
     
-    echo ""
-    
-    # Main installation steps - all automatically executed
+    # Main installation steps
     update_system
     check_kernel_version
     update_firmware
@@ -871,11 +1195,25 @@ main() {
     # Print summary
     print_summary
     
-    # Automatic reboot prompt
-    print_info "System will reboot in 10 seconds to apply changes..."
-    print_info "Press Ctrl+C to cancel reboot"
-    sleep 10
-    reboot
+    # Handle reboot
+    if [ "$DRY_RUN" = false ]; then
+        if [ "$NO_REBOOT" = true ]; then
+            echo ""
+            print_warning "Reboot disabled. Please reboot manually to apply all changes."
+            print_info "Run: sudo reboot"
+        else
+            echo ""
+            read -p "Reboot now to apply changes? [Y/n] " -n 1 -r
+            echo ""
+            if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+                print_info "Rebooting in 5 seconds..."
+                sleep 5
+                reboot
+            else
+                print_info "Reboot cancelled. Please reboot manually when ready."
+            fi
+        fi
+    fi
 }
 
 # Run main function

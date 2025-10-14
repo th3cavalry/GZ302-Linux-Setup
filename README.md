@@ -1,6 +1,6 @@
 # Asus ROG Flow Z13 2025 (GZ302EA) Linux Setup Script
 
-**Version: 1.2.0**
+**Version: 1.3.0**
 
 Comprehensive post-installation setup script for the Asus ROG Flow Z13 2025 models (GZ302EA) with AMD Strix Halo processor and integrated Radeon 8060S GPU.
 
@@ -24,10 +24,12 @@ The script automatically detects and supports the following distributions:
 
 The script automatically installs and configures everything needed for the Asus ROG Flow Z13 2025 on Linux:
 
-### 1. G14 Kernel Installation
-- Automatically installs linux-g14 kernel and headers (Arch-based distros)
-- Installs latest kernel with development headers for other distros
-- Optimized for ROG laptops with specific patches
+### 1. Kernel (Optional linux-g14 Variant on Arch)
+- **Modern kernels (>= 6.6) typically provide adequate hardware support** for the GZ302EA in 2025
+- On Arch Linux with kernel < 6.6, the script can install the linux-g14 kernel for enhanced ROG laptop support
+- The g14 kernel is now **optional** and can be controlled via command-line flags
+- Other distributions use their native kernel packages
+- Use `--kernel g14` to force installation of g14 kernel for ROG-specific optimizations
 
 ### 2. Graphics Support
 - Configures AMDGPU drivers with optimal settings
@@ -46,7 +48,10 @@ The script automatically installs and configures everything needed for the Asus 
 - Uses official repositories for easy updates via package manager
 
 ### 5. Power Management
-- Installs and configures TLP for battery optimization
+- Configurable power management: choose between **TLP** (default) or **power-profiles-daemon**
+- **Important:** TLP and power-profiles-daemon cannot run simultaneously (they conflict)
+- Use `--power tlp` for advanced battery optimization (recommended for laptops)
+- Use `--power ppd` for simpler power profile management
 - Sets up AMD P-State driver
 - Configures CPU frequency scaling
 
@@ -105,27 +110,65 @@ sudo ./gz302-setup.sh
 
 ## Usage
 
-The script runs fully automatically and installs all necessary components:
+The script supports various command-line options for customization:
 
 ```bash
 sudo ./gz302-setup.sh [OPTIONS]
 
 Options:
-  --help          Show help message
+  --help                Show this help message
+  --kernel MODE         Kernel installation mode (default: auto)
+                        - auto: Install g14 kernel only if Arch + kernel < 6.6
+                        - g14: Force install g14 kernel
+                        - native: Use native/distribution kernel only
+  --no-kernel           Shortcut for --kernel native
+  --power BACKEND       Power management backend (default: tlp)
+                        - tlp: Install and enable TLP
+                        - ppd: Use power-profiles-daemon
+  --no-reboot           Don't reboot automatically (prompt user instead)
+  --dry-run             Show planned actions without making changes
+  --log FILE            Log file location (default: /var/log/gz302-setup.log)
+```
+
+### Usage Examples
+
+**Default installation (auto-detect kernel need, use TLP, prompt for reboot):**
+```bash
+sudo ./gz302-setup.sh
+```
+
+**Use native kernel with power-profiles-daemon:**
+```bash
+sudo ./gz302-setup.sh --no-kernel --power ppd
+```
+
+**Force g14 kernel installation:**
+```bash
+sudo ./gz302-setup.sh --kernel g14
+```
+
+**Dry run to see what would be done:**
+```bash
+sudo ./gz302-setup.sh --dry-run
+```
+
+**Custom log file and no automatic reboot:**
+```bash
+sudo ./gz302-setup.sh --log /tmp/setup.log --no-reboot
 ```
 
 The script will:
 1. Detect your Linux distribution
-2. Install the g14 kernel and headers
+2. Optionally install the g14 kernel (if needed/requested)
 3. Configure all hardware components
-4. Set up ASUS-specific tools
-5. Optimize power management
+4. Set up ASUS-specific tools (asusctl, supergfxctl)
+5. Configure power management (TLP or power-profiles-daemon)
 6. Configure your bootloader (GRUB or systemd-boot)
-7. Automatically reboot when complete
+7. Prompt to reboot when complete (unless --no-reboot is used)
 
 ## Post-Installation
 
-After the automatic reboot:
+After setup completion (and reboot if you chose to reboot):
 
 1. **Verify the installation** using the verification script:
    ```bash
@@ -150,8 +193,11 @@ After the automatic reboot:
    asusctl --help
    supergfxctl --status
    
-   # Check power management
+   # Check power management (TLP)
    tlp-stat
+   
+   # Or check power management (power-profiles-daemon)
+   powerprofilesctl status
    
    # Check kernel version
    uname -r
@@ -221,20 +267,51 @@ supergfxctl -m Integrated  # or Hybrid, Dedicated
 
 ### Power Management Tuning
 
+**If using TLP:**
 ```bash
 # Edit TLP configuration
 sudo nano /etc/tlp.conf
+
+# Or edit GZ302-specific config
+sudo nano /etc/tlp.d/00-gz302.conf
 
 # Restart TLP
 sudo systemctl restart tlp
 ```
 
+**If using power-profiles-daemon:**
+```bash
+# List available profiles
+powerprofilesctl list
+
+# Set profile
+powerprofilesctl set performance  # or balanced, power-saver
+```
+
+**Important Note on Power Management:**
+TLP and power-profiles-daemon are mutually exclusive and will conflict if both are running. The script handles this automatically based on your `--power` choice. If you switch between them later, make sure to disable one before enabling the other:
+
+```bash
+# To switch from power-profiles-daemon to TLP:
+sudo systemctl stop power-profiles-daemon
+sudo systemctl mask power-profiles-daemon
+sudo systemctl enable --now tlp
+
+# To switch from TLP to power-profiles-daemon:
+sudo systemctl stop tlp
+sudo systemctl mask tlp
+sudo systemctl unmask power-profiles-daemon
+sudo systemctl enable --now power-profiles-daemon
+```
+
 ## Known Issues
 
-1. **Fingerprint Reader**: Not yet supported in Linux (as of kernel 6.14)
+1. **Fingerprint Reader**: Not yet supported in Linux (driver support may arrive in future kernel versions)
 2. **RGB Keyboard**: Limited support - basic functionality available via asusctl
 3. **Windows Hello Camera**: IR camera not supported
 4. **Thunderbolt 4**: May require additional configuration on some distros
+
+**Note:** This script is designed specifically for the **Asus ROG Flow Z13 2025 (GZ302EA)** models. While it may share some components with Zephyrus G14 laptops (hence the g14 kernel option), it is tailored for the Flow Z13 tablet form factor and GZ302EA hardware.
 
 ## Contributing
 
@@ -258,4 +335,4 @@ This script modifies system configurations. While tested, use at your own risk. 
 ---
 
 **Last Updated**: October 14, 2025  
-**Version**: 1.0.0
+**Version**: 1.3.0
