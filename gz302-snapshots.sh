@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 System Snapshots Module
-# Version: 0.1.1-pre-release
+# Version: 0.1.3-pre-release
 #
 # This module sets up system snapshots for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Snapper, LVM snapshots, Btrfs
