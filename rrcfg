@@ -1,0 +1,426 @@
+#!/bin/bash
+
+#############################################################################
+# rrcfg - GZ302EA Refresh Rate Configuration Tool
+# Version: 2.0.0
+#
+# Simple command-line tool for managing display refresh rates
+#
+# Usage:
+#   rrcfg <rate>           Set refresh rate (e.g., 60, 90, 120, 165, 180)
+#   rrcfg status           Show current refresh rate
+#   rrcfg list             List available refresh rates
+#   rrcfg auto             Set based on power profile
+#
+#############################################################################
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+VERSION="2.0.0"
+
+#############################################################################
+# Helper Functions
+#############################################################################
+
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[✓]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[!]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[✗]${NC} $1"
+}
+
+#############################################################################
+# Display Detection
+#############################################################################
+
+detect_display_server() {
+    if [ -n "$WAYLAND_DISPLAY" ]; then
+        echo "wayland"
+    elif [ -n "$DISPLAY" ]; then
+        echo "x11"
+    else
+        echo "none"
+    fi
+}
+
+get_primary_display_x11() {
+    if ! command -v xrandr &> /dev/null; then
+        return 1
+    fi
+    
+    # Try primary display first
+    local display=$(xrandr | grep " connected primary" | awk '{print $1}')
+    
+    # If no primary, get first connected
+    if [ -z "$display" ]; then
+        display=$(xrandr | grep " connected" | head -n1 | awk '{print $1}')
+    fi
+    
+    echo "$display"
+}
+
+get_primary_display_wayland() {
+    if ! command -v wlr-randr &> /dev/null; then
+        return 1
+    fi
+    
+    local output=$(wlr-randr | grep "^[^ ]" | head -n1 | awk '{print $1}')
+    echo "$output"
+}
+
+#############################################################################
+# Refresh Rate Management - X11
+#############################################################################
+
+get_current_rate_x11() {
+    local display=$(get_primary_display_x11)
+    if [ -z "$display" ]; then
+        echo "unknown"
+        return 1
+    fi
+    
+    xrandr | grep "$display" -A 10 | grep "^\s*[0-9]" | grep "\*" | awk '{print $1}' | sed 's/x[0-9]*$//' | head -n1 | awk -F'x' '{print $2}'
+}
+
+list_available_rates_x11() {
+    local display=$(get_primary_display_x11)
+    if [ -z "$display" ]; then
+        return 1
+    fi
+    
+    xrandr | grep "$display" -A 20 | grep "^\s*[0-9]" | awk '{for(i=2;i<=NF;i++) print $i}' | grep -o "[0-9]\+\.[0-9]\+" | sort -nu
+}
+
+set_refresh_x11() {
+    local rate=$1
+    local display=$(get_primary_display_x11)
+    
+    if [ -z "$display" ]; then
+        print_error "No display found"
+        return 1
+    fi
+    
+    print_info "Setting refresh rate to ${rate}Hz on $display (X11)"
+    
+    if xrandr --output "$display" --rate "$rate" 2>/dev/null; then
+        print_success "Refresh rate set to ${rate}Hz"
+        return 0
+    else
+        print_error "Failed to set refresh rate"
+        print_warning "Available rates:"
+        list_available_rates_x11 | sed 's/^/  /'
+        return 1
+    fi
+}
+
+#############################################################################
+# Refresh Rate Management - Wayland
+#############################################################################
+
+get_current_rate_wayland() {
+    if ! command -v wlr-randr &> /dev/null; then
+        echo "unknown"
+        return 1
+    fi
+    
+    wlr-randr | grep "current" | head -n1 | grep -o "[0-9]\+\.[0-9]\+ Hz" | awk '{print $1}' | cut -d. -f1
+}
+
+list_available_rates_wayland() {
+    if ! command -v wlr-randr &> /dev/null; then
+        return 1
+    fi
+    
+    wlr-randr | grep "Hz" | grep -o "[0-9]\+\.[0-9]\+ Hz" | awk '{print $1}' | sort -nu
+}
+
+set_refresh_wayland() {
+    local rate=$1
+    local output=$(get_primary_display_wayland)
+    
+    if [ -z "$output" ]; then
+        print_error "No display found"
+        return 1
+    fi
+    
+    print_info "Setting refresh rate to ${rate}Hz on $output (Wayland)"
+    
+    # Get current mode/resolution
+    local mode=$(wlr-randr | grep "current" | head -n1 | awk '{print $1}')
+    
+    if [ -n "$mode" ]; then
+        local resolution=$(echo "$mode" | sed 's/@.*//')
+        
+        if wlr-randr --output "$output" --mode "${resolution}@${rate}Hz" 2>/dev/null; then
+            print_success "Refresh rate set to ${rate}Hz"
+            return 0
+        else
+            # Try with decimal
+            if wlr-randr --output "$output" --mode "${resolution}@${rate}.00Hz" 2>/dev/null; then
+                print_success "Refresh rate set to ${rate}Hz"
+                return 0
+            fi
+        fi
+    fi
+    
+    print_error "Failed to set refresh rate"
+    print_warning "Available rates:"
+    list_available_rates_wayland | sed 's/^/  /'
+    return 1
+}
+
+#############################################################################
+# Unified Interface
+#############################################################################
+
+get_current_rate() {
+    local server=$(detect_display_server)
+    
+    case "$server" in
+        x11)
+            get_current_rate_x11
+            ;;
+        wayland)
+            get_current_rate_wayland
+            ;;
+        *)
+            echo "unknown"
+            ;;
+    esac
+}
+
+list_available_rates() {
+    local server=$(detect_display_server)
+    
+    case "$server" in
+        x11)
+            list_available_rates_x11
+            ;;
+        wayland)
+            list_available_rates_wayland
+            ;;
+        *)
+            echo "60 90 120 165 180"
+            ;;
+    esac
+}
+
+set_refresh_rate() {
+    local rate=$1
+    local server=$(detect_display_server)
+    
+    if [ "$server" = "none" ]; then
+        print_error "No display server detected"
+        return 1
+    fi
+    
+    case "$server" in
+        x11)
+            set_refresh_x11 "$rate"
+            ;;
+        wayland)
+            set_refresh_wayland "$rate"
+            ;;
+    esac
+}
+
+#############################################################################
+# Status Display
+#############################################################################
+
+show_status() {
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}  Display Refresh Rate Status${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    local server=$(detect_display_server)
+    echo -e "${BLUE}Display Server:${NC} $server"
+    
+    if [ "$server" = "x11" ]; then
+        local display=$(get_primary_display_x11)
+        echo -e "${BLUE}Primary Display:${NC} $display"
+    elif [ "$server" = "wayland" ]; then
+        local display=$(get_primary_display_wayland)
+        echo -e "${BLUE}Primary Output:${NC} $display"
+    fi
+    
+    local current=$(get_current_rate)
+    if [ "$current" != "unknown" ]; then
+        echo -e "${BLUE}Current Rate:${NC} ${current}Hz"
+    else
+        echo -e "${BLUE}Current Rate:${NC} Unable to detect"
+    fi
+    
+    echo ""
+    echo -e "${BLUE}Available Rates:${NC}"
+    local rates=$(list_available_rates)
+    if [ -n "$rates" ]; then
+        echo "$rates" | while read rate; do
+            # Round to integer for display
+            rate_int=$(printf "%.0f" "$rate" 2>/dev/null || echo "$rate")
+            echo "  ${rate_int}Hz"
+        done
+    else
+        echo "  Unable to detect"
+    fi
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
+
+#############################################################################
+# List Refresh Rates
+#############################################################################
+
+list_rates() {
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}  Common Refresh Rates${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    echo ""
+    printf "%-10s %-30s\n" "RATE" "USE CASE"
+    echo -e "${CYAN}────────────────────────────────────────${NC}"
+    printf "%-10s %-30s\n" "40Hz" "Extreme power saving"
+    printf "%-10s %-30s\n" "60Hz" "Standard, battery saving"
+    printf "%-10s %-30s\n" "90Hz" "Balanced smoothness"
+    printf "%-10s %-30s\n" "120Hz" "High performance"
+    printf "%-10s %-30s\n" "165Hz" "Gaming (if supported)"
+    printf "%-10s %-30s\n" "180Hz" "Maximum (if supported)"
+    
+    echo ""
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    echo ""
+    echo "Your display supports:"
+    local rates=$(list_available_rates)
+    if [ -n "$rates" ]; then
+        echo "$rates" | while read rate; do
+            rate_int=$(printf "%.0f" "$rate" 2>/dev/null || echo "$rate")
+            echo "  ${rate_int}Hz"
+        done
+    else
+        echo "  Unable to detect (run from a graphical session)"
+    fi
+    
+    echo ""
+    echo "Usage: sudo rrcfg <rate>"
+    echo "Example: sudo rrcfg 120"
+}
+
+#############################################################################
+# Auto Mode
+#############################################################################
+
+set_auto() {
+    # Try to read current power profile
+    if [ -f /tmp/pwrcfg_current ]; then
+        local profile=$(cat /tmp/pwrcfg_current)
+        
+        # Default refresh rates for each profile
+        case "$profile" in
+            max|turbo|performance)
+                set_refresh_rate 120
+                ;;
+            balanced)
+                set_refresh_rate 90
+                ;;
+            powersave|extreme)
+                set_refresh_rate 60
+                ;;
+            *)
+                print_warning "Unknown profile, using 90Hz"
+                set_refresh_rate 90
+                ;;
+        esac
+    else
+        print_warning "No power profile set, using 90Hz"
+        set_refresh_rate 90
+    fi
+}
+
+#############################################################################
+# Help
+#############################################################################
+
+show_help() {
+    cat << EOF
+${CYAN}rrcfg${NC} - Refresh Rate Configuration Tool v${VERSION}
+
+${YELLOW}USAGE:${NC}
+    rrcfg <rate>           Set refresh rate (Hz)
+    rrcfg status           Show current refresh rate
+    rrcfg list             List available refresh rates
+    rrcfg auto             Set based on power profile
+
+${YELLOW}COMMON RATES:${NC}
+    40                     Extreme power saving
+    60                     Standard, battery saving
+    90                     Balanced smoothness
+    120                    High performance
+    165                    Gaming (if supported)
+    180                    Maximum (if supported)
+
+${YELLOW}EXAMPLES:${NC}
+    rrcfg 120              # Set 120Hz
+    rrcfg 60               # Set 60Hz for battery saving
+    rrcfg status           # Check current rate
+    rrcfg auto             # Match power profile
+
+${YELLOW}FEATURES:${NC}
+    • Support for any refresh rate your display supports
+    • Automatic X11/Wayland detection
+    • Can be linked to power profiles (via pwrcfg)
+    • No root required (usually)
+
+Works with: X11 (xrandr) and Wayland (wlr-randr)
+EOF
+}
+
+#############################################################################
+# Main
+#############################################################################
+
+main() {
+    local rate="${1:-}"
+    
+    # Check if it's a number (refresh rate)
+    if [[ "$rate" =~ ^[0-9]+$ ]]; then
+        set_refresh_rate "$rate"
+    else
+        case "$rate" in
+            status)
+                show_status
+                ;;
+            list)
+                list_rates
+                ;;
+            auto)
+                set_auto
+                ;;
+            --help|-h|help|"")
+                show_help
+                ;;
+            *)
+                print_error "Invalid option: $rate"
+                echo "Use: rrcfg --help"
+                exit 1
+                ;;
+        esac
+    fi
+}
+
+main "$@"

@@ -140,15 +140,22 @@ After the automatic reboot:
    - Touchscreen and stylus
    - Battery life and power management
 
-3. **(Optional) Set up automatic power management:**
+3. **(Optional) Set up power management:**
    ```bash
-   # Enable automatic power profile switching based on AC/battery
-   sudo ./gz302-power-manager.sh install
+   # Configure power profiles for AC/battery
+   sudo pwrcfg config
+   
+   # Enable automatic switching
+   sudo pwrcfg auto on
    
    # Or manually control power profiles
-   sudo ./gz302-power-manager.sh performance  # Max performance
-   sudo ./gz302-power-manager.sh powersave    # Battery saving
-   sudo ./gz302-power-manager.sh status       # Check current status
+   sudo pwrcfg turbo       # High performance
+   sudo pwrcfg powersave   # Battery saving
+   pwrcfg status           # Check current status
+   
+   # Control refresh rate
+   rrcfg 120               # High refresh (120Hz)
+   rrcfg 60                # Low refresh (60Hz)
    ```
 
 4. **Useful Commands:**
@@ -164,8 +171,9 @@ After the automatic reboot:
    # Check power management
    tlp-stat
    
-   # Power manager tool
-   sudo ./gz302-power-manager.sh --help
+   # Power configuration tools
+   pwrcfg --help
+   rrcfg --help
    
    # Check kernel version
    uname -r
@@ -235,81 +243,214 @@ supergfxctl -m Integrated  # or Hybrid, Dedicated
 
 ### Power Management Tuning
 
-The repository includes a comprehensive power management tool (`gz302-power-manager.sh`) that provides:
+The repository includes comprehensive power management tools (`pwrcfg` and `rrcfg`) that provide fine-grained control over performance and power consumption.
+
+#### Power Configuration Tool: `pwrcfg`
+
+`pwrcfg` provides 6 power profiles with TDP (Thermal Design Power) control, ranging from maximum performance to extreme battery saving.
+
+**Available Profiles:**
+
+| Profile | TDP | CPU Governor | CPU Boost | Use Case |
+|---------|-----|--------------|-----------|----------|
+| **max** | 120W | performance | enabled | Maximum performance, rendering |
+| **turbo** | 100W | performance | enabled | Gaming, heavy workloads |
+| **performance** | 80W | performance | enabled | Standard work, productivity |
+| **balanced** | 60W | schedutil | enabled | General use, web browsing |
+| **powersave** | 35W | powersave | disabled | Battery life, light tasks |
+| **extreme** | 20W | powersave | disabled | Extreme battery saving |
+
+**Quick Usage:**
+
+```bash
+# Set a power profile
+sudo pwrcfg turbo          # High performance gaming
+sudo pwrcfg powersave      # Extend battery life
+
+# View current status
+pwrcfg status
+
+# List all profiles
+pwrcfg list
+```
 
 #### Automatic Power Profile Switching
 
-Enable automatic switching between performance and power-saving modes based on AC/battery status:
+Configure automatic profile switching based on AC/battery status:
 
 ```bash
-# Install automatic switching (uses udev rules)
-sudo ./gz302-power-manager.sh install
+# Interactive configuration
+sudo pwrcfg config
 
-# Remove automatic switching
-sudo ./gz302-power-manager.sh uninstall
+# Example configuration:
+#   AC Profile: turbo
+#   Battery Profile: powersave
+#   Link refresh rate to profile: yes
+
+# Enable automatic switching
+sudo pwrcfg auto on
+
+# Disable automatic switching
+sudo pwrcfg auto off
 ```
 
-When installed, the system will automatically:
-- Switch to **Performance mode** when plugged into AC power
-- Switch to **Powersave mode** when running on battery
+When enabled, the system automatically:
+- Switches to your chosen **AC profile** (e.g., turbo) when plugged in
+- Switches to your chosen **battery profile** (e.g., powersave) when unplugged
+- Optionally adjusts refresh rate to match the profile
 
-#### Manual Power Profile Control
+#### Refresh Rate Control: `rrcfg`
+
+`rrcfg` provides simple refresh rate management with support for any rate your display supports.
+
+**Quick Usage:**
 
 ```bash
-# Maximum performance (high CPU/GPU, plugged in)
-sudo ./gz302-power-manager.sh performance
+# Set refresh rate
+rrcfg 120                  # High refresh (120Hz)
+rrcfg 90                   # Balanced (90Hz)
+rrcfg 60                   # Battery saving (60Hz)
+rrcfg 40                   # Extreme battery saving (40Hz)
 
-# Balanced mode (moderate performance and power)
-sudo ./gz302-power-manager.sh balanced
+# Auto-match current power profile
+rrcfg auto
 
-# Power saving mode (low CPU/GPU, battery)
-sudo ./gz302-power-manager.sh powersave
+# Check current refresh rate
+rrcfg status
 
-# Auto-detect current power source and apply appropriate profile
-sudo ./gz302-power-manager.sh auto
+# List available rates for your display
+rrcfg list
 ```
 
-#### Display Refresh Rate Control
-
-```bash
-# Set high refresh rate (120Hz)
-sudo ./gz302-power-manager.sh refresh-high
-
-# Set low refresh rate (60Hz, saves power)
-sudo ./gz302-power-manager.sh refresh-low
-```
-
-#### Check Power Status
-
-```bash
-# View current power settings and profiles
-sudo ./gz302-power-manager.sh status
-```
+**Common Refresh Rates:**
+- **40Hz**: Extreme power saving (~20% battery savings)
+- **60Hz**: Standard, good battery life
+- **90Hz**: Balanced smoothness and efficiency
+- **120Hz**: High performance, smooth scrolling
+- **165Hz/180Hz**: Maximum (if supported by your display)
 
 #### What Each Profile Does
 
-**Performance Profile:**
-- CPU Governor: performance
-- CPU Boost: enabled
-- GPU Power Level: high
-- ASUS Profile: Performance
-- Recommended: When plugged into AC power
+**Maximum Performance (max):**
+- TDP: 120W
+- CPU: Performance governor, boost enabled
+- GPU: High power mode
+- Refresh: 120Hz (if linked)
+- **Best for**: 3D rendering, video editing, maximum FPS gaming
 
-**Balanced Profile:**
-- CPU Governor: schedutil
-- CPU Boost: enabled
-- GPU Power Level: auto
-- ASUS Profile: Balanced
-- Recommended: General use
+**Turbo Mode (turbo):**
+- TDP: 100W
+- CPU: Performance governor, boost enabled
+- GPU: High power mode
+- Refresh: 120Hz (if linked)
+- **Best for**: Gaming, compilation, heavy multitasking
 
-**Powersave Profile:**
-- CPU Governor: powersave
-- CPU Boost: disabled
-- GPU Power Level: low
-- ASUS Profile: Quiet
-- Recommended: When on battery
+**Performance Mode (performance):**
+- TDP: 80W
+- CPU: Performance governor, boost enabled
+- GPU: Auto power management
+- Refresh: 120Hz (if linked)
+- **Best for**: Productivity, development, standard workloads
 
-The power manager works with both X11 (using xrandr) and Wayland (using wlr-randr) display servers.
+**Balanced Mode (balanced):**
+- TDP: 60W
+- CPU: Schedutil (adaptive) governor, boost enabled
+- GPU: Auto power management
+- Refresh: 90Hz (if linked)
+- **Best for**: Web browsing, office work, general computing
+
+**Powersave Mode (powersave):**
+- TDP: 35W
+- CPU: Powersave governor, boost disabled
+- GPU: Low power mode
+- Refresh: 60Hz (if linked)
+- **Best for**: Light tasks, reading, note-taking, battery life
+
+**Extreme Battery Saving (extreme):**
+- TDP: 20W
+- CPU: Powersave governor, boost disabled
+- GPU: Low power mode
+- Refresh: 60Hz (if linked)
+- **Best for**: Minimal power consumption, emergency battery extension
+
+#### TDP Control Features
+
+The `pwrcfg` tool attempts to control TDP through multiple methods:
+
+1. **RyzenAdj** (if installed): Direct TDP control for AMD Ryzen processors
+2. **Platform Profile**: Uses `/sys/firmware/acpi/platform_profile`
+3. **AMD P-State EPP**: Energy Performance Preference control
+4. **CPU Governor**: Frequency scaling management
+
+For full TDP control on AMD Strix Halo, install `ryzenadj`:
+```bash
+# Arch Linux
+yay -S ryzenadj
+
+# Ubuntu/Debian
+# Build from source: https://github.com/FlyGoat/RyzenAdj
+
+# Enable on boot (after install)
+sudo pwrcfg auto on
+```
+
+#### Advanced Customization
+
+**Custom AC/Battery Profiles:**
+```bash
+# Configure interactively
+sudo pwrcfg config
+
+# This lets you choose:
+# - Which profile for AC power
+# - Which profile for battery
+# - Whether to link refresh rate
+```
+
+**Manual TDP Override** (requires ryzenadj):
+```bash
+# Set custom TDP (example: 70W)
+sudo ryzenadj --stapm-limit=70000 --fast-limit=70000 --slow-limit=70000
+```
+
+**Separate Refresh Rate Control:**
+```bash
+# Unlink refresh rate from power profile
+# Edit /etc/gz302/pwrcfg.conf
+LINK_REFRESH="no"
+
+# Then control refresh rate independently
+rrcfg 120
+```
+
+#### Integration with Existing Tools
+
+The power management tools work alongside existing utilities:
+
+**Compatible with TLP:**
+- TLP handles background optimizations
+- `pwrcfg` handles active profile switching
+- No conflicts between systems
+
+**Works with asusctl:**
+- Uses asusctl profiles when available
+- Gracefully degrades if not installed
+- Complements ASUS-specific features
+
+#### Installation to System
+
+To install the commands system-wide:
+
+```bash
+# Copy to system directories (done automatically on first use with sudo)
+sudo cp pwrcfg /usr/local/bin/
+sudo cp rrcfg /usr/local/bin/
+sudo chmod +x /usr/local/bin/pwrcfg /usr/local/bin/rrcfg
+
+# Now you can use from anywhere
+pwrcfg status
+rrcfg 120
+```
 
 #### Traditional TLP Configuration
 
