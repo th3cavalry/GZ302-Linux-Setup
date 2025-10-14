@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3-pre-release] - 2025-10
+
+### Changed - Kernel Support Update
+- Updated kernel requirements to 6.15+ minimum (6.17+ strongly recommended)
+- Updated to reflect kernel 6.17 release (September 2025) as latest stable
+- Updated to reflect kernel 6.18 RC1 availability (October 2025)
+- Enhanced documentation with current Linux kernel support status
+- Modernized all kernel version references throughout repository
+
+### Added
+- Kernel version checking function with automatic detection and user warnings
+- Conditional MediaTek MT7925 WiFi workarounds based on kernel version
+  - Kernels < 6.15: Automatic ASPM workaround applied
+  - Kernels 6.15+: Native WiFi stability, no workaround needed
+- Comprehensive linux-g14 kernel documentation and recommendations
+  - Documented that linux-g14 is optional with mainline 6.15+
+  - Added guidance on when to use mainline vs linux-g14
+- Kernel 6.15+ benefits documentation:
+  - Native MT7925 WiFi stability (no ASPM workaround required)
+  - Enhanced AMD Strix Halo AI inference performance
+  - Improved Radeon 8060S graphics performance
+- Kernel 6.17 benefits documentation:
+  - Further AMD Strix Halo performance improvements
+  - Enhanced integrated GPU scheduling and memory management
+  - Improved MediaTek MT7925 WiFi performance
+
+### Research Updates
+- Linux kernel 6.17 (latest stable) released September 2025
+- Linux kernel 6.18 RC1 released October 2025, final expected November/December 2025
+- Phoronix benchmarks showing Strix Halo performance improvements in 6.17
+- Updated asus-linux.org research on linux-g14 necessity
+
+### Technical Improvements
+- Script automatically detects kernel version and applies appropriate workarounds
+- User-friendly kernel version warnings with detailed feature explanations
+- Conditional hardware fix application based on detected kernel capabilities
+
+## [0.1.2-pre-release] - 2024-10
+
 ### Changed
 - Updated to version 0.1.2-pre-release based on extensive research
 - Enhanced hardware fixes with latest community findings and kernel requirements
@@ -24,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OpenSUSE: OBS repository (hardware:asus) with automated zypper installation
 - Note about ec_su_axb35 kernel module for advanced Strix Halo fan/power control
 - References to Strix Halo HomeLab and Phoronix community research
-- Kernel 6.14+ MediaTek MT7925 WiFi improvement notes
+- Kernel 6.15+ native MediaTek MT7925 WiFi stability notes
 
 ### Research Sources
 - Shahzebqazi/Asus-Z13-Flow-2025-PCMR GitHub repository

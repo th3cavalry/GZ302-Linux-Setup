@@ -2,7 +2,7 @@
 
 **Modular Linux setup scripts specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional downloadable modules for gaming, AI development, virtualization, and more.
 
-> **🚀 Version 0.1.2-pre-release - Enhanced Distribution Support!** Updated based on latest community research for AMD Strix Halo and GZ302 Linux compatibility. Improved automated installation of asusctl across all distributions with official repositories and PPAs. **Recommended: Linux kernel 6.11+ (6.12+ or 6.13+ preferred) for best Strix Halo support.**
+> **🚀 Version 0.1.3-pre-release - Enhanced Kernel Support!** Updated for kernel 6.15+ and 6.17+ with enhanced AMD Strix Halo support, improved MediaTek MT7925 WiFi, and conditional hardware workarounds. **Required: Linux kernel 6.15+ minimum (6.17+ strongly recommended) for optimal Strix Halo and WiFi support.**
 
 ## ✨ Key Features
 
@@ -52,17 +52,18 @@ All distributions receive identical treatment with equal priority:
 
 ### Hardware Fixes (Always Applied)
 Based on latest research from GZ302 community and comprehensive testing:
-- **Kernel parameters**: AMD P-State driver (`amd_pstate=guided`) - optimal for Strix Halo (confirmed by Ubuntu 25.10 benchmarks)
+- **Kernel parameters**: AMD P-State driver (`amd_pstate=guided`) - optimal for Strix Halo (confirmed by benchmarks)
 - **GPU optimization**: AMD Radeon 8060S integrated graphics (RDNA 3.5) - full feature mask enabled, ROCm-compatible
-- **Wi-Fi stability**: MediaTek MT7925 fixes (disable ASPM, power save off) - fixes disconnection and suspend/resume issues
-- **ASUS HID**: Keyboard and touchpad module configuration with improved gesture support (kernel 6.11+)
+- **Wi-Fi stability**: MediaTek MT7925 conditional fixes - automatic ASPM workaround for kernels < 6.15, native support for 6.15+
+- **ASUS HID**: Keyboard and touchpad module configuration with mature gesture support
 
 **Research Sources**: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org, Strix Halo HomeLab, Ubuntu 25.10 benchmarks, Phoronix community
 
 **Kernel Requirements**: 
-- **Minimum**: Linux kernel 6.11+ for basic Strix Halo support
-- **Recommended**: Linux kernel 6.12+ or 6.13+ for latest improvements and fixes
-- Kernel 6.14+ includes additional MediaTek MT7925 WiFi patches
+- **Minimum**: Linux kernel 6.15+ (native MT7925 WiFi stability, XDNA NPU driver, improved AMDGPU)
+- **Recommended**: Linux kernel 6.17+ (latest stable) for further AMD Strix Halo performance improvements and enhanced GPU scheduling
+- **Benefits of 6.15+**: Native MT7925 WiFi stability (no ASPM workaround), enhanced AI inference performance, improved Radeon 8060S graphics
+- **Benefits of 6.17+**: Further Strix Halo optimizations, better integrated GPU scheduling, improved memory management
 
 ### ASUS-Specific Packages (Distribution-dependent)
 Automated installation from official sources:
@@ -83,6 +84,14 @@ Note: GZ302EA-XS99 has AMD Radeon 8060S integrated graphics (100% AMD system). N
   - Power mode switching (balanced 85W, performance 100W, turbo 120W)
   - APU temperature monitoring
   - See: https://github.com/cmetz/ec-su_axb35-linux
+
+### About linux-g14 Kernel (Arch Linux)
+The `linux-g14` custom kernel is **optional** for GZ302 users:
+- **Not required** with mainline kernel 6.15+ - core hardware support is excellent
+- **Still beneficial** for advanced ASUS ROG features: custom fan curves, LED management, enhanced GPU switching
+- **Recommendation**: Use mainline kernel 6.17+ for stability, or linux-g14 if you need advanced ROG-specific features
+- The G14 repository provides asusctl regardless of which kernel you use
+- See: https://asus-linux.org for more information on linux-g14 benefits
 
 ### Management Tools (Always Installed)
 - **TDP Management** (`gz302-tdp` command)
