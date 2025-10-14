@@ -1207,6 +1207,7 @@ show_usage() {
     echo "  vrr [on|off|ranges] - VRR control and min/max range configuration"
     echo "  monitor [display] - Configure specific monitor settings"
     echo "  game [add|remove|list] - Manage game-specific profiles"
+    echo "  color [set|auto|reset] - Display color temperature management"
     echo "  monitor-power    - Show real-time power consumption monitoring"
     echo "  thermal-status   - Check thermal throttling status"
     echo "  battery-predict  - Predict battery life with different refresh rates"
@@ -1216,6 +1217,7 @@ show_usage() {
     echo "  gz302-refresh game add steam # Add game-specific profile for Steam"
     echo "  gz302-refresh vrr ranges    # Configure VRR min/max ranges"
     echo "  gz302-refresh monitor DP-1  # Configure specific monitor"
+    echo "  gz302-refresh color set 6500K # Set color temperature"
     echo "  gz302-refresh thermal-status # Check thermal throttling"
 }
 
@@ -1915,6 +1917,139 @@ predict_battery_life() {
     fi
 }
 
+# Display temperature/color management integration
+configure_display_color() {
+    local action="$1"
+    local temperature="$2"
+    
+    case "$action" in
+        "set")
+            if [[ -z "$temperature" ]]; then
+                echo "Usage: gz302-refresh color set [TEMPERATURE]"
+                echo "Example: gz302-refresh color set 6500K"
+                echo "Common values: 6500K (daylight), 5000K (neutral), 3200K (warm)"
+                return 1
+            fi
+            
+            # Remove 'K' suffix if present
+            temperature="${temperature%K}"
+            
+            # Validate temperature range
+            if [[ "$temperature" -lt 1000 || "$temperature" -gt 10000 ]]; then
+                echo "Error: Temperature must be between 1000K and 10000K"
+                return 1
+            fi
+            
+            echo "Setting display color temperature to ${temperature}K"
+            
+            # Try redshift for color temperature control
+            if command -v redshift >/dev/null 2>&1; then
+                redshift -O "$temperature" >/dev/null 2>&1 && echo "Color temperature set using redshift"
+            elif command -v gammastep >/dev/null 2>&1; then
+                gammastep -O "$temperature" >/dev/null 2>&1 && echo "Color temperature set using gammastep"
+            elif command -v xrandr >/dev/null 2>&1; then
+                # Fallback: use xrandr gamma adjustment (approximate)
+                local displays=($(detect_displays))
+                for display in "${displays[@]}"; do
+                    # Calculate approximate gamma adjustment for color temperature
+                    local gamma_r gamma_g gamma_b
+                    if [[ "$temperature" -gt 6500 ]]; then
+                        # Cooler - reduce red
+                        gamma_r="0.9"
+                        gamma_g="1.0"
+                        gamma_b="1.1"
+                    elif [[ "$temperature" -lt 5000 ]]; then
+                        # Warmer - reduce blue
+                        gamma_r="1.1"
+                        gamma_g="1.0"
+                        gamma_b="0.8"
+                    else
+                        # Neutral
+                        gamma_r="1.0"
+                        gamma_g="1.0"
+                        gamma_b="1.0"
+                    fi
+                    
+                    xrandr --output "$display" --gamma "${gamma_r}:${gamma_g}:${gamma_b}" 2>/dev/null && \
+                        echo "Gamma adjustment applied to $display"
+                done
+            else
+                echo "No color temperature control tools available"
+                echo "Consider installing redshift or gammastep"
+            fi
+            ;;
+            
+        "auto")
+            echo "Setting up automatic color temperature adjustment..."
+            
+            # Check if redshift/gammastep is available
+            if command -v redshift >/dev/null 2>&1; then
+                echo "Enabling redshift automatic color temperature"
+                # Create a simple redshift config for automatic day/night cycle
+                local user_home="/home/$(get_real_user 2>/dev/null || echo "$USER")"
+                mkdir -p "$user_home/.config/redshift"
+                cat > "$user_home/.config/redshift/redshift.conf" <<'REDSHIFT_EOF'
+[redshift]
+temp-day=6500
+temp-night=3200
+brightness-day=1.0
+brightness-night=0.8
+transition=1
+gamma=0.8:0.7:0.8
+REDSHIFT_EOF
+                echo "Redshift configured for automatic color temperature"
+                echo "Note: Edit ~/.config/redshift/redshift.conf to set your location for automatic day/night timing"
+                
+            elif command -v gammastep >/dev/null 2>&1; then
+                echo "Enabling gammastep automatic color temperature"
+                local user_home="/home/$(get_real_user 2>/dev/null || echo "$USER")"
+                mkdir -p "$user_home/.config/gammastep"
+                cat > "$user_home/.config/gammastep/config.ini" <<'GAMMASTEP_EOF'
+[general]
+temp-day=6500
+temp-night=3200
+brightness-day=1.0
+brightness-night=0.8
+transition=1
+gamma=0.8:0.7:0.8
+GAMMASTEP_EOF
+                echo "Gammastep configured for automatic color temperature"
+                echo "Note: Edit ~/.config/gammastep/config.ini to set your location for automatic day/night timing"
+            else
+                echo "Installing redshift for color temperature control..."
+                # This would be handled by the package manager in the main setup
+                echo "Please run the main setup script to install color management tools"
+            fi
+            ;;
+            
+        "reset")
+            echo "Resetting display color temperature to default"
+            if command -v redshift >/dev/null 2>&1; then
+                redshift -x >/dev/null 2>&1
+                echo "Redshift reset"
+            elif command -v gammastep >/dev/null 2>&1; then
+                gammastep -x >/dev/null 2>&1
+                echo "Gammastep reset"
+            elif command -v xrandr >/dev/null 2>&1; then
+                local displays=($(detect_displays))
+                for display in "${displays[@]}"; do
+                    xrandr --output "$display" --gamma 1.0:1.0:1.0 2>/dev/null && \
+                        echo "Gamma reset for $display"
+                done
+            fi
+            ;;
+            
+        *)
+            echo "Usage: gz302-refresh color [set|auto|reset]"
+            echo ""
+            echo "Commands:"
+            echo "  set [TEMP]  - Set color temperature (e.g., 6500K, 3200K)"
+            echo "  auto        - Enable automatic day/night color adjustment"
+            echo "  reset       - Reset to default color temperature"
+            ;;
+    esac
+}
+
 # Enhanced status function with new monitoring features
 show_enhanced_status() {
     show_status
@@ -1992,6 +2127,9 @@ case "${1:-}" in
         ;;
     "game")
         manage_game_profiles "$2" "$3" "$4"
+        ;;
+    "color")
+        configure_display_color "$2" "$3"
         ;;
     "monitor-power")
         monitor_power_consumption
