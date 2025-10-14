@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-10-14
+
+### Changed
+- **BREAKING**: Removed linux-g14 kernel installation and all related functionality
+- Script now uses mainline distro kernels exclusively
+- Simplified kernel handling - only updates kernel if version is older than 6.6
+- Removed `--use-g14` and `--no-g14` command-line flags
+
+### Removed
+- `install_g14_kernel()` function
+- G14 kernel-specific logic and decision making
+- AUR helper installation for linux-g14 packages
+- Manual git clone and makepkg workflow for linux-g14
+- G14_INSTALLED and USE_G14 variables
+
+### Improved
+- Cleaner, more maintainable codebase
+- Faster installation process
+- Better compatibility across all distributions
+- Simplified user experience with no kernel-related decisions needed
+
 ## [1.2.0] - 2025-10-14
 
 ### Changed
