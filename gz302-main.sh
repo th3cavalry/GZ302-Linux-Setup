@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 0.1.2-pre-release
+# Version: 0.1.3-pre-release
 #
 # This script automatically detects your Linux distribution and applies
 # the appropriate hardware fixes for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.
@@ -166,7 +166,9 @@ apply_hardware_fixes() {
             # Add AMD P-State (guided mode) and GPU parameters
             # amd_pstate=guided is optimal for Strix Halo (confirmed by Ubuntu 25.10 benchmarks)
             # amdgpu.ppfeaturemask=0xffffffff enables all power features for Radeon 8060S (RDNA 3.5)
-            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 amd_pstate=guided amdgpu.ppfeaturemask=0xffffffff"/' /etc/default/grub
+            # amdttm parameters increase VRAM allocation for AI/ML workloads (optimal for Strix Halo)
+            # pages_limit=27648000 allows ~108GB VRAM allocation from system RAM
+            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 amd_pstate=guided amdgpu.ppfeaturemask=0xffffffff amdttm.pages_limit=27648000 amdttm.page_pool_size=27648000"/' /etc/default/grub
             
             # Regenerate GRUB config
             if [ -f /boot/grub/grub.cfg ]; then
@@ -241,9 +243,11 @@ install_arch_asus_packages() {
         pacman-key --lsign-key 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35 || warning "Failed to sign G14 key"
         
         # Add repository to pacman.conf
-        echo "" >> /etc/pacman.conf
-        echo "[g14]" >> /etc/pacman.conf
-        echo "Server = https://arch.asus-linux.org" >> /etc/pacman.conf
+        {
+            echo ""
+            echo "[g14]"
+            echo "Server = https://arch.asus-linux.org"
+        } >> /etc/pacman.conf
         
         # Update package database
         pacman -Sy
@@ -669,9 +673,43 @@ set_tdp_profile() {
     # Method 1: Try ryzenadj first
     if command -v ryzenadj >/dev/null 2>&1; then
         echo "Attempting to apply TDP using ryzenadj..."
-        if ryzenadj --stapm-limit="$tdp_value" --fast-limit="$tdp_value" --slow-limit="$tdp_value" >/dev/null 2>&1; then
+        
+        # Calculate appropriate PPT, TDC, and EDC values based on TDP
+        # PPT (Package Power Tracking) = TDP + ~20% for power delivery inefficiency
+        # TDC (Thermal Design Current) = ~60% of max current capability
+        # EDC (Electric Design Current) = ~90% of max current capability for burst loads
+        local ppt_value=$((tdp_value + tdp_value / 5))
+        local tdc_value=60000  # 60A baseline for Strix Halo
+        local edc_value=90000  # 90A baseline for Strix Halo
+        
+        # Scale TDC and EDC based on profile
+        case "$profile" in
+            max_performance|gaming)
+                tdc_value=75000  # Higher current for performance
+                edc_value=120000
+                ;;
+            performance)
+                tdc_value=65000
+                edc_value=100000
+                ;;
+            balanced|efficient)
+                tdc_value=50000
+                edc_value=75000
+                ;;
+            power_saver|ultra_low)
+                tdc_value=35000
+                edc_value=50000
+                ;;
+        esac
+        
+        # Apply comprehensive power limits using ryzenadj
+        if ryzenadj --stapm-limit="$tdp_value" --fast-limit="$tdp_value" --slow-limit="$tdp_value" \
+                    --tctl-temp=95 --stapm-time=64 \
+                    --apu-skin-temp=95 >/dev/null 2>&1; then
             success=true
             echo "TDP applied successfully using ryzenadj"
+            echo "  STAPM/Fast/Slow limit: $(($tdp_value / 1000))W"
+            echo "  Temperature limits: 95°C"
         else
             echo "ryzenadj failed, checking for common issues..."
             
@@ -1148,6 +1186,10 @@ set_refresh_rate() {
     
     echo "Setting refresh rate profile: $profile (${target_rate}Hz)"
     
+    # Detect session type (X11 or Wayland)
+    local session_type="${XDG_SESSION_TYPE:-unknown}"
+    echo "Detected session type: $session_type"
+    
     # Apply refresh rate to all detected displays
     for display in "${displays[@]}"; do
         echo "Configuring display: $display"
@@ -1156,22 +1198,40 @@ set_refresh_rate() {
         local success=false
         
         # Method 1: xrandr (X11)
-        if command -v xrandr >/dev/null 2>&1; then
+        if [[ "$session_type" == "x11" ]] && command -v xrandr >/dev/null 2>&1; then
             if xrandr --output "$display" --rate "$target_rate" >/dev/null 2>&1; then
                 success=true
                 echo "Refresh rate set to ${target_rate}Hz using xrandr"
             fi
         fi
         
-        # Method 2: wlr-randr (Wayland)
-        if [[ "$success" == false ]] && command -v wlr-randr >/dev/null 2>&1; then
+        # Method 2: kscreen-doctor (KDE Wayland)
+        if [[ "$success" == false ]] && [[ "$session_type" == "wayland" ]] && command -v kscreen-doctor >/dev/null 2>&1; then
+            # Get current output info and resolution
+            local output_info=$(kscreen-doctor --outputs 2>/dev/null | grep -A10 "Output:" | head -20)
+            # Try to extract resolution (simplified - may need adjustment)
+            if kscreen-doctor "output.${display}.mode.auto@${target_rate}" >/dev/null 2>&1; then
+                success=true
+                echo "Refresh rate set to ${target_rate}Hz using kscreen-doctor"
+            fi
+        fi
+        
+        # Method 3: wlr-randr (wlroots-based Wayland compositors)
+        if [[ "$success" == false ]] && [[ "$session_type" == "wayland" ]] && command -v wlr-randr >/dev/null 2>&1; then
             if wlr-randr --output "$display" --mode "${target_rate}Hz" >/dev/null 2>&1; then
                 success=true
                 echo "Refresh rate set to ${target_rate}Hz using wlr-randr"
             fi
         fi
         
-        # Method 3: DRM mode setting (fallback)
+        # Method 4: GNOME Wayland (gsettings + mutter)
+        if [[ "$success" == false ]] && [[ "$session_type" == "wayland" ]] && [[ "$DESKTOP_SESSION" == *"gnome"* ]]; then
+            # GNOME Wayland uses mutter's display settings
+            echo "Note: GNOME Wayland refresh rate changes typically require Settings app"
+            echo "You can use gnome-control-center display to change refresh rate manually"
+        fi
+        
+        # Method 5: DRM mode setting (fallback)
         if [[ "$success" == false ]] && [[ -d "/sys/class/drm" ]]; then
             echo "Attempting DRM mode setting for ${target_rate}Hz"
             # This would require more complex DRM manipulation
@@ -1182,6 +1242,7 @@ set_refresh_rate() {
         
         if [[ "$success" == false ]]; then
             echo "Warning: Could not set refresh rate for $display"
+            echo "Manual intervention may be required via your desktop's display settings"
         fi
     done
     

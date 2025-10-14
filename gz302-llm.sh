@@ -2,10 +2,11 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 0.1.1-pre-release
+# Version: 0.1.2-pre-release
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, Transformers
+# Optimized for AMD Radeon 8060S (RDNA 3.5) integrated GPU
 #
 # This script is designed to be called by gz302-main.sh
 # ==============================================================================
@@ -54,9 +55,9 @@ install_arch_llm_software() {
     pacman -S --noconfirm --needed ollama
     systemctl enable --now ollama
     
-    # Install ROCm for AMD GPU acceleration
+    # Install ROCm for AMD GPU acceleration (optimized for Radeon 8060S)
     info "Installing ROCm for AMD GPU acceleration..."
-    pacman -S --noconfirm --needed rocm-opencl-runtime rocm-hip-runtime
+    pacman -S --noconfirm --needed rocm-opencl-runtime rocm-hip-runtime rocm-smi-lib
     
     # Install Python and AI libraries
     info "Installing Python AI libraries..."
@@ -65,8 +66,12 @@ install_arch_llm_software() {
     local primary_user
     primary_user=$(get_real_user)
     if [[ "$primary_user" != "root" ]]; then
-        sudo -u "$primary_user" pip install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
-        sudo -u "$primary_user" pip install --user transformers accelerate
+        info "Installing PyTorch with ROCm support for user $primary_user..."
+        # Use latest stable ROCm version compatible with RDNA 3.5
+        # ROCm 6.0+ recommended for best RDNA 3.5 support
+        sudo -u "$primary_user" pip install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.0
+        sudo -u "$primary_user" pip install --user transformers accelerate bitsandbytes
+        success "PyTorch with ROCm 6.0 support installed"
     fi
     
     success "LLM/AI software installation completed"
@@ -80,9 +85,15 @@ install_debian_llm_software() {
     curl -fsSL https://ollama.ai/install.sh | sh
     systemctl enable --now ollama
     
-    # Install ROCm (if available)
+    # Install ROCm (if available) - note: limited support on Debian/Ubuntu
     info "Installing ROCm for AMD GPU acceleration..."
-    apt install -y rocm-opencl-runtime || warning "ROCm not available in repositories"
+    if apt install -y rocm-opencl-runtime 2>/dev/null; then
+        success "ROCm installed from repositories"
+    else
+        warning "ROCm not available in repositories"
+        info "For better AI/ML performance, consider using Arch or Fedora"
+        info "Alternatively, follow AMD's ROCm installation guide for Ubuntu"
+    fi
     
     # Install Python and AI libraries
     info "Installing Python AI libraries..."
@@ -91,8 +102,15 @@ install_debian_llm_software() {
     local primary_user
     primary_user=$(get_real_user)
     if [[ "$primary_user" != "root" ]]; then
-        sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
-        sudo -u "$primary_user" pip3 install --user transformers accelerate
+        info "Installing PyTorch with ROCm support for user $primary_user..."
+        # Use ROCm 6.0 if available, fallback to CPU-only if ROCm not installed
+        if command -v rocminfo >/dev/null 2>&1; then
+            sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.0
+        else
+            warning "ROCm not detected, installing CPU-only PyTorch"
+            sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio
+        fi
+        sudo -u "$primary_user" pip3 install --user transformers accelerate bitsandbytes
     fi
     
     success "LLM/AI software installation completed"
@@ -106,6 +124,11 @@ install_fedora_llm_software() {
     curl -fsSL https://ollama.ai/install.sh | sh
     systemctl enable --now ollama
     
+    # Install ROCm for Fedora (limited official support, use community repos)
+    info "Installing ROCm for AMD GPU acceleration..."
+    warning "ROCm on Fedora requires additional setup"
+    info "Consider using AMD's official ROCm documentation for Fedora installation"
+    
     # Install Python and AI libraries
     info "Installing Python AI libraries..."
     dnf install -y python3-pip python3-virtualenv
@@ -113,8 +136,15 @@ install_fedora_llm_software() {
     local primary_user
     primary_user=$(get_real_user)
     if [[ "$primary_user" != "root" ]]; then
-        sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
-        sudo -u "$primary_user" pip3 install --user transformers accelerate
+        info "Installing PyTorch with ROCm support for user $primary_user..."
+        # Check if ROCm is available
+        if command -v rocminfo >/dev/null 2>&1; then
+            sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.0
+        else
+            warning "ROCm not detected, installing CPU-only PyTorch"
+            sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio
+        fi
+        sudo -u "$primary_user" pip3 install --user transformers accelerate bitsandbytes
     fi
     
     success "LLM/AI software installation completed"
@@ -128,6 +158,11 @@ install_opensuse_llm_software() {
     curl -fsSL https://ollama.ai/install.sh | sh
     systemctl enable --now ollama
     
+    # Install ROCm (limited support on OpenSUSE)
+    info "Installing ROCm for AMD GPU acceleration..."
+    warning "ROCm on OpenSUSE requires additional setup"
+    info "Consider following AMD's ROCm installation guide for SUSE"
+    
     # Install Python and AI libraries
     info "Installing Python AI libraries..."
     zypper install -y python3-pip python3-virtualenv
@@ -135,8 +170,15 @@ install_opensuse_llm_software() {
     local primary_user
     primary_user=$(get_real_user)
     if [[ "$primary_user" != "root" ]]; then
-        sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
-        sudo -u "$primary_user" pip3 install --user transformers accelerate
+        info "Installing PyTorch with ROCm support for user $primary_user..."
+        # Check if ROCm is available
+        if command -v rocminfo >/dev/null 2>&1; then
+            sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.0
+        else
+            warning "ROCm not detected, installing CPU-only PyTorch"
+            sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio
+        fi
+        sudo -u "$primary_user" pip3 install --user transformers accelerate bitsandbytes
     fi
     
     success "LLM/AI software installation completed"
