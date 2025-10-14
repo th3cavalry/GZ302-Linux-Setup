@@ -1,71 +1,258 @@
-# GZ302 Linux Setup - Fresh Start
+# Asus ROG Flow Z13 2025 (GZ302EA) Linux Setup Script
 
-**Version: 0.0.1-beta**
+**Version: 1.0.0**
 
-This repository has been reset to start fresh from version 0.0.1-beta.
+Comprehensive post-installation setup script for the Asus ROG Flow Z13 2025 models (GZ302EA) with AMD Strix Halo processor and integrated Radeon 8060S GPU.
 
-## Current State
+## Supported Models
 
-The repository now contains only:
-- `.github/copilot-instructions.md` - Development guidelines (cleaned of previous repo-specific content)
-- `.gitignore` - Ignores the backup folder
-- `backup/` - Complete archive of the previous version (0.1.4-pre-release)
+This script supports all three variants of the Asus ROG Flow Z13 2025:
+- **GZ302EA-XS99** - 128GB RAM model
+- **GZ302EA-XS64** - 64GB RAM model  
+- **GZ302EA-XS32** - 32GB RAM model
 
-## Backup
+## Supported Linux Distributions
 
-A complete backup of the previous repository state (version 0.1.4-pre-release) is stored in the `backup/` folder. This includes all scripts, documentation, and legacy files.
+The script automatically detects and supports the following distributions:
+- **Arch-based**: Arch Linux, Manjaro, EndeavourOS, Garuda Linux
+- **Debian-based**: Ubuntu, Linux Mint, Pop!_OS, Debian, Elementary OS, Zorin OS
+- **Fedora-based**: Fedora, Nobara
+- **openSUSE**: openSUSE Leap, openSUSE Tumbleweed
+- **Other**: Gentoo, Void Linux
 
-The backup folder is ignored by git and will not be committed or pushed to the repository.
+## What This Script Does
 
-## Manual Cleanup Required
+The script implements various fixes and optimizations for the Asus ROG Flow Z13 2025 on Linux:
 
-⚠️ **Important**: The following items need to be manually cleaned up by the repository owner:
+### 1. Kernel Updates
+- Ensures you're running a kernel >= 6.14 for optimal hardware support
+- Adds necessary kernel parameters for AMD Strix Halo and Radeon 8060S
 
-### 1. Delete Old Branches
-All old branches should be deleted from GitHub, keeping only:
-- `main` branch
-- This cleanup branch (can be merged and deleted after review)
+### 2. Graphics Support
+- Configures AMDGPU drivers with optimal settings
+- Installs and updates Mesa drivers (25.0+)
+- Sets up Vulkan and OpenGL support
 
-To delete old branches:
+### 3. WiFi & Bluetooth (MediaTek MT7925)
+- Updates linux-firmware to latest version
+- Ensures MT7925 drivers are properly loaded
+- Configures Bluetooth firmware
+
+### 4. ASUS-Specific Tools
+- Installs `asusctl` for ASUS laptop control
+- Installs `supergfxctl` for graphics switching
+- Configures ROG-specific features
+
+### 5. Power Management
+- Installs and configures TLP for battery optimization
+- Sets up AMD P-State driver
+- Configures CPU frequency scaling
+
+### 6. Suspend/Resume Fixes
+- Configures S3 sleep support
+- Applies ACPI fixes for proper suspend/resume
+
+### 7. Audio Configuration
+- Ensures proper ALSA/PulseAudio/PipeWire setup
+- Applies SOF (Sound Open Firmware) configurations
+
+### 8. Display & Touchscreen
+- Configures high-DPI display settings
+- Ensures touchscreen and stylus support
+
+## Prerequisites
+
+- Fresh Linux installation (any supported distribution)
+- Internet connection
+- Root/sudo access
+- Backup of your system (recommended)
+
+## Installation
+
+### Quick Start
+
 ```bash
-# List all remote branches
-git branch -r
+# Download the script
+curl -O https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-setup.sh
 
-# Delete remote branches (run from GitHub web interface or CLI)
-git push origin --delete <branch-name>
+# Make it executable
+chmod +x gz302-setup.sh
+
+# Run the script
+sudo ./gz302-setup.sh
 ```
 
-### 2. Close/Delete Old Issues
-Review and close or delete all existing GitHub issues that pertain to the old version.
+### Manual Installation
 
-### 3. Close/Delete Old Pull Requests
-Review and close or delete all existing pull requests that pertain to the old version.
+```bash
+# Clone the repository
+git clone https://github.com/th3cavalry/GZ302-Linux-Setup.git
+cd GZ302-Linux-Setup
 
-### 4. Update Repository Description
-Update the GitHub repository description to reflect the fresh start at version 0.0.1-beta.
+# Make the script executable
+chmod +x gz302-setup.sh
 
-### 5. Clear Release History (Optional)
-Consider deleting old releases from the GitHub releases page if starting completely fresh.
+# Run the script
+sudo ./gz302-setup.sh
+```
 
-### 6. Update GitHub Settings
-- Update repository topics/tags as needed
-- Update README preview if displayed
-- Review and update any repository settings as needed
+## Usage
 
-## Next Steps
+The script is interactive and will guide you through the setup process:
 
-After manual cleanup is complete:
-1. Create new project structure for version 0.0.1-beta
-2. Add initial documentation (README.md, CONTRIBUTING.md, etc.)
-3. Begin fresh development
+```bash
+sudo ./gz302-setup.sh [OPTIONS]
 
-## Notes
+Options:
+  --auto          Run in automatic mode (uses defaults, minimal prompts)
+  --minimal       Install only essential fixes (no optional components)
+  --full          Install everything including optional components
+  --skip-kernel   Skip kernel updates/checks
+  --help          Show help message
+```
 
-- The backup folder contains everything from the previous version and can be used for reference
-- The copilot instructions have been cleaned of repo-specific content but retain the general development workflow guidelines
-- Version starts at 0.0.1-beta to indicate early development stage
+### Examples
+
+```bash
+# Interactive mode (recommended for first-time users)
+sudo ./gz302-setup.sh
+
+# Automatic mode with all features
+sudo ./gz302-setup.sh --auto --full
+
+# Minimal installation
+sudo ./gz302-setup.sh --minimal
+```
+
+## Post-Installation
+
+After running the script:
+
+1. **Reboot your system** to apply all changes
+2. Test the following:
+   - WiFi and Bluetooth connectivity
+   - Graphics performance (run `glxinfo | grep "OpenGL renderer"`)
+   - Suspend and resume
+   - Audio output and input
+   - Touchscreen and stylus
+   - Battery life and power management
+
+3. **Useful Commands:**
+   ```bash
+   # Check graphics info
+   glxinfo | grep "OpenGL renderer"
+   vulkaninfo | grep "deviceName"
+   
+   # Check ASUS controls
+   asusctl --help
+   supergfxctl --status
+   
+   # Check power management
+   tlp-stat
+   
+   # Check kernel version
+   uname -r
+   ```
+
+## Troubleshooting
+
+### WiFi Not Working
+```bash
+# Update firmware manually
+sudo update-linux-firmware
+# Or for specific distros:
+sudo pacman -S linux-firmware  # Arch
+sudo apt install linux-firmware  # Debian/Ubuntu
+```
+
+### Suspend/Resume Issues
+- The script applies S3 sleep fixes automatically
+- If issues persist, check BIOS settings for sleep mode configuration
+- Ensure secure boot is disabled if using custom DSDT patches
+
+### Graphics Performance Issues
+```bash
+# Verify AMDGPU is loaded
+lsmod | grep amdgpu
+
+# Check for errors
+dmesg | grep -i amdgpu
+
+# Reinstall Mesa (Arch example)
+sudo pacman -S mesa vulkan-radeon
+```
+
+### Audio Issues
+```bash
+# Restart audio service
+systemctl --user restart pipewire  # or pulseaudio
+
+# Check audio devices
+aplay -l
+```
+
+## Advanced Configuration
+
+### Custom Kernel Parameters
+
+The script adds kernel parameters to `/etc/default/grub`. You can customize these:
+
+```bash
+sudo nano /etc/default/grub
+# Edit GRUB_CMDLINE_LINUX_DEFAULT
+sudo update-grub  # or grub-mkconfig -o /boot/grub/grub.cfg
+```
+
+### ASUS Control Customization
+
+```bash
+# Set performance profile
+asusctl profile -P Performance
+
+# Configure keyboard backlight
+asusctl led-mode static -c ff0000
+
+# Graphics mode switching
+supergfxctl -m Integrated  # or Hybrid, Dedicated
+```
+
+### Power Management Tuning
+
+```bash
+# Edit TLP configuration
+sudo nano /etc/tlp.conf
+
+# Restart TLP
+sudo systemctl restart tlp
+```
+
+## Known Issues
+
+1. **Fingerprint Reader**: Not yet supported in Linux (as of kernel 6.14)
+2. **RGB Keyboard**: Limited support - basic functionality available via asusctl
+3. **Windows Hello Camera**: IR camera not supported
+4. **Thunderbolt 4**: May require additional configuration on some distros
+
+## Contributing
+
+Issues, suggestions, and pull requests are welcome! Please check the [GitHub repository](https://github.com/th3cavalry/GZ302-Linux-Setup).
+
+## Resources
+
+- [Asus Linux Project](https://asus-linux.org/)
+- [Level1Techs Forum - Flow Z13 Setup](https://forum.level1techs.com/t/flow-z13-asus-setup-on-linux-may-2025-wip/229551)
+- [Phoronix - AMD Radeon 8060S Linux Performance](https://www.phoronix.com/review/amd-radeon-8060s-linux)
+- [MediaTek MT7925 Driver Documentation](https://wireless.docs.kernel.org/en/latest/en/users/drivers/mediatek.html)
+
+## License
+
+MIT License - See LICENSE file for details
+
+## Disclaimer
+
+This script modifies system configurations. While tested, use at your own risk. Always backup your system before running system modification scripts.
 
 ---
 
 **Last Updated**: October 14, 2025  
-**Previous Version**: 0.1.4-pre-release (archived in backup/)
+**Version**: 1.0.0

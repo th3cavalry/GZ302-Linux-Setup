@@ -1,2 +1,28 @@
 # Backup folder - contains previous version archive
 backup/
+
+# Test files and temporary data
+*.tmp
+*.log
+test/
+.test/
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.o
+*.so
+*.a
+
+# Distribution testing
+testing/
+vm-testing/
