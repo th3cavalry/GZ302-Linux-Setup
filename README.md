@@ -2,7 +2,7 @@
 
 **Modular Linux setup scripts specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional downloadable modules for gaming, AI development, virtualization, and more.
 
-> **🚀 Version 0.1.3-pre-release - Enhanced with Advanced Optimizations!** Major improvements including VRAM allocation for AI/ML workloads, enhanced TDP management with temperature controls, Wayland display support, and comprehensive service verification. **Recommended: Linux kernel 6.11+ (6.12+ or 6.13+ preferred) for best Strix Halo support.**
+> **🚀 Version 0.1.4-pre-release - Enhanced with Advanced Optimizations!** Major improvements including VRAM allocation for AI/ML workloads, enhanced TDP management with temperature controls, Wayland display support, and comprehensive service verification. **Recommended: Linux kernel 6.11+ (6.12+ or 6.13+ preferred) for best Strix Halo support.**
 
 ## ✨ Key Features
 
@@ -229,9 +229,9 @@ This project is provided as-is for the GZ302 community.
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines and contribution process
 - [CHANGELOG.md](CHANGELOG.md) - Version history and release notes
-- [Old/ARCHIVED.md](Old/ARCHIVED.md) - Information about legacy scripts (v4.3.1)
+- [Old/ARCHIVED.md](Old/ARCHIVED.md) - Information about legacy scripts (v4.3.2)
 
 ---
 
-**Version:** 0.1.3-pre-release  
-**Last Updated:** January 2025
+**Version:** 0.1.4-pre-release  
+**Last Updated:** October 2025

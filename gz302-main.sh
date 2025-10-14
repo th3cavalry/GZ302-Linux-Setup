@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (2025, GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 0.1.3-pre-release
+# Version: 0.1.4-pre-release
 #
 # This script automatically detects your Linux distribution and applies
 # the appropriate hardware fixes for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.
@@ -168,7 +168,13 @@ apply_hardware_fixes() {
             # amdgpu.ppfeaturemask=0xffffffff enables all power features for Radeon 8060S (RDNA 3.5)
             # amdttm parameters increase VRAM allocation for AI/ML workloads (optimal for Strix Halo)
             # pages_limit=27648000 allows ~108GB VRAM allocation from system RAM
-            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 amd_pstate=guided amdgpu.ppfeaturemask=0xffffffff amdttm.pages_limit=27648000 amdttm.page_pool_size=27648000"/' /etc/default/grub
+            
+            # Backup GRUB config before modification
+            if [ -f /etc/default/grub ]; then
+                cp /etc/default/grub /etc/default/grub.backup.$(date +%Y%m%d_%H%M%S)
+            fi
+            
+            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 amd_pstate=guided amdgpu.ppfeaturemask=0xffffffff amdttm.pages_limit=27648000 amdttm.page_pool_size=2764800"/' /etc/default/grub
             
             # Regenerate GRUB config
             if [ -f /boot/grub/grub.cfg ]; then
@@ -980,6 +986,12 @@ auto_switch_profile() {
         
         # Only switch if power source changed
         if [ "$current_power" != "$last_power_source" ]; then
+            # Handle Unknown battery status
+            if [ "$current_power" = "Unknown" ]; then
+                echo "Warning: Unable to detect power source, skipping auto-switch"
+                return 0
+            fi
+            
             case "$current_power" in
                 "AC")
                     if [ -f "$AC_PROFILE_FILE" ]; then
@@ -1168,6 +1180,14 @@ POWER_ESTIMATES[ultra_low]="12"          # Minimal power
 # Create config directory
 mkdir -p "$REFRESH_CONFIG_DIR"
 
+get_real_user() {
+    if [[ -n "${SUDO_USER:-}" ]]; then
+        echo "$SUDO_USER"
+    else
+        logname 2>/dev/null || whoami
+    fi
+}
+
 show_usage() {
     echo "Usage: gz302-refresh [PROFILE|COMMAND|GAME_NAME]"
     echo ""
@@ -1333,13 +1353,15 @@ set_refresh_rate() {
         echo "Applying frame rate limit: ${frame_limit}fps"
         
         # Create MangoHUD configuration for FPS limiting
-        local mangohud_config="/home/$(get_real_user 2>/dev/null || echo "$USER")/.config/MangoHud/MangoHud.conf"
+        local real_user=$(get_real_user 2>/dev/null || echo "$USER")
+        local mangohud_config="/home/${real_user}/.config/MangoHud/MangoHud.conf"
         if [[ -d "$(dirname "$mangohud_config")" ]] || mkdir -p "$(dirname "$mangohud_config")" 2>/dev/null; then
             # Update MangoHud config with FPS limit
             if [[ -f "$mangohud_config" ]]; then
                 sed -i "/^fps_limit=/d" "$mangohud_config" 2>/dev/null
             fi
             echo "fps_limit=$frame_limit" >> "$mangohud_config"
+            chown -R "${real_user}:${real_user}" "$(dirname "$mangohud_config")" 2>/dev/null
             echo "MangoHUD FPS limit set to ${frame_limit}fps"
         fi
         
@@ -1974,12 +1996,9 @@ brightness-day=1.0
 brightness-night=0.8
 transition=1
 gamma=0.8:0.7:0.8
-
-[manual]
-lat=40.0
-lon=-74.0
 REDSHIFT_EOF
                 echo "Redshift configured for automatic color temperature"
+                echo "Note: Edit ~/.config/redshift/redshift.conf to set your location for automatic day/night timing"
                 
             elif command -v gammastep >/dev/null 2>&1; then
                 echo "Enabling gammastep automatic color temperature"
@@ -1993,12 +2012,9 @@ brightness-day=1.0
 brightness-night=0.8
 transition=1
 gamma=0.8:0.7:0.8
-
-[manual]
-lat=40.0
-lon=-74.0
 GAMMASTEP_EOF
                 echo "Gammastep configured for automatic color temperature"
+                echo "Note: Edit ~/.config/gammastep/config.ini to set your location for automatic day/night timing"
             else
                 echo "Installing redshift for color temperature control..."
                 # This would be handled by the package manager in the main setup
@@ -2155,6 +2171,7 @@ EOF
     cat > /etc/systemd/system/gz302-refresh-auto.service <<EOF
 [Unit]
 Description=GZ302 Automatic Refresh Rate Management
+After=multi-user.target
 Wants=gz302-refresh-monitor.service
 
 [Service]
@@ -2472,7 +2489,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 0.1.1-pre-release - Modular Architecture"
+    echo "  Version 0.1.4-pre-release - Modular Architecture"
     echo "============================================================"
     echo
     
