@@ -2,6 +2,7 @@
 
 # ==============================================================================
 # GZ302 Gaming Software Module
+# Version: 0.1.1-pre-release
 #
 # This module installs gaming software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Steam, Lutris, MangoHUD, GameMode, Wine, and performance tools
@@ -40,7 +41,7 @@ get_real_user() {
     if [[ -n "${SUDO_USER:-}" ]]; then
         echo "$SUDO_USER"
     else
-        echo "$(logname 2>/dev/null || whoami)"
+        logname 2>/dev/null || whoami
     fi
 }
 
@@ -72,7 +73,8 @@ install_arch_gaming_software() {
         pipewire pipewire-pulse pipewire-jack lib32-pipewire
     
     # Install ProtonUp-Qt via AUR
-    local primary_user=$(get_real_user)
+    local primary_user
+    primary_user=$(get_real_user)
     if command -v yay &> /dev/null && [[ "$primary_user" != "root" ]]; then
         info "Installing ProtonUp-Qt via AUR..."
         sudo -u "$primary_user" -H yay -S --noconfirm --needed protonup-qt
@@ -126,8 +128,8 @@ install_fedora_gaming_software() {
     
     # Enable RPM Fusion repositories
     info "Enabling RPM Fusion repositories..."
-    dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
-    dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+    dnf install -y "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
+    dnf install -y "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
     
     # Install Steam
     info "Installing Steam..."

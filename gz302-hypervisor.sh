@@ -2,6 +2,7 @@
 
 # ==============================================================================
 # GZ302 Hypervisor Software Module
+# Version: 0.1.1-pre-release
 #
 # This module installs hypervisor software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: KVM/QEMU, VirtualBox, VMware, Xen, Proxmox
@@ -107,7 +108,7 @@ main() {
     echo "  3) Skip"
     echo
     
-    read -p "Choose a hypervisor to install (1-3): " choice
+    read -r -p "Choose a hypervisor to install (1-3): " choice
     
     case "$choice" in
         1)

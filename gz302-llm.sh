@@ -2,6 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
+# Version: 0.1.1-pre-release
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, Transformers
@@ -40,7 +41,7 @@ get_real_user() {
     if [[ -n "${SUDO_USER:-}" ]]; then
         echo "$SUDO_USER"
     else
-        echo "$(logname 2>/dev/null || whoami)"
+        logname 2>/dev/null || whoami
     fi
 }
 
@@ -61,7 +62,8 @@ install_arch_llm_software() {
     info "Installing Python AI libraries..."
     pacman -S --noconfirm --needed python-pip python-virtualenv
     
-    local primary_user=$(get_real_user)
+    local primary_user
+    primary_user=$(get_real_user)
     if [[ "$primary_user" != "root" ]]; then
         sudo -u "$primary_user" pip install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
         sudo -u "$primary_user" pip install --user transformers accelerate
@@ -86,7 +88,8 @@ install_debian_llm_software() {
     info "Installing Python AI libraries..."
     apt install -y python3-pip python3-venv
     
-    local primary_user=$(get_real_user)
+    local primary_user
+    primary_user=$(get_real_user)
     if [[ "$primary_user" != "root" ]]; then
         sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
         sudo -u "$primary_user" pip3 install --user transformers accelerate
@@ -107,7 +110,8 @@ install_fedora_llm_software() {
     info "Installing Python AI libraries..."
     dnf install -y python3-pip python3-virtualenv
     
-    local primary_user=$(get_real_user)
+    local primary_user
+    primary_user=$(get_real_user)
     if [[ "$primary_user" != "root" ]]; then
         sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
         sudo -u "$primary_user" pip3 install --user transformers accelerate
@@ -128,7 +132,8 @@ install_opensuse_llm_software() {
     info "Installing Python AI libraries..."
     zypper install -y python3-pip python3-virtualenv
     
-    local primary_user=$(get_real_user)
+    local primary_user
+    primary_user=$(get_real_user)
     if [[ "$primary_user" != "root" ]]; then
         sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
         sudo -u "$primary_user" pip3 install --user transformers accelerate

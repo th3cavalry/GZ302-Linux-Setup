@@ -113,7 +113,7 @@ get_real_user() {
     if [[ -n "${SUDO_USER:-}" ]]; then
         echo "$SUDO_USER"
     else
-        echo "$(logname 2>/dev/null || whoami)"
+        logname 2>/dev/null || whoami
     fi
 }
 
@@ -223,7 +223,8 @@ install_arch_asus_packages() {
     
     # Install asusctl from AUR (requires yay)
     if command -v yay >/dev/null 2>&1; then
-        local primary_user=$(get_real_user)
+        local primary_user
+        primary_user=$(get_real_user)
         # Install ASUS control tools
         sudo -u "$primary_user" yay -S --noconfirm --needed asusctl
         
@@ -333,7 +334,7 @@ install_ryzenadj_debian() {
     cd RyzenAdj
     mkdir build && cd build
     cmake -DCMAKE_BUILD_TYPE=Release ..
-    make -j$(nproc)
+    make -j"$(nproc)"
     make install
     ldconfig
     success "ryzenadj compiled and installed"
@@ -347,7 +348,7 @@ install_ryzenadj_fedora() {
     cd RyzenAdj
     mkdir build && cd build
     cmake -DCMAKE_BUILD_TYPE=Release ..
-    make -j$(nproc)
+    make -j"$(nproc)"
     make install
     ldconfig
     success "ryzenadj compiled and installed"
@@ -361,7 +362,7 @@ install_ryzenadj_opensuse() {
     cd RyzenAdj
     mkdir build && cd build
     cmake -DCMAKE_BUILD_TYPE=Release ..
-    make -j$(nproc)
+    make -j"$(nproc)"
     make install
     ldconfig
     success "ryzenadj compiled and installed"
@@ -399,15 +400,6 @@ CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
 AUTO_CONFIG_FILE="$TDP_CONFIG_DIR/auto-config"
 AC_PROFILE_FILE="$TDP_CONFIG_DIR/ac-profile"
 BATTERY_PROFILE_FILE="$TDP_CONFIG_DIR/battery-profile"
-
-# Get the real user (not root when using sudo)
-get_real_user() {
-    if [[ -n "${SUDO_USER:-}" ]]; then
-        echo "$SUDO_USER"
-    else
-        echo "$(logname 2>/dev/null || whoami)"
-    fi
-}
 
 # TDP Profiles (in mW) - Optimized for GZ302 AMD Ryzen AI MAX+ 395 (Strix Halo)
 declare -A TDP_PROFILES
@@ -930,15 +922,6 @@ GAME_PROFILES_FILE="$REFRESH_CONFIG_DIR/game-profiles"
 VRR_RANGES_FILE="$REFRESH_CONFIG_DIR/vrr-ranges"
 MONITOR_CONFIGS_FILE="$REFRESH_CONFIG_DIR/monitor-configs"
 POWER_MONITORING_FILE="$REFRESH_CONFIG_DIR/power-monitoring"
-
-# Get the real user (not root when using sudo)
-get_real_user() {
-    if [[ -n "${SUDO_USER:-}" ]]; then
-        echo "$SUDO_USER"
-    else
-        echo "$(logname 2>/dev/null || whoami)"
-    fi
-}
 
 # Refresh Rate Profiles - Optimized for GZ302 display and AMD GPU
 declare -A REFRESH_PROFILES
@@ -2090,7 +2073,8 @@ setup_arch_based() {
     # Install AUR helper if not present (for Arch-based systems)
     if [[ "$distro" == "arch" ]] && ! command -v yay >/dev/null 2>&1; then
         info "Installing yay AUR helper..."
-        local primary_user=$(get_real_user)
+        local primary_user
+        primary_user=$(get_real_user)
         sudo -u "$primary_user" -H bash << 'EOFYAY'
 cd /tmp
 git clone https://aur.archlinux.org/yay.git
@@ -2226,7 +2210,7 @@ offer_optional_modules() {
     echo "6. Skip optional modules"
     echo
     
-    read -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 6 to skip): " module_choice
+    read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 6 to skip): " module_choice
     
     # Parse the choices
     IFS=',' read -ra CHOICES <<< "$module_choice"
@@ -2277,7 +2261,7 @@ main() {
         warning "Some features may not work without internet access."
         warning "Please ensure you have an active internet connection."
         echo
-        read -p "Do you want to continue anyway? (y/N): " continue_choice
+        read -r -p "Do you want to continue anyway? (y/N): " continue_choice
         if [[ ! "$continue_choice" =~ ^[Yy]$ ]]; then
             error "Setup cancelled. Please connect to the internet and try again."
         fi
@@ -2296,7 +2280,8 @@ main() {
         original_distro="$ID"
     fi
     
-    local detected_distro=$(detect_distribution)
+    local detected_distro
+    detected_distro=$(detect_distribution)
     
     if [[ "$original_distro" != "$detected_distro" ]]; then
         success "Detected distribution: $original_distro (using $detected_distro base)"
