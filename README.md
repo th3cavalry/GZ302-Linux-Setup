@@ -66,6 +66,7 @@ The script automatically installs and configures everything needed for the Asus 
 - Supports both GRUB and systemd-boot
 - Automatically detects and configures your bootloader
 - Adds optimal kernel parameters
+- Secure Boot support (see [SECURE-BOOT.md](SECURE-BOOT.md))
 
 ## Prerequisites
 
@@ -464,6 +465,22 @@ sudo nano /etc/tlp.conf
 sudo systemctl restart tlp
 ```
 
+## Secure Boot Setup
+
+The ASUS ROG Flow Z13 2025 (GZ302EA) fully supports Secure Boot with Linux. For detailed instructions on setting up Secure Boot with various distributions, see the comprehensive guide:
+
+**📖 [SECURE-BOOT.md](SECURE-BOOT.md)** - Complete Secure Boot Setup Guide
+
+This guide covers:
+- **Arch Linux** with `sbctl` and `systemd-boot`
+- **Ubuntu/Debian** with pre-signed kernels
+- **Fedora** with built-in Secure Boot support
+- BIOS configuration and troubleshooting
+- Custom kernel signing and modules
+- Hardware-specific optimizations
+
+The guide is based on best practices from the [Level1Techs community guide](https://forum.level1techs.com/t/the-ultimate-arch-secureboot-guide-for-ryzen-ai-max-ft-hp-g1a-128gb-8060s-monster-laptop/230652) for similar hardware (HP G1A with Ryzen AI Max and Radeon 8060S).
+
 ## Known Issues
 
 1. **Fingerprint Reader**: Not yet supported in Linux (as of kernel 6.17)
@@ -479,6 +496,7 @@ Issues, suggestions, and pull requests are welcome! Please check the [GitHub rep
 
 - [Asus Linux Project](https://asus-linux.org/)
 - [Level1Techs Forum - Flow Z13 Setup](https://forum.level1techs.com/t/flow-z13-asus-setup-on-linux-may-2025-wip/229551)
+- [Level1Techs Forum - Arch + SecureBoot Guide for Ryzen AI Max](https://forum.level1techs.com/t/the-ultimate-arch-secureboot-guide-for-ryzen-ai-max-ft-hp-g1a-128gb-8060s-monster-laptop/230652) - Comprehensive guide for similar hardware (HP G1A with Strix Halo/8060S)
 - [Phoronix - AMD Radeon 8060S Linux Performance](https://www.phoronix.com/review/amd-radeon-8060s-linux)
 - [MediaTek MT7925 Driver Documentation](https://wireless.docs.kernel.org/en/latest/en/users/drivers/mediatek.html)
 
