@@ -2,10 +2,11 @@
 
 # ==============================================================================
 # GZ302 Hypervisor Software Module
-# Version: 0.1.1-pre-release
+# Version: 0.1.2-pre-release
 #
 # This module installs hypervisor software for the ASUS ROG Flow Z13 (GZ302)
-# Includes: KVM/QEMU, VirtualBox, VMware, Xen, Proxmox
+# Includes: KVM/QEMU, VirtualBox
+# Note: AMD Ryzen AI MAX+ 395 supports hardware virtualization (AMD-V/SVM)
 #
 # This script is designed to be called by gz302-main.sh
 # ==============================================================================
@@ -60,7 +61,13 @@ install_kvm_qemu() {
             ;;
     esac
     
-    success "KVM/QEMU installed successfully"
+    # Verify libvirtd service
+    if systemctl is-active --quiet libvirtd; then
+        success "KVM/QEMU installed successfully - libvirtd service is active"
+    else
+        warning "KVM/QEMU installed but libvirtd service is not active"
+        info "Try: sudo systemctl start libvirtd"
+    fi
 }
 
 install_virtualbox() {

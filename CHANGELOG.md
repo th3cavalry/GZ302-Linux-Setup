@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3-pre-release] - 2025-01
+
+### Added
+- **VRAM Allocation**: Dynamic VRAM allocation up to ~108GB via `amdttm.pages_limit=27648000` and `amdttm.page_pool_size=27648000` kernel parameters for AI/ML workloads
+- **Enhanced TDP Management**: Temperature control parameters (`tctl-temp=95`, `apu-skin-temp=95`) for better thermal management
+- **Wayland Support**: Full Wayland display management support with compositor-specific implementations:
+  - KDE Plasma: `kscreen-doctor` integration
+  - wlroots compositors: `wlr-randr` support
+  - GNOME: Helpful user guidance for manual configuration
+  - Automatic session type detection via `XDG_SESSION_TYPE`
+- **Service Verification**: Comprehensive systemd service status checking after installation:
+  - `power-profiles-daemon` verification
+  - `asusd` service validation
+  - `ollama` service health checks
+  - `libvirtd` service verification for KVM/QEMU
+- **ROCm 6.0+ Support**: Updated AI/LLM module to use ROCm 6.0 for optimal RDNA 3.5 GPU support
+- **Bitsandbytes Library**: Added for quantized LLM model support in AI module
+- **Intelligent Fallbacks**: Automatic CPU-only PyTorch installation when ROCm is unavailable
+
+### Changed
+- **Code Quality**: Fixed SC2129 shellcheck warning by combining multiple redirects into single block
+- **TDP Profile Output**: Enhanced RyzenAdj output to show applied settings and temperature limits
+- **Error Messages**: Improved error messages with specific troubleshooting guidance
+- **Service Management**: Replaced simple enable/start commands with verified activation checks
+- **Module Versions**: Updated all module scripts to version 0.1.2-pre-release
+- **Main Script Version**: Incremented to version 0.1.3-pre-release
+
+### Improved
+- **Installation Verification**: All critical services now verified as active after installation
+- **User Feedback**: Enhanced progress messages throughout installation process
+- **Distribution Compatibility**: Better handling of distribution-specific package availability
+- **Documentation**: Updated README with all new features and capabilities
+- **Comments**: Enhanced inline documentation explaining kernel parameters and their effects
+
+### Research Applied
+- AMD Strix Halo VRAM allocation optimization from Jeff Geerling and Frame.work community
+- RyzenAdj temperature control best practices from FlyGoat/RyzenAdj repository
+- Wayland display management from KDE, GNOME, and wlroots documentation
+- Service verification patterns from systemd best practices
+- ROCm 6.0 compatibility information from AMD documentation
+
+## [0.1.2-pre-release] - 2024-10
+
 ### Changed
 - Updated to version 0.1.2-pre-release based on extensive research
 - Enhanced hardware fixes with latest community findings and kernel requirements

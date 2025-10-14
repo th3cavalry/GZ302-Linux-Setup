@@ -2,7 +2,7 @@
 
 **Modular Linux setup scripts specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional downloadable modules for gaming, AI development, virtualization, and more.
 
-> **🚀 Version 0.1.2-pre-release - Enhanced Distribution Support!** Updated based on latest community research for AMD Strix Halo and GZ302 Linux compatibility. Improved automated installation of asusctl across all distributions with official repositories and PPAs. **Recommended: Linux kernel 6.11+ (6.12+ or 6.13+ preferred) for best Strix Halo support.**
+> **🚀 Version 0.1.3-pre-release - Enhanced with Advanced Optimizations!** Major improvements including VRAM allocation for AI/ML workloads, enhanced TDP management with temperature controls, Wayland display support, and comprehensive service verification. **Recommended: Linux kernel 6.11+ (6.12+ or 6.13+ preferred) for best Strix Halo support.**
 
 ## ✨ Key Features
 
@@ -53,6 +53,7 @@ All distributions receive identical treatment with equal priority:
 ### Hardware Fixes (Always Applied)
 Based on latest research from GZ302 community and comprehensive testing:
 - **Kernel parameters**: AMD P-State driver (`amd_pstate=guided`) - optimal for Strix Halo (confirmed by Ubuntu 25.10 benchmarks)
+- **VRAM allocation**: Dynamic VRAM allocation up to ~108GB (`amdttm.pages_limit=27648000`) - essential for AI/ML workloads
 - **GPU optimization**: AMD Radeon 8060S integrated graphics (RDNA 3.5) - full feature mask enabled, ROCm-compatible
 - **Wi-Fi stability**: MediaTek MT7925 fixes (disable ASPM, power save off) - fixes disconnection and suspend/resume issues
 - **ASUS HID**: Keyboard and touchpad module configuration with improved gesture support (kernel 6.11+)
@@ -87,11 +88,13 @@ Note: GZ302EA-XS99 has AMD Radeon 8060S integrated graphics (100% AMD system). N
 ### Management Tools (Always Installed)
 - **TDP Management** (`gz302-tdp` command)
   - 7 power profiles: emergency, battery, efficient, balanced, performance, gaming, maximum
+  - Advanced thermal controls (95°C temperature limits)
   - Automatic AC/battery switching
   - Real-time power monitoring
   
 - **Refresh Rate Control** (`gz302-refresh` command)
   - 6 refresh rate profiles: powersave, battery, balanced, smooth, performance, gaming
+  - X11 and Wayland support (KDE, GNOME, wlroots)
   - VRR/FreeSync support
   - Multi-monitor independent control
 
@@ -105,10 +108,10 @@ Note: GZ302EA-XS99 has AMD Radeon 8060S integrated graphics (100% AMD system). N
 - Wine for Windows application support
 
 ### AI/LLM Module (`gz302-llm`)
-- Ollama for local LLM inference (Llama, Mistral, CodeLlama)
-- ROCm for AMD GPU acceleration
-- PyTorch with ROCm support
-- Transformers and Accelerate libraries
+- Ollama for local LLM inference (Llama, Mistral, CodeLlama) with service verification
+- ROCm 6.0+ for AMD GPU acceleration (optimized for RDNA 3.5)
+- PyTorch with ROCm support (automatic fallback to CPU if ROCm unavailable)
+- Transformers, Accelerate, and Bitsandbytes libraries for quantized models
 
 ### Hypervisor Module (`gz302-hypervisor`)
 - KVM/QEMU with virt-manager (recommended)
@@ -230,5 +233,5 @@ This project is provided as-is for the GZ302 community.
 
 ---
 
-**Version:** 0.1.1-pre-release  
-**Last Updated:** October 2024
+**Version:** 0.1.3-pre-release  
+**Last Updated:** January 2025

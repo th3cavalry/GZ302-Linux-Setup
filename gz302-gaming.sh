@@ -2,10 +2,11 @@
 
 # ==============================================================================
 # GZ302 Gaming Software Module
-# Version: 0.1.1-pre-release
+# Version: 0.1.2-pre-release
 #
 # This module installs gaming software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Steam, Lutris, MangoHUD, GameMode, Wine, and performance tools
+# Optimized for AMD Radeon 8060S (RDNA 3.5) integrated GPU
 #
 # This script is designed to be called by gz302-main.sh
 # ==============================================================================
