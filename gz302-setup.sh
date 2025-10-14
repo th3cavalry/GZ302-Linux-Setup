@@ -568,7 +568,7 @@ configure_grub() {
     print_info "Detected GRUB bootloader"
     
     # Backup existing GRUB config
-    cp /etc/default/grub /etc/default/grub.backup.$(date +%Y%m%d_%H%M%S)
+    cp /etc/default/grub "/etc/default/grub.backup.$(date +%Y%m%d_%H%M%S)"
     
     # Get current parameters
     local current_params=""
@@ -1174,7 +1174,7 @@ main() {
         print_warning "Detected distribution: $DISTRO ($DISTRO_FAMILY)"
         echo ""
         
-        read -p "Press Enter to continue or Ctrl+C to cancel..."
+        read -r -p "Press Enter to continue or Ctrl+C to cancel..."
         echo ""
     fi
     
