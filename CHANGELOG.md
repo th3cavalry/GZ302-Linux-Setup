@@ -8,13 +8,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- Fixed all shellcheck warnings across all scripts
-- Removed duplicate `get_real_user()` function definitions in gz302-main.sh
-- Improved code quality with proper quoting and variable declarations
+- Updated to version 0.1.2-pre-release based on extensive research
+- Enhanced hardware fixes with latest community findings and kernel requirements
+- Improved asusctl installation across all distributions with automated repository setup
+- Updated kernel parameter comments with Ubuntu 25.10 benchmark confirmation
+- Enhanced Wi-Fi configuration comments with EndeavourOS forum findings
+- Updated AMD GPU configuration with ROCm compatibility notes
+- Improved touchpad configuration with kernel 6.11+ gesture support notes
 
 ### Added
-- CONTRIBUTING.md with development guidelines
-- CHANGELOG.md for tracking version history
+- Kernel version recommendations: 6.11+ minimum, 6.12+/6.13+ preferred for Strix Halo
+- Arch Linux: G14 repository (https://arch.asus-linux.org) as primary asusctl source with AUR fallback
+- Ubuntu/Debian: Mitchell Austin's PPA (ppa:mitchellaugustin/asusctl) with automated installation
+- Fedora: COPR repository (lukenukem/asus-linux) with automated dnf copr enable
+- OpenSUSE: OBS repository (hardware:asus) with automated zypper installation
+- Note about ec_su_axb35 kernel module for advanced Strix Halo fan/power control
+- References to Strix Halo HomeLab and Phoronix community research
+- Kernel 6.14+ MediaTek MT7925 WiFi improvement notes
+
+### Research Sources
+- Shahzebqazi/Asus-Z13-Flow-2025-PCMR GitHub repository
+- Level1Techs forums (Flow Z13 setup threads)
+- asus-linux.org official documentation
+- Strix Halo HomeLab (strixhalo-homelab.d7.wtf)
+- Ubuntu 25.10 Strix Halo benchmarks
+- Phoronix forums and community discussions
+- EndeavourOS forums for MT7925 WiFi fixes
 
 ## [0.1.1-pre-release] - 2024-10
 
