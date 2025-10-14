@@ -61,7 +61,13 @@ install_kvm_qemu() {
             ;;
     esac
     
-    success "KVM/QEMU installed successfully"
+    # Verify libvirtd service
+    if systemctl is-active --quiet libvirtd; then
+        success "KVM/QEMU installed successfully - libvirtd service is active"
+    else
+        warning "KVM/QEMU installed but libvirtd service is not active"
+        info "Try: sudo systemctl start libvirtd"
+    fi
 }
 
 install_virtualbox() {

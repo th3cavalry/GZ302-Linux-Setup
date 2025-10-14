@@ -53,7 +53,15 @@ install_arch_llm_software() {
     # Install Ollama
     info "Installing Ollama..."
     pacman -S --noconfirm --needed ollama
-    systemctl enable --now ollama
+    if systemctl enable --now ollama 2>/dev/null; then
+        if systemctl is-active --quiet ollama; then
+            success "Ollama service is active and running"
+        else
+            warning "Ollama enabled but not running, will start on next boot"
+        fi
+    else
+        warning "Failed to enable Ollama service"
+    fi
     
     # Install ROCm for AMD GPU acceleration (optimized for Radeon 8060S)
     info "Installing ROCm for AMD GPU acceleration..."
@@ -83,7 +91,15 @@ install_debian_llm_software() {
     # Install Ollama
     info "Installing Ollama..."
     curl -fsSL https://ollama.ai/install.sh | sh
-    systemctl enable --now ollama
+    if systemctl enable --now ollama 2>/dev/null; then
+        if systemctl is-active --quiet ollama; then
+            success "Ollama service is active and running"
+        else
+            warning "Ollama enabled but not running, will start on next boot"
+        fi
+    else
+        warning "Failed to enable Ollama service"
+    fi
     
     # Install ROCm (if available) - note: limited support on Debian/Ubuntu
     info "Installing ROCm for AMD GPU acceleration..."
@@ -122,7 +138,15 @@ install_fedora_llm_software() {
     # Install Ollama
     info "Installing Ollama..."
     curl -fsSL https://ollama.ai/install.sh | sh
-    systemctl enable --now ollama
+    if systemctl enable --now ollama 2>/dev/null; then
+        if systemctl is-active --quiet ollama; then
+            success "Ollama service is active and running"
+        else
+            warning "Ollama enabled but not running, will start on next boot"
+        fi
+    else
+        warning "Failed to enable Ollama service"
+    fi
     
     # Install ROCm for Fedora (limited official support, use community repos)
     info "Installing ROCm for AMD GPU acceleration..."
@@ -156,7 +180,15 @@ install_opensuse_llm_software() {
     # Install Ollama
     info "Installing Ollama..."
     curl -fsSL https://ollama.ai/install.sh | sh
-    systemctl enable --now ollama
+    if systemctl enable --now ollama 2>/dev/null; then
+        if systemctl is-active --quiet ollama; then
+            success "Ollama service is active and running"
+        else
+            warning "Ollama enabled but not running, will start on next boot"
+        fi
+    else
+        warning "Failed to enable Ollama service"
+    fi
     
     # Install ROCm (limited support on OpenSUSE)
     info "Installing ROCm for AMD GPU acceleration..."

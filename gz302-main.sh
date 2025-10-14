@@ -273,8 +273,29 @@ install_arch_asus_packages() {
         fi
     fi
     
-    # Enable services
-    systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
+    # Enable services with verification
+    if systemctl enable --now power-profiles-daemon 2>/dev/null; then
+        if systemctl is-active --quiet power-profiles-daemon; then
+            success "power-profiles-daemon service is active"
+        else
+            warning "power-profiles-daemon enabled but not running, will start on next boot"
+        fi
+    else
+        warning "Failed to enable power-profiles-daemon service"
+    fi
+    
+    # Verify asusctl installation
+    if command -v asusctl >/dev/null 2>&1; then
+        success "asusctl is installed and available"
+        # Try to start asusd if asusctl is installed
+        if systemctl enable --now asusd 2>/dev/null; then
+            if systemctl is-active --quiet asusd; then
+                success "asusd service is active"
+            fi
+        fi
+    else
+        info "asusctl not installed - hardware control will be limited to kernel features"
+    fi
     
     success "ASUS packages installed"
 }
@@ -309,8 +330,29 @@ install_debian_asus_packages() {
         info "Install software-properties-common and retry, or see: https://asus-linux.org"
     fi
     
-    # Enable services
-    systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
+    # Enable services with verification
+    if systemctl enable --now power-profiles-daemon 2>/dev/null; then
+        if systemctl is-active --quiet power-profiles-daemon; then
+            success "power-profiles-daemon service is active"
+        else
+            warning "power-profiles-daemon enabled but not running, will start on next boot"
+        fi
+    else
+        warning "Failed to enable power-profiles-daemon service"
+    fi
+    
+    # Verify asusctl installation
+    if command -v asusctl >/dev/null 2>&1; then
+        success "asusctl is installed and available"
+        # Ensure asusd is running
+        if systemctl is-active --quiet asusd; then
+            success "asusd service is active"
+        else
+            systemctl restart asusd 2>/dev/null || warning "Could not start asusd service"
+        fi
+    else
+        info "asusctl not installed - hardware control will be limited to kernel features"
+    fi
     
     success "ASUS packages installed"
 }
@@ -340,8 +382,28 @@ install_fedora_asus_packages() {
         info "Manually enable COPR: dnf copr enable lukenukem/asus-linux && dnf install asusctl"
     fi
     
-    # Enable services
-    systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
+    # Enable services with verification
+    if systemctl enable --now power-profiles-daemon 2>/dev/null; then
+        if systemctl is-active --quiet power-profiles-daemon; then
+            success "power-profiles-daemon service is active"
+        else
+            warning "power-profiles-daemon enabled but not running, will start on next boot"
+        fi
+    else
+        warning "Failed to enable power-profiles-daemon service"
+    fi
+    
+    # Verify asusctl installation
+    if command -v asusctl >/dev/null 2>&1; then
+        success "asusctl is installed and available"
+        if systemctl enable --now asusd 2>/dev/null; then
+            if systemctl is-active --quiet asusd; then
+                success "asusd service is active"
+            fi
+        fi
+    else
+        info "asusctl not installed - hardware control will be limited to kernel features"
+    fi
     
     success "ASUS packages installed"
 }
@@ -375,8 +437,28 @@ install_opensuse_asus_packages() {
         info "Manual installation from source: https://asus-linux.org/guides/asusctl-install/"
     fi
     
-    # Enable services
-    systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
+    # Enable services with verification
+    if systemctl enable --now power-profiles-daemon 2>/dev/null; then
+        if systemctl is-active --quiet power-profiles-daemon; then
+            success "power-profiles-daemon service is active"
+        else
+            warning "power-profiles-daemon enabled but not running, will start on next boot"
+        fi
+    else
+        warning "Failed to enable power-profiles-daemon service"
+    fi
+    
+    # Verify asusctl installation
+    if command -v asusctl >/dev/null 2>&1; then
+        success "asusctl is installed and available"
+        if systemctl enable --now asusd 2>/dev/null; then
+            if systemctl is-active --quiet asusd; then
+                success "asusd service is active"
+            fi
+        fi
+    else
+        info "asusctl not installed - hardware control will be limited to kernel features"
+    fi
     
     success "ASUS packages installed"
 }
