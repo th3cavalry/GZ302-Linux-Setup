@@ -76,7 +76,6 @@ Automated installation from official sources:
 
 **Features**: Keyboard backlight control, custom fan curves, power profiles, battery charge limits
 
-Note: GZ302EA-XS99 has AMD Radeon 8060S integrated graphics (100% AMD system). No discrete GPU or NVIDIA components.
 
 ### Advanced Control Options
 - **ec_su_axb35 kernel module** (optional, manual installation): Advanced fan speed and power mode control for Strix Halo
@@ -239,5 +238,4 @@ This project is provided as-is for the GZ302 community.
 
 ---
 
-**Version:** 0.1.1-pre-release  
 **Last Updated:** October 2024
