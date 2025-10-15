@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-pre-release] - 2025-10-15
+
+### BREAKING CHANGES
+- **Command Names Changed**: `gz302-tdp` → `pwrcfg`, `gz302-refresh` → `rrcfg`
+- **Config Directories Changed**: `/etc/gz302-tdp` → `/etc/pwrcfg`, `/etc/gz302-refresh` → `/etc/rrcfg`
+- **Power Profile Names Changed**: Simplified naming (emergency, battery, efficient, balanced, performance, gaming, maximum)
+- **Minimum Kernel Version**: Changed from 6.15+ to 6.14+ (now REQUIRED, blocks installation on older kernels)
+
+### Added
+- **Info Folder Structure**: Created `Info/` directory for all research and documentation
+- **Kernel Changelog**: New `Info/kernel_changelog.md` with GZ302-specific kernel improvements (6.14-6.17)
+- **SPL/sPPT/fPPT Power Architecture**: Advanced power management with Sustained/Slow/Fast power limits
+- **Automatic Refresh Rate Sync**: Power profile changes automatically adjust display refresh rate
+- **Enhanced Power Profiles**: 7 profiles with detailed power specifications:
+  - Emergency: 10/12/12W @ 30Hz
+  - Battery: 18/20/20W @ 30Hz
+  - Efficient: 30/35/35W @ 60Hz
+  - Balanced: 40/45/45W @ 90Hz
+  - Performance: 55/60/60W @ 120Hz
+  - Gaming: 70/80/80W @ 180Hz
+  - Maximum: 90/90/90W @ 180Hz
+
+### Changed
+- **Kernel Support**: Now requires 6.14+ minimum (AMD XDNA NPU driver integration)
+- **WiFi Fixes**: Updated threshold from < 6.15 to < 6.16 for ASPM workaround
+- **Documentation Organization**: Moved CHANGELOG.md and RESEARCH_SUMMARY.md to Info/ folder
+- **Version Numbering**: Incremented MINOR version (0.1.3 → 0.2.0) for breaking changes
+- **README.md**: Complete rewrite with new command names and power profile details
+
+### Research Updates
+- Comprehensive kernel changelog research for versions 6.14-6.17
+- AMD Strix Halo improvements documented across kernel versions
+- AMD Radeon 8060S (RDNA 3.5) enhancements tracked
+- MediaTek MT7925 WiFi driver evolution documented
+- All kernel research consolidated in Info/kernel_changelog.md
+
+### Technical Improvements
+- Kernel version check now blocks installation on < 6.14 (was warning-only)
+- Power profiles use proper SPL/sPPT/fPPT ryzenadj parameters
+- Systemd services renamed for consistency (pwrcfg-auto, pwrcfg-monitor, rrcfg-auto, rrcfg-monitor)
+- Improved user messaging with detailed power profile information
+- Better integration between power management and display refresh rate
+
 ## [0.1.3-pre-release] - 2025-10
 
 ### Changed - Kernel Support Update
