@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 Hypervisor Software Module
-# Version: 0.1.3-pre-release
+# Version: 0.2.0-pre-release
 #
 # This module installs hypervisor software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: KVM/QEMU, VirtualBox, VMware, Xen, Proxmox
