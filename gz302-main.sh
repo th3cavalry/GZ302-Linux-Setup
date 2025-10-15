@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 0.1.3-pre-release
+# Version: 0.2.0-pre-release
 #
 # This script automatically detects your Linux distribution and applies
 # the appropriate hardware fixes for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.
@@ -975,12 +975,12 @@ configure_auto_switching() {
         echo "  Battery: $battery_profile"
         echo ""
         echo "Starting automatic switching service..."
-        systemctl enable gz302-tdp-auto.service >/dev/null 2>&1
-        systemctl start gz302-tdp-auto.service >/dev/null 2>&1
+        systemctl enable pwrcfg-auto.service >/dev/null 2>&1
+        systemctl start pwrcfg-auto.service >/dev/null 2>&1
     else
         echo "false" > "$AUTO_CONFIG_FILE"
-        systemctl disable gz302-tdp-auto.service >/dev/null 2>&1
-        systemctl stop gz302-tdp-auto.service >/dev/null 2>&1
+        systemctl disable pwrcfg-auto.service >/dev/null 2>&1
+        systemctl stop pwrcfg-auto.service >/dev/null 2>&1
         echo "Automatic switching disabled"
     fi
 }
@@ -1023,7 +1023,7 @@ auto_switch_profile() {
 
 # Main script logic
 case "$1" in
-    max_performance|gaming|performance|balanced|efficient|power_saver|ultra_low)
+    maximum|gaming|performance|balanced|efficient|battery|emergency)
         set_tdp_profile "$1"
         ;;
     status)
@@ -1052,11 +1052,11 @@ EOF
     chmod +x /usr/local/bin/pwrcfg
     
     # Create systemd service for automatic TDP management
-    cat > /etc/systemd/system/gz302-tdp-auto.service <<EOF
+    cat > /etc/systemd/system/pwrcfg-auto.service <<EOF
 [Unit]
 Description=GZ302 Automatic TDP Management
 After=multi-user.target
-Wants=gz302-tdp-monitor.service
+Wants=pwrcfg-monitor.service
 
 [Service]
 Type=oneshot
@@ -1068,7 +1068,7 @@ WantedBy=multi-user.target
 EOF
 
     # Create systemd service for power monitoring
-    cat > /etc/systemd/system/gz302-tdp-monitor.service <<EOF
+    cat > /etc/systemd/system/pwrcfg-monitor.service <<EOF
 [Unit]
 Description=GZ302 TDP Power Source Monitor
 After=multi-user.target
@@ -1097,7 +1097,7 @@ MONITOR_EOF
 
     chmod +x /usr/local/bin/pwrcfg-monitor
     
-    systemctl enable gz302-tdp-auto.service
+    systemctl enable pwrcfg-auto.service
     
     echo ""
     info "TDP management installation complete!"
@@ -1111,11 +1111,11 @@ MONITOR_EOF
     if [[ ! $REPLY =~ ^[Nn]$ ]]; then
         /usr/local/bin/pwrcfg config
     else
-        echo "You can configure automatic switching later using: gz302-tdp config"
+        echo "You can configure automatic switching later using: pwrcfg config"
     fi
     
     echo ""
-    success "TDP management installed. Use 'gz302-tdp' command to manage power profiles."
+    success "Power management installed. Use 'pwrcfg' command to manage power profiles."
 }
 
 # Refresh Rate Management Installation
@@ -1139,48 +1139,53 @@ VRR_RANGES_FILE="$REFRESH_CONFIG_DIR/vrr-ranges"
 MONITOR_CONFIGS_FILE="$REFRESH_CONFIG_DIR/monitor-configs"
 POWER_MONITORING_FILE="$REFRESH_CONFIG_DIR/power-monitoring"
 
-# Refresh Rate Profiles - Optimized for GZ302 display and AMD GPU
+# Refresh Rate Profiles - Matched to power profiles for GZ302 display and AMD GPU
 declare -A REFRESH_PROFILES
-REFRESH_PROFILES[gaming]="180"           # Maximum gaming performance
-REFRESH_PROFILES[performance]="120"      # High performance applications
+REFRESH_PROFILES[emergency]="30"         # Emergency battery extension
+REFRESH_PROFILES[battery]="30"           # Maximum battery life
+REFRESH_PROFILES[efficient]="60"         # Efficient with good performance
 REFRESH_PROFILES[balanced]="90"          # Balanced performance/power
-REFRESH_PROFILES[efficient]="60"         # Standard desktop use
-REFRESH_PROFILES[power_saver]="48"       # Battery conservation
-REFRESH_PROFILES[ultra_low]="30"         # Emergency battery extension
+REFRESH_PROFILES[performance]="120"      # High performance applications
+REFRESH_PROFILES[gaming]="180"           # Gaming optimized
+REFRESH_PROFILES[maximum]="180"          # Absolute maximum
 
 # Frame rate limiting profiles (for VRR)
 declare -A FRAME_LIMITS
-FRAME_LIMITS[gaming]="0"                 # No frame limiting (VRR handles it)
-FRAME_LIMITS[performance]="120"          # Cap at 120fps
-FRAME_LIMITS[balanced]="90"              # Cap at 90fps  
+FRAME_LIMITS[emergency]="30"             # Cap at 30fps
+FRAME_LIMITS[battery]="30"               # Cap at 30fps
 FRAME_LIMITS[efficient]="60"             # Cap at 60fps
-FRAME_LIMITS[power_saver]="48"           # Cap at 48fps
-FRAME_LIMITS[ultra_low]="30"             # Cap at 30fps
+FRAME_LIMITS[balanced]="90"              # Cap at 90fps
+FRAME_LIMITS[performance]="120"          # Cap at 120fps
+FRAME_LIMITS[gaming]="0"                 # No frame limiting (VRR handles it)
+REFRESH_LIMITS[maximum]="0"              # No frame limiting
 
 # VRR min/max refresh ranges by profile
 declare -A VRR_MIN_RANGES
 declare -A VRR_MAX_RANGES
-VRR_MIN_RANGES[gaming]="48"              # Allow 48-180Hz range for VRR
-VRR_MAX_RANGES[gaming]="180"
+VRR_MIN_RANGES[emergency]="20"           # Allow 20-30Hz range
+VRR_MAX_RANGES[emergency]="30"
+VRR_MIN_RANGES[battery]="20"             # Allow 20-30Hz range
+VRR_MAX_RANGES[battery]="30"
+VRR_MIN_RANGES[efficient]="30"           # Allow 30-60Hz range
+VRR_MAX_RANGES[efficient]="60"
+VRR_MIN_RANGES[balanced]="30"            # Allow 30-90Hz range
+VRR_MAX_RANGES[balanced]="90"
 VRR_MIN_RANGES[performance]="48"         # Allow 48-120Hz range
 VRR_MAX_RANGES[performance]="120"
-VRR_MIN_RANGES[balanced]="30"           # Allow 30-90Hz range
-VRR_MAX_RANGES[balanced]="90"
-VRR_MIN_RANGES[efficient]="30"          # Allow 30-60Hz range
-VRR_MAX_RANGES[efficient]="60"
-VRR_MIN_RANGES[power_saver]="30"        # Allow 30-48Hz range
-VRR_MAX_RANGES[power_saver]="48"
-VRR_MIN_RANGES[ultra_low]="20"          # Allow 20-30Hz range
-VRR_MAX_RANGES[ultra_low]="30"
+VRR_MIN_RANGES[gaming]="48"              # Allow 48-180Hz range for VRR
+VRR_MAX_RANGES[gaming]="180"
+VRR_MIN_RANGES[maximum]="48"             # Allow 48-180Hz range
+VRR_MAX_RANGES[maximum]="180"
 
-# Power consumption estimates (watts) by profile for monitoring
+# Power consumption estimates (watts) by profile for monitoring (matches pwrcfg)
 declare -A POWER_ESTIMATES
-POWER_ESTIMATES[gaming]="45"             # High power consumption
-POWER_ESTIMATES[performance]="35"        # Medium-high power
-POWER_ESTIMATES[balanced]="25"           # Balanced power
-POWER_ESTIMATES[efficient]="20"          # Lower power
-POWER_ESTIMATES[power_saver]="15"        # Low power
-POWER_ESTIMATES[ultra_low]="12"          # Minimal power
+POWER_ESTIMATES[emergency]="10"          # Minimal power
+POWER_ESTIMATES[battery]="18"            # Low power
+POWER_ESTIMATES[efficient]="30"          # Lower power
+POWER_ESTIMATES[balanced]="40"           # Balanced power
+POWER_ESTIMATES[performance]="55"        # Medium-high power
+POWER_ESTIMATES[gaming]="70"             # High power consumption
+POWER_ESTIMATES[maximum]="90"            # Maximum power
 
 # Create config directory
 mkdir -p "$REFRESH_CONFIG_DIR"
@@ -1188,13 +1193,14 @@ mkdir -p "$REFRESH_CONFIG_DIR"
 show_usage() {
     echo "Usage: rrcfg [PROFILE|COMMAND|GAME_NAME]"
     echo ""
-    echo "Profiles:"
-    echo "  gaming           - 180Hz maximum gaming performance"
-    echo "  performance      - 120Hz high performance applications"  
-    echo "  balanced         - 90Hz balanced performance/power (default)"
-    echo "  efficient        - 60Hz standard desktop use"
-    echo "  power_saver      - 48Hz battery conservation"
-    echo "  ultra_low        - 30Hz emergency battery extension"
+    echo "Refresh Rate Profiles (synced with pwrcfg power profiles):"
+    echo "  emergency     - 30Hz  - Emergency battery extension"
+    echo "  battery       - 30Hz  - Maximum battery life"
+    echo "  efficient     - 60Hz  - Efficient with good performance"
+    echo "  balanced      - 90Hz  - Balanced performance/power (default)"
+    echo "  performance   - 120Hz - High performance applications"
+    echo "  gaming        - 180Hz - Gaming optimized"
+    echo "  maximum       - 180Hz - Absolute maximum"
     echo ""
     echo "Commands:"
     echo "  status           - Show current refresh rate and VRR status"
@@ -1208,6 +1214,9 @@ show_usage() {
     echo "  monitor-power    - Show real-time power consumption monitoring"
     echo "  thermal-status   - Check thermal throttling status"
     echo "  battery-predict  - Predict battery life with different refresh rates"
+    echo ""
+    echo "Note: Refresh rate normally auto-adjusts with power profile (pwrcfg)"
+    echo "      Use rrcfg to manually override the automatic setting"
     echo ""
     echo "Examples:"
     echo "  rrcfg gaming        # Set gaming refresh rate profile"
@@ -1476,7 +1485,7 @@ show_status() {
 list_profiles() {
     echo "Available refresh rate profiles:"
     echo ""
-    for profile in gaming performance balanced efficient power_saver ultra_low; do
+    for profile in gaming performance balanced efficient battery emergency; do
         if [[ -n "${REFRESH_PROFILES[$profile]}" ]]; then
             local rate="${REFRESH_PROFILES[$profile]}"
             local limit="${FRAME_LIMITS[$profile]}"
@@ -1533,12 +1542,12 @@ configure_auto_switching() {
         echo "Select battery profile (when on battery):"
         list_profiles
         echo ""
-        read -p "Battery profile [power_saver]: " battery_profile
-        battery_profile=${battery_profile:-power_saver}
+        read -p "Battery profile [battery]: " battery_profile
+        battery_profile=${battery_profile:-battery}
         
         if [[ -z "${REFRESH_PROFILES[$battery_profile]}" ]]; then
-            echo "Invalid profile, using 'power_saver'"
-            battery_profile="power_saver"
+            echo "Invalid profile, using 'battery'"
+            battery_profile="battery"
         fi
         
         # Save configuration
@@ -1642,7 +1651,7 @@ manage_game_profiles() {
             # Validate profile exists
             if [[ -z "${REFRESH_PROFILES[$profile]}" ]]; then
                 echo "Error: Unknown profile '$profile'"
-                echo "Available profiles: gaming, performance, balanced, efficient, power_saver, ultra_low"
+                echo "Available profiles: gaming, performance, balanced, efficient, battery, emergency"
                 return 1
             fi
             
@@ -1787,7 +1796,7 @@ monitor_power_consumption() {
     
     echo ""
     echo "Power Estimates by Profile:"
-    for profile in gaming performance balanced efficient power_saver ultra_low; do
+    for profile in gaming performance balanced efficient battery emergency; do
         local power="${POWER_ESTIMATES[$profile]}"
         local rate="${REFRESH_PROFILES[$profile]}"
         echo "  $profile: ${rate}Hz @ ~${power}W"
@@ -1808,7 +1817,7 @@ check_thermal_status() {
             
             if [[ "$temp_celsius" -gt 85 ]]; then
                 echo "⚠️  WARNING: High CPU temperature detected!"
-                echo "Consider switching to power_saver or ultra_low profile"
+                echo "Consider switching to battery or emergency profile"
             elif [[ "$temp_celsius" -gt 75 ]]; then
                 echo "⚠️  CPU running warm - consider balanced or efficient profile"
             else
@@ -1870,7 +1879,7 @@ predict_battery_life() {
         local battery_wh=56  # Approximate battery capacity in Wh
         local usable_capacity=$((battery_wh * battery_capacity / 100))
         
-        for profile in ultra_low power_saver efficient balanced performance gaming; do
+        for profile in emergency battery efficient balanced performance gaming; do
             local power="${POWER_ESTIMATES[$profile]}"
             local rate="${REFRESH_PROFILES[$profile]}"
             local estimated_hours=$((usable_capacity * 100 / power / 100))
@@ -2118,7 +2127,7 @@ case "${1:-}" in
     "battery-predict")
         predict_battery_life
         ;;
-    "gaming"|"performance"|"balanced"|"efficient"|"power_saver"|"ultra_low")
+    "gaming"|"performance"|"balanced"|"efficient"|"battery"|"emergency")
         # Check for game-specific profile detection first
         manage_game_profiles "detect"
         # If no game detected, apply the requested profile
@@ -2466,7 +2475,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 0.1.3-pre-release - Modular Architecture"
+    echo "  Version 0.2.0-pre-release - Modern Power Management"
     echo "============================================================"
     echo
     
@@ -2544,7 +2553,7 @@ main() {
     success "- Touchpad detection and functionality"
     success "- Audio fixes for ASUS hardware"
     success "- GPU and thermal optimizations"
-    success "- TDP management: Use 'gz302-tdp' command"
+    success "- Power management: Use 'pwrcfg' command"
     success "- Refresh rate control: Use 'rrcfg' command"
     success "============================================================"
     echo
@@ -2559,8 +2568,9 @@ main() {
     success "Core setup is COMPLETE!"
     success "It is highly recommended to REBOOT your system now."
     success ""
-    success "Available TDP profiles: gaming, performance, balanced, efficient"
-    success "Check power status with: gz302-tdp status"
+    success "Available power profiles: emergency, battery, efficient, balanced, performance, gaming, maximum"
+    success "Check power status with: pwrcfg status"
+    success "Check refresh rate with: rrcfg status"
     success ""
     success "Your ROG Flow Z13 (GZ302) is now optimized for $detected_distro!"
     echo "🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉"

@@ -2,7 +2,7 @@
 
 **Modular Linux setup scripts specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional downloadable modules for gaming, AI development, virtualization, and more.
 
-> **🚀 Version 0.1.3-pre-release - Enhanced Kernel Support!** Updated for kernel 6.15+ and 6.17+ with enhanced AMD Strix Halo support, improved MediaTek MT7925 WiFi, and conditional hardware workarounds. **Required: Linux kernel 6.15+ minimum (6.17+ strongly recommended) for optimal Strix Halo and WiFi support.**
+> **🚀 Version 0.2.0-pre-release - Modern Power Management!** Updated with kernel 6.14+ support, new `pwrcfg` and `rrcfg` commands, and SPL/sPPT/fPPT power architecture. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
 
 ## ✨ Key Features
 
@@ -11,8 +11,8 @@
 - **Complete ASUS touchpad integration** - Full gesture and precision support  
 - **Optimized AMD Ryzen AI MAX+ 395 performance** - Unlocks full processor potential
 - **Advanced thermal management** - Sustained performance without throttling
-- **TDP control system** - 7-tier TDP profiles from 10W to 65W
-- **Display management** - 6-tier refresh rate profiles from 30Hz to 180Hz
+- **Power control system (pwrcfg)** - 7 power profiles with SPL/sPPT/fPPT (10W-90W)
+- **Display management (rrcfg)** - 7 refresh rate profiles (30Hz-180Hz, auto-sync with power)
 
 ### 📦 **Optional Modular Software** (Download On Demand)
 Download and install only what you need:
@@ -60,10 +60,12 @@ Based on latest research from GZ302 community and comprehensive testing:
 **Research Sources**: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org, Strix Halo HomeLab, Ubuntu 25.10 benchmarks, Phoronix community
 
 **Kernel Requirements**: 
-- **Minimum**: Linux kernel 6.15+ (native MT7925 WiFi stability, XDNA NPU driver, improved AMDGPU)
-- **Recommended**: Linux kernel 6.17+ (latest stable) for further AMD Strix Halo performance improvements and enhanced GPU scheduling
-- **Benefits of 6.15+**: Native MT7925 WiFi stability (no ASPM workaround), enhanced AI inference performance, improved Radeon 8060S graphics
-- **Benefits of 6.17+**: Further Strix Halo optimizations, better integrated GPU scheduling, improved memory management
+- **Minimum**: Linux kernel 6.14+ (REQUIRED - AMD XDNA NPU driver, MT7925 WiFi integration, P-State driver)
+- **Recommended**: Linux kernel 6.17+ (latest stable) for enhanced Strix Halo performance and GPU scheduling
+- **See**: `Info/kernel_changelog.md` for detailed kernel version comparison and GZ302-specific improvements
+- **Benefits of 6.14+**: AMD XDNA NPU support, basic MT7925 WiFi stability, AMD P-State dynamic core ranking
+- **Benefits of 6.15+**: Cleaner shader support for RDNA 3.5, extended XDNA optimizations  
+- **Benefits of 6.17+**: Fine-tuned AI task management, optimized WiFi performance, enhanced GPU scheduling
 
 ### ASUS-Specific Packages (Distribution-dependent)
 Automated installation from official sources:
@@ -93,15 +95,26 @@ The `linux-g14` custom kernel is **optional** for GZ302 users:
 - See: https://asus-linux.org for more information on linux-g14 benefits
 
 ### Management Tools (Always Installed)
-- **TDP Management** (`gz302-tdp` command)
-  - 7 power profiles: emergency, battery, efficient, balanced, performance, gaming, maximum
+- **Power Management** (`pwrcfg` command)
+  - 7 power profiles with SPL/sPPT/fPPT architecture
+  - Emergency: 10/12/12W @ 30Hz - Emergency battery extension
+  - Battery: 18/20/20W @ 30Hz - Maximum battery life
+  - Efficient: 30/35/35W @ 60Hz - Efficient with good performance
+  - Balanced: 40/45/45W @ 90Hz - Balanced performance/efficiency (default)
+  - Performance: 55/60/60W @ 120Hz - High performance (AC recommended)
+  - Gaming: 70/80/80W @ 180Hz - Gaming optimized (AC required)
+  - Maximum: 90/90/90W @ 180Hz - Absolute maximum (AC only)
   - Automatic AC/battery switching
   - Real-time power monitoring
+  - Auto-adjusts refresh rate with power profile
   
-- **Refresh Rate Control** (`gz302-refresh` command)
-  - 6 refresh rate profiles: powersave, battery, balanced, smooth, performance, gaming
-  - VRR/FreeSync support
+- **Refresh Rate Control** (`rrcfg` command)
+  - 7 refresh rate profiles matched to power profiles (30Hz-180Hz)
+  - Automatically syncs with power profile changes
+  - Manual override available for custom configurations
+  - VRR/FreeSync support with configurable ranges
   - Multi-monitor independent control
+  - Game-specific profiles
 
 ## 📦 Optional Modules
 
@@ -133,34 +146,65 @@ The `linux-g14` custom kernel is **optional** for GZ302 users:
 
 ## 🎯 Usage Examples
 
-### Using TDP Management
+### Using Power Management
 ```bash
-# Set TDP profile
-sudo gz302-tdp gaming
+# Set power profile (automatically adjusts refresh rate)
+sudo pwrcfg gaming
 
 # Check current status
-gz302-tdp status
+sudo pwrcfg status
 
-# Enable automatic AC/battery switching
-sudo gz302-tdp auto enable
+# List all available profiles
+sudo pwrcfg list
+
+# Configure automatic AC/battery switching
+sudo pwrcfg config
+```
+
+### Using Refresh Rate Control
+```bash
+# Manually set refresh rate (overrides auto-sync)
+sudo rrcfg balanced
+
+# Check current refresh rate
+sudo rrcfg status
 
 # List available profiles
-gz302-tdp list
+sudo rrcfg list
+
+# Enable automatic power-based switching
+sudo rrcfg auto
+```
+
+### Quick Reference
+```bash
+# View current power and refresh settings
+sudo pwrcfg status
+sudo rrcfg status
+
+# Check current status
+pwrcfg status
+
+# Enable automatic AC/battery switching
+sudo pwrcfg auto enable
+
+# List available profiles
+pwrcfg list
 ```
 
 ### Using Refresh Rate Management
 ```bash
 # Set refresh rate profile
-sudo gz302-refresh gaming
+sudo rrcfg gaming
 
 # Check current status
-gz302-refresh status
+rrcfg status
 
 # Enable VRR/FreeSync
-sudo gz302-refresh vrr enable
+sudo rrcfg vrr enable
 
 # Monitor display power
-gz302-refresh monitor
+rrcfg monitor
 ```
 
 ## �� Architecture
