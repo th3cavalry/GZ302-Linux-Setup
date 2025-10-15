@@ -1,12 +1,39 @@
 # Linux Kernel Changelog - GZ302EA Specific Changes
 
-This document tracks kernel changes specifically relevant to the ASUS ROG Flow Z13 (GZ302EA-XS99) and its components:
-- **Laptop**: ASUS ROG Flow Z13 (GZ302EA-XS99)
+This document tracks kernel changes specifically relevant to the ASUS ROG Flow Z13 (GZ302EA) variants and their components:
+
+**Supported Models**:
+- **GZ302EA-XS99** - 128GB RAM model
+- **GZ302EA-XS64** - 64GB RAM model  
+- **GZ302EA-XS32** - 32GB RAM model
+
+**Hardware Components**:
 - **CPU**: AMD Ryzen AI MAX+ 395 (Strix Halo)
 - **GPU**: AMD Radeon 8060S integrated GPU (RDNA 3.5)
 - **WiFi**: MediaTek MT7925 (mt7925e module)
+- **Audio**: SOF (Sound Open Firmware) compatible
 
 **Last Updated**: October 15, 2025
+
+---
+
+## Linux Kernel 6.18 (Upcoming - Expected December 2025)
+
+### AMD Strix Halo (Ryzen AI MAX+ 395)
+- **AMD Secure AVIC**: Hardware-assisted virtualization security and performance enhancements
+- **Power Management Refinements**: Further energy efficiency improvements for Ryzen AI processors
+- **Memory Management**: Optimizations for high-density workloads and improved system robustness
+
+### AMD Radeon 8060S iGPU (RDNA 3.5)
+- **AMDGPU Driver Updates**: Enhanced power management and display handling
+- **Graphics Performance**: Continued optimizations for RDNA 3.5 architecture
+- **Hardware Support**: Expanded feature support for Radeon integrated graphics
+
+### Audio Support
+- **SOF Updates**: Continued Sound Open Firmware improvements for better audio compatibility
+
+### Recommendation
+**FUTURE RELEASE** - Expected December 2025. Will include further AMD optimizations and security enhancements.
 
 ---
 
@@ -99,6 +126,7 @@ This document tracks kernel changes specifically relevant to the ASUS ROG Flow Z
 
 | Kernel Version | Status | GZ302EA Support Level |
 |---------------|--------|----------------------|
+| 6.18 | Upcoming (Dec 2025) | **Future** - Advanced features |
 | 6.17 | Current Stable | **Best** - Full optimization |
 | 6.16 | Stable | **Good** - Enhanced features |
 | 6.15 | Stable | **Acceptable** - Core features |

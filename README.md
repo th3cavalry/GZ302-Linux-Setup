@@ -2,7 +2,12 @@
 
 **Modular Linux setup scripts specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional downloadable modules for gaming, AI development, virtualization, and more.
 
-> **🚀 Version 0.2.0-pre-release - Modern Power Management!** Updated with kernel 6.14+ support, new `pwrcfg` and `rrcfg` commands, and SPL/sPPT/fPPT power architecture. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
+**Supported Models**:
+- **GZ302EA-XS99** - 128GB RAM variant
+- **GZ302EA-XS64** - 64GB RAM variant
+- **GZ302EA-XS32** - 32GB RAM variant
+
+> **🚀 Version 0.2.0-RC1 - Modern Power Management!** Updated with kernel 6.14+ support, new `pwrcfg` and `rrcfg` commands, and SPL/sPPT/fPPT power architecture. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
 
 ## ✨ Key Features
 
@@ -64,7 +69,8 @@ Based on latest research from GZ302 community and comprehensive testing:
 - **Recommended**: Linux kernel 6.17+ (latest stable) for enhanced Strix Halo performance and GPU scheduling
 - **See**: `Info/kernel_changelog.md` for detailed kernel version comparison and GZ302-specific improvements
 - **Benefits of 6.14+**: AMD XDNA NPU support, basic MT7925 WiFi stability, AMD P-State dynamic core ranking
-- **Benefits of 6.15+**: Cleaner shader support for RDNA 3.5, extended XDNA optimizations  
+- **Benefits of 6.15+**: Cleaner shader support for RDNA 3.5, extended XDNA optimizations
+- **Benefits of 6.16+**: Enhanced KVM virtualization, improved GPU context switching, better I/O operations
 - **Benefits of 6.17+**: Fine-tuned AI task management, optimized WiFi performance, enhanced GPU scheduling
 
 ### ASUS-Specific Packages (Distribution-dependent)

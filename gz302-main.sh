@@ -4,7 +4,12 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 0.2.0-pre-release
+# Version: 0.2.0-RC1
+#
+# Supported Models:
+# - GZ302EA-XS99 (128GB RAM)
+# - GZ302EA-XS64 (64GB RAM)
+# - GZ302EA-XS32 (32GB RAM)
 #
 # This script automatically detects your Linux distribution and applies
 # the appropriate hardware fixes for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.
@@ -145,9 +150,75 @@ check_kernel_version() {
         echo "  - AMD P-State driver with dynamic core ranking"
         echo "  - Critical RDNA 3.5 GPU support for Radeon 8060S"
         echo
-        echo "Please upgrade to kernel 6.14 or higher before running this script."
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "OPTION: Install linux-g14 kernel (Arch-based distros only)"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo
-        echo "Upgrade options:"
+        echo "The linux-g14 kernel is a customized kernel for ASUS ROG devices"
+        echo "that includes the latest patches and optimizations for GZ302EA."
+        echo
+        
+        # Detect if Arch-based distribution
+        local distro=""
+        if [[ -f /etc/os-release ]]; then
+            source /etc/os-release
+            if [[ "$ID" == "arch" ]] || [[ "$ID_LIKE" == *"arch"* ]]; then
+                distro="arch"
+            fi
+        fi
+        
+        if [[ "$distro" == "arch" ]]; then
+            echo "Would you like to install the linux-g14 kernel and headers?"
+            echo "This will provide kernel 6.17+ with full GZ302EA support."
+            echo
+            read -p "Install linux-g14 kernel? (y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                info "Installing linux-g14 kernel and headers..."
+                echo
+                
+                # Add G14 repository
+                if ! grep -q "arch.asus-linux.org" /etc/pacman.conf 2>/dev/null; then
+                    info "Adding G14 repository..."
+                    echo "" >> /etc/pacman.conf
+                    echo "[g14]" >> /etc/pacman.conf
+                    echo "Server = https://arch.asus-linux.org" >> /etc/pacman.conf
+                    
+                    # Import GPG key
+                    pacman-key --recv-keys 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35
+                    pacman-key --lsign-key 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35
+                fi
+                
+                # Update package database
+                pacman -Sy
+                
+                # Install linux-g14 and headers
+                if pacman -S --noconfirm linux-g14 linux-g14-headers; then
+                    success "linux-g14 kernel installed successfully!"
+                    echo
+                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                    echo "REBOOT REQUIRED"
+                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                    echo
+                    echo "The linux-g14 kernel has been installed."
+                    echo "Please REBOOT your system and run this script again."
+                    echo
+                    echo "After rebooting, verify your kernel version with: uname -r"
+                    echo "You should see a kernel version 6.17 or higher."
+                    echo
+                    exit 0
+                else
+                    error "Failed to install linux-g14 kernel"
+                    echo
+                    echo "Please install a compatible kernel manually and try again."
+                    echo "See: https://asus-linux.org for more information"
+                    exit 1
+                fi
+            fi
+        fi
+        
+        echo
+        echo "Other upgrade options:"
         echo "  1. Use your distribution's kernel update mechanism"
         echo "  2. Install a mainline kernel from kernel.org"
         echo "  3. Check Info/kernel_changelog.md for version details"
@@ -304,6 +375,54 @@ EOF
     info "See: https://github.com/cmetz/ec-su_axb35-linux for Strix Halo-specific controls"
     
     success "Hardware fixes applied"
+}
+
+# --- Sound Open Firmware (SOF) Configuration ---
+install_sof_firmware() {
+    info "Installing Sound Open Firmware (SOF) for GZ302EA audio..."
+    
+    local distro="$1"
+    
+    case "$distro" in
+        arch)
+            # Install SOF firmware from official Arch repos
+            if pacman -S --noconfirm --needed sof-firmware alsa-ucm-conf 2>/dev/null; then
+                success "SOF firmware installed from official repositories"
+            else
+                warning "SOF firmware installation failed - audio may not work optimally"
+            fi
+            ;;
+        ubuntu)
+            # Install SOF firmware from Ubuntu repos
+            if apt-get install -y sof-firmware alsa-ucm-conf 2>/dev/null; then
+                success "SOF firmware installed"
+            else
+                warning "SOF firmware installation failed - audio may not work optimally"
+            fi
+            ;;
+        fedora)
+            # Install SOF firmware from Fedora repos
+            if dnf install -y sof-firmware alsa-sof-firmware alsa-ucm 2>/dev/null; then
+                success "SOF firmware installed"
+            else
+                warning "SOF firmware installation failed - audio may not work optimally"
+            fi
+            ;;
+        opensuse)
+            # Install SOF firmware from OpenSUSE repos
+            if zypper install -y sof-firmware alsa-ucm-conf 2>/dev/null; then
+                success "SOF firmware installed"
+            else
+                warning "SOF firmware installation failed - audio may not work optimally"
+            fi
+            ;;
+    esac
+    
+    # Ensure ALSA state is saved/restored
+    systemctl enable --now alsa-restore.service 2>/dev/null || true
+    systemctl enable --now alsa-state.service 2>/dev/null || true
+    
+    info "SOF audio configuration complete"
 }
 
 # --- Distribution-Specific Package Installation ---
@@ -2314,6 +2433,9 @@ EOFYAY
     # Install ASUS-specific packages (asusctl, power-profiles-daemon, switcheroo-control)
     install_arch_asus_packages
     
+    # Install SOF firmware for audio support
+    install_sof_firmware "arch"
+    
     # Setup TDP management (always install for all systems)
     setup_tdp_management "arch"
     
@@ -2340,6 +2462,9 @@ setup_debian_based() {
     # Install ASUS-specific packages
     install_debian_asus_packages
     
+    # Install SOF firmware for audio support
+    install_sof_firmware "ubuntu"
+    
     # Setup TDP management (always install for all systems)
     setup_tdp_management "debian"
     
@@ -2363,6 +2488,9 @@ setup_fedora_based() {
     
     # Install ASUS-specific packages
     install_fedora_asus_packages
+    
+    # Install SOF firmware for audio support
+    install_sof_firmware "fedora"
     
     # Setup TDP management (always install for all systems)
     setup_tdp_management "fedora"
@@ -2388,6 +2516,9 @@ setup_opensuse() {
     
     # Install ASUS-specific packages
     install_opensuse_asus_packages
+    
+    # Install SOF firmware for audio support
+    install_sof_firmware "opensuse"
     
     # Setup TDP management (always install for all systems)
     setup_tdp_management "opensuse"
@@ -2475,7 +2606,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 0.2.0-pre-release - Modern Power Management"
+    echo "  Version 0.2.0-RC1 - Modern Power Management"
     echo "============================================================"
     echo
     
@@ -2551,7 +2682,7 @@ main() {
     success "Applied GZ302-specific hardware fixes:"
     success "- Wi-Fi stability (MediaTek MT7925e)"
     success "- Touchpad detection and functionality"
-    success "- Audio fixes for ASUS hardware"
+    success "- Audio support (SOF firmware)"
     success "- GPU and thermal optimizations"
     success "- Power management: Use 'pwrcfg' command"
     success "- Refresh rate control: Use 'rrcfg' command"
