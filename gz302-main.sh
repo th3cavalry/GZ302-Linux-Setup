@@ -10,7 +10,7 @@
 # the appropriate hardware fixes for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.
 # It applies critical hardware fixes and TDP/refresh rate management.
 #
-# REQUIRED: Linux kernel 6.15+ minimum (6.17+ strongly recommended)
+# REQUIRED: Linux kernel 6.14+ minimum (6.17+ strongly recommended)
 #
 # Optional software can be installed via modular scripts:
 # - gz302-gaming: Gaming software (Steam, Lutris, MangoHUD, etc.)
@@ -127,35 +127,49 @@ check_kernel_version() {
     major=$(echo "$kernel_version" | cut -d. -f1)
     minor=$(echo "$kernel_version" | cut -d. -f2)
     
-    # Convert to comparable format (e.g., 6.15 -> 615)
+    # Convert to comparable format (e.g., 6.14 -> 614)
     local version_num=$((major * 100 + minor))
-    local min_version=615  # 6.15
-    local recommended_version=617  # 6.17
+    local min_version=614  # 6.14 - Absolute minimum (AMD XDNA NPU support)
+    local recommended_version=617  # 6.17 - Latest stable with full optimizations
     
     info "Detected kernel version: $(uname -r)"
     
     if [[ $version_num -lt $min_version ]]; then
-        warning "⚠️  Your kernel version ($kernel_version) is below the minimum supported version (6.15)"
-        warning "⚠️  While the script will continue, you may experience:"
-        warning "    - WiFi stability issues (MediaTek MT7925)"
-        warning "    - Suboptimal AMD Strix Halo performance"
-        warning "    - Missing AMDGPU driver features"
-        warning "⚠️  Please upgrade to kernel 6.15+ (6.17+ recommended) for best results"
+        error "❌ UNSUPPORTED KERNEL VERSION ❌"
         echo
-        read -p "Continue anyway? (y/N): " -n 1 -r
+        echo "Your kernel version ($kernel_version) is below the absolute minimum (6.14)."
         echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            error "Installation cancelled. Please upgrade your kernel and try again."
-        fi
+        echo "Kernel 6.14+ is REQUIRED for GZ302EA because it includes:"
+        echo "  - AMD XDNA NPU driver (essential for Ryzen AI MAX+ 395)"
+        echo "  - MediaTek MT7925 WiFi driver integration"
+        echo "  - AMD P-State driver with dynamic core ranking"
+        echo "  - Critical RDNA 3.5 GPU support for Radeon 8060S"
+        echo
+        echo "Please upgrade to kernel 6.14 or higher before running this script."
+        echo
+        echo "Upgrade options:"
+        echo "  1. Use your distribution's kernel update mechanism"
+        echo "  2. Install a mainline kernel from kernel.org"
+        echo "  3. Check Info/kernel_changelog.md for version details"
+        echo
+        echo "If you cannot upgrade, please create an issue on GitHub:"
+        echo "  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
+        echo
+        error "Installation cancelled. Kernel 6.14+ is required."
     elif [[ $version_num -lt $recommended_version ]]; then
-        warning "Your kernel version ($kernel_version) meets minimum requirements"
-        info "For best performance, consider upgrading to kernel 6.17+ which includes:"
-        info "  - Further AMD Strix Halo performance improvements"
-        info "  - Enhanced Radeon 8060S integrated GPU scheduling"
-        info "  - Improved MediaTek MT7925 WiFi performance and stability"
+        warning "Your kernel version ($kernel_version) meets minimum requirements (6.14+)"
+        info "For optimal performance, consider upgrading to kernel 6.17+ which includes:"
+        info "  - Fine-tuned AMD XDNA driver for enhanced AI performance"
+        info "  - Enhanced Radeon 8060S iGPU scheduling and stability"
+        info "  - Optimized MediaTek MT7925 WiFi with regression fixes"
+        info "  - Refined AMD P-State power management for Strix Halo"
+        echo
+        info "See Info/kernel_changelog.md for detailed version comparison"
         echo
     else
-        success "Kernel version ($kernel_version) meets recommended requirements"
+        success "Kernel version ($kernel_version) meets recommended requirements (6.17+)"
+        success "You have the latest optimizations for GZ302EA hardware"
+        echo
     fi
     
     # Return the version number for conditional logic
@@ -192,13 +206,12 @@ detect_distribution() {
 }
 
 # --- Hardware Fixes for All Distributions ---
-# Updated based on latest kernel support and community research
-# Sources: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org,
-#          Strix Halo HomeLab, Ubuntu 25.10 benchmarks, Phoronix community
+# Updated based on latest kernel support and community research (October 2025)
+# Sources: Info/kernel_changelog.md, Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs,
+#          asus-linux.org, Strix Halo HomeLab, Phoronix community
 # GZ302EA-XS99: AMD Ryzen AI MAX+ 395 with AMD Radeon 8060S integrated graphics (100% AMD)
-# REQUIRED: Kernel 6.15+ minimum (6.17+ strongly recommended)
-# Kernel 6.15+ includes XDNA NPU driver, native MT7925 WiFi stability, improved AMDGPU support
-# Kernel 6.17 (latest stable) includes enhanced AMD Strix Halo performance and GPU scheduling
+# REQUIRED: Kernel 6.14+ minimum (6.17+ strongly recommended)
+# See Info/kernel_changelog.md for detailed kernel version comparison
 
 apply_hardware_fixes() {
     info "Applying GZ302 hardware fixes for all distributions..."
@@ -231,27 +244,28 @@ apply_hardware_fixes() {
     fi
     
     # Wi-Fi fixes for MediaTek MT7925
-    # Kernel 6.15+ includes native WiFi stability improvements
-    # Kernel 6.17 (latest stable) further improves performance and throughput
-    # ASPM workaround required only for kernels < 6.15
+    # See Info/kernel_changelog.md for detailed kernel version WiFi improvements
+    # Kernel 6.14: Basic driver integration with known stability issues
+    # Kernel 6.15-6.16: Improved stability and performance
+    # Kernel 6.17: Optimized with regression fixes and enhanced performance
     info "Configuring MediaTek MT7925 Wi-Fi..."
     
-    if [[ $version_num -lt 615 ]]; then
-        info "Kernel < 6.15 detected: Applying ASPM workaround for MT7925 WiFi stability"
+    if [[ $version_num -lt 616 ]]; then
+        info "Kernel < 6.16 detected: Applying ASPM workaround for MT7925 WiFi stability"
         cat > /etc/modprobe.d/mt7925.conf <<'EOF'
 # MediaTek MT7925 Wi-Fi fixes for GZ302
 # Disable ASPM for stability (fixes disconnection and suspend/resume issues)
-# Required for kernels < 6.15. Kernel 6.15+ has improved native support.
+# Required for kernels < 6.16. Kernel 6.16+ has improved native support.
 # Based on community findings from EndeavourOS forums and kernel patches
 options mt7925e disable_aspm=1
 EOF
     else
-        info "Kernel 6.15+ detected: Using improved native MT7925 WiFi support"
-        info "ASPM workaround not needed with kernel 6.15+"
+        info "Kernel 6.16+ detected: Using improved native MT7925 WiFi support"
+        info "ASPM workaround not needed with kernel 6.16+"
         # Create a minimal config noting that workarounds aren't needed
         cat > /etc/modprobe.d/mt7925.conf <<'EOF'
 # MediaTek MT7925 Wi-Fi configuration for GZ302
-# Kernel 6.15+ includes native improvements - ASPM workaround not needed
+# Kernel 6.16+ includes native improvements - ASPM workaround not needed
 # WiFi 7 MLO support and enhanced stability included natively
 EOF
     fi
@@ -539,47 +553,70 @@ setup_tdp_management() {
     esac
     
     # Create TDP management script
-    cat > /usr/local/bin/gz302-tdp <<'EOF'
+    cat > /usr/local/bin/pwrcfg <<'EOF'
 #!/bin/bash
-# GZ302 TDP Management Script
-# Based on research from Shahzebqazi's Asus-Z13-Flow-2025-PCMR
+# GZ302 Power Configuration Script (pwrcfg)
+# Manages power profiles with SPL/sPPT/fPPT for AMD Ryzen AI MAX+ 395 (Strix Halo)
 
-TDP_CONFIG_DIR="/etc/gz302-tdp"
+TDP_CONFIG_DIR="/etc/pwrcfg"
 CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
 AUTO_CONFIG_FILE="$TDP_CONFIG_DIR/auto-config"
 AC_PROFILE_FILE="$TDP_CONFIG_DIR/ac-profile"
 BATTERY_PROFILE_FILE="$TDP_CONFIG_DIR/battery-profile"
 
-# TDP Profiles (in mW) - Optimized for GZ302 AMD Ryzen AI MAX+ 395 (Strix Halo)
-declare -A TDP_PROFILES
-TDP_PROFILES[max_performance]="65000"    # Absolute maximum (AC only, short bursts)
-TDP_PROFILES[gaming]="54000"             # Gaming optimized (AC recommended)
-TDP_PROFILES[performance]="45000"        # High performance (AC recommended)
-TDP_PROFILES[balanced]="35000"           # Balanced performance/efficiency
-TDP_PROFILES[efficient]="25000"          # Better efficiency, good performance
-TDP_PROFILES[power_saver]="15000"        # Maximum battery life
-TDP_PROFILES[ultra_low]="10000"          # Emergency battery extension
+# Power Profiles for GZ302 AMD Ryzen AI MAX+ 395 (Strix Halo)
+# SPL (Sustained Power Limit): Long-term steady power level
+# sPPT (Slow Power Boost): Short-term boost (up to ~2 minutes)
+# fPPT (Fast Power Boost): Very short-term boost (few seconds)
+# All values in milliwatts (mW)
+
+# Profile format: "SPL:sPPT:fPPT"
+declare -A POWER_PROFILES
+POWER_PROFILES[emergency]="10000:12000:12000"      # Emergency: 10W SPL, 12W boost (30Hz)
+POWER_PROFILES[battery]="18000:20000:20000"        # Battery: 18W SPL, 20W boost (30Hz)
+POWER_PROFILES[efficient]="30000:35000:35000"      # Efficient: 30W SPL, 35W boost (60Hz)
+POWER_PROFILES[balanced]="40000:45000:45000"       # Balanced: 40W SPL, 45W boost (90Hz)
+POWER_PROFILES[performance]="55000:60000:60000"    # Performance: 55W SPL, 60W boost (120Hz)
+POWER_PROFILES[gaming]="70000:80000:80000"         # Gaming: 70W SPL, 80W boost (180Hz)
+POWER_PROFILES[maximum]="90000:90000:90000"        # Maximum: 90W sustained (180Hz)
+
+# Target refresh rates for each power profile (auto-sync with rrcfg)
+declare -A REFRESH_RATES
+REFRESH_RATES[emergency]="30"
+REFRESH_RATES[battery]="30"
+REFRESH_RATES[efficient]="60"
+REFRESH_RATES[balanced]="90"
+REFRESH_RATES[performance]="120"
+REFRESH_RATES[gaming]="180"
+REFRESH_RATES[maximum]="180"
 
 # Create config directory
 mkdir -p "$TDP_CONFIG_DIR"
 
 show_usage() {
-    echo "Usage: gz302-tdp [PROFILE|status|list|auto|config]"
+    echo "Usage: pwrcfg [PROFILE|status|list|auto|config]"
     echo ""
-    echo "Profiles:"
-    echo "  max_performance  - 65W absolute maximum (AC only, short bursts)"
-    echo "  gaming           - 54W gaming optimized (AC recommended)"
-    echo "  performance      - 45W high performance (AC recommended)"
-    echo "  balanced         - 35W balanced performance/efficiency (default)"
-    echo "  efficient        - 25W better efficiency, good performance"
-    echo "  power_saver      - 15W maximum battery life"
-    echo "  ultra_low        - 10W emergency battery extension"
+    echo "Power Profiles (SPL/sPPT/fPPT):"
+    echo "  emergency     - 10/12/12W  @ 30Hz  - Emergency battery extension"
+    echo "  battery       - 18/20/20W  @ 30Hz  - Maximum battery life"
+    echo "  efficient     - 30/35/35W  @ 60Hz  - Efficient with good performance"
+    echo "  balanced      - 40/45/45W  @ 90Hz  - Balanced performance/efficiency (default)"
+    echo "  performance   - 55/60/60W  @ 120Hz - High performance (AC recommended)"
+    echo "  gaming        - 70/80/80W  @ 180Hz - Gaming optimized (AC required)"
+    echo "  maximum       - 90/90/90W  @ 180Hz - Absolute maximum (AC only)"
     echo ""
     echo "Commands:"
-    echo "  status           - Show current TDP and power source"
-    echo "  list             - List available profiles"
+    echo "  status           - Show current power profile and settings"
+    echo "  list             - List available profiles with details"
     echo "  auto             - Enable/disable automatic profile switching"
     echo "  config           - Configure automatic profile preferences"
+    echo ""
+    echo "Notes:"
+    echo "  - Refresh rate changes automatically with power profile"
+    echo "  - Use 'rrcfg' to manually override refresh rate"
+    echo "  - SPL: Sustained Power Limit (long-term steady power)"
+    echo "  - sPPT: Slow Power Boost (short-term, ~2 minutes)"
+    echo "  - fPPT: Fast Power Boost (very short-term, few seconds)"
 }
 
 get_battery_status() {
@@ -710,19 +747,28 @@ get_battery_percentage() {
 
 set_tdp_profile() {
     local profile="$1"
-    local tdp_value="${TDP_PROFILES[$profile]}"
+    local power_spec="${POWER_PROFILES[$profile]}"
     
-    if [ -z "$tdp_value" ]; then
+    if [ -z "$power_spec" ]; then
         echo "Error: Unknown profile '$profile'"
-        echo "Use 'gz302-tdp list' to see available profiles"
+        echo "Use 'pwrcfg list' to see available profiles"
         return 1
     fi
     
-    echo "Setting TDP profile: $profile ($(($tdp_value / 1000))W)"
+    # Extract SPL, sPPT, fPPT from profile (format: "SPL:sPPT:fPPT")
+    local spl=$(echo "$power_spec" | cut -d':' -f1)
+    local sppt=$(echo "$power_spec" | cut -d':' -f2)
+    local fppt=$(echo "$power_spec" | cut -d':' -f3)
+    
+    echo "Setting power profile: $profile"
+    echo "  SPL (Sustained):  $(($spl / 1000))W"
+    echo "  sPPT (Slow Boost): $(($sppt / 1000))W"
+    echo "  fPPT (Fast Boost): $(($fppt / 1000))W"
+    echo "  Target Refresh:    ${REFRESH_RATES[$profile]}Hz"
     
     # Check if we're on AC power for high-power profiles
     local power_source=$(get_battery_status)
-    if [ "$power_source" = "Battery" ] && [ "$tdp_value" -gt 35000 ]; then
+    if [ "$power_source" = "Battery" ] && [ "$spl" -gt 45000 ]; then
         echo "Warning: High power profile ($profile) selected while on battery power"
         echo "This may cause rapid battery drain. Consider using 'balanced' or lower profiles."
         read -p "Continue anyway? (y/N): " -n 1 -r
@@ -733,22 +779,25 @@ set_tdp_profile() {
         fi
     fi
     
-    # Try multiple methods to apply TDP settings
+    # Try multiple methods to apply power settings
     local success=false
     
-    # Method 1: Try ryzenadj first
+    # Method 1: Try ryzenadj first (with SPL/sPPT/fPPT support)
     if command -v ryzenadj >/dev/null 2>&1; then
-        echo "Attempting to apply TDP using ryzenadj..."
-        if ryzenadj --stapm-limit="$tdp_value" --fast-limit="$tdp_value" --slow-limit="$tdp_value" >/dev/null 2>&1; then
+        echo "Attempting to apply power limits using ryzenadj..."
+        # --stapm-limit = SPL (Sustained Power Limit)
+        # --slow-limit = sPPT (Slow Package Power Tracking)
+        # --fast-limit = fPPT (Fast Package Power Tracking)
+        if ryzenadj --stapm-limit="$spl" --slow-limit="$sppt" --fast-limit="$fppt" >/dev/null 2>&1; then
             success=true
-            echo "TDP applied successfully using ryzenadj"
+            echo "Power limits applied successfully using ryzenadj"
         else
             echo "ryzenadj failed, checking for common issues..."
             
             # Check for secure boot issues
             if dmesg | grep -i "secure boot" >/dev/null 2>&1; then
                 echo "Secure boot may be preventing direct hardware access"
-                echo "Consider disabling secure boot in BIOS for full TDP control"
+                echo "Consider disabling secure boot in BIOS for full power control"
             fi
             
             # Check for permissions
@@ -766,7 +815,7 @@ set_tdp_profile() {
     if [ "$success" = false ] && command -v powerprofilesctl >/dev/null 2>&1; then
         echo "Attempting to use power-profiles-daemon..."
         case "$profile" in
-            max_performance|gaming|performance)
+            maximum|gaming|performance)
                 if powerprofilesctl set performance >/dev/null 2>&1; then
                     echo "Set system power profile to performance mode"
                     success=true
@@ -778,7 +827,7 @@ set_tdp_profile() {
                     success=true
                 fi
                 ;;
-            power_saver|ultra_low)
+            battery|emergency)
                 if powerprofilesctl set power-saver >/dev/null 2>&1; then
                     echo "Set system power profile to power-saver mode"
                     success=true
@@ -791,13 +840,13 @@ set_tdp_profile() {
     if [ "$success" = false ] && command -v cpupower >/dev/null 2>&1; then
         echo "Attempting to use cpupower for frequency scaling..."
         case "$profile" in
-            max_performance|gaming|performance)
+            maximum|gaming|performance)
                 if cpupower frequency-set -g performance >/dev/null 2>&1; then
                     echo "Set CPU governor to performance"
                     success=true
                 fi
                 ;;
-            power_saver|ultra_low)
+            battery|emergency)
                 if cpupower frequency-set -g powersave >/dev/null 2>&1; then
                     echo "Set CPU governor to powersave"
                     success=true
@@ -814,15 +863,22 @@ set_tdp_profile() {
     
     if [ "$success" = true ]; then
         echo "$profile" > "$CURRENT_PROFILE_FILE"
-        echo "TDP profile '$profile' applied successfully"
+        echo "Power profile '$profile' applied successfully"
         
         # Store timestamp and power source for automatic switching
         echo "$(date +%s)" > "$TDP_CONFIG_DIR/last-change"
         echo "$power_source" > "$TDP_CONFIG_DIR/last-power-source"
         
+        # Automatically adjust refresh rate based on power profile (unless user manually overrides)
+        if command -v rrcfg >/dev/null 2>&1; then
+            local target_refresh="${REFRESH_RATES[$profile]}"
+            echo "Adjusting refresh rate to ${target_refresh}Hz to match power profile..."
+            rrcfg "$profile" >/dev/null 2>&1 || echo "Note: Refresh rate adjustment failed (use 'rrcfg' to set manually)"
+        fi
+        
         return 0
     else
-        echo "Error: Failed to apply TDP profile using any available method"
+        echo "Error: Failed to apply power profile using any available method"
         echo ""
         echo "Troubleshooting steps:"
         echo "1. Ensure you're running as root (sudo)"
@@ -847,17 +903,28 @@ show_status() {
     echo "  Battery: $battery_pct%"
     echo "  Current Profile: $current_profile"
     
-    if [ "$current_profile" != "Unknown" ] && [ -n "${TDP_PROFILES[$current_profile]}" ]; then
-        echo "  TDP Limit: $(( ${TDP_PROFILES[$current_profile]} / 1000 ))W"
+    if [ "$current_profile" != "Unknown" ] && [ -n "${POWER_PROFILES[$current_profile]}" ]; then
+        local power_spec="${POWER_PROFILES[$current_profile]}"
+        local spl=$(echo "$power_spec" | cut -d':' -f1)
+        local sppt=$(echo "$power_spec" | cut -d':' -f2)
+        local fppt=$(echo "$power_spec" | cut -d':' -f3)
+        echo "  SPL:  $(($spl / 1000))W (Sustained)"
+        echo "  sPPT: $(($sppt / 1000))W (Slow Boost)"
+        echo "  fPPT: $(($fppt / 1000))W (Fast Boost)"
+        echo "  Target Refresh: ${REFRESH_RATES[$current_profile]}Hz"
     fi
 }
 
 list_profiles() {
-    echo "Available TDP profiles:"
-    for profile in max_performance gaming performance balanced efficient power_saver ultra_low; do
-        if [ -n "${TDP_PROFILES[$profile]}" ]; then
-            local tdp_watts=$(( ${TDP_PROFILES[$profile]} / 1000 ))
-            echo "  $profile: ${tdp_watts}W"
+    echo "Available Power Profiles (SPL/sPPT/fPPT @ Refresh):"
+    for profile in emergency battery efficient balanced performance gaming maximum; do
+        if [ -n "${POWER_PROFILES[$profile]}" ]; then
+            local power_spec="${POWER_PROFILES[$profile]}"
+            local spl=$(echo "$power_spec" | cut -d':' -f1)
+            local sppt=$(echo "$power_spec" | cut -d':' -f2)
+            local fppt=$(echo "$power_spec" | cut -d':' -f3)
+            local refresh="${REFRESH_RATES[$profile]}"
+            printf "  %-12s %2d/%2d/%2dW @ %3dHz\n" "$profile:" $(($spl/1000)) $(($sppt/1000)) $(($fppt/1000)) $refresh
         fi
     done
 }
@@ -982,7 +1049,7 @@ case "$1" in
 esac
 EOF
 
-    chmod +x /usr/local/bin/gz302-tdp
+    chmod +x /usr/local/bin/pwrcfg
     
     # Create systemd service for automatic TDP management
     cat > /etc/systemd/system/gz302-tdp-auto.service <<EOF
@@ -993,7 +1060,7 @@ Wants=gz302-tdp-monitor.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/gz302-tdp balanced
+ExecStart=/usr/local/bin/pwrcfg balanced
 RemainAfterExit=yes
 
 [Install]
@@ -1008,7 +1075,7 @@ After=multi-user.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/gz302-tdp-monitor
+ExecStart=/usr/local/bin/pwrcfg-monitor
 Restart=always
 RestartSec=5
 
@@ -1017,18 +1084,18 @@ WantedBy=multi-user.target
 EOF
 
     # Create power monitoring script
-    cat > /usr/local/bin/gz302-tdp-monitor <<'MONITOR_EOF'
+    cat > /usr/local/bin/pwrcfg-monitor <<'MONITOR_EOF'
 #!/bin/bash
 # GZ302 TDP Power Source Monitor
 # Monitors power source changes and automatically switches TDP profiles
 
 while true; do
-    /usr/local/bin/gz302-tdp auto
+    /usr/local/bin/pwrcfg auto
     sleep 10  # Check every 10 seconds
 done
 MONITOR_EOF
 
-    chmod +x /usr/local/bin/gz302-tdp-monitor
+    chmod +x /usr/local/bin/pwrcfg-monitor
     
     systemctl enable gz302-tdp-auto.service
     
@@ -1042,7 +1109,7 @@ MONITOR_EOF
     read -p "Configure automatic switching? (Y/n): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-        /usr/local/bin/gz302-tdp config
+        /usr/local/bin/pwrcfg config
     else
         echo "You can configure automatic switching later using: gz302-tdp config"
     fi
@@ -1056,12 +1123,12 @@ install_refresh_management() {
     info "Installing virtual refresh rate management system..."
     
     # Create refresh rate management script
-    cat > /usr/local/bin/gz302-refresh <<'EOF'
+    cat > /usr/local/bin/rrcfg <<'EOF'
 #!/bin/bash
 # GZ302 Virtual Refresh Rate Management Script
 # Provides intelligent refresh rate control for gaming and power optimization
 
-REFRESH_CONFIG_DIR="/etc/gz302-refresh"
+REFRESH_CONFIG_DIR="/etc/rrcfg"
 CURRENT_PROFILE_FILE="$REFRESH_CONFIG_DIR/current-profile"
 AUTO_CONFIG_FILE="$REFRESH_CONFIG_DIR/auto-config"
 AC_PROFILE_FILE="$REFRESH_CONFIG_DIR/ac-profile"
@@ -1119,7 +1186,7 @@ POWER_ESTIMATES[ultra_low]="12"          # Minimal power
 mkdir -p "$REFRESH_CONFIG_DIR"
 
 show_usage() {
-    echo "Usage: gz302-refresh [PROFILE|COMMAND|GAME_NAME]"
+    echo "Usage: rrcfg [PROFILE|COMMAND|GAME_NAME]"
     echo ""
     echo "Profiles:"
     echo "  gaming           - 180Hz maximum gaming performance"
@@ -1143,12 +1210,12 @@ show_usage() {
     echo "  battery-predict  - Predict battery life with different refresh rates"
     echo ""
     echo "Examples:"
-    echo "  gz302-refresh gaming        # Set gaming refresh rate profile"
-    echo "  gz302-refresh game add steam # Add game-specific profile for Steam"
-    echo "  gz302-refresh vrr ranges    # Configure VRR min/max ranges"
-    echo "  gz302-refresh monitor DP-1  # Configure specific monitor"
-    echo "  gz302-refresh color set 6500K # Set color temperature"
-    echo "  gz302-refresh thermal-status # Check thermal throttling"
+    echo "  rrcfg gaming        # Set gaming refresh rate profile"
+    echo "  rrcfg game add steam # Add game-specific profile for Steam"
+    echo "  rrcfg vrr ranges    # Configure VRR min/max ranges"
+    echo "  rrcfg monitor DP-1  # Configure specific monitor"
+    echo "  rrcfg color set 6500K # Set color temperature"
+    echo "  rrcfg thermal-status # Check thermal throttling"
 }
 
 detect_displays() {
@@ -1212,7 +1279,7 @@ set_refresh_rate() {
     
     if [[ -z "$target_rate" ]]; then
         echo "Error: Unknown profile '$profile'"
-        echo "Use 'gz302-refresh list' to see available profiles"
+        echo "Use 'rrcfg list' to see available profiles"
         return 1
     fi
     
@@ -1272,7 +1339,7 @@ set_refresh_rate() {
         
         # Also set global FPS limit via environment variable for compatibility
         export MANGOHUD_CONFIG="fps_limit=$frame_limit"
-        echo "export MANGOHUD_CONFIG=\"fps_limit=$frame_limit\"" > "/etc/gz302-refresh/mangohud-fps-limit"
+        echo "export MANGOHUD_CONFIG=\"fps_limit=$frame_limit\"" > "/etc/rrcfg/mangohud-fps-limit"
         
         # Apply VRR range if VRR is enabled
         if [[ -f "$VRR_ENABLED_FILE" ]] && [[ "$(cat "$VRR_ENABLED_FILE" 2>/dev/null)" == "true" ]]; then
@@ -1374,7 +1441,7 @@ toggle_vrr() {
             ;;
             
         *)
-            echo "Usage: gz302-refresh vrr [on|off|toggle]"
+            echo "Usage: rrcfg vrr [on|off|toggle]"
             return 1
             ;;
     esac
@@ -1485,12 +1552,12 @@ configure_auto_switching() {
         echo "  Battery: $battery_profile (${REFRESH_PROFILES[$battery_profile]}Hz)"
         
         # Enable the auto refresh service
-        systemctl enable gz302-refresh-auto.service >/dev/null 2>&1
-        systemctl start gz302-refresh-auto.service >/dev/null 2>&1
+        systemctl enable rrcfg-auto.service >/dev/null 2>&1
+        systemctl start rrcfg-auto.service >/dev/null 2>&1
     else
         echo "false" > "$AUTO_CONFIG_FILE"
-        systemctl disable gz302-refresh-auto.service >/dev/null 2>&1
-        systemctl stop gz302-refresh-auto.service >/dev/null 2>&1
+        systemctl disable rrcfg-auto.service >/dev/null 2>&1
+        systemctl stop rrcfg-auto.service >/dev/null 2>&1
         echo "Automatic switching disabled"
     fi
 }
@@ -1564,8 +1631,8 @@ manage_game_profiles() {
     case "$action" in
         "add")
             if [[ -z "$game_name" ]]; then
-                echo "Usage: gz302-refresh game add [GAME_NAME] [PROFILE]"
-                echo "Example: gz302-refresh game add steam gaming"
+                echo "Usage: rrcfg game add [GAME_NAME] [PROFILE]"
+                echo "Example: rrcfg game add steam gaming"
                 return 1
             fi
             
@@ -1585,7 +1652,7 @@ manage_game_profiles() {
             
         "remove")
             if [[ -z "$game_name" ]]; then
-                echo "Usage: gz302-refresh game remove [GAME_NAME]"
+                echo "Usage: rrcfg game remove [GAME_NAME]"
                 return 1
             fi
             
@@ -1626,7 +1693,7 @@ manage_game_profiles() {
             ;;
             
         *)
-            echo "Usage: gz302-refresh game [add|remove|list|detect]"
+            echo "Usage: rrcfg game [add|remove|list|detect]"
             ;;
     esac
 }
@@ -1646,8 +1713,8 @@ configure_monitor() {
     fi
     
     if [[ -z "$rate" ]]; then
-        echo "Usage: gz302-refresh monitor [DISPLAY] [RATE]"
-        echo "Example: gz302-refresh monitor DP-1 120"
+        echo "Usage: rrcfg monitor [DISPLAY] [RATE]"
+        echo "Example: rrcfg monitor DP-1 120"
         return 1
     fi
     
@@ -1830,8 +1897,8 @@ configure_display_color() {
     case "$action" in
         "set")
             if [[ -z "$temperature" ]]; then
-                echo "Usage: gz302-refresh color set [TEMPERATURE]"
-                echo "Example: gz302-refresh color set 6500K"
+                echo "Usage: rrcfg color set [TEMPERATURE]"
+                echo "Example: rrcfg color set 6500K"
                 echo "Common values: 6500K (daylight), 5000K (neutral), 3200K (warm)"
                 return 1
             fi
@@ -1951,7 +2018,7 @@ GAMMASTEP_EOF
             ;;
             
         *)
-            echo "Usage: gz302-refresh color [set|auto|reset]"
+            echo "Usage: rrcfg color [set|auto|reset]"
             echo ""
             echo "Commands:"
             echo "  set [TEMP]  - Set color temperature (e.g., 6500K, 3200K)"
@@ -2076,24 +2143,24 @@ case "${1:-}" in
 esac
 EOF
 
-    chmod +x /usr/local/bin/gz302-refresh
+    chmod +x /usr/local/bin/rrcfg
     
     # Create systemd service for automatic refresh rate management
-    cat > /etc/systemd/system/gz302-refresh-auto.service <<EOF
+    cat > /etc/systemd/system/rrcfg-auto.service <<EOF
 [Unit]
 Description=GZ302 Automatic Refresh Rate Management
-Wants=gz302-refresh-monitor.service
+Wants=rrcfg-monitor.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/gz302-refresh auto
+ExecStart=/usr/local/bin/rrcfg auto
 EOF
 
     # Create systemd timer for periodic checking
-    cat > /etc/systemd/system/gz302-refresh-auto.timer <<EOF
+    cat > /etc/systemd/system/rrcfg-auto.timer <<EOF
 [Unit]
 Description=GZ302 Refresh Rate Auto Timer
-Requires=gz302-refresh-auto.service
+Requires=rrcfg-auto.service
 
 [Timer]
 OnBootSec=30sec
@@ -2105,14 +2172,14 @@ WantedBy=timers.target
 EOF
 
     # Create refresh rate monitoring service  
-    cat > /etc/systemd/system/gz302-refresh-monitor.service <<EOF
+    cat > /etc/systemd/system/rrcfg-monitor.service <<EOF
 [Unit]
 Description=GZ302 Refresh Rate Power Source Monitor
 After=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/gz302-refresh-monitor
+ExecStart=/usr/local/bin/rrcfg-monitor
 Restart=always
 RestartSec=5
 
@@ -2121,20 +2188,20 @@ WantedBy=multi-user.target
 EOF
 
     # Create power monitoring script for refresh rates
-    cat > /usr/local/bin/gz302-refresh-monitor <<'MONITOR_EOF'
+    cat > /usr/local/bin/rrcfg-monitor <<'MONITOR_EOF'
 #!/bin/bash
 # GZ302 Refresh Rate Power Source Monitor
 # Monitors power source changes and automatically switches refresh rate profiles
 
 while true; do
-    /usr/local/bin/gz302-refresh auto
+    /usr/local/bin/rrcfg auto
     sleep 30  # Check every 30 seconds (less frequent than TDP)
 done
 MONITOR_EOF
 
-    chmod +x /usr/local/bin/gz302-refresh-monitor
+    chmod +x /usr/local/bin/rrcfg-monitor
     
-    systemctl enable gz302-refresh-auto.timer
+    systemctl enable rrcfg-auto.timer
     
     echo ""
     info "Refresh rate management installation complete!"
@@ -2146,13 +2213,13 @@ MONITOR_EOF
     read -p "Configure automatic refresh rate switching? (Y/n): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-        /usr/local/bin/gz302-refresh config
+        /usr/local/bin/rrcfg config
     else
-        echo "You can configure automatic switching later using: gz302-refresh config"
+        echo "You can configure automatic switching later using: rrcfg config"
     fi
     
     echo ""
-    success "Refresh rate management installed. Use 'gz302-refresh' command to control display refresh rates."
+    success "Refresh rate management installed. Use 'rrcfg' command to control display refresh rates."
 }
 
 # Placeholder functions for snapshots
@@ -2478,7 +2545,7 @@ main() {
     success "- Audio fixes for ASUS hardware"
     success "- GPU and thermal optimizations"
     success "- TDP management: Use 'gz302-tdp' command"
-    success "- Refresh rate control: Use 'gz302-refresh' command"
+    success "- Refresh rate control: Use 'rrcfg' command"
     success "============================================================"
     echo
     
