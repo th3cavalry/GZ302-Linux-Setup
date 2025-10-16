@@ -1,13 +1,13 @@
 # GZ302 Linux Setup
 
-**Modular Linux setup scripts specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional downloadable modules for gaming, AI development, virtualization, and more.
+**Modular Linux setu=1 scripts specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional downloadable modules for gaming, AI development, virtualization, and more.
 
 **Supported Models**:
 - **GZ302EA-XS99** - 128GB RAM variant
 - **GZ302EA-XS64** - 64GB RAM variant
 - **GZ302EA-XS32** - 32GB RAM variant
 
-> **🚀 Version 0.2.0-RC1 - Modern Power Management!** Updated with kernel 6.14+ support, new `pwrcfg` and `rrcfg` commands, and SPL/sPPT/fPPT power architecture. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
+> **🚀 Version 1.0.0 - Stable Release!** Complete hardware support with kernel 6.14+ compatibility, modern `pwrcfg` and `rrcfg` power/display management, and SPL/sPPT/fPPT architecture. Includes fixes for touchpad detection and suspend/resume gestures. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
 
 ## ✨ Key Features
 

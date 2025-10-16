@@ -2,7 +2,7 @@
 
 Hardware-specific Linux setup scripts for the ASUS ROG Flow Z13 (GZ302) laptop with AMD Ryzen AI MAX+ 395 processor. These scripts automate critical hardware fixes and optional software installation for multiple Linux distributions.
 
-**Current Version: 0.2.0-RC1** - Modern power management with `pwrcfg`/`rrcfg` commands and modular architecture.
+**Current Version: 1.0.0** - Stable release with complete hardware support, modern power management with `pwrcfg`/`rrcfg` commands, and modular architecture.
 
 **ALWAYS reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.**
 
@@ -207,7 +207,7 @@ When incrementing version:
 2. Commit with message format: `Version X.Y.Z - Brief description`
 3. Update this file's header with new version
 
-## Current Implementation Status (Version 0.2.0-RC1)
+## Current Implementation Status (Version 1.0.0)
 
 ### Hardware Support (✅ Complete)
 - GZ302EA-XS99 specific hardware fixes

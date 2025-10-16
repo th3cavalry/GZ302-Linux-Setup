@@ -5,7 +5,10 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2025-10-16
+
+### 🎉 Stable Release
+First stable release with complete hardware support, modern power management, and all critical issues resolved.
 
 ### Fixed
 - **Issue #82**: Added missing `reload-hid_asus.service` to fix touchpad detection issues on Arch Linux
@@ -13,7 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Single-finger movement now works correctly after suspend/resume
   - Module reloads automatically 2 seconds after waking from suspend/hibernate
   - Fixes issue where only two-finger movement worked after resume
-- **Documentation**: Updated memory instructions version from 0.1.x to 0.2.0-RC1
 - **Critical Bug**: Removed conflicting `rrcfg auto` functionality that caused race conditions with `pwrcfg`
   - Eliminated duplicate auto-switching between pwrcfg and rrcfg
   - Removed rrcfg-auto.service and rrcfg-monitor.service to prevent conflicts
