@@ -398,8 +398,7 @@ After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate
 [Service]
 Type=oneshot
 ExecStartPre=/bin/sleep 2
-ExecStart=/usr/sbin/modprobe -r hid_asus
-ExecStart=/usr/sbin/modprobe hid_asus
+ExecStart=/bin/bash /usr/local/bin/gz302-folio-resume.sh
 
 [Install]
 WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target

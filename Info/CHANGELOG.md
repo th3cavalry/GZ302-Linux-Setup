@@ -5,6 +5,15 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2025-10-16
+
+### Fixed
+- **Issue #83**: Folio keyboard/touchpad not working after suspend/resume. Added resume service that reloads HID and attempts USB rebind for folio device. See `gz302-folio-resume.sh` for details and update vendor/product IDs if needed.
+
+### Changed
+- **Systemd Resume Service**: Now calls folio resume script for full HID and USB rebind after sleep.
+- **Documentation**: Updated README.md with folio resume workaround and instructions.
+
 ## [1.0.0] - 2025-10-16
 
 ### 🎉 Stable Release
