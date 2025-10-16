@@ -388,6 +388,26 @@ EOF
     systemctl daemon-reload
     systemctl enable reload-hid_asus.service
 
+    # Create systemd service to reload hid_asus module after suspend/resume
+    info "Creating suspend/resume HID module reload service for touchpad gestures..."
+    cat > /etc/systemd/system/reload-hid_asus-resume.service <<'EOF'
+[Unit]
+Description=Reload hid_asus module after resume for GZ302 Touchpad gestures
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/sleep 2
+ExecStart=/usr/sbin/modprobe -r hid_asus
+ExecStart=/usr/sbin/modprobe hid_asus
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+EOF
+
+    # Enable the resume service
+    systemctl enable reload-hid_asus-resume.service
+
     # Reload hardware database and udev
     systemd-hwdb update 2>/dev/null || true
     udevadm control --reload 2>/dev/null || true

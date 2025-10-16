@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Issue #82**: Added missing `reload-hid_asus.service` to fix touchpad detection issues on Arch Linux
+- **Issue #82 (suspend/resume)**: Added `reload-hid_asus-resume.service` to fix touchpad gestures after wake from sleep
+  - Single-finger movement now works correctly after suspend/resume
+  - Module reloads automatically 2 seconds after waking from suspend/hibernate
+  - Fixes issue where only two-finger movement worked after resume
 - **Documentation**: Updated memory instructions version from 0.1.x to 0.2.0-RC1
 - **Critical Bug**: Removed conflicting `rrcfg auto` functionality that caused race conditions with `pwrcfg`
   - Eliminated duplicate auto-switching between pwrcfg and rrcfg
@@ -17,8 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed configuration confusion where users had separate AC/Battery profiles for power and refresh
 
 ### Added
-- **Touchpad Detection**: Restored systemd service for reliable HID module loading
-- **Service Integration**: Automatic enabling of reload-hid_asus.service during hardware setup
+- **Touchpad Detection**: Restored systemd service for reliable HID module loading at boot
+- **Touchpad Resume Fix**: New systemd service reloads HID module after suspend/resume for gesture support
+- **Service Integration**: Automatic enabling of both reload-hid_asus services during hardware setup
 
 ### Changed
 - **Refresh Rate Management**: `rrcfg` is now manual-only, automatic switching is handled by `pwrcfg config`
