@@ -1,8 +1,8 @@
 # GZ302 Linux Setup Scripts
 
-Hardware-specific Linux setup scripts for the ASUS ROG Flow Z13 (GZ302EA-XS99) laptop with AMD Ryzen AI MAX+ 395 processor. These scripts automate critical hardware fixes and optional software installation for multiple Linux distributions.
+Hardware-specific Linux setup scripts for the ASUS ROG Flow Z13 (GZ302) laptop with AMD Ryzen AI MAX+ 395 processor. These scripts automate critical hardware fixes and optional software installation for multiple Linux distributions.
 
-**Current Version: 0.1.0-pre-release** - Modular architecture with bash-only implementation.
+**Current Version: 0.2.0-RC1** - Modern power management with `pwrcfg`/`rrcfg` commands and modular architecture.
 
 **ALWAYS reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.**
 
@@ -140,7 +140,8 @@ If the user asks you to remember something or add something to your memory, you 
 ### Prerequisites and Requirements
 - **CRITICAL**: Scripts require `sudo` privileges and an active internet connection
 - **Required tools**: curl, bash, standard Linux utilities (grep, awk, cut, etc.)
-- **Target hardware**: ASUS ROG Flow Z13 (GZ302EA-XS99) with AMD Ryzen AI MAX+ 395 processor and AMD Radeon 8060S integrated GPU
+- **Target hardware**: ASUS ROG Flow Z13 (GZ302EA-XS99/XS64/XS32) with AMD Ryzen AI MAX+ 395 processor and AMD Radeon 8060S integrated GPU
+- **Kernel requirement**: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU and Strix Halo optimizations
 - **Supported distributions**: Arch Linux, Debian/Ubuntu, Fedora, OpenSUSE (and their derivatives)
 
 ### Current Repository Structure
@@ -148,12 +149,12 @@ If the user asks you to remember something or add something to your memory, you 
 .
 ├── README.md                      # User documentation
 ├── .gitignore                     # Excludes build artifacts
-├── gz302-main.sh                  # Main script (~2,200 lines) - hardware fixes, TDP, refresh rate
-├── gz302-gaming.sh                # Gaming module (~200 lines) - optional download
-├── gz302-llm.sh                   # AI/LLM module (~180 lines) - optional download
-├── gz302-hypervisor.sh            # Hypervisor module (~110 lines) - optional download
-├── gz302-snapshots.sh             # Snapshots module (~90 lines) - optional download
-├── gz302-secureboot.sh            # Secure boot module (~80 lines) - optional download
+├── gz302-main.sh                  # Main script (~2,700 lines) - hardware fixes, pwrcfg, rrcfg
+├── gz302-gaming.sh                # Gaming module (~230 lines) - optional download
+├── gz302-llm.sh                   # AI/LLM module (~186 lines) - optional download
+├── gz302-hypervisor.sh            # Hypervisor module (~133 lines) - optional download
+├── gz302-snapshots.sh             # Snapshots module (~108 lines) - optional download
+├── gz302-secureboot.sh            # Secure boot module (~95 lines) - optional download
 └── Old/                           # Archived files from previous versions
     ├── gz302_setup.sh             # Old monolithic bash script
     ├── gz302_setup.py             # Old Python implementation
@@ -180,11 +181,11 @@ For testing purposes on development systems:
 - **Automatic distribution detection**: Identifies distribution via `/etc/os-release`
 - **Hardware fixes applied automatically**: Wi-Fi (MT7925e), GPU (AMD Radeon 8060S), HID, kernel parameters
 - **ASUS package installation**: asusctl, power-profiles-daemon, switcheroo-control
-- **TDP & Refresh management**: Installed automatically with 7 TDP profiles and 6 refresh rate profiles
+- **Power & Display management**: Installed automatically with 7 power profiles (`pwrcfg`) and 7 refresh rate profiles (`rrcfg`)
 - **Optional module prompts**: User selects which modules to download and install (gaming, LLM, hypervisor, snapshots, secure boot)
 - **Modular downloads**: Optional modules downloaded from GitHub on demand
 
-## Version Management (Version 0.1.0-pre-release)
+## Version Management (Version 0.2.0-RC1)
 
 ### Version Increment System
 - **Third digit (PATCH)**: Bug fixes (0.1.0 → 0.1.1)
@@ -206,7 +207,7 @@ When incrementing version:
 2. Commit with message format: `Version X.Y.Z - Brief description`
 3. Update this file's header with new version
 
-## Current Implementation Status (Version 0.1.0-pre-release)
+## Current Implementation Status (Version 0.2.0-RC1)
 
 ### Hardware Support (✅ Complete)
 - GZ302EA-XS99 specific hardware fixes
@@ -218,8 +219,8 @@ When incrementing version:
 
 ### Core Features (✅ Complete)
 - Distribution detection for all 4 families (Arch, Debian, Fedora, OpenSUSE)
-- TDP management (7 profiles, systemd services, auto-switching)
-- Refresh rate management (6 profiles, VRR support)
+- Power management (7 profiles, systemd services, auto-switching with `pwrcfg` command)
+- Refresh rate management (7 profiles, VRR support with `rrcfg` command)
 - ASUS package installation (asusctl, power-profiles-daemon, switcheroo-control)
 - Error handling and cleanup
 
@@ -360,8 +361,8 @@ All 4 distributions receive identical treatment:
 
 ### Custom GZ302 Commands (Created by Scripts)
 After script execution, these commands become available on target systems:
-- **Power management**: `gz302-tdp [profile|status|config|auto|list]` - Controls TDP settings (7 profiles: 10W-65W)
-- **Refresh management**: `gz302-refresh [profile|status|config|auto|list|vrr|monitor]` - Controls display refresh rates (6 profiles: 30Hz-180Hz)
+- **Power management**: `pwrcfg [profile|status|config|auto|list]` - Controls power settings (7 profiles: 10W-90W with SPL/sPPT/fPPT)
+- **Refresh management**: `rrcfg [profile|status|config|auto|list|vrr|monitor]` - Controls display refresh rates (7 profiles: 30Hz-180Hz)
 - **Gaming tools** (if gz302-gaming.sh installed): `gamemoded -s`, `mangohud your_game`
 - **ASUS controls**: `systemctl status asusctl power-profiles-daemon switcheroo-control`
 

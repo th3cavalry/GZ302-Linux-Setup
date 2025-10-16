@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Issue #82**: Added missing `reload-hid_asus.service` to fix touchpad detection issues on Arch Linux
+- **Documentation**: Updated memory instructions version from 0.1.x to 0.2.0-RC1
+
+### Added
+- **Touchpad Detection**: Restored systemd service for reliable HID module loading
+- **Service Integration**: Automatic enabling of reload-hid_asus.service during hardware setup
+
 ## [0.2.0-pre-release] - 2025-10-15
 
 ### BREAKING CHANGES
