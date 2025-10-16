@@ -10,10 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Issue #82**: Added missing `reload-hid_asus.service` to fix touchpad detection issues on Arch Linux
 - **Documentation**: Updated memory instructions version from 0.1.x to 0.2.0-RC1
+- **Critical Bug**: Removed conflicting `rrcfg auto` functionality that caused race conditions with `pwrcfg`
+  - Eliminated duplicate auto-switching between pwrcfg and rrcfg
+  - Removed rrcfg-auto.service and rrcfg-monitor.service to prevent conflicts
+  - Simplified refresh rate management to be controlled solely by pwrcfg
+  - Fixed configuration confusion where users had separate AC/Battery profiles for power and refresh
 
 ### Added
 - **Touchpad Detection**: Restored systemd service for reliable HID module loading
 - **Service Integration**: Automatic enabling of reload-hid_asus.service during hardware setup
+
+### Changed
+- **Refresh Rate Management**: `rrcfg` is now manual-only, automatic switching is handled by `pwrcfg config`
+- **Documentation**: Updated README.md to clarify that pwrcfg controls both power and refresh rate auto-switching
+- **Simplified Architecture**: Reduced gz302-main.sh from 2734 to 2568 lines by removing redundant auto-switching code
 
 ## [0.2.0-pre-release] - 2025-10-15
 

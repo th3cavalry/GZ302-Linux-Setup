@@ -116,11 +116,12 @@ The `linux-g14` custom kernel is **optional** for GZ302 users:
   
 - **Refresh Rate Control** (`rrcfg` command)
   - 7 refresh rate profiles matched to power profiles (30Hz-180Hz)
-  - Automatically syncs with power profile changes
+  - Automatically syncs when pwrcfg changes power profiles
   - Manual override available for custom configurations
   - VRR/FreeSync support with configurable ranges
   - Multi-monitor independent control
   - Game-specific profiles
+  - **Note**: Automatic AC/battery switching is configured via `pwrcfg config` (not `rrcfg`)
 
 ## 📦 Optional Modules
 
@@ -169,8 +170,8 @@ sudo pwrcfg config
 
 ### Using Refresh Rate Control
 ```bash
-# Manually set refresh rate (overrides auto-sync)
-sudo rrcfg balanced
+# Manually set refresh rate (independent of power profile)
+sudo rrcfg gaming
 
 # Check current refresh rate
 sudo rrcfg status
@@ -178,8 +179,11 @@ sudo rrcfg status
 # List available profiles
 sudo rrcfg list
 
-# Enable automatic power-based switching
-sudo rrcfg auto
+# Enable VRR/FreeSync
+sudo rrcfg vrr on
+
+# Configure game-specific profiles
+sudo rrcfg game add steam gaming
 ```
 
 ### Quick Reference
@@ -188,29 +192,12 @@ sudo rrcfg auto
 sudo pwrcfg status
 sudo rrcfg status
 
-# Check current status
-pwrcfg status
-
-# Enable automatic AC/battery switching
-sudo pwrcfg auto enable
+# Enable automatic AC/battery switching (controls both power AND refresh)
+sudo pwrcfg config
 
 # List available profiles
 pwrcfg list
-```
-
-### Using Refresh Rate Management
-```bash
-# Set refresh rate profile
-sudo rrcfg gaming
-
-# Check current status
-rrcfg status
-
-# Enable VRR/FreeSync
-sudo rrcfg vrr enable
-
-# Monitor display power
-rrcfg monitor
+rrcfg list
 ```
 
 ## �� Architecture

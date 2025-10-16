@@ -1266,14 +1266,11 @@ install_refresh_management() {
     # Create refresh rate management script
     cat > /usr/local/bin/rrcfg <<'EOF'
 #!/bin/bash
-# GZ302 Virtual Refresh Rate Management Script
-# Provides intelligent refresh rate control for gaming and power optimization
+# GZ302 Refresh Rate Management Script
+# Manual refresh rate control - auto-switching handled by pwrcfg
 
 REFRESH_CONFIG_DIR="/etc/rrcfg"
 CURRENT_PROFILE_FILE="$REFRESH_CONFIG_DIR/current-profile"
-AUTO_CONFIG_FILE="$REFRESH_CONFIG_DIR/auto-config"
-AC_PROFILE_FILE="$REFRESH_CONFIG_DIR/ac-profile"
-BATTERY_PROFILE_FILE="$REFRESH_CONFIG_DIR/battery-profile"
 VRR_ENABLED_FILE="$REFRESH_CONFIG_DIR/vrr-enabled"
 GAME_PROFILES_FILE="$REFRESH_CONFIG_DIR/game-profiles"
 VRR_RANGES_FILE="$REFRESH_CONFIG_DIR/vrr-ranges"
@@ -1334,7 +1331,7 @@ mkdir -p "$REFRESH_CONFIG_DIR"
 show_usage() {
     echo "Usage: rrcfg [PROFILE|COMMAND|GAME_NAME]"
     echo ""
-    echo "Refresh Rate Profiles (synced with pwrcfg power profiles):"
+    echo "Refresh Rate Profiles (auto-synced by pwrcfg when power profile changes):"
     echo "  emergency     - 30Hz  - Emergency battery extension"
     echo "  battery       - 30Hz  - Maximum battery life"
     echo "  efficient     - 60Hz  - Efficient with good performance"
@@ -1346,8 +1343,6 @@ show_usage() {
     echo "Commands:"
     echo "  status           - Show current refresh rate and VRR status"
     echo "  list             - List available profiles and supported rates"
-    echo "  auto             - Enable/disable automatic profile switching"
-    echo "  config           - Configure automatic profile preferences"
     echo "  vrr [on|off|ranges] - VRR control and min/max range configuration"
     echo "  monitor [display] - Configure specific monitor settings"
     echo "  game [add|remove|list] - Manage game-specific profiles"
@@ -1356,11 +1351,12 @@ show_usage() {
     echo "  thermal-status   - Check thermal throttling status"
     echo "  battery-predict  - Predict battery life with different refresh rates"
     echo ""
-    echo "Note: Refresh rate normally auto-adjusts with power profile (pwrcfg)"
-    echo "      Use rrcfg to manually override the automatic setting"
+    echo "Note: Refresh rates are automatically adjusted when using 'pwrcfg' to change power profiles."
+    echo "      Use 'rrcfg [profile]' to manually override refresh rate independent of power settings."
+    echo "      To enable automatic power/refresh switching, use: pwrcfg config"
     echo ""
     echo "Examples:"
-    echo "  rrcfg gaming        # Set gaming refresh rate profile"
+    echo "  rrcfg gaming        # Manually set gaming refresh rate (180Hz)"
     echo "  rrcfg game add steam # Add game-specific profile for Steam"
     echo "  rrcfg vrr ranges    # Configure VRR min/max ranges"
     echo "  rrcfg monitor DP-1  # Configure specific monitor"
@@ -1654,92 +1650,6 @@ get_battery_status() {
         fi
     else
         echo "Unknown"
-    fi
-}
-
-configure_auto_switching() {
-    echo "Configuring automatic refresh rate profile switching..."
-    echo ""
-    
-    local auto_enabled="false"
-    read -p "Enable automatic profile switching based on power source? (y/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        auto_enabled="true"
-        
-        echo ""
-        echo "Select AC power profile (when plugged in):"
-        list_profiles
-        echo ""
-        read -p "AC profile [gaming]: " ac_profile
-        ac_profile=${ac_profile:-gaming}
-        
-        if [[ -z "${REFRESH_PROFILES[$ac_profile]}" ]]; then
-            echo "Invalid profile, using 'gaming'"
-            ac_profile="gaming"
-        fi
-        
-        echo ""
-        echo "Select battery profile (when on battery):"
-        list_profiles
-        echo ""
-        read -p "Battery profile [battery]: " battery_profile
-        battery_profile=${battery_profile:-battery}
-        
-        if [[ -z "${REFRESH_PROFILES[$battery_profile]}" ]]; then
-            echo "Invalid profile, using 'battery'"
-            battery_profile="battery"
-        fi
-        
-        # Save configuration
-        echo "$auto_enabled" > "$AUTO_CONFIG_FILE"
-        echo "$ac_profile" > "$AC_PROFILE_FILE"
-        echo "$battery_profile" > "$BATTERY_PROFILE_FILE"
-        
-        echo ""
-        echo "Automatic switching configured:"
-        echo "  AC power: $ac_profile (${REFRESH_PROFILES[$ac_profile]}Hz)"
-        echo "  Battery: $battery_profile (${REFRESH_PROFILES[$battery_profile]}Hz)"
-        
-        # Enable the auto refresh service
-        systemctl enable rrcfg-auto.service >/dev/null 2>&1
-        systemctl start rrcfg-auto.service >/dev/null 2>&1
-    else
-        echo "false" > "$AUTO_CONFIG_FILE"
-        systemctl disable rrcfg-auto.service >/dev/null 2>&1
-        systemctl stop rrcfg-auto.service >/dev/null 2>&1
-        echo "Automatic switching disabled"
-    fi
-}
-
-auto_switch_profile() {
-    # Check if auto switching is enabled
-    if [[ -f "$AUTO_CONFIG_FILE" ]] && [[ "$(cat "$AUTO_CONFIG_FILE" 2>/dev/null)" == "true" ]]; then
-        local current_power=$(get_battery_status)
-        local last_power_source=""
-        
-        if [[ -f "$REFRESH_CONFIG_DIR/last-power-source" ]]; then
-            last_power_source=$(cat "$REFRESH_CONFIG_DIR/last-power-source" 2>/dev/null)
-        fi
-        
-        # Only switch if power source changed
-        if [[ "$current_power" != "$last_power_source" ]]; then
-            echo "$current_power" > "$REFRESH_CONFIG_DIR/last-power-source"
-            
-            if [[ "$current_power" == "AC" ]] && [[ -f "$AC_PROFILE_FILE" ]]; then
-                local ac_profile=$(cat "$AC_PROFILE_FILE" 2>/dev/null)
-                if [[ -n "$ac_profile" ]]; then
-                    echo "Power source changed to AC, switching to profile: $ac_profile"
-                    set_refresh_rate "$ac_profile"
-                fi
-            elif [[ "$current_power" == "Battery" ]] && [[ -f "$BATTERY_PROFILE_FILE" ]]; then
-                local battery_profile=$(cat "$BATTERY_PROFILE_FILE" 2>/dev/null)
-                if [[ -n "$battery_profile" ]]; then
-                    echo "Power source changed to Battery, switching to profile: $battery_profile"
-                    set_refresh_rate "$battery_profile"
-                fi
-            fi
-        fi
     fi
 }
 
@@ -2225,12 +2135,6 @@ case "${1:-}" in
     "list")
         list_profiles
         ;;
-    "auto")
-        auto_switch_profile
-        ;;
-    "config")
-        configure_auto_switching
-        ;;
     "vrr")
         case "$2" in
             "ranges")
@@ -2295,81 +2199,11 @@ EOF
 
     chmod +x /usr/local/bin/rrcfg
     
-    # Create systemd service for automatic refresh rate management
-    cat > /etc/systemd/system/rrcfg-auto.service <<EOF
-[Unit]
-Description=GZ302 Automatic Refresh Rate Management
-Wants=rrcfg-monitor.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/rrcfg auto
-EOF
-
-    # Create systemd timer for periodic checking
-    cat > /etc/systemd/system/rrcfg-auto.timer <<EOF
-[Unit]
-Description=GZ302 Refresh Rate Auto Timer
-Requires=rrcfg-auto.service
-
-[Timer]
-OnBootSec=30sec
-OnUnitActiveSec=30sec
-AccuracySec=5sec
-
-[Install]
-WantedBy=timers.target
-EOF
-
-    # Create refresh rate monitoring service  
-    cat > /etc/systemd/system/rrcfg-monitor.service <<EOF
-[Unit]
-Description=GZ302 Refresh Rate Power Source Monitor
-After=graphical-session.target
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/rrcfg-monitor
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    # Create power monitoring script for refresh rates
-    cat > /usr/local/bin/rrcfg-monitor <<'MONITOR_EOF'
-#!/bin/bash
-# GZ302 Refresh Rate Power Source Monitor
-# Monitors power source changes and automatically switches refresh rate profiles
-
-while true; do
-    /usr/local/bin/rrcfg auto
-    sleep 30  # Check every 30 seconds (less frequent than TDP)
-done
-MONITOR_EOF
-
-    chmod +x /usr/local/bin/rrcfg-monitor
-    
-    systemctl enable rrcfg-auto.timer
-    
     echo ""
-    info "Refresh rate management installation complete!"
+    success "Refresh rate management installed. Use 'rrcfg' command to manually control display refresh rates."
     echo ""
-    echo "Would you like to configure automatic refresh rate profile switching now?"
-    echo "This allows the system to automatically change refresh rates"
-    echo "when you plug/unplug the AC adapter for optimal power usage."
-    echo ""
-    read -p "Configure automatic refresh rate switching? (Y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-        /usr/local/bin/rrcfg config
-    else
-        echo "You can configure automatic switching later using: rrcfg config"
-    fi
-    
-    echo ""
-    success "Refresh rate management installed. Use 'rrcfg' command to control display refresh rates."
+    info "Note: Refresh rates automatically adjust when using 'pwrcfg' to change power profiles."
+    info "      Use 'pwrcfg config' to enable automatic power/refresh switching based on AC/battery status."
 }
 
 # Placeholder functions for snapshots
