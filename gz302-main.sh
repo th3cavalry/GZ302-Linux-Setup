@@ -140,8 +140,8 @@ check_kernel_version() {
     info "Detected kernel version: $(uname -r)"
     
     if [[ $version_num -lt $min_version ]]; then
-        error "❌ UNSUPPORTED KERNEL VERSION ❌"
         echo
+        echo "❌ UNSUPPORTED KERNEL VERSION ❌"
         echo "Your kernel version ($kernel_version) is below the absolute minimum (6.14)."
         echo
         echo "Kernel 6.14+ is REQUIRED for GZ302EA because it includes:"
@@ -153,14 +153,13 @@ check_kernel_version() {
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo "OPTION: Install linux-g14 kernel (Arch-based distros only)"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo
         echo "The linux-g14 kernel is a customized kernel for ASUS ROG devices"
         echo "that includes the latest patches and optimizations for GZ302EA."
         echo
-        
         # Detect if Arch-based distribution
         local distro=""
         if [[ -f /etc/os-release ]]; then
+            # shellcheck disable=SC1091
             source /etc/os-release
             if [[ "$ID" == "arch" ]] || [[ "$ID_LIKE" == *"arch"* ]]; then
                 distro="arch"
@@ -206,25 +205,16 @@ check_kernel_version() {
                     echo
                     exit 0
                 else
-                    error "Failed to install linux-g14 kernel"
+                    echo "Failed to install linux-g14 kernel"
                     echo
                     echo "Please install a compatible kernel manually and try again."
                     echo "See: https://asus-linux.org for more information"
-                    exit 1
+                    # Fall through to cancellation message below
                 fi
             fi
         fi
         
-        echo
-        echo "Other upgrade options:"
-        echo "  1. Use your distribution's kernel update mechanism"
-        echo "  2. Install a mainline kernel from kernel.org"
-        echo "  3. Check Info/kernel_changelog.md for version details"
-        echo
-        echo "If you cannot upgrade, please create an issue on GitHub:"
-        echo "  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
-        echo
-        error "Installation cancelled. Kernel 6.14+ is required."
+        error "Installation cancelled. Kernel 6.14+ is required.\nOther upgrade options:\n  1. Use your distribution's kernel update mechanism\n  2. Install a mainline kernel from kernel.org\n  3. Check Info/kernel_changelog.md for version details\nIf you cannot upgrade, please create an issue on GitHub:\n  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
     elif [[ $version_num -lt $recommended_version ]]; then
         warning "Your kernel version ($kernel_version) meets minimum requirements (6.14+)"
         info "For optimal performance, consider upgrading to kernel 6.17+ which includes:"
@@ -250,6 +240,7 @@ detect_distribution() {
     local distro=""
     
     if [[ -f /etc/os-release ]]; then
+        # shellcheck disable=SC1091
         source /etc/os-release
         
         # Detect Arch-based systems
@@ -1259,7 +1250,8 @@ EOF
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         local PWRCFG_PATH="/usr/local/bin/pwrcfg"
         if [[ -x "$PWRCFG_PATH" ]]; then
-            local SUDOERS_TMP="/tmp/gz302-pwrcfg.$RANDOM"
+            local SUDOERS_TMP
+            SUDOERS_TMP=$(mktemp /tmp/gz302-pwrcfg.XXXXXX)
             local SUDOERS_FILE="/etc/sudoers.d/gz302-pwrcfg"
             cat > "$SUDOERS_TMP" << EOF
 # Allow all users to run pwrcfg without password
@@ -1271,10 +1263,10 @@ EOF
                 info "Configured sudoers: you can now run 'sudo pwrcfg <profile>' without a password."
             else
                 rm -f "$SUDOERS_TMP"
-                warn "Invalid sudoers config, skipped enabling password-less 'sudo pwrcfg'."
+                warning "Invalid sudoers config, skipped enabling password-less 'sudo pwrcfg'."
             fi
         else
-            warn "pwrcfg not found at $PWRCFG_PATH; skipping sudoers setup."
+            warning "pwrcfg not found at $PWRCFG_PATH; skipping sudoers setup."
         fi
     else
         info "Skipping sudoers configuration for 'pwrcfg'. You can enable later via tray-icon/install-policy.sh."
@@ -1325,6 +1317,9 @@ done
 MONITOR_EOF
 
     chmod +x /usr/local/bin/pwrcfg-monitor
+    
+    # Reload systemd units to ensure new services are recognized
+    systemctl daemon-reload
     
     systemctl enable pwrcfg-auto.service
     
@@ -1383,7 +1378,7 @@ FRAME_LIMITS[efficient]="60"             # Cap at 60fps
 FRAME_LIMITS[balanced]="90"              # Cap at 90fps
 FRAME_LIMITS[performance]="120"          # Cap at 120fps
 FRAME_LIMITS[gaming]="0"                 # No frame limiting (VRR handles it)
-REFRESH_LIMITS[maximum]="0"              # No frame limiting
+FRAME_LIMITS[maximum]="0"              # No frame limiting
 
 # VRR min/max refresh ranges by profile
 declare -A VRR_MIN_RANGES
@@ -2323,7 +2318,7 @@ download_and_execute_module() {
     
     # Check network connectivity before attempting download
     if ! check_network; then
-        error "No network connectivity detected. Cannot download ${module_name} module.\nPlease check your internet connection and try again."
+        warning "No network connectivity detected. Cannot download ${module_name} module.\nPlease check your internet connection and try again."
         return 1
     fi
     
@@ -2343,7 +2338,7 @@ download_and_execute_module() {
             return 1
         fi
     else
-        error "Failed to download ${module_name} module from ${module_url}\nPlease verify:\n  1. Internet connection is active\n  2. GitHub is accessible\n  3. Repository URL is correct"
+        warning "Failed to download ${module_name} module from ${module_url}\nPlease verify:\n  1. Internet connection is active\n  2. GitHub is accessible\n  3. Repository URL is correct"
         return 1
     fi
 }
@@ -2550,13 +2545,14 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 1.0.1 - Folio Resume Fix"
+    echo "  Version 1.0.2"
     echo "============================================================"
     echo
     
     # Check kernel version early (before network check)
     info "Checking kernel version..."
-    # Removed unused kernel_ver_num variable (was not used after assignment)
+    # Perform kernel version validation early (exits on failure)
+    check_kernel_version >/dev/null
     echo
     
     # Check network connectivity
@@ -2581,6 +2577,7 @@ main() {
     # Get original distribution name for display
     local original_distro=""
     if [[ -f /etc/os-release ]]; then
+        # shellcheck disable=SC1091
         source /etc/os-release
         original_distro="$ID"
     fi
