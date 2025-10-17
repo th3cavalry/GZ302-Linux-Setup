@@ -23,7 +23,7 @@ This is a standalone GUI utility that provides quick access to `pwrcfg` power pr
   - Maximum (90W)
 - ✅ Password-less sudo configuration - no authentication prompts!
 - ✅ Real-time status updates
-- 🚧 Visual indicators for AC/Battery status (planned)
+- ✅ Visual indicators for AC/Battery status (tray tooltip and icon)
 - 🚧 Custom icons for power profiles (planned)
 
 ## Technology Stack
@@ -57,7 +57,7 @@ sudo apt install python3-pyqt6
 sudo dnf install python3-pyqt6
 
 # OpenSUSE
-sudo zypper install python3-qt6
+sudo zypper install python3-qt6 python3-psutil
 ```
 
 ### Step 2: Configure Sudoers (Required for password-less operation)
@@ -82,6 +82,15 @@ chmod +x src/gz302_tray.py
 ./src/gz302_tray.py
 ```
 
+### Optional: Install Desktop Launcher + Autostart
+
+```bash
+cd tray-icon
+./install-tray.sh
+```
+
+This creates a launcher in `~/.local/share/applications` and an autostart entry in `~/.config/autostart`.
+
 ## Usage
 
 1. Launch the tray icon application
@@ -89,6 +98,25 @@ chmod +x src/gz302_tray.py
 3. Right-click the icon to see the menu
 4. Select a power profile to switch
 5. No password prompts - changes happen instantly!
+6. Battery/AC status is shown in the tooltip; the icon updates when on AC vs Battery
+
+### Enable Autostart
+
+You can enable autostart from the tray menu (Enable Autostart) or manually:
+
+```bash
+mkdir -p ~/.config/autostart
+cat > ~/.config/autostart/gz302-tray.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=GZ302 Power Manager
+Comment=System tray power profile manager for GZ302
+Exec=/path/to/GZ302-Linux-Setup/tray-icon/src/gz302_tray.py
+Icon=battery
+Terminal=false
+Categories=Utility;System;
+EOF
+```
 
 ## Autostart (Optional)
 

@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.0.1
+# Version: 1.0.2
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -1255,6 +1255,34 @@ esac
 EOF
 
     chmod +x /usr/local/bin/pwrcfg
+    
+    # Optional: Configure sudoers to allow password-less 'sudo pwrcfg'
+    echo ""
+    read -p "Enable password-less 'sudo pwrcfg' for all users? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        local PWRCFG_PATH="/usr/local/bin/pwrcfg"
+        if [[ -x "$PWRCFG_PATH" ]]; then
+            local SUDOERS_TMP="/tmp/gz302-pwrcfg.$RANDOM"
+            local SUDOERS_FILE="/etc/sudoers.d/gz302-pwrcfg"
+            cat > "$SUDOERS_TMP" << EOF
+# Allow all users to run pwrcfg without password
+ALL ALL=NOPASSWD: $PWRCFG_PATH
+EOF
+            if visudo -c -f "$SUDOERS_TMP" >/dev/null 2>&1; then
+                mv "$SUDOERS_TMP" "$SUDOERS_FILE"
+                chmod 440 "$SUDOERS_FILE"
+                info "Configured sudoers: you can now run 'sudo pwrcfg <profile>' without a password."
+            else
+                rm -f "$SUDOERS_TMP"
+                warn "Invalid sudoers config, skipped enabling password-less 'sudo pwrcfg'."
+            fi
+        else
+            warn "pwrcfg not found at $PWRCFG_PATH; skipping sudoers setup."
+        fi
+    else
+        info "Skipping sudoers configuration for 'pwrcfg'. You can enable later via tray-icon/install-policy.sh."
+    fi
     
     # Create systemd service for automatic TDP management
     cat > /etc/systemd/system/pwrcfg-auto.service <<EOF
