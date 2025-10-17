@@ -658,10 +658,10 @@ install_opensuse_asus_packages() {
 install_ryzenadj_arch() {
     info "Installing ryzenadj for Arch-based system..."
     
-    # Check for and remove conflicting packages first
+    # Check for and remove conflicting packages first (only if installed)
     if pacman -Qi ryzenadj-git >/dev/null 2>&1; then
-        warning "Removing conflicting ryzenadj-git package..."
-        pacman -R --noconfirm ryzenadj-git || warning "Failed to remove ryzenadj-git, continuing..."
+        info "Removing conflicting ryzenadj-git package..."
+        pacman -R --noconfirm ryzenadj-git 2>/dev/null || true
     fi
     
     if command -v yay >/dev/null 2>&1; then
@@ -1154,10 +1154,10 @@ configure_auto_switching() {
         echo "Select AC power profile (when plugged in):"
         list_profiles
         echo ""
-        read -p "AC profile [gaming]: " ac_profile
-        ac_profile=${ac_profile:-gaming}
+        read -p "AC profile [gaming]: " ac_profile || true
+        ac_profile="${ac_profile:-gaming}"
         
-        if [ -z "${TDP_PROFILES[$ac_profile]}" ]; then
+        if [ -z "${TDP_PROFILES[$ac_profile]:-}" ]; then
             echo "Invalid profile, using 'gaming'"
             ac_profile="gaming"
         fi
@@ -1166,10 +1166,10 @@ configure_auto_switching() {
         echo "Select battery profile (when on battery):"
         list_profiles
         echo ""
-        read -p "Battery profile [efficient]: " battery_profile
-        battery_profile=${battery_profile:-efficient}
+        read -p "Battery profile [efficient]: " battery_profile || true
+        battery_profile="${battery_profile:-efficient}"
         
-        if [ -z "${TDP_PROFILES[$battery_profile]}" ]; then
+        if [ -z "${TDP_PROFILES[$battery_profile]:-}" ]; then
             echo "Invalid profile, using 'efficient'"
             battery_profile="efficient"
         fi
