@@ -7,7 +7,7 @@
 - **GZ302EA-XS64** - 64GB RAM variant
 - **GZ302EA-XS32** - 32GB RAM variant
 
-> **🚀 Version 1.0.3 - Stable Release!** Complete hardware support with kernel 6.14+ compatibility, modern `pwrcfg` and `rrcfg` power/display management, and SPL/sPPT/fPPT architecture. Includes fixes for touchpad detection and suspend/resume gestures. Adds optional sudoers NOPASSWD for `pwrcfg`, improved kernel validation, and bug fixes for auto-config and script reruns. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
+> **🚀 Version 1.0.4 - Stable Release!** Complete hardware support with kernel 6.14+ compatibility, modern `pwrcfg` and `rrcfg` power/display management, and SPL/sPPT/fPPT architecture. Includes fixes for touchpad detection and suspend/resume gestures. Adds optional sudoers NOPASSWD for `pwrcfg`, improved kernel validation, and bug fixes for auto-config and script reruns. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
 
 ## ✨ Key Features
 
