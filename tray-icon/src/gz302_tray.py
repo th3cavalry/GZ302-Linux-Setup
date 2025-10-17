@@ -66,10 +66,10 @@ class GZ302TrayIcon(QSystemTrayIcon):
         self.menu.addAction(quit_action)
     
     def change_profile(self, profile):
-        """Change power profile using pkexec"""
+        """Change power profile using sudo (no password required)"""
         try:
             result = subprocess.run(
-                ["pkexec", "pwrcfg", profile],
+                ["sudo", "pwrcfg", profile],
                 capture_output=True,
                 text=True,
                 timeout=30
@@ -109,7 +109,7 @@ class GZ302TrayIcon(QSystemTrayIcon):
         """Show current power profile status"""
         try:
             result = subprocess.run(
-                ["pkexec", "pwrcfg", "status"],
+                ["sudo", "pwrcfg", "status"],
                 capture_output=True,
                 text=True,
                 timeout=10

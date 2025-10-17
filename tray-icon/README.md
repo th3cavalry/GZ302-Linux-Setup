@@ -21,7 +21,7 @@ This is a standalone GUI utility that provides quick access to `pwrcfg` power pr
   - Performance (55W)
   - Gaming (70W)
   - Maximum (90W)
-- ✅ Uses polkit (pkexec) for authentication - no need for sudo!
+- ✅ Password-less sudo configuration - no authentication prompts!
 - ✅ Real-time status updates
 - 🚧 Visual indicators for AC/Battery status (planned)
 - 🚧 Custom icons for power profiles (planned)
@@ -30,7 +30,7 @@ This is a standalone GUI utility that provides quick access to `pwrcfg` power pr
 
 - **Python 3** - Main programming language
 - **PyQt6** - GUI framework for system tray
-- **Polkit** - Privilege escalation without sudo
+- **Sudoers** - Privilege escalation without password
 
 ## Installation
 
@@ -38,7 +38,7 @@ This is a standalone GUI utility that provides quick access to `pwrcfg` power pr
 
 1. GZ302 Linux Setup main scripts must be installed with `pwrcfg` available
 2. Python 3.8 or higher
-3. Polkit installed (usually pre-installed on most distributions)
+3. Sudo access (for one-time setup)
 
 ### Step 1: Install Python Dependencies
 
@@ -60,14 +60,14 @@ sudo dnf install python3-pyqt6
 sudo zypper install python3-qt6
 ```
 
-### Step 2: Install Polkit Policy (Required for password-less operation)
+### Step 2: Configure Sudoers (Required for password-less operation)
 
 ```bash
 cd tray-icon
 sudo ./install-policy.sh
 ```
 
-This installs a polkit policy that allows `pwrcfg` to be executed with elevated privileges without requiring sudo password each time.
+This configures sudoers to allow `pwrcfg` to be executed with sudo without requiring a password.
 
 ### Step 3: Run the Tray Icon
 
@@ -88,8 +88,7 @@ chmod +x src/gz302_tray.py
 2. Look for the computer icon in your system tray
 3. Right-click the icon to see the menu
 4. Select a power profile to switch
-5. Authentication dialog will appear the first time (polkit)
-6. Subsequent changes may not require re-authentication (depends on polkit timeout)
+5. No password prompts - changes happen instantly!
 
 ## Autostart (Optional)
 
