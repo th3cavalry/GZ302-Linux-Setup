@@ -60,14 +60,14 @@ sudo dnf install python3-pyqt6
 sudo zypper install python3-qt6 python3-psutil
 ```
 
-### Step 2: Configure Sudoers (Required for password-less operation)
+### Step 2: Configure Sudoers (Recommended for no-prompt operation)
 
 ```bash
 cd tray-icon
 sudo ./install-policy.sh
 ```
 
-This configures sudoers to allow `pwrcfg` to be executed with sudo without requiring a password.
+This configures sudoers to allow `pwrcfg` to self-elevate without a password. The tray calls `pwrcfg` directly—no sudo needed.
 
 ### Step 3: Run the Tray Icon
 
@@ -97,7 +97,7 @@ This creates a launcher in `~/.local/share/applications` and an autostart entry 
 2. Look for the computer icon in your system tray
 3. Right-click the icon to see the menu
 4. Select a power profile to switch
-5. No password prompts - changes happen instantly!
+5. No password prompts (after sudoers is configured) - changes happen instantly!
 6. Battery/AC status is shown in the tooltip; the icon updates when on AC vs Battery
 
 ### Enable Autostart

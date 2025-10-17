@@ -33,8 +33,8 @@ if visudo -c -f /tmp/gz302-pwrcfg; then
     mv /tmp/gz302-pwrcfg "$SUDOERS_FILE"
     chmod 440 "$SUDOERS_FILE"
     echo "Sudoers configuration installed successfully!"
-    echo "You can now use: sudo pwrcfg <profile> (without entering password)"
-    echo "Or from GUI applications without authentication prompts."
+    echo "You can now run: pwrcfg <profile> without typing sudo (no password prompt)."
+    echo "GUI apps like the tray icon will work without authentication prompts."
 else
     echo "ERROR: Invalid sudoers configuration!"
     rm /tmp/gz302-pwrcfg

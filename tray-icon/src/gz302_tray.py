@@ -75,10 +75,10 @@ class GZ302TrayIcon(QSystemTrayIcon):
         self.menu.addAction(quit_action)
     
     def change_profile(self, profile):
-        """Change power profile using sudo (no password required)"""
+        """Change power profile by invoking pwrcfg directly (self-elevates when configured)."""
         try:
             result = subprocess.run(
-                ["sudo", "pwrcfg", profile],
+                ["pwrcfg", profile],
                 capture_output=True,
                 text=True,
                 timeout=30
@@ -93,9 +93,13 @@ class GZ302TrayIcon(QSystemTrayIcon):
                 )
                 self.update_current_profile()
             else:
+                err = (result.stderr or "").strip()
+                hint = ""
+                if "requires elevated privileges" in err or "permission" in err.lower():
+                    hint = "\nTip: Run tray-icon/install-policy.sh or enable sudoers in the main script to allow password-less pwrcfg."
                 self.showMessage(
                     "Error",
-                    f"Failed to change profile: {result.stderr}",
+                    f"Failed to change profile: {err}{hint}",
                     QSystemTrayIcon.MessageIcon.Critical,
                     5000
                 )
@@ -118,7 +122,7 @@ class GZ302TrayIcon(QSystemTrayIcon):
         """Show current power profile status"""
         try:
             result = subprocess.run(
-                ["sudo", "pwrcfg", "status"],
+                ["pwrcfg", "status"],
                 capture_output=True,
                 text=True,
                 timeout=10
@@ -150,7 +154,7 @@ class GZ302TrayIcon(QSystemTrayIcon):
         """Update tooltip with current profile"""
         try:
             result = subprocess.run(
-                ["sudo", "-n", "pwrcfg", "status"],
+                ["pwrcfg", "status"],
                 capture_output=True,
                 text=True,
                 timeout=5
