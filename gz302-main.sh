@@ -440,12 +440,65 @@ EOF
     systemd-hwdb update 2>/dev/null || true
     udevadm control --reload 2>/dev/null || true
     
-    # Note about advanced fan/power control
+        # Set up keyboard backlight restore after suspend/resume
+        info "Configuring keyboard backlight resume restore..."
+        mkdir -p /usr/lib/systemd/system-sleep /var/lib/gz302
+        cat > /usr/lib/systemd/system-sleep/gz302-kbd-backlight <<'EOF'
+#!/bin/bash
+# Restore ASUS keyboard backlight after resume (GZ302)
+# Invoked by systemd: $1 is 'pre' or 'post'
+
+STATE_FILE="/var/lib/gz302/kbd_backlight.brightness"
+
+# Collect all potential keyboard backlight LED devices
+mapfile -t LEDS < <(ls -d /sys/class/leds/*kbd*backlight* 2>/dev/null)
+
+case "$1" in
+    pre)
+        # Save current brightness (use the first LED found)
+        if [[ ${#LEDS[@]} -gt 0 && -f "${LEDS[0]}/brightness" ]]; then
+            cat "${LEDS[0]}/brightness" > "$STATE_FILE" 2>/dev/null || true
+        fi
+        ;;
+    post)
+        # Restore brightness; driver may need a short delay after resume
+        for _ in 1 2 3 4 5; do
+            if [[ ${#LEDS[@]} -gt 0 ]]; then
+                for led in "${LEDS[@]}"; do
+                    if [[ -f "$led/brightness" ]]; then
+                        if [[ -s "$STATE_FILE" ]]; then
+                            BR=$(cat "$STATE_FILE" 2>/dev/null)
+                        else
+                            MAX=$(cat "$led/max_brightness" 2>/dev/null || echo 3)
+                            BR=$((MAX/2))
+                            [[ $BR -lt 1 ]] && BR=1
+                        fi
+                        echo "$BR" > "$led/brightness" 2>/dev/null || true
+                    fi
+                done
+                break
+            fi
+            sleep 0.5
+        done
+
+        # Optionally kick asusctl daemon to reapply last profile if available
+        if command -v systemctl >/dev/null 2>&1; then
+            systemctl try-restart asusd.service 2>/dev/null || true
+        fi
+        ;;
+esac
+
+exit 0
+EOF
+        chmod +x /usr/lib/systemd/system-sleep/gz302-kbd-backlight
+
+        # Note about advanced fan/power control
     info "Note: For advanced fan and power mode control, consider the ec_su_axb35 kernel module"
     info "See: https://github.com/cmetz/ec-su_axb35-linux for Strix Halo-specific controls"
     
     success "Hardware fixes applied"
 }
+
 
 # --- Sound Open Firmware (SOF) Configuration ---
 install_sof_firmware() {
