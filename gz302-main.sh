@@ -145,6 +145,7 @@ check_kernel_version() {
         # Detect if Arch-based distribution
         local distro=""
         if [[ -f /etc/os-release ]]; then
+            # shellcheck disable=SC1091
             source /etc/os-release
             if [[ "$ID" == "arch" ]] || [[ "$ID_LIKE" == *"arch"* ]]; then
                 distro="arch"
@@ -225,6 +226,7 @@ detect_distribution() {
     local distro=""
     
     if [[ -f /etc/os-release ]]; then
+        # shellcheck disable=SC1091
         source /etc/os-release
         
         # Detect Arch-based systems
@@ -1234,7 +1236,8 @@ EOF
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         local PWRCFG_PATH="/usr/local/bin/pwrcfg"
         if [[ -x "$PWRCFG_PATH" ]]; then
-            local SUDOERS_TMP="/tmp/gz302-pwrcfg.$RANDOM"
+            local SUDOERS_TMP
+            SUDOERS_TMP=$(mktemp /tmp/gz302-pwrcfg.XXXXXX)
             local SUDOERS_FILE="/etc/sudoers.d/gz302-pwrcfg"
             cat > "$SUDOERS_TMP" << EOF
 # Allow all users to run pwrcfg without password
@@ -1246,10 +1249,10 @@ EOF
                 info "Configured sudoers: you can now run 'sudo pwrcfg <profile>' without a password."
             else
                 rm -f "$SUDOERS_TMP"
-                warn "Invalid sudoers config, skipped enabling password-less 'sudo pwrcfg'."
+                warning "Invalid sudoers config, skipped enabling password-less 'sudo pwrcfg'."
             fi
         else
-            warn "pwrcfg not found at $PWRCFG_PATH; skipping sudoers setup."
+            warning "pwrcfg not found at $PWRCFG_PATH; skipping sudoers setup."
         fi
     else
         info "Skipping sudoers configuration for 'pwrcfg'. You can enable later via tray-icon/install-policy.sh."
@@ -2525,7 +2528,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 1.0.1 - Folio Resume Fix"
+    echo "  Version 1.0.2"
     echo "============================================================"
     echo
     
