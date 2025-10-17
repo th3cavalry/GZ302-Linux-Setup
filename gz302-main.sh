@@ -373,8 +373,13 @@ EOF
     echo "Some users experience issues where the folio keyboard/touchpad stops"
     echo "working after suspend/resume and requires reconnecting the folio."
     echo
-    echo "Install folio resume workaround? (y/N)"
-    read -r folio_response
+    # Single-key prompt with 30s timeout; defaults to 'N' if no input or non-interactive
+    if [ -t 0 ]; then
+        read -r -n 1 -t 30 -p "Install folio resume workaround? (y/N): " folio_response || folio_response=""
+        echo
+    else
+        folio_response=""
+    fi
     
     if [[ "$folio_response" =~ ^[Yy]$ ]]; then
         # Create folio resume script for touchpad/keyboard after suspend
