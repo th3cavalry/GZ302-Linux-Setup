@@ -28,6 +28,9 @@ Download and install only what you need:
 - **📸 Snapshots Module** - Automatic system backups with Snapper
 - **🔒 Secure Boot Module** - Boot integrity and security tools
 
+### 🎯 **GUI Tools** (Work in Progress)
+- **🖱️ [Tray Icon](tray-icon/)** - System tray utility for quick power profile switching (coming soon)
+
 ## 🚀 Installation
 
 **Quick Start:**
@@ -61,6 +64,9 @@ Based on latest research from GZ302 community and comprehensive testing:
 - **GPU optimization**: AMD Radeon 8060S integrated graphics (RDNA 3.5) - full feature mask enabled, ROCm-compatible
 - **Wi-Fi stability**: MediaTek MT7925 conditional fixes - automatic ASPM workaround for kernels < 6.15, native support for 6.15+
 - **ASUS HID**: Keyboard and touchpad module configuration with mature gesture support
+- **Folio Resume Fix**: Automatic reload of HID and USB rebind for folio keyboard/touchpad after suspend/resume (see Issue #83)
+
+**Note:** If your folio keyboard/touchpad does not work after sleep, the setup now includes a resume service that reloads the HID module and attempts to rebind the folio USB device. If you have a custom folio or different vendor/product IDs, update `gz302-folio-resume.sh` accordingly.
 
 **Research Sources**: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org, Strix Halo HomeLab, Ubuntu 25.10 benchmarks, Phoronix community
 
@@ -270,8 +276,9 @@ This project is provided as-is for the GZ302 community.
 ## 📖 Additional Documentation
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines and contribution process
-- [CHANGELOG.md](CHANGELOG.md) - Version history and release notes
+- [CHANGELOG.md](Info/CHANGELOG.md) - Version history and release notes
 - [Old/ARCHIVED.md](Old/ARCHIVED.md) - Information about legacy scripts (v4.3.1)
+- [tray-icon/](tray-icon/) - GUI system tray utility (work in progress)
 
 ---
 
