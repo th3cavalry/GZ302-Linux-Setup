@@ -5,6 +5,18 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2025-10-17
+
+### Fixed
+- Line 66 runtime error: restored logging helpers at top of script and removed orphaned block
+- Keyboard backlight not restoring after resume: add system-sleep hook to save/restore brightness
+
+### Changed
+- Folio resume prompt UX: single-key Y/N with 30s timeout; defaults to No when non-interactive
+
+### Notes
+- Syntax and lint checks added to workflow when editing main script
+
 ## [1.0.1] - 2025-10-16
 
 ### Fixed

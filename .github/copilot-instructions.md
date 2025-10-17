@@ -2,7 +2,7 @@
 
 Hardware-specific Linux setup scripts for the ASUS ROG Flow Z13 (GZ302) laptop with AMD Ryzen AI MAX+ 395 processor. These scripts automate critical hardware fixes and optional software installation for multiple Linux distributions.
 
-**Current Version: 1.0.1** - Folio resume fix with complete hardware support, modern power management with `pwrcfg`/`rrcfg` commands, and modular architecture.
+**Current Version: 1.0.5** - Folio resume fix, logging initialization fix, keyboard backlight resume, modern power management with `pwrcfg`/`rrcfg`, and modular architecture.
 
 **ALWAYS reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.**
 
