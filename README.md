@@ -28,8 +28,8 @@ Download and install only what you need:
 - **📸 Snapshots Module** - Automatic system backups with Snapper
 - **🔒 Secure Boot Module** - Boot integrity and security tools
 
-### 🎯 **GUI Tools** (Work in Progress)
-- **🖱️ [Tray Icon](tray-icon/)** - System tray utility for quick power profile switching (coming soon)
+### 🎯 **GUI Tools**
+- **🖱️ [Tray Icon](tray-icon/)** - System tray utility for quick power profile switching. Now supports password-less sudo for `pwrcfg`, AC/Battery indicators, and autostart.
 
 ## 🚀 Installation
 

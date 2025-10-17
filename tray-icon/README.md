@@ -82,6 +82,15 @@ chmod +x src/gz302_tray.py
 ./src/gz302_tray.py
 ```
 
+### Optional: Install Desktop Launcher + Autostart
+
+```bash
+cd tray-icon
+./install-tray.sh
+```
+
+This creates a launcher in `~/.local/share/applications` and an autostart entry in `~/.config/autostart`.
+
 ## Usage
 
 1. Launch the tray icon application
