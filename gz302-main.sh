@@ -1157,7 +1157,7 @@ configure_auto_switching() {
         read -p "AC profile [gaming]: " ac_profile || true
         ac_profile="${ac_profile:-gaming}"
         
-        if [ -z "${TDP_PROFILES[$ac_profile]:-}" ]; then
+        if [ -z "${POWER_PROFILES[$ac_profile]:-}" ]; then
             echo "Invalid profile, using 'gaming'"
             ac_profile="gaming"
         fi
@@ -1169,7 +1169,7 @@ configure_auto_switching() {
         read -p "Battery profile [efficient]: " battery_profile || true
         battery_profile="${battery_profile:-efficient}"
         
-        if [ -z "${TDP_PROFILES[$battery_profile]:-}" ]; then
+        if [ -z "${POWER_PROFILES[$battery_profile]:-}" ]; then
             echo "Invalid profile, using 'efficient'"
             battery_profile="efficient"
         fi
@@ -1211,7 +1211,7 @@ auto_switch_profile() {
                 "AC")
                     if [ -f "$AC_PROFILE_FILE" ]; then
                         local ac_profile=$(cat "$AC_PROFILE_FILE" 2>/dev/null)
-                        if [ -n "$ac_profile" ] && [ -n "${TDP_PROFILES[$ac_profile]}" ]; then
+                        if [ -n "$ac_profile" ] && [ -n "${POWER_PROFILES[$ac_profile]:-}" ]; then
                             echo "Power source changed to AC, switching to profile: $ac_profile"
                             set_tdp_profile "$ac_profile"
                         fi
@@ -1220,7 +1220,7 @@ auto_switch_profile() {
                 "Battery")
                     if [ -f "$BATTERY_PROFILE_FILE" ]; then
                         local battery_profile=$(cat "$BATTERY_PROFILE_FILE" 2>/dev/null)
-                        if [ -n "$battery_profile" ] && [ -n "${TDP_PROFILES[$battery_profile]}" ]; then
+                        if [ -n "$battery_profile" ] && [ -n "${POWER_PROFILES[$battery_profile]:-}" ]; then
                             echo "Power source changed to Battery, switching to profile: $battery_profile"
                             set_tdp_profile "$battery_profile"
                         fi
