@@ -57,18 +57,61 @@ C_YELLOW='\033[1;33m'
 C_RED='\033[0;31m'
 C_NC='\033[0m' # No Color
 
-    # Install TDP management script from template
-    if [[ -f "pwrcfg.template.sh" ]]; then
-        cp pwrcfg.template.sh /usr/local/bin/pwrcfg
-        chmod +x /usr/local/bin/pwrcfg
-        info "Installed pwrcfg from template."
-    else
-        error "pwrcfg.template.sh not found. Please ensure the template file exists."
-    fi
-        echo "$SUDO_USER"
-    else
+# --- Logging and error functions ---
+error() {
+    echo -e "${C_RED}ERROR:${C_NC} $1" >&2
+    exit 1
+}
+
+info() {
+    echo -e "${C_BLUE}INFO:${C_NC} $1"
+}
+
+success() {
+    echo -e "${C_GREEN}SUCCESS:${C_NC} $1"
+}
+
+warning() {
+    echo -e "${C_YELLOW}WARNING:${C_NC} $1"
+}
+
+# --- Common helper functions ---
+get_real_user() {
+    if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+        echo "${SUDO_USER}"
+    elif command -v logname >/dev/null 2>&1; then
         logname 2>/dev/null || whoami
+    else
+        whoami
     fi
+}
+
+check_root() {
+    if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
+        error "This script must be run as root. Please run: sudo ./gz302-main.sh"
+    fi
+}
+
+check_network() {
+    # Try a quick HTTP HEAD to GitHub raw (preferred)
+    if command -v curl >/dev/null 2>&1; then
+        if curl -fsSIL --max-time 5 "${GITHUB_RAW_URL}/gz302-main.sh" >/dev/null 2>&1; then
+            return 0
+        fi
+    fi
+    # Fallback: ping a public IP (no DNS required)
+    if command -v ping >/dev/null 2>&1; then
+        if ping -c1 -W1 1.1.1.1 >/dev/null 2>&1 || ping -c1 -W1 8.8.8.8 >/dev/null 2>&1; then
+            return 0
+        fi
+    fi
+    # Fallback: DNS resolution check
+    if command -v getent >/dev/null 2>&1; then
+        if getent hosts github.com >/dev/null 2>&1; then
+            return 0
+        fi
+    fi
+    return 1
 }
 
 # --- Check Kernel Version ---
