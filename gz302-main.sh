@@ -140,8 +140,22 @@ check_kernel_version() {
     info "Detected kernel version: $(uname -r)"
     
     if [[ $version_num -lt $min_version ]]; then
-    error "❌ UNSUPPORTED KERNEL VERSION ❌\nYour kernel version ($kernel_version) is below the absolute minimum (6.14).\nKernel 6.14+ is REQUIRED for GZ302EA because it includes:\n  - AMD XDNA NPU driver (essential for Ryzen AI MAX+ 395)\n  - MediaTek MT7925 WiFi driver integration\n  - AMD P-State driver with dynamic core ranking\n  - Critical RDNA 3.5 GPU support for Radeon 8060S\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nOPTION: Install linux-g14 kernel (Arch-based distros only)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nThe linux-g14 kernel is a customized kernel for ASUS ROG devices\nthat includes the latest patches and optimizations for GZ302EA."
-        
+        echo
+        echo "❌ UNSUPPORTED KERNEL VERSION ❌"
+        echo "Your kernel version ($kernel_version) is below the absolute minimum (6.14)."
+        echo
+        echo "Kernel 6.14+ is REQUIRED for GZ302EA because it includes:"
+        echo "  - AMD XDNA NPU driver (essential for Ryzen AI MAX+ 395)"
+        echo "  - MediaTek MT7925 WiFi driver integration"
+        echo "  - AMD P-State driver with dynamic core ranking"
+        echo "  - Critical RDNA 3.5 GPU support for Radeon 8060S"
+        echo
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "OPTION: Install linux-g14 kernel (Arch-based distros only)"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "The linux-g14 kernel is a customized kernel for ASUS ROG devices"
+        echo "that includes the latest patches and optimizations for GZ302EA."
+        echo
         # Detect if Arch-based distribution
         local distro=""
         if [[ -f /etc/os-release ]]; then
@@ -191,16 +205,16 @@ check_kernel_version() {
                     echo
                     exit 0
                 else
-                    error "Failed to install linux-g14 kernel"
+                    echo "Failed to install linux-g14 kernel"
                     echo
                     echo "Please install a compatible kernel manually and try again."
                     echo "See: https://asus-linux.org for more information"
-                    exit 1
+                    # Fall through to cancellation message below
                 fi
             fi
         fi
         
-    error "Installation cancelled. Kernel 6.14+ is required.\nOther upgrade options:\n  1. Use your distribution's kernel update mechanism\n  2. Install a mainline kernel from kernel.org\n  3. Check Info/kernel_changelog.md for version details\nIf you cannot upgrade, please create an issue on GitHub:\n  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
+        error "Installation cancelled. Kernel 6.14+ is required.\nOther upgrade options:\n  1. Use your distribution's kernel update mechanism\n  2. Install a mainline kernel from kernel.org\n  3. Check Info/kernel_changelog.md for version details\nIf you cannot upgrade, please create an issue on GitHub:\n  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
     elif [[ $version_num -lt $recommended_version ]]; then
         warning "Your kernel version ($kernel_version) meets minimum requirements (6.14+)"
         info "For optimal performance, consider upgrading to kernel 6.17+ which includes:"
@@ -1361,7 +1375,7 @@ FRAME_LIMITS[efficient]="60"             # Cap at 60fps
 FRAME_LIMITS[balanced]="90"              # Cap at 90fps
 FRAME_LIMITS[performance]="120"          # Cap at 120fps
 FRAME_LIMITS[gaming]="0"                 # No frame limiting (VRR handles it)
-REFRESH_LIMITS[maximum]="0"              # No frame limiting
+FRAME_LIMITS[maximum]="0"              # No frame limiting
 
 # VRR min/max refresh ranges by profile
 declare -A VRR_MIN_RANGES
@@ -2301,7 +2315,7 @@ download_and_execute_module() {
     
     # Check network connectivity before attempting download
     if ! check_network; then
-        error "No network connectivity detected. Cannot download ${module_name} module.\nPlease check your internet connection and try again."
+        warning "No network connectivity detected. Cannot download ${module_name} module.\nPlease check your internet connection and try again."
         return 1
     fi
     
@@ -2321,7 +2335,7 @@ download_and_execute_module() {
             return 1
         fi
     else
-        error "Failed to download ${module_name} module from ${module_url}\nPlease verify:\n  1. Internet connection is active\n  2. GitHub is accessible\n  3. Repository URL is correct"
+        warning "Failed to download ${module_name} module from ${module_url}\nPlease verify:\n  1. Internet connection is active\n  2. GitHub is accessible\n  3. Repository URL is correct"
         return 1
     fi
 }
@@ -2534,7 +2548,8 @@ main() {
     
     # Check kernel version early (before network check)
     info "Checking kernel version..."
-    # Removed unused kernel_ver_num variable (was not used after assignment)
+    # Perform kernel version validation early (exits on failure)
+    check_kernel_version >/dev/null
     echo
     
     # Check network connectivity
@@ -2559,6 +2574,7 @@ main() {
     # Get original distribution name for display
     local original_distro=""
     if [[ -f /etc/os-release ]]; then
+        # shellcheck disable=SC1091
         source /etc/os-release
         original_distro="$ID"
     fi
