@@ -1318,6 +1318,9 @@ MONITOR_EOF
 
     chmod +x /usr/local/bin/pwrcfg-monitor
     
+    # Reload systemd units to ensure new services are recognized
+    systemctl daemon-reload
+    
     systemctl enable pwrcfg-auto.service
     
     echo ""
