@@ -46,6 +46,30 @@ The main script will:
 2. Apply all GZ302 hardware fixes
 3. Install TDP and refresh rate management
 4. Offer optional software modules for download
+5. Optionally configure password-less `pwrcfg` (no sudo required)
+
+## 🔑 Using `pwrcfg` Without Sudo
+
+After installation, you can enable password-less power profile switching:
+
+**Option 1: During main script installation**
+- The setup script will prompt you to enable password-less `pwrcfg`
+- Answer 'y' when asked: "Enable password-less pwrcfg (no sudo required) for all users?"
+
+**Option 2: After installation**
+```bash
+cd tray-icon
+sudo ./install-policy.sh
+```
+
+Once configured, you can switch power profiles without typing `sudo`:
+```bash
+pwrcfg battery      # Switch to battery profile
+pwrcfg gaming       # Switch to gaming profile
+pwrcfg status       # Check current profile
+```
+
+**How it works:** `pwrcfg` automatically elevates itself using `sudo -n` when needed. With the sudoers rule installed, no password prompt appears—just instant profile switching.
 
 ## 📋 Supported Distributions
 
