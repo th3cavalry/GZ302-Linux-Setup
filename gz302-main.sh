@@ -388,9 +388,19 @@ EOF
     systemctl daemon-reload
     systemctl enable reload-hid_asus.service
 
-    # Create folio resume script for touchpad/keyboard after suspend
-    info "Creating folio resume script for Issue #83 workaround..."
-    cat > /usr/local/bin/gz302-folio-resume.sh <<'EOF'
+    # Ask user if they want folio resume fix (optional for Issue #83)
+    echo
+    info "Optional: Folio keyboard/touchpad resume fix"
+    echo "Some users experience issues where the folio keyboard/touchpad stops"
+    echo "working after suspend/resume and requires reconnecting the folio."
+    echo
+    echo "Install folio resume workaround? (y/N)"
+    read -r folio_response
+    
+    if [[ "$folio_response" =~ ^[Yy]$ ]]; then
+        # Create folio resume script for touchpad/keyboard after suspend
+        info "Creating folio resume script for Issue #83 workaround..."
+        cat > /usr/local/bin/gz302-folio-resume.sh <<'EOF'
 #!/bin/bash
 # Resume fix for ASUS Flow Z13 folio keyboard/touchpad after suspend
 # Reloads hid_asus and attempts to rebind folio USB device
@@ -417,11 +427,11 @@ done
 
 exit 0
 EOF
-    chmod +x /usr/local/bin/gz302-folio-resume.sh
+        chmod +x /usr/local/bin/gz302-folio-resume.sh
 
-    # Create systemd service to reload hid_asus module after suspend/resume
-    info "Creating suspend/resume HID module reload service for touchpad gestures..."
-    cat > /etc/systemd/system/reload-hid_asus-resume.service <<'EOF'
+        # Create systemd service to reload hid_asus module after suspend/resume
+        info "Creating suspend/resume HID module reload service for touchpad gestures..."
+        cat > /etc/systemd/system/reload-hid_asus-resume.service <<'EOF'
 [Unit]
 Description=Reload hid_asus module after resume for GZ302 Touchpad gestures
 After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
@@ -435,8 +445,12 @@ ExecStart=/bin/bash /usr/local/bin/gz302-folio-resume.sh
 WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
 EOF
 
-    # Enable the resume service
-    systemctl enable reload-hid_asus-resume.service
+        # Enable the resume service
+        systemctl enable reload-hid_asus-resume.service
+        success "Folio resume fix installed"
+    else
+        info "Skipping folio resume fix - you can install it later if needed"
+    fi
 
     # Reload hardware database and udev
     systemd-hwdb update 2>/dev/null || true
