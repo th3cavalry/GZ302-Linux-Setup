@@ -64,12 +64,19 @@ sudo ./install-policy.sh
 
 Once configured, you can switch power profiles without typing `sudo`:
 ```bash
-pwrcfg battery      # Switch to battery profile
-pwrcfg gaming       # Switch to gaming profile
-pwrcfg status       # Check current profile
+# Switch to battery profile
+pwrcfg battery
+# Switch to gaming profile
+pwrcfg gaming
+# Check current profile
+pwrcfg status
+# List all available profiles
+pwrcfg list
+# Configure automatic AC/battery switching
+pwrcfg config
 ```
 
-**How it works:** `pwrcfg` automatically elevates itself using `sudo -n` when needed. With the sudoers rule installed, no password prompt appears—just instant profile switching.
+**How it works:** `pwrcfg` automatically elevates itself using `sudo -n` when needed. With the sudoers rule installed, no password prompt appears—just instant profile switching. If password-less sudo is not configured, use `sudo pwrcfg ...` instead.
 
 ## 📋 Supported Distributions
 
@@ -186,49 +193,66 @@ The `linux-g14` custom kernel is **optional** for GZ302 users:
 ### Using Power Management
 ```bash
 # Set power profile (automatically adjusts refresh rate)
-sudo pwrcfg gaming
-
+pwrcfg gaming
 # Check current status
-sudo pwrcfg status
-
+pwrcfg status
 # List all available profiles
-sudo pwrcfg list
-
+pwrcfg list
 # Configure automatic AC/battery switching
-sudo pwrcfg config
+pwrcfg config
 ```
 
 ### Using Refresh Rate Control
 ```bash
 # Manually set refresh rate (independent of power profile)
-sudo rrcfg gaming
-
+rrcfg gaming
 # Check current refresh rate
-sudo rrcfg status
-
+rrcfg status
 # List available profiles
-sudo rrcfg list
-
+rrcfg list
 # Enable VRR/FreeSync
-sudo rrcfg vrr on
-
+rrcfg vrr on
 # Configure game-specific profiles
-sudo rrcfg game add steam gaming
+rrcfg game add steam gaming
 ```
 
 ### Quick Reference
 ```bash
 # View current power and refresh settings
-sudo pwrcfg status
-sudo rrcfg status
-
+pwrcfg status
+rrcfg status
 # Enable automatic AC/battery switching (controls both power AND refresh)
-sudo pwrcfg config
-
+pwrcfg config
 # List available profiles
 pwrcfg list
 rrcfg list
 ```
+## 🛠️ Troubleshooting FAQ
+
+**Q: I get a password prompt when running `pwrcfg` or `rrcfg`.**
+A: Make sure you enabled password-less sudo during setup, or run `sudo ./install-policy.sh` from the `tray-icon` directory. If you still get a prompt, check `/etc/sudoers.d/gz302-pwrcfg` exists and is valid.
+
+**Q: `pwrcfg` says it can't elevate privileges.**
+A: The sudoers rule may be missing or misconfigured. Run `sudo visudo -c -f /etc/sudoers.d/gz302-pwrcfg` to check for errors. Re-run the main setup script or `install-policy.sh` to fix.
+
+**Q: My profile changes don't take effect.**
+A: Make sure you are running the latest version of the script and that your user is in the correct group (if required by your distro).
+
+**Q: How do I revert to requiring a password for `pwrcfg`?**
+A: Remove `/etc/sudoers.d/gz302-pwrcfg` and reboot.
+
+**Q: Can I use `pwrcfg`/`rrcfg` with custom profiles?**
+A: Yes! See the advanced usage section in the documentation for details.
+
+## 🕰️ History
+
+Legacy scripts and architecture:
+- **gz302_setup.sh** (version 4.3.2) - Old monolithic bash script
+- **gz302_setup.py** (version 4.3.2) - Old Python implementation
+- **VERSION_INCREMENT_GUIDE.md** - Old version management guide
+- **ARCHIVED.md** - Information about legacy scripts (v4.3.1)
+
+For details on previous versions and migration notes, see [Old/ARCHIVED.md](Old/ARCHIVED.md).
 
 ## �� Architecture
 

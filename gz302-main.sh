@@ -57,67 +57,14 @@ C_YELLOW='\033[1;33m'
 C_RED='\033[0;31m'
 C_NC='\033[0m' # No Color
 
-# Add error handling trap
-cleanup_on_error() {
-    local exit_code=$?
-    echo
-    echo "❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌"
-    echo -e "${C_RED}[ERROR]${C_NC} Script failed with exit code: $exit_code"
-    echo -e "${C_RED}[ERROR]${C_NC} The setup process was interrupted and may be incomplete."
-    echo -e "${C_RED}[ERROR]${C_NC} Please check the error messages above for details."
-    echo -e "${C_RED}[ERROR]${C_NC} You may need to run the script again or fix issues manually."
-    echo "❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌"
-    echo
-}
-
-# Set up the error trap
-trap cleanup_on_error ERR
-
-# --- Helper Functions for User Feedback ---
-
-info() {
-    echo -e "${C_BLUE}[INFO]${C_NC} $1"
-}
-
-success() {
-    echo -e "${C_GREEN}[SUCCESS]${C_NC} $1"
-}
-
-warning() {
-    echo -e "${C_YELLOW}[WARNING]${C_NC} $1"
-}
-
-error() {
-    echo -e "${C_RED}[ERROR]${C_NC} $1"
-    exit 1
-}
-
-# --- Check for Root Privileges ---
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        error "This script must be run as root. Please use sudo."
+    # Install TDP management script from template
+    if [[ -f "pwrcfg.template.sh" ]]; then
+        cp pwrcfg.template.sh /usr/local/bin/pwrcfg
+        chmod +x /usr/local/bin/pwrcfg
+        info "Installed pwrcfg from template."
+    else
+        error "pwrcfg.template.sh not found. Please ensure the template file exists."
     fi
-}
-
-# --- Check Network Connectivity ---
-check_network() {
-    local test_urls=(
-        "https://raw.githubusercontent.com"
-        "8.8.8.8"
-    )
-    
-    for url in "${test_urls[@]}"; do
-        if curl -s --connect-timeout 5 --max-time 10 "$url" > /dev/null 2>&1 || ping -c 1 -W 2 "$url" > /dev/null 2>&1; then
-            return 0
-        fi
-    done
-    
-    return 1
-}
-
-# Get the real user (not root when using sudo)
-get_real_user() {
-    if [[ -n "${SUDO_USER:-}" ]]; then
         echo "$SUDO_USER"
     else
         logname 2>/dev/null || whoami
