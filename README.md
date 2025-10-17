@@ -273,7 +273,7 @@ This project is provided as-is for the GZ302 community.
 ## 📖 Additional Documentation
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines and contribution process
-- [CHANGELOG.md](CHANGELOG.md) - Version history and release notes
+- [CHANGELOG.md](Info/CHANGELOG.md) - Version history and release notes
 - [Old/ARCHIVED.md](Old/ARCHIVED.md) - Information about legacy scripts (v4.3.1)
 
 ---

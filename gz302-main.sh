@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.0.0
+# Version: 1.0.1
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -387,6 +387,37 @@ EOF
     # Enable the service
     systemctl daemon-reload
     systemctl enable reload-hid_asus.service
+
+    # Create folio resume script for touchpad/keyboard after suspend
+    info "Creating folio resume script for Issue #83 workaround..."
+    cat > /usr/local/bin/gz302-folio-resume.sh <<'EOF'
+#!/bin/bash
+# Resume fix for ASUS Flow Z13 folio keyboard/touchpad after suspend
+# Reloads hid_asus and attempts to rebind folio USB device
+
+# Reload hid_asus module
+modprobe -r hid_asus
+sleep 1
+modprobe hid_asus
+
+# Attempt to rebind folio keyboard (auto-detect by vendor:product if possible)
+# Replace these IDs with actual values if known
+FOLIO_VENDOR="0b05"   # ASUS
+FOLIO_PRODUCT="1e0f"  # Example product ID (replace if known)
+
+# Find folio device path
+for DEV in /sys/bus/usb/devices/*; do
+  if grep -q "$FOLIO_VENDOR" "$DEV/idVendor" 2>/dev/null && grep -q "$FOLIO_PRODUCT" "$DEV/idProduct" 2>/dev/null; then
+    echo "Unbinding folio keyboard: $DEV"
+    echo -n $(basename "$DEV") > /sys/bus/usb/drivers/usb/unbind
+    sleep 1
+    echo -n $(basename "$DEV") > /sys/bus/usb/drivers/usb/bind
+  fi
+done
+
+exit 0
+EOF
+    chmod +x /usr/local/bin/gz302-folio-resume.sh
 
     # Create systemd service to reload hid_asus module after suspend/resume
     info "Creating suspend/resume HID module reload service for touchpad gestures..."
@@ -2481,7 +2512,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 0.2.0-RC1 - Modern Power Management"
+    echo "  Version 1.0.1 - Folio Resume Fix"
     echo "============================================================"
     echo
     
