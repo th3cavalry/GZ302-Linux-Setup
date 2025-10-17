@@ -750,6 +750,24 @@ setup_tdp_management() {
 # GZ302 Power Configuration Script (pwrcfg)
 # Manages power profiles with SPL/sPPT/fPPT for AMD Ryzen AI MAX+ 395 (Strix Halo)
 
+set -euo pipefail
+
+# Auto-elevate: allow running 'pwrcfg <profile>' without typing sudo
+if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
+    if command -v sudo >/dev/null 2>&1; then
+        # If password-less sudo is configured, re-exec without prompting
+        if sudo -n true 2>/dev/null; then
+            exec sudo -n "$0" "$@"
+        fi
+        echo "pwrcfg requires elevated privileges to apply power limits." >&2
+        echo "Enable password-less sudo for /usr/local/bin/pwrcfg (recommended) or run with sudo." >&2
+        exit 1
+    else
+        echo "pwrcfg requires elevated privileges and 'sudo' was not found. Run as root." >&2
+        exit 1
+    fi
+fi
+
 TDP_CONFIG_DIR="/etc/pwrcfg"
 CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
 AUTO_CONFIG_FILE="$TDP_CONFIG_DIR/auto-config"
@@ -1245,7 +1263,7 @@ EOF
     
     # Optional: Configure sudoers to allow password-less 'sudo pwrcfg'
     echo ""
-    read -p "Enable password-less 'sudo pwrcfg' for all users? (y/N): " -n 1 -r
+    read -p "Enable password-less pwrcfg (no sudo required) for all users? (y/N): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         local PWRCFG_PATH="/usr/local/bin/pwrcfg"
@@ -1260,7 +1278,8 @@ EOF
             if visudo -c -f "$SUDOERS_TMP" >/dev/null 2>&1; then
                 mv "$SUDOERS_TMP" "$SUDOERS_FILE"
                 chmod 440 "$SUDOERS_FILE"
-                info "Configured sudoers: you can now run 'sudo pwrcfg <profile>' without a password."
+                info "Configured sudoers: you can now run 'pwrcfg <profile>' without typing sudo or a password."
+                info "Note: You may need to open a new terminal or re-login for sudoers changes to apply."
             else
                 rm -f "$SUDOERS_TMP"
                 warning "Invalid sudoers config, skipped enabling password-less 'sudo pwrcfg'."
