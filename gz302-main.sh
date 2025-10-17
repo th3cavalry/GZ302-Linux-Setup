@@ -180,9 +180,7 @@ check_kernel_version() {
                 # Add G14 repository
                 if ! grep -q "arch.asus-linux.org" /etc/pacman.conf 2>/dev/null; then
                     info "Adding G14 repository..."
-                    echo "" >> /etc/pacman.conf
-                    echo "[g14]" >> /etc/pacman.conf
-                    echo "Server = https://arch.asus-linux.org" >> /etc/pacman.conf
+                    { echo ""; echo "[g14]"; echo "Server = https://arch.asus-linux.org"; } >> /etc/pacman.conf
                     
                     # Import GPG key
                     pacman-key --recv-keys 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35
@@ -530,9 +528,7 @@ install_arch_asus_packages() {
         pacman-key --lsign-key 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35 || warning "Failed to sign G14 key"
         
         # Add repository to pacman.conf
-        echo "" >> /etc/pacman.conf
-        echo "[g14]" >> /etc/pacman.conf
-        echo "Server = https://arch.asus-linux.org" >> /etc/pacman.conf
+    { echo ""; echo "[g14]"; echo "Server = https://arch.asus-linux.org"; } >> /etc/pacman.conf
         
         # Update package database
         pacman -Sy
@@ -2560,8 +2556,7 @@ main() {
     
     # Check kernel version early (before network check)
     info "Checking kernel version..."
-    local kernel_ver_num
-    kernel_ver_num=$(check_kernel_version)
+    # Removed unused kernel_ver_num variable (was not used after assignment)
     echo
     
     # Check network connectivity
