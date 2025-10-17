@@ -140,23 +140,7 @@ check_kernel_version() {
     info "Detected kernel version: $(uname -r)"
     
     if [[ $version_num -lt $min_version ]]; then
-        error "❌ UNSUPPORTED KERNEL VERSION ❌"
-        echo
-        echo "Your kernel version ($kernel_version) is below the absolute minimum (6.14)."
-        echo
-        echo "Kernel 6.14+ is REQUIRED for GZ302EA because it includes:"
-        echo "  - AMD XDNA NPU driver (essential for Ryzen AI MAX+ 395)"
-        echo "  - MediaTek MT7925 WiFi driver integration"
-        echo "  - AMD P-State driver with dynamic core ranking"
-        echo "  - Critical RDNA 3.5 GPU support for Radeon 8060S"
-        echo
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "OPTION: Install linux-g14 kernel (Arch-based distros only)"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo
-        echo "The linux-g14 kernel is a customized kernel for ASUS ROG devices"
-        echo "that includes the latest patches and optimizations for GZ302EA."
-        echo
+    error "❌ UNSUPPORTED KERNEL VERSION ❌\nYour kernel version ($kernel_version) is below the absolute minimum (6.14).\nKernel 6.14+ is REQUIRED for GZ302EA because it includes:\n  - AMD XDNA NPU driver (essential for Ryzen AI MAX+ 395)\n  - MediaTek MT7925 WiFi driver integration\n  - AMD P-State driver with dynamic core ranking\n  - Critical RDNA 3.5 GPU support for Radeon 8060S\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nOPTION: Install linux-g14 kernel (Arch-based distros only)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nThe linux-g14 kernel is a customized kernel for ASUS ROG devices\nthat includes the latest patches and optimizations for GZ302EA."
         
         # Detect if Arch-based distribution
         local distro=""
@@ -215,16 +199,7 @@ check_kernel_version() {
             fi
         fi
         
-        echo
-        echo "Other upgrade options:"
-        echo "  1. Use your distribution's kernel update mechanism"
-        echo "  2. Install a mainline kernel from kernel.org"
-        echo "  3. Check Info/kernel_changelog.md for version details"
-        echo
-        echo "If you cannot upgrade, please create an issue on GitHub:"
-        echo "  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
-        echo
-        error "Installation cancelled. Kernel 6.14+ is required."
+    error "Installation cancelled. Kernel 6.14+ is required.\nOther upgrade options:\n  1. Use your distribution's kernel update mechanism\n  2. Install a mainline kernel from kernel.org\n  3. Check Info/kernel_changelog.md for version details\nIf you cannot upgrade, please create an issue on GitHub:\n  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
     elif [[ $version_num -lt $recommended_version ]]; then
         warning "Your kernel version ($kernel_version) meets minimum requirements (6.14+)"
         info "For optimal performance, consider upgrading to kernel 6.17+ which includes:"
