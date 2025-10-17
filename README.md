@@ -28,6 +28,9 @@ Download and install only what you need:
 - **📸 Snapshots Module** - Automatic system backups with Snapper
 - **🔒 Secure Boot Module** - Boot integrity and security tools
 
+### 🎯 **GUI Tools** (Work in Progress)
+- **🖱️ [Tray Icon](tray-icon/)** - System tray utility for quick power profile switching (coming soon)
+
 ## 🚀 Installation
 
 **Quick Start:**
@@ -275,6 +278,7 @@ This project is provided as-is for the GZ302 community.
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines and contribution process
 - [CHANGELOG.md](Info/CHANGELOG.md) - Version history and release notes
 - [Old/ARCHIVED.md](Old/ARCHIVED.md) - Information about legacy scripts (v4.3.1)
+- [tray-icon/](tray-icon/) - GUI system tray utility (work in progress)
 
 ---
 
