@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.0.5
+# Version: 1.0.6
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -2376,6 +2376,70 @@ enable_opensuse_services() {
     info "Services configuration complete for OpenSUSE"
 }
 
+# --- Linux-G14 Kernel Installation ---
+install_linux_g14_kernel() {
+    local distro="$1"
+    
+    if [[ "$distro" != "arch" ]]; then
+        warning "linux-g14 kernel is only available for Arch-based systems"
+        warning "For other distributions, use your official package manager for kernel updates"
+        return 1
+    fi
+    
+    info "Installing linux-g14 kernel and headers..."
+    info "This provides kernel 6.17+ with full ASUS ROG optimizations for GZ302EA"
+    echo
+    
+    # Add G14 repository if not already present
+    if ! grep -q "arch.asus-linux.org" /etc/pacman.conf 2>/dev/null; then
+        info "Adding ASUS Linux repository..."
+        { echo ""; echo "[g14]"; echo "Server = https://arch.asus-linux.org"; } >> /etc/pacman.conf
+        
+        # Import and sign GPG key
+        info "Importing ASUS Linux GPG key..."
+        if pacman-key --recv-keys 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35 2>/dev/null; then
+            pacman-key --lsign-key 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35 2>/dev/null
+            success "GPG key imported and signed"
+        else
+            warning "Failed to import GPG key. You may need to verify the key manually."
+        fi
+    else
+        info "ASUS Linux repository already configured"
+    fi
+    
+    # Update package database
+    info "Updating package database..."
+    if ! pacman -Sy 2>/dev/null; then
+        warning "Failed to update package database"
+        return 1
+    fi
+    
+    # Install linux-g14 and headers
+    info "Installing linux-g14 and linux-g14-headers..."
+    if pacman -S --noconfirm linux-g14 linux-g14-headers 2>/dev/null; then
+        success "linux-g14 kernel installed successfully!"
+        echo
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "REBOOT REQUIRED"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo
+        echo "The linux-g14 kernel has been installed successfully."
+        echo
+        echo "Next steps:"
+        echo "  1. REBOOT your system to activate the new kernel"
+        echo "  2. Verify kernel version after reboot: uname -r"
+        echo "     (you should see 'linux-g14' or a 6.17+ kernel version)"
+        echo
+        echo "For more information:"
+        echo "  See: https://asus-linux.org"
+        echo "  Analysis: Info/LINUX_G14_ANALYSIS.md"
+        echo
+        return 0
+    else
+        error "Failed to install linux-g14 kernel. Please check your internet connection and try again."
+    fi
+}
+
 # --- Module Download and Execution ---
 download_and_execute_module() {
     local module_name="$1"
@@ -2546,33 +2610,39 @@ offer_optional_modules() {
     echo
     info "The following optional modules can be installed:"
     echo
-    echo "1. Gaming Software (gz302-gaming)"
+    echo "1. Linux-G14 Kernel (Arch only) (linux-g14)"
+    echo "   - Community-maintained ASUS-optimized kernel (6.17.3)"
+    echo "   - Kernel-level LED control and suspend/resume hooks"
+    echo "   - OLED panel optimizations and power management tunables"
+    echo "   - See: Info/LINUX_G14_ANALYSIS.md for detailed comparison"
+    echo
+    echo "2. Gaming Software (gz302-gaming)"
     echo "   - Steam, Lutris, ProtonUp-Qt"
     echo "   - MangoHUD, GameMode, Wine"
     echo "   - Gaming optimizations and performance tweaks"
     echo
-    echo "2. LLM/AI Software (gz302-llm)"
+    echo "3. LLM/AI Software (gz302-llm)"
     echo "   - Ollama for local LLM inference"
     echo "   - ROCm for AMD GPU acceleration"
     echo "   - PyTorch and Transformers libraries"
     echo
-    echo "3. Hypervisor Software (gz302-hypervisor)"
+    echo "4. Hypervisor Software (gz302-hypervisor)"
     echo "   - KVM/QEMU, VirtualBox, VMware, Xen, or Proxmox"
     echo "   - Virtual machine management tools"
     echo
-    echo "4. System Snapshots (gz302-snapshots)"
+    echo "5. System Snapshots (gz302-snapshots)"
     echo "   - Automatic daily system backups"
     echo "   - Easy system recovery and rollback"
     echo "   - Supports ZFS, Btrfs, ext4 (LVM), and XFS"
     echo
-    echo "5. Secure Boot (gz302-secureboot)"
+    echo "6. Secure Boot (gz302-secureboot)"
     echo "   - Enhanced system security and boot integrity"
     echo "   - Automatic kernel signing on updates"
     echo
-    echo "6. Skip optional modules"
+    echo "7. Skip optional modules"
     echo
     
-    read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 6 to skip): " module_choice
+    read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 7 to skip): " module_choice
     
     # Parse the choices
     IFS=',' read -ra CHOICES <<< "$module_choice"
@@ -2580,21 +2650,24 @@ offer_optional_modules() {
         choice=$(echo "$choice" | tr -d ' ') # Remove spaces
         case "$choice" in
             1)
-                download_and_execute_module "gz302-gaming" "$distro" || warning "Gaming module installation failed"
+                install_linux_g14_kernel "$distro" || warning "linux-g14 kernel installation failed"
                 ;;
             2)
-                download_and_execute_module "gz302-llm" "$distro" || warning "LLM module installation failed"
+                download_and_execute_module "gz302-gaming" "$distro" || warning "Gaming module installation failed"
                 ;;
             3)
-                download_and_execute_module "gz302-hypervisor" "$distro" || warning "Hypervisor module installation failed"
+                download_and_execute_module "gz302-llm" "$distro" || warning "LLM module installation failed"
                 ;;
             4)
-                download_and_execute_module "gz302-snapshots" "$distro" || warning "Snapshots module installation failed"
+                download_and_execute_module "gz302-hypervisor" "$distro" || warning "Hypervisor module installation failed"
                 ;;
             5)
-                download_and_execute_module "gz302-secureboot" "$distro" || warning "Secure boot module installation failed"
+                download_and_execute_module "gz302-snapshots" "$distro" || warning "Snapshots module installation failed"
                 ;;
             6)
+                download_and_execute_module "gz302-secureboot" "$distro" || warning "Secure boot module installation failed"
+                ;;
+            7)
                 info "Skipping optional modules"
                 ;;
             *)
@@ -2612,7 +2685,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 1.0.5"
+    echo "  Version 1.0.6"
     echo "============================================================"
     echo
     
