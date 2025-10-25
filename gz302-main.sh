@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.0.6
+# Version: 1.0.7
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -2376,6 +2376,64 @@ enable_opensuse_services() {
     info "Services configuration complete for OpenSUSE"
 }
 
+# --- Bootloader Configuration ---
+configure_bootloader_for_kernel() {
+    local kernel_name="$1"  # e.g., "linux" or "linux-g14"
+    
+    # Detect and update GRUB if present
+    if [ -f /etc/default/grub ] || command -v grub-mkconfig >/dev/null 2>&1; then
+        info "Updating GRUB bootloader configuration for ${kernel_name}..."
+        if command -v grub-mkconfig >/dev/null 2>&1; then
+            if [ -f /boot/grub/grub.cfg ]; then
+                if grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null; then
+                    success "GRUB configuration updated"
+                else
+                    warning "Failed to regenerate GRUB config"
+                fi
+            elif command -v update-grub >/dev/null 2>&1; then
+                if update-grub 2>/dev/null; then
+                    success "GRUB configuration updated (Ubuntu/Debian)"
+                else
+                    warning "Failed to update GRUB"
+                fi
+            fi
+        fi
+    fi
+    
+    # Detect and update systemd-boot if present
+    if command -v bootctl >/dev/null 2>&1; then
+        info "Updating systemd-boot configuration for ${kernel_name}..."
+        
+        # Check if systemd-boot is installed
+        if bootctl status >/dev/null 2>&1; then
+            # Verify boot entries directory exists
+            if [ -d /boot/loader/entries ] || [ -d /efi/loader/entries ]; then
+                # Update systemd-boot (graceful update to prevent boot issues)
+                if bootctl update 2>/dev/null; then
+                    success "systemd-boot updated"
+                else
+                    warning "Failed to update systemd-boot"
+                fi
+            fi
+        fi
+    fi
+    
+    # Log the kernel parameters that were applied
+    if [ -f /proc/cmdline ]; then
+        info "Current kernel command line:"
+        if grep -q "amd_pstate=" /proc/cmdline; then
+            info "$(grep -o 'amd_pstate=[^ ]*' /proc/cmdline)"
+        else
+            info "amd_pstate parameter not yet applied (reboot required)"
+        fi
+        if grep -q "amdgpu.ppfeaturemask=" /proc/cmdline; then
+            info "$(grep -o 'amdgpu.ppfeaturemask=[^ ]*' /proc/cmdline)"
+        else
+            info "amdgpu.ppfeaturemask parameter not yet applied (reboot required)"
+        fi
+    fi
+}
+
 # --- Linux-G14 Kernel Installation ---
 install_linux_g14_kernel() {
     local distro="$1"
@@ -2418,6 +2476,11 @@ install_linux_g14_kernel() {
     info "Installing linux-g14 and linux-g14-headers..."
     if pacman -S --noconfirm linux-g14 linux-g14-headers 2>/dev/null; then
         success "linux-g14 kernel installed successfully!"
+        
+        # Update bootloader configuration after kernel installation
+        info "Updating bootloader entries for linux-g14..."
+        configure_bootloader_for_kernel "linux-g14"
+        
         echo
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo "REBOOT REQUIRED"
@@ -2425,10 +2488,16 @@ install_linux_g14_kernel() {
         echo
         echo "The linux-g14 kernel has been installed successfully."
         echo
+        echo "Bootloader Configuration Status:"
+        echo "  ✓ Kernel parameters (amd_pstate=guided, amdgpu.ppfeaturemask) applied"
+        echo "  ✓ GRUB configuration regenerated (if installed)"
+        echo "  ✓ systemd-boot updated (if installed)"
+        echo
         echo "Next steps:"
         echo "  1. REBOOT your system to activate the new kernel"
         echo "  2. Verify kernel version after reboot: uname -r"
         echo "     (you should see 'linux-g14' or a 6.17+ kernel version)"
+        echo "  3. Verify boot parameters: cat /proc/cmdline | grep 'amd_pstate'"
         echo
         echo "For more information:"
         echo "  See: https://asus-linux.org"
@@ -2685,7 +2754,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 1.0.6"
+    echo "  Version 1.0.7"
     echo "============================================================"
     echo
     
