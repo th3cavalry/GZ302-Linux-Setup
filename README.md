@@ -132,12 +132,31 @@ Automated installation from official sources:
   - See: https://github.com/cmetz/ec-su_axb35-linux
 
 ### About linux-g14 Kernel (Arch Linux)
-The `linux-g14` custom kernel is **optional** for GZ302 users:
-- **Not required** with mainline kernel 6.15+ - core hardware support is excellent
-- **Still beneficial** for advanced ASUS ROG features: custom fan curves, LED management, enhanced GPU switching
-- **Recommendation**: Use mainline kernel 6.17+ for stability, or linux-g14 if you need advanced ROG-specific features
-- The G14 repository provides asusctl regardless of which kernel you use
-- See: https://asus-linux.org for more information on linux-g14 benefits
+The `linux-g14` custom kernel is **optional** for GZ302 users. This is a community-maintained, ASUS-optimized kernel variant (currently 6.17.3) with enhanced ROG laptop support.
+
+**GZ302-Specific Features in linux-g14:**
+- ✅ **Keyboard RGB LED Control** (4-zone per-key matrix) - Enhanced kernel-level control vs userspace
+- ✅ **Suspend/Resume LED Restoration** - Kernel hooks to prevent keyboard LED blackout after sleep
+- ✅ **Power Management (PPT) Tuning** - Strix Halo-compatible APU/platform package limits (sPPT/fPPT/SPPT)
+- ✅ **OLED Panel Optimizations** - Panel overdrive, HD/UHD mode switching, auto-brightness
+
+**What's NOT in linux-g14 for GZ302:**
+- ❌ ROG Ally gamepad support (not applicable - GZ302 lacks gamepad)
+- ❌ NVIDIA GPU features (not applicable - GZ302 is 100% AMD)
+- ❌ GPU MUX switching (not applicable - no discrete GPU on GZ302)
+
+**Recommendation:**
+- **For most users**: Use **mainline kernel 6.17.4** (Arch stable) - excellent Strix Halo support, community-tested, upstream security updates
+- **For advanced users**: Use **linux-g14 6.17.3** (AUR) - if you want kernel-level LED/power management features. Trade-off: smaller testing community, slightly older patch set
+- **Either way**: v1.0.5 setup script handles both kernels seamlessly
+
+**Installation (linux-g14 on Arch):**
+```bash
+yay -S linux-g14 linux-g14-headers  # Install from AUR
+# Then rebuild bootloader and reboot
+```
+
+See: https://asus-linux.org and https://gitlab.com/asus-linux/linux-g14
 
 ### Management Tools (Always Installed)
 - **Power Management** (`pwrcfg` command)
