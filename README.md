@@ -104,7 +104,9 @@ Based on latest research from GZ302 community and comprehensive testing:
 **Kernel Requirements**: 
 - **Minimum**: Linux kernel 6.14+ (REQUIRED - AMD XDNA NPU driver, MT7925 WiFi integration, P-State driver)
 - **Recommended**: Linux kernel 6.17+ (latest stable) for enhanced Strix Halo performance and GPU scheduling
-- **See**: `Info/kernel_changelog.md` for detailed kernel version comparison and GZ302-specific improvements
+- **Documentation**:
+  - `Info/kernel_changelog.md` - Detailed kernel version features (6.14-6.18)
+  - `Info/DISTRIBUTION_KERNEL_STATUS.md` - **NEW** Current kernel versions by distribution (Arch, Ubuntu, Fedora, OpenSUSE)
 - **Benefits of 6.14+**: AMD XDNA NPU support, basic MT7925 WiFi stability, AMD P-State dynamic core ranking
 - **Benefits of 6.15+**: Cleaner shader support for RDNA 3.5, extended XDNA optimizations
 - **Benefits of 6.16+**: Enhanced KVM virtualization, improved GPU context switching, better I/O operations

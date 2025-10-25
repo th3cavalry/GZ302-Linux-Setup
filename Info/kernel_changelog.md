@@ -13,7 +13,9 @@ This document tracks kernel changes specifically relevant to the ASUS ROG Flow Z
 - **WiFi**: MediaTek MT7925 (mt7925e module)
 - **Audio**: SOF (Sound Open Firmware) compatible
 
-**Last Updated**: October 15, 2025
+**Last Updated**: October 24, 2025
+
+**Note**: See `DISTRIBUTION_KERNEL_STATUS.md` for current kernel versions across all supported distributions (Arch, Ubuntu, Fedora, OpenSUSE).
 
 ---
 
