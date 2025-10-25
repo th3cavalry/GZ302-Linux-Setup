@@ -17,6 +17,32 @@ This document tracks kernel changes specifically relevant to the ASUS ROG Flow Z
 
 **Note**: See `DISTRIBUTION_KERNEL_STATUS.md` for current kernel versions across all supported distributions (Arch, Ubuntu, Fedora, OpenSUSE).
 
+## Bootloader Configuration for linux-g14
+
+The GZ302 setup scripts (v1.0.7+) automatically configure both GRUB and systemd-boot when installing the linux-g14 kernel:
+
+### GRUB Configuration (Debian/Ubuntu/Fedora/OpenSUSE)
+- **Automatic grub-mkconfig regeneration** after kernel installation
+- **Kernel parameters applied**: `amd_pstate=guided` and `amdgpu.ppfeaturemask=0xffffffff`
+- **Update method**: `grub-mkconfig -o /boot/grub/grub.cfg` (or `update-grub` on Debian/Ubuntu)
+- **Verification**: `cat /proc/cmdline | grep amd_pstate`
+
+### systemd-boot Configuration (Arch Linux)
+- **Automatic bootctl update** with graceful mode (`bootctl update`)
+- **Boot entry management**: Automatic detection and configuration of linux-g14 entry
+- **Kernel parameters**: Applied via `/boot/loader/entries/arch.conf`
+- **Verification**: `bootctl list` shows linux-g14 kernel entry
+
+### Kernel Parameters Applied Automatically
+
+Both bootloaders receive these kernel parameters:
+- `amd_pstate=guided` - Optimal power management for Strix Halo (Ryzen AI MAX+ 395)
+- `amdgpu.ppfeaturemask=0xffffffff` - Enables all power features for Radeon 8060S (RDNA 3.5)
+
+These are set in:
+- GRUB: `/etc/default/grub` (GRUB_CMDLINE_LINUX_DEFAULT)
+- systemd-boot: `/boot/loader/entries/arch.conf` (options line)
+
 ---
 
 ## Linux Kernel 6.18 (Upcoming - Expected December 2025)
