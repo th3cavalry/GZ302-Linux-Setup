@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 0.2.0-RC1
+# Version: 0.2.1
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, Transformers
@@ -59,16 +59,22 @@ install_arch_llm_software() {
     pacman -S --noconfirm --needed rocm-opencl-runtime rocm-hip-runtime
     
     # Install Python and AI libraries
-    info "Installing Python AI libraries..."
+    info "Installing Python AI libraries (using virtualenv)..."
     pacman -S --noconfirm --needed python-pip python-virtualenv
-    
+
     local primary_user
     primary_user=$(get_real_user)
+    local venv_dir
+    venv_dir="/home/$primary_user/.gz302-llm-venv"
     if [[ "$primary_user" != "root" ]]; then
-        sudo -u "$primary_user" pip install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
-        sudo -u "$primary_user" pip install --user transformers accelerate
+        sudo -u "$primary_user" python -m venv "$venv_dir"
+        info "Created Python virtual environment at $venv_dir"
+        sudo -u "$primary_user" "$venv_dir/bin/pip" install --upgrade pip
+        sudo -u "$primary_user" "$venv_dir/bin/pip" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+        sudo -u "$primary_user" "$venv_dir/bin/pip" install transformers accelerate
+        info "To use AI libraries, activate the environment: source $venv_dir/bin/activate"
     fi
-    
+
     success "LLM/AI software installation completed"
 }
 
