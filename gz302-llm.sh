@@ -70,8 +70,18 @@ install_arch_llm_software() {
         sudo -u "$primary_user" python -m venv "$venv_dir"
         info "Created Python virtual environment at $venv_dir"
         sudo -u "$primary_user" "$venv_dir/bin/pip" install --upgrade pip
-        sudo -u "$primary_user" "$venv_dir/bin/pip" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
-        sudo -u "$primary_user" "$venv_dir/bin/pip" install transformers accelerate
+
+        info "Installing PyTorch (ROCm wheels) into the venv..."
+        if ! sudo -u "$primary_user" "$venv_dir/bin/pip" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7; then
+            warning "PyTorch (ROCm) installation failed. This commonly happens when no compatible wheel exists for the system Python (e.g. Python 3.12/3.13) or the platform."
+            warning "Recommended options: use conda/miniforge with a compatible Python, install a distro-packaged torch, or use a different Python interpreter. See https://pytorch.org for platform-specific instructions."
+            # marker file for downstream checks/tests
+            mkdir -p "$venv_dir/.gz302" || true
+            touch "$venv_dir/.gz302/torch_install_failed"
+        fi
+
+        # Install transformers and accelerate regardless of torch outcome
+        sudo -u "$primary_user" "$venv_dir/bin/pip" install transformers accelerate || warning "Failed to install transformers/accelerate inside venv"
         info "To use AI libraries, activate the environment: source $venv_dir/bin/activate"
     fi
 
