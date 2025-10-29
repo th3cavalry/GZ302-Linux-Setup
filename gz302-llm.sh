@@ -72,16 +72,29 @@ install_arch_llm_software() {
         sudo -u "$primary_user" "$venv_dir/bin/pip" install --upgrade pip
 
         info "Installing PyTorch (ROCm wheels) into the venv..."
+        # Try installing PyTorch; if this fails here it may succeed later via other means
         if ! sudo -u "$primary_user" "$venv_dir/bin/pip" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7; then
-            warning "PyTorch (ROCm) installation failed. This commonly happens when no compatible wheel exists for the system Python (e.g. Python 3.12/3.13) or the platform."
-            warning "Recommended options: use conda/miniforge with a compatible Python, install a distro-packaged torch, or use a different Python interpreter. See https://pytorch.org for platform-specific instructions."
-            # marker file for downstream checks/tests
-            mkdir -p "$venv_dir/.gz302" || true
-            touch "$venv_dir/.gz302/torch_install_failed"
+            warning "PyTorch (ROCm) initial installation attempt failed. Will verify after other installs before marking as failed."
+            warning "Common causes: no compatible wheel for system Python (e.g. Python 3.12/3.13) or platform mismatch."
         fi
 
         # Install transformers and accelerate regardless of torch outcome
         sudo -u "$primary_user" "$venv_dir/bin/pip" install transformers accelerate || warning "Failed to install transformers/accelerate inside venv"
+
+        # Verify torch can be imported; only create marker if import fails at the end
+        if sudo -u "$primary_user" "$venv_dir/bin/python" -c "import importlib; importlib.import_module('torch')" >/dev/null 2>&1; then
+            info "PyTorch import succeeded inside the venv"
+            # remove any stale failure marker
+            if [[ -f "$venv_dir/.gz302/torch_install_failed" ]]; then
+                rm -f "$venv_dir/.gz302/torch_install_failed" || true
+            fi
+        else
+            warning "PyTorch could not be imported after installation attempts."
+            warning "Recommended options: use conda/miniforge with a compatible Python, install a distro-packaged torch, or use a different Python interpreter. See https://pytorch.org for platform-specific instructions."
+            mkdir -p "$venv_dir/.gz302" || true
+            touch "$venv_dir/.gz302/torch_install_failed"
+        fi
+
         info "To use AI libraries, activate the environment: source $venv_dir/bin/activate"
     fi
 
