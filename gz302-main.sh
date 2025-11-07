@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.0.8
+# Version: 1.0.9
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -19,7 +19,7 @@
 #
 # Optional software can be installed via modular scripts:
 # - gz302-gaming: Gaming software (Steam, Lutris, MangoHUD, etc.)
-# - gz302-llm: AI/LLM software (Ollama, ROCm, PyTorch, etc.)
+# - gz302-llm: AI/LLM software (Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, etc.)
 # - gz302-hypervisor: Virtualization (KVM, VirtualBox, VMware, etc.)
 # - gz302-snapshots: System snapshots (Snapper, LVM, etc.)
 # - gz302-secureboot: Secure boot configuration
@@ -2692,8 +2692,9 @@ offer_optional_modules() {
     echo
     echo "3. LLM/AI Software (gz302-llm)"
     echo "   - Ollama for local LLM inference"
-    echo "   - ROCm for AMD GPU acceleration"
-    echo "   - PyTorch and Transformers libraries"
+    echo "   - ROCm for AMD GPU acceleration (gfx1151)"
+    echo "   - PyTorch, MIOpen, and bitsandbytes"
+    echo "   - Transformers and Accelerate libraries"
     echo
     echo "4. Hypervisor Software (gz302-hypervisor)"
     echo "   - KVM/QEMU, VirtualBox, VMware, Xen, or Proxmox"
