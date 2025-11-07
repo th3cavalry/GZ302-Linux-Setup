@@ -7,7 +7,7 @@
 - **GZ302EA-XS64** - 64GB RAM variant
 - **GZ302EA-XS32** - 32GB RAM variant
 
-> **🚀 Version 1.0.4 - Stable Release!** Complete hardware support with kernel 6.14+ compatibility, modern `pwrcfg` and `rrcfg` power/display management, and SPL/sPPT/fPPT architecture. Includes fixes for touchpad detection and suspend/resume gestures. Adds optional sudoers NOPASSWD for `pwrcfg`, improved kernel validation, and bug fixes for auto-config and script reruns. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
+> **🚀 Version 1.0.10 - Golden Path Release!** Complete hardware support with kernel 6.14+ compatibility, modern `pwrcfg` and `rrcfg` power/display management, and SPL/sPPT/fPPT architecture. Now includes the **"Golden Path" automotive-llm setup script** for Arch Linux - a comprehensive, automated installation for ROCm 7.1+, PyTorch nightly, and bitsandbytes-rocm compiled for gfx1151. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
 
 ## ✨ Key Features
 
@@ -198,6 +198,70 @@ See: https://asus-linux.org and https://gitlab.com/asus-linux/linux-g14
 - bitsandbytes for 8-bit quantization
 - Transformers and Accelerate libraries
 - Optional AI frontends (LocalAI, ComfyUI, text-generation-webui, etc.)
+
+### "Golden Path" Automotive-LLM Setup (`setup-arch-automotive-llm.sh`) - Arch Linux Only
+**New standalone script for advanced AI/ML development**
+
+A comprehensive, automated setup script specifically designed for Arch Linux that represents the **single best-known path** to a working automotive-llm environment with:
+- **ROCm 7.1+** for AMD GPU acceleration (gfx1151 support)
+- **PyTorch nightly** with ROCm 7.0 backend
+- **bitsandbytes-rocm** compiled from source for gfx1151
+- **Hugging Face libraries** (transformers, peft, trl, datasets)
+- **Ollama** for local LLM inference
+- **Modern tooling** with `uv` for faster Python package management
+
+**Key Features:**
+- Phase-based installation with automatic reboot detection
+- Comprehensive ROCm and GPU verification
+- Automatic VRAM bug detection (kernel 6.16.9+ check)
+- Builds bitsandbytes against your exact PyTorch/ROCm stack
+- Detailed error messages and progress feedback
+
+**Important Notes:**
+- This script is for **first-time setup** and is **NOT idempotent**
+- Requires a **reboot** after ROCm installation (Phase 2)
+- May fail if PyTorch nightly and ROCm versions are mismatched
+- Creates environment in `~/automotive-llm/`
+
+**Usage:**
+```bash
+# Download the script
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/setup-arch-automotive-llm.sh -o setup-arch-automotive-llm.sh
+chmod +x setup-arch-automotive-llm.sh
+
+# Run (first time) - will install ROCm and prompt for reboot
+bash ./setup-arch-automotive-llm.sh
+
+# Reboot your system
+sudo reboot
+
+# Run (second time) - will complete Python/PyTorch/bitsandbytes setup
+bash ./setup-arch-automotive-llm.sh
+
+# Activate your environment
+cd ~/automotive-llm
+source .venv/bin/activate
+
+# Test with Ollama
+ollama run llama3.2
+```
+
+**Alternative: Docker-on-Arch Method**
+
+For maximum stability, consider a hybrid approach:
+- Use Arch Linux as host OS (latest kernel, AUR for Ollama)
+- Use AMD's official PyTorch training Docker image for development
+  
+```bash
+# Install Ollama on Arch host
+yay -S ollama-rocm-git
+
+# Use AMD's official training container for development
+docker pull rocm/pytorch-training:latest
+docker run -it --device=/dev/kfd --device=/dev/dri --group-add video rocm/pytorch-training:latest
+```
+
+This gives you a stable, tested environment for training while keeping the benefits of Arch Linux.
 
 ### Hypervisor Module (`gz302-hypervisor`)
 - KVM/QEMU with virt-manager (recommended)
