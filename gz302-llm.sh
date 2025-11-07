@@ -2,10 +2,10 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 0.2.1
+# Version: 0.3.0
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
-# Includes: Ollama, ROCm, PyTorch, Transformers
+# Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
 #
 # This script is designed to be called by gz302-main.sh
 # ==============================================================================
@@ -56,7 +56,19 @@ install_arch_llm_software() {
     
     # Install ROCm for AMD GPU acceleration
     info "Installing ROCm for AMD GPU acceleration..."
-    pacman -S --noconfirm --needed rocm-opencl-runtime rocm-hip-runtime
+    pacman -S --noconfirm --needed rocm-opencl-runtime rocm-hip-runtime rocblas miopen-hip
+    
+    # MIOpen precompiled kernels (gfx1151 for Radeon 8060S)
+    # Note: As of Nov 2025, precompiled kernels for gfx1151 may not be available in repositories
+    # The script checks for availability; if not found, MIOpen will JIT compile kernels on first use
+    info "Checking for MIOpen precompiled kernels for gfx1151 (Radeon 8060S)..."
+    if pacman -Ss miopen-hip 2>/dev/null | grep -q gfx1151; then
+        info "Found gfx1151 kernel packages, installing..."
+        pacman -S --noconfirm --needed miopen-hip-gfx1151kdb || warning "MIOpen gfx1151 kernel package installation failed, will JIT compile on first use"
+    else
+        info "MIOpen precompiled kernels for gfx1151 not available in repositories (expected as of Nov 2025)."
+        info "MIOpen will JIT compile optimized kernels on first use (may take 5-15 minutes)."
+    fi
     
     # Install Python and AI libraries
     info "Installing Python AI libraries (using virtualenv)..."
@@ -80,6 +92,18 @@ install_arch_llm_software() {
 
         # Install transformers and accelerate regardless of torch outcome
         sudo -u "$primary_user" "$venv_dir/bin/pip" install transformers accelerate || warning "Failed to install transformers/accelerate inside venv"
+
+        # Install bitsandbytes for ROCm (quantization support)
+        info "Installing bitsandbytes for ROCm (8-bit quantization)..."
+        # Try to install bitsandbytes with ROCm support
+        # Note: ROCm support for gfx1151 is in preview; may need custom build
+        if ! sudo -u "$primary_user" "$venv_dir/bin/pip" install bitsandbytes; then
+            warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
+            # Try ROCm-specific development wheel if available
+            sudo -u "$primary_user" "$venv_dir/bin/pip" install --no-deps --force-reinstall \
+                'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
+                || warning "ROCm bitsandbytes wheel installation failed. You may need to build from source for gfx1151 support."
+        fi
 
         # Verify torch can be imported; only create marker if import fails at the end
         if sudo -u "$primary_user" "$venv_dir/bin/python" -c "import importlib; importlib.import_module('torch')" >/dev/null 2>&1; then
@@ -122,6 +146,15 @@ install_arch_llm_software() {
                     warning "PyTorch installation into conda env gz302-llm failed"
                 fi
                 sudo -u "$primary_user" "$conda_cmd" run -n gz302-llm pip install --no-cache-dir transformers accelerate || warning "Failed to install transformers/accelerate inside conda env"
+                
+                # Install bitsandbytes for ROCm in conda env
+                info "Installing bitsandbytes for ROCm in conda environment..."
+                if ! sudo -u "$primary_user" "$conda_cmd" run -n gz302-llm pip install --no-cache-dir bitsandbytes; then
+                    warning "Standard bitsandbytes installation failed in conda. Trying ROCm-specific wheel..."
+                    sudo -u "$primary_user" "$conda_cmd" run -n gz302-llm pip install --no-deps --force-reinstall --no-cache-dir \
+                        'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
+                        || warning "ROCm bitsandbytes wheel installation failed in conda env."
+                fi
 
                 # Verify torch import inside conda env
                 if sudo -u "$primary_user" "$conda_cmd" run -n gz302-llm python -c "import importlib; importlib.import_module('torch')" >/dev/null 2>&1; then
@@ -359,7 +392,19 @@ install_debian_llm_software() {
     
     # Install ROCm (if available)
     info "Installing ROCm for AMD GPU acceleration..."
-    apt install -y rocm-opencl-runtime || warning "ROCm not available in repositories"
+    # Try to install ROCm packages if available
+    apt install -y rocm-opencl-runtime rocblas miopen-hip || warning "ROCm packages not available in default repositories. Consider adding AMD ROCm repository."
+    
+    # Install MIOpen precompiled kernels if available
+    # Note: As of Nov 2025, precompiled kernels for gfx1151 may not be available
+    info "Checking for MIOpen precompiled kernels for gfx1151 (Radeon 8060S)..."
+    if apt-cache search miopen-hip 2>/dev/null | grep -q gfx1151; then
+        info "Found gfx1151 kernel packages, installing..."
+        apt install -y miopen-hip-gfx1151kdb || warning "MIOpen gfx1151 kernel package installation failed"
+    else
+        info "MIOpen precompiled kernels for gfx1151 not available in repositories (expected as of Nov 2025)."
+        info "MIOpen will JIT compile optimized kernels on first use (may take 5-15 minutes)."
+    fi
     
     # Install Python and AI libraries
     info "Installing Python AI libraries..."
@@ -370,6 +415,15 @@ install_debian_llm_software() {
     if [[ "$primary_user" != "root" ]]; then
         sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
         sudo -u "$primary_user" pip3 install --user transformers accelerate
+        
+        # Install bitsandbytes for ROCm
+        info "Installing bitsandbytes for ROCm (8-bit quantization)..."
+        if ! sudo -u "$primary_user" pip3 install --user bitsandbytes; then
+            warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
+            sudo -u "$primary_user" pip3 install --user --no-deps --force-reinstall \
+                'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
+                || warning "ROCm bitsandbytes wheel installation failed."
+        fi
     fi
     
     success "LLM/AI software installation completed"
@@ -383,6 +437,11 @@ install_fedora_llm_software() {
     curl -fsSL https://ollama.ai/install.sh | sh
     systemctl enable --now ollama
     
+    # Install ROCm (if available)
+    info "Installing ROCm for AMD GPU acceleration..."
+    # ROCm packages may be available via EPEL or custom repos
+    dnf install -y rocm-opencl rocblas miopen-hip || warning "ROCm packages not available in default repositories. Consider adding AMD ROCm repository."
+    
     # Install Python and AI libraries
     info "Installing Python AI libraries..."
     dnf install -y python3-pip python3-virtualenv
@@ -392,6 +451,15 @@ install_fedora_llm_software() {
     if [[ "$primary_user" != "root" ]]; then
         sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
         sudo -u "$primary_user" pip3 install --user transformers accelerate
+        
+        # Install bitsandbytes for ROCm
+        info "Installing bitsandbytes for ROCm (8-bit quantization)..."
+        if ! sudo -u "$primary_user" pip3 install --user bitsandbytes; then
+            warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
+            sudo -u "$primary_user" pip3 install --user --no-deps --force-reinstall \
+                'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
+                || warning "ROCm bitsandbytes wheel installation failed."
+        fi
     fi
     
     success "LLM/AI software installation completed"
@@ -405,6 +473,11 @@ install_opensuse_llm_software() {
     curl -fsSL https://ollama.ai/install.sh | sh
     systemctl enable --now ollama
     
+    # Install ROCm (if available)
+    info "Installing ROCm for AMD GPU acceleration..."
+    # ROCm packages may be available via OBS repositories
+    zypper install -y rocm-opencl rocblas miopen-hip || warning "ROCm packages not available in default repositories. Consider adding AMD ROCm repository."
+    
     # Install Python and AI libraries
     info "Installing Python AI libraries..."
     zypper install -y python3-pip python3-virtualenv
@@ -414,6 +487,15 @@ install_opensuse_llm_software() {
     if [[ "$primary_user" != "root" ]]; then
         sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
         sudo -u "$primary_user" pip3 install --user transformers accelerate
+        
+        # Install bitsandbytes for ROCm
+        info "Installing bitsandbytes for ROCm (8-bit quantization)..."
+        if ! sudo -u "$primary_user" pip3 install --user bitsandbytes; then
+            warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
+            sudo -u "$primary_user" pip3 install --user --no-deps --force-reinstall \
+                'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
+                || warning "ROCm bitsandbytes wheel installation failed."
+        fi
     fi
     
     success "LLM/AI software installation completed"
