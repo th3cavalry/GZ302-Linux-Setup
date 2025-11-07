@@ -59,13 +59,15 @@ install_arch_llm_software() {
     pacman -S --noconfirm --needed rocm-opencl-runtime rocm-hip-runtime rocblas miopen-hip
     
     # MIOpen precompiled kernels (gfx1151 for Radeon 8060S)
-    info "Installing MIOpen precompiled kernels for gfx1151 (Radeon 8060S)..."
-    # Note: Package name may vary; checking AUR for miopen-hip-gfx1151kdb equivalent
-    # If not available, kernels will be JIT compiled on first use
-    if pacman -Ss miopen-hip | grep -q gfx1151; then
-        pacman -S --noconfirm --needed miopen-hip-gfx1151kdb || warning "MIOpen gfx1151 kernels not available, will JIT compile on first use"
+    # Note: As of Nov 2025, precompiled kernels for gfx1151 may not be available in repositories
+    # The script checks for availability; if not found, MIOpen will JIT compile kernels on first use
+    info "Checking for MIOpen precompiled kernels for gfx1151 (Radeon 8060S)..."
+    if pacman -Ss miopen-hip 2>/dev/null | grep -q gfx1151; then
+        info "Found gfx1151 kernel packages, installing..."
+        pacman -S --noconfirm --needed miopen-hip-gfx1151kdb || warning "MIOpen gfx1151 kernel package installation failed, will JIT compile on first use"
     else
-        warning "MIOpen precompiled kernels for gfx1151 not found in repositories. Kernels will be JIT compiled on first use."
+        info "MIOpen precompiled kernels for gfx1151 not available in repositories (expected as of Nov 2025)."
+        info "MIOpen will JIT compile optimized kernels on first use (may take 5-15 minutes)."
     fi
     
     # Install Python and AI libraries
@@ -394,10 +396,14 @@ install_debian_llm_software() {
     apt install -y rocm-opencl-runtime rocblas miopen-hip || warning "ROCm packages not available in default repositories. Consider adding AMD ROCm repository."
     
     # Install MIOpen precompiled kernels if available
-    if apt-cache search miopen-hip | grep -q gfx1151; then
-        apt install -y miopen-hip-gfx1151kdb || warning "MIOpen gfx1151 kernels not available"
+    # Note: As of Nov 2025, precompiled kernels for gfx1151 may not be available
+    info "Checking for MIOpen precompiled kernels for gfx1151 (Radeon 8060S)..."
+    if apt-cache search miopen-hip 2>/dev/null | grep -q gfx1151; then
+        info "Found gfx1151 kernel packages, installing..."
+        apt install -y miopen-hip-gfx1151kdb || warning "MIOpen gfx1151 kernel package installation failed"
     else
-        info "MIOpen precompiled kernels for gfx1151 not found. Kernels will be JIT compiled on first use."
+        info "MIOpen precompiled kernels for gfx1151 not available in repositories (expected as of Nov 2025)."
+        info "MIOpen will JIT compile optimized kernels on first use (may take 5-15 minutes)."
     fi
     
     # Install Python and AI libraries
