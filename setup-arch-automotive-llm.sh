@@ -25,7 +25,7 @@
 # appropriate phase after reboot.
 # ==============================================================================
 
-set -e  # Exit immediately if any command fails
+set -euo pipefail  # Exit immediately if any command fails, catch undefined vars and pipe failures
 
 # --- Color codes for output ---
 C_BLUE='\033[0;34m'
@@ -159,11 +159,16 @@ phase3_verify_rocm_setup_python() {
         if [[ -n "$vram_output" ]]; then
             local vram_mb
             vram_mb=$(echo "$vram_output" | awk '{print $2}' | sed 's/M//' | head -1)
-            if [[ -n "$vram_mb" && "$vram_mb" -lt 32000 ]]; then
-                warning "rocm-smi reports less than 32GB VRAM ($vram_mb MB)."
-                warning "This may indicate the 15.5GB VRAM bug. Ensure your kernel is 6.16.9+ with 'uname -r'."
+            # Validate vram_mb is numeric before comparison
+            if [[ "$vram_mb" =~ ^[0-9]+$ ]]; then
+                if [[ "$vram_mb" -lt 32000 ]]; then
+                    warning "rocm-smi reports less than 32GB VRAM ($vram_mb MB)."
+                    warning "This may indicate the 15.5GB VRAM bug. Ensure your kernel is 6.16.9+ with 'uname -r'."
+                else
+                    success "VRAM detection looks good ($vram_mb MB)"
+                fi
             else
-                success "VRAM detection looks good ($vram_mb MB)"
+                warning "Could not parse VRAM value from rocm-smi (got: '$vram_mb'). Continuing anyway..."
             fi
         else
             warning "Could not parse VRAM from rocm-smi. Continuing anyway..."
@@ -185,7 +190,11 @@ phase3_verify_rocm_setup_python() {
             sudo pacman -S --noconfirm --needed uv
         else
             info "Installing uv via pip..."
-            sudo pip install uv --break-system-packages 2>/dev/null || sudo pip install uv
+            if ! sudo pip install uv --break-system-packages 2>&1; then
+                if ! sudo pip install uv 2>&1; then
+                    error "Failed to install uv via pip. Please install uv manually."
+                fi
+            fi
         fi
     fi
 
@@ -239,7 +248,9 @@ phase4_install_pytorch() {
     
     # Show GPU info
     info "GPU Info:"
-    python -c "import torch; print(f'  Device: {torch.cuda.get_device_name(0)}'); print(f'  CUDA Available: {torch.cuda.is_available()}'); print(f'  Device Count: {torch.cuda.device_count()}')" || true
+    if ! python -c "import torch; print(f'  Device: {torch.cuda.get_device_name(0)}'); print(f'  CUDA Available: {torch.cuda.is_available()}'); print(f'  Device Count: {torch.cuda.device_count()}')"; then
+        warning "Could not retrieve GPU info details. PyTorch is installed but GPU info query failed."
+    fi
 }
 
 # ---
@@ -276,7 +287,9 @@ phase5_compile_bitsandbytes() {
     # Run cmake with the specific backend (hip) and architecture (gfx1151)
     # This is the command that fails if PyTorch and ROCm are mismatched.
     info "Running cmake for HIP backend with gfx1151 architecture..."
-    cmake -DCOMPUTE_BACKEND=hip -DBNB_ROCM_ARCH="gfx1151" -S .
+    if ! cmake -DCOMPUTE_BACKEND=hip -DBNB_ROCM_ARCH="gfx1151" -S .; then
+        error "cmake configuration failed. This typically indicates:\n  - ROCm version mismatch with PyTorch\n  - Missing ROCm development packages\n  - Incompatible compiler version\n\nTry checking 'pacman -Qi rocm-hip-sdk' and ensure ROCm 7.1+ is installed."
+    fi
 
     # Compile using all available processor cores
     info "Compiling bitsandbytes (this may take several minutes)..."
