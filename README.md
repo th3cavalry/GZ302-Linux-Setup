@@ -23,7 +23,7 @@
 Download and install only what you need:
 
 - **🎮 Gaming Module** - Steam, Lutris, MangoHUD, GameMode, Wine
-- **🤖 AI/LLM Module** - Ollama, ROCm, PyTorch, Transformers
+- **🤖 AI/LLM Module** - Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
 - **💻 Hypervisor Module** - KVM/QEMU or VirtualBox
 - **📸 Snapshots Module** - Automatic system backups with Snapper
 - **🔒 Secure Boot Module** - Boot integrity and security tools
@@ -192,9 +192,12 @@ See: https://asus-linux.org and https://gitlab.com/asus-linux/linux-g14
 
 ### AI/LLM Module (`gz302-llm`)
 - Ollama for local LLM inference (Llama, Mistral, CodeLlama)
-- ROCm for AMD GPU acceleration
-- PyTorch with ROCm support
+- ROCm for AMD GPU acceleration (gfx1151 support)
+- PyTorch with ROCm backend
+- MIOpen deep learning primitives library
+- bitsandbytes for 8-bit quantization
 - Transformers and Accelerate libraries
+- Optional AI frontends (LocalAI, ComfyUI, text-generation-webui, etc.)
 
 ### Hypervisor Module (`gz302-hypervisor`)
 - KVM/QEMU with virt-manager (recommended)
