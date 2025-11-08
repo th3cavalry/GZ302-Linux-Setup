@@ -1,6 +1,6 @@
-# GZ302 Linux Distribution Kernel Status (October 2025)
+# GZ302 Linux Distribution Kernel Status (November 2025)
 
-**Last Updated**: October 24, 2025  
+**Last Updated**: November 7, 2025  
 **Research Scope**: Current kernel versions across all 4 supported distributions  
 **Hardware Target**: ASUS ROG Flow Z13 (GZ302EA) with AMD Ryzen AI MAX+ 395
 
@@ -8,15 +8,15 @@
 
 ## Quick Summary Table
 
-| Distribution | Current Kernel | Release Date | GZ302 Support | Notes |
-|--------------|-----------------|-------------|-----------------|-------|
-| **Arch Linux** | 6.17.4 (testing: 6.17.5) | Oct 19, 2025 | ✅ Excellent | Latest stable, rolling release |
-| **Ubuntu 25.10** (Oracular) | 6.11.0 | Oct 24, 2024 | ⚠️ Acceptable* | Below recommended 6.17+, HWE kernels available |
-| **Fedora 42** | 6.17.x | April 15, 2025 | ✅ Excellent | Latest with release |
-| **Fedora 43** (RC) | 6.17.x | Expected Dec 2025 | ✅ Excellent | Expected with release |
-| **OpenSUSE Tumbleweed** | 6.17.x | Rolling | ✅ Excellent | Latest available, rolling updates |
+| Distribution | Current Kernel | Release Date / Status | GZ302 Support | Notes |
+|--------------|----------------|-----------------------|---------------|-------|
+| **Arch Linux** | 6.17.7 (stable) | Nov 2, 2025 | ✅ Excellent | Tracks upstream quickly; linux-g14 optional |
+| **Ubuntu 25.10** (Oracular) | 6.11.0 (HWE: 6.14; 6.17 staging) | Oct 24, 2025 | ⚠️ Acceptable* | Upgrade to HWE/mainline for optimal performance |
+| **Fedora 42** | 6.17.7 | Released Apr 15, updated Nov 2025 | ✅ Excellent | dnf keeps kernel current |
+| **Fedora 43** (Beta/RC) | 6.18-rc4 (testing) | RC cycle Nov 2025 | ✅ Excellent | Early 6.18 features |
+| **OpenSUSE Tumbleweed** | 6.17.7 | Rolling (snapshot Nov 2025) | ✅ Excellent | Fast adoption of stable releases |
 
-*Ubuntu 25.10 users can upgrade to 6.17 via Hardware Enablement (HWE) kernels or upgrade to next LTS with 6.17+
+*Ubuntu 25.10 users should upgrade to at least 6.14 HWE; 6.17 arrives via staging/HWE later or by upgrading to 26.04 LTS when available.
 
 ---
 
@@ -26,10 +26,9 @@
 
 **Status**: ✅ **EXCELLENT**
 
-- **Current Version**: 6.17.4 arch2-1 (stable)
-- **Testing Version**: 6.17.5 arch1-1 (core-testing)
-- **Release Date**: October 19, 2025
-- **Update Strategy**: Rolling release (updated Oct 23, flagged out-of-date)
+- **Current Version**: 6.17.7.arch1-1 (stable)
+- **Release Date**: November 2, 2025 (stable publication)
+- **Update Strategy**: Rolling; rapid upstream integration (linux 6.17.7)
 - **GZ302 Support Level**: Full hardware optimization available
 - **Recommendation**: **Highly Recommended** - Best experience with latest kernel
 
@@ -54,7 +53,7 @@ yay -S linux-g14  # From AUR
 
 **Status**: ⚠️ **ACCEPTABLE with upgrades available**
 
-- **Current Version**: 6.11.0-29.29 (standard)
+- **Current Version**: 6.11.0-xx (generic)
 - **Release Date**: October 24, 2024
 - **Update Strategy**: Standard release (non-LTS)
 - **GZ302 Support Level**: Basic hardware support, not optimal
@@ -68,25 +67,24 @@ yay -S linux-g14  # From AUR
 
 **Upgrade Options**:
 
-**Option 1: Hardware Enablement (HWE) Kernels** (RECOMMENDED)
+1) Hardware Enablement (HWE) Kernels (RECOMMENDED)
 ```bash
-# Ubuntu 25.10 offers 6.14 HWE kernel
-sudo apt install linux-image-generic-6.14  # HWE for 25.10
-
-# Ubuntu 26.04 LTS (April 2026) expected to ship with 6.17+
-# You can pre-upgrade when available
+sudo apt update
+sudo apt install linux-generic-hwe-25.10   # Baseline ~6.14
+# When 6.17 HWE meta lands:
+sudo apt install linux-image-6.17-generic linux-headers-6.17-generic
 ```
 
-**Option 2: Manual Kernel Installation**
+2) Manual/Mainline Kernel (Advanced)
 ```bash
-# Download and install from kernel.org (advanced users)
-# Not officially supported by Ubuntu, but possible
+# Use Ubuntu Mainline PPA (kernel.ubuntu.com) to install 6.17.x
+# Ensure matching headers; keep a known-good kernel installed.
 ```
 
-**Option 3: Roll Forward to Next LTS**
+3) Upgrade to Next LTS
 ```bash
-# Ubuntu 26.04 LTS (April 2026) will include kernel 6.17+
-# Standard LTS upgrade when available
+# Ubuntu 26.04 LTS (April 2026) expected with >= 6.17
+sudo do-release-upgrade
 ```
 
 **Available Kernel Versions in Ubuntu 25.10 Repositories**:
@@ -103,7 +101,7 @@ sudo apt install linux-image-generic-6.14  # HWE for 25.10
 
 **Status**: ✅ **EXCELLENT**
 
-- **Current Version**: 6.17.x (with 42 release, April 15, 2025)
+- **Current Version**: 6.17.7 (via regular dnf updates)
 - **Update Strategy**: Standard release cycle
 - **GZ302 Support Level**: Full hardware optimization available
 - **Recommendation**: **Highly Recommended** - Excellent kernel support
@@ -125,11 +123,11 @@ sudo dnf update kernel
 
 ---
 
-### Fedora 43 (RC / Expected December 2025)
+### Fedora 43 (Beta / RC November 2025)
 
 **Status**: ✅ **EXCELLENT** (Not yet released)
 
-- **Expected Version**: 6.17.x (expected with December 2025 release)
+- **Current RC Kernel**: 6.18-rc4 (testing)
 - **Release Date**: Expected December 2025
 - **GZ302 Support Level**: Full hardware optimization available
 - **Recommendation**: **Highly Recommended** - Best experience with latest Fedora
@@ -151,7 +149,7 @@ sudo dnf update kernel
 
 **Status**: ✅ **EXCELLENT**
 
-- **Current Version**: 6.17.x (rolling release)
+- **Current Version**: 6.17.7 (rolling release)
 - **Update Strategy**: Rolling release (continuous updates)
 - **GZ302 Support Level**: Full hardware optimization available
 - **Recommendation**: **Highly Recommended** - Best experience with latest kernel
@@ -181,14 +179,14 @@ sudo zypper update kernel
 
 ### Feature Matrix
 
-| Feature | 6.14 | 6.15 | 6.16 | 6.17 | 6.18 |
-|---------|------|------|------|------|------|
-| **AMD XDNA NPU** | Basic | Extended | Enhanced | Optimized | ++ |
+| Feature | 6.14 | 6.15 | 6.16 | 6.17(.7) | 6.18-rc |
+|---------|------|------|------|----------|---------|
+| **AMD XDNA NPU** | Basic | Extended | Enhanced | Optimized | Refinements |
 | **AMD P-State** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **MT7925 WiFi** | ⚠️ ASPM | Native | Native | Optimized | ++ |
-| **Radeon 8060S** | Basic | Enhanced | Better | Optimized | ++ |
-| **GPU Scheduling** | Basic | Basic | Enhanced | Optimized | ++ |
-| **Power Management** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **MT7925 WiFi** | ⚠️ ASPM | Native | Native | Optimized (reg fixes) | Power-save tweaks |
+| **Radeon 8060S** | Basic | Enhanced | Better | Optimized | Firmware prep |
+| **GPU Scheduling** | Basic | Basic | Enhanced | Optimized (latency) | Scheduler experiments |
+| **Power Management** | ✅ | ✅ | ✅ | ✅ | ✅ + fine-grain |
 
 Legend: ✅ = Supported | ⚠️ = Supported with workaround | ++ = Enhanced over 6.17
 
@@ -206,17 +204,18 @@ Legend: ✅ = Supported | ⚠️ = Supported with workaround | ++ = Enhanced ove
 - Enhanced GPU support
 - Full XDNA NPU support
 
-**Kernel 6.17** (Current Best):
+**Kernel 6.17 (6.17.7)** (Current Stable Best):
 - Excellent all-around performance
 - Fine-tuned Strix Halo support
 - Optimized GPU scheduling
 - Highest WiFi performance
 - **Recommended for new installations**
 
-**Kernel 6.18** (Future):
-- Expected improvements over 6.17
-- Further Strix Halo optimizations
-- Scheduled for December 2025
+**Kernel 6.18 (Upcoming)**:
+- RC cycle active (6.18-rc4 as of Nov 7, 2025)
+- Further Strix Halo/NPU power refinements
+- Additional MT7925 power-save patches
+- Expected GA December 2025
 
 ---
 
@@ -351,12 +350,12 @@ The `gz302-main.sh` script includes:
 
 ## Summary
 
-### Best Distributions for GZ302 (October 2025)
+### Best Distributions for GZ302 (November 2025)
 
-1. **Arch Linux**: Kernel 6.17.4 - Rolling updates, latest features, excellent support ✅ **BEST**
-2. **Fedora 42/43**: Kernel 6.17.x - Modern, well-tested, excellent support ✅ **EXCELLENT**
-3. **OpenSUSE Tumbleweed**: Kernel 6.17.x - Rolling, stable, excellent support ✅ **EXCELLENT**
-4. **Ubuntu 25.10**: Kernel 6.11.0 - Acceptable with HWE kernel 6.14+ upgrade ⚠️ **ACCEPTABLE**
+1. **Arch Linux**: Kernel 6.17.7 - Rolling, fastest upstream ✅ **BEST**
+2. **Fedora 42 / 43 RC**: 6.17.7 / 6.18-rc4 ✅ **EXCELLENT**
+3. **OpenSUSE Tumbleweed**: 6.17.7 rolling snapshots ✅ **EXCELLENT**
+4. **Ubuntu 25.10**: 6.11.0 (Upgrade to HWE 6.14 / mainline 6.17) ⚠️ **ACCEPTABLE (Upgrade advised)**
 
 ### Action Items by Distribution
 
@@ -375,7 +374,8 @@ The `gz302-main.sh` script includes:
 - [Fedora Project - Downloads](https://fedoraproject.org/en/workstation/download/)
 - [OpenSUSE - Download](https://www.opensuse.org/download/)
 
-**Document Version**: 1.0  
+**Document Version**: 1.1  
 **Created**: October 24, 2025  
 **Maintainer**: th3cavalry  
+**Updated**: November 7, 2025  
 **License**: Same as parent repository
