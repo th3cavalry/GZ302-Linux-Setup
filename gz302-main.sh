@@ -603,15 +603,24 @@ install_arch_asus_packages() {
 setup_battery_limit_service() {
     info "Setting up battery charge limit service (80%)"
 
+    # Create script to set battery charge limit
+    local script_path="/usr/local/bin/set-battery-limit.sh"
+    cat > "$script_path" << 'EOS'
+#!/bin/sh
+echo 80 > /sys/class/power_supply/BAT0/charge_control_end_threshold
+EOS
+    chmod 755 "$script_path"
+    chown root:root "$script_path"
+
     # Create systemd service for battery charge limit
-    cat > /etc/systemd/system/battery-charge-limit.service << 'EOF'
+    cat > /etc/systemd/system/battery-charge-limit.service << EOF
 [Unit]
 Description=Set battery charge limit to 80%
 After=multi-user.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c 'echo 80 > /sys/class/power_supply/BAT0/charge_control_end_threshold'
+ExecStart=$script_path
 RemainAfterExit=true
 
 [Install]
