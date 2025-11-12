@@ -806,7 +806,6 @@ Ubuntu 25.10 "Oracular Oriole" works excellently on the ASUS ROG Flow Z13 GZ302E
 
 **Document Version**: 1.0
 **Last Updated**: November 5, 2025
-**Author**: Documentation Teamlead
 **Hardware Tested**: ASUS ROG Flow Z13 GZ302EA-XS99 (AMD Strix Halo)
 **Kernel Tested**: 6.17.0-6-generic
 **Script Version**: gz302-main.sh v1.0.7
