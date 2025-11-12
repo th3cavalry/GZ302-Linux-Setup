@@ -695,8 +695,11 @@ build_asusctl_from_source() {
     if [[ -d "$asusctl_dir" ]]; then
         info "Using existing asusctl repository at $asusctl_dir"
         cd "$asusctl_dir" || return 1
-        git fetch origin || warning "Failed to fetch latest changes"
-        git reset --hard origin/main || warning "Failed to reset to latest"
+        if git fetch origin; then
+            git reset --hard origin/main || warning "Failed to reset to latest"
+        else
+            warning "Failed to fetch latest changes - using existing state"
+        fi
     else
         info "Cloning asusctl repository..."
         cd /tmp || return 1
