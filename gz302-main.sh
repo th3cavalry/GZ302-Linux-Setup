@@ -2422,6 +2422,83 @@ enable_opensuse_services() {
     info "Services configuration complete for OpenSUSE"
 }
 
+# --- Tray Icon Installation ---
+install_tray_icon() {
+    info "Starting GZ302 Power Manager (Tray Icon) installation..."
+    echo
+    
+    # Determine script directory (where gz302-main.sh is located)
+    local script_dir
+    script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+    local tray_dir="$script_dir/tray-icon"
+    local install_script="$tray_dir/install-tray.sh"
+    
+    # Check if tray-icon directory exists
+    if [[ ! -d "$tray_dir" ]]; then
+        error "Tray icon directory not found at $tray_dir\nThe tray-icon folder must be present in the GZ302-Linux-Setup repository."
+    fi
+    
+    # Check if install script exists
+    if [[ ! -f "$install_script" ]]; then
+        error "Tray icon installation script not found at $install_script"
+    fi
+    
+    # Check if Python 3 is available
+    if ! command -v python3 >/dev/null 2>&1; then
+        error "Python 3 is required for the tray icon but is not installed.\nPlease install Python 3 and try again."
+    fi
+    
+    info "Installing Python dependencies for tray icon..."
+    
+    # Install Python dependencies based on distribution
+    local distro
+    distro=$(detect_distribution)
+    
+    case "$distro" in
+        arch)
+            info "Installing PyQt6 for Arch Linux..."
+            pacman -S --noconfirm python-pyqt6 >/dev/null 2>&1 || warning "Failed to install python-pyqt6 via pacman"
+            ;;
+        debian)
+            info "Installing PyQt6 for Debian/Ubuntu..."
+            apt-get install -y python3-pyqt6 >/dev/null 2>&1 || warning "Failed to install python3-pyqt6 via apt"
+            ;;
+        fedora)
+            info "Installing PyQt6 for Fedora..."
+            dnf install -y python3-pyqt6 >/dev/null 2>&1 || warning "Failed to install python3-pyqt6 via dnf"
+            ;;
+        opensuse)
+            info "Installing PyQt6 for OpenSUSE..."
+            zypper install -y python3-qt6 python3-psutil >/dev/null 2>&1 || warning "Failed to install PyQt6 packages via zypper"
+            ;;
+    esac
+    
+    # Get the real user (not root)
+    local real_user
+    real_user=$(get_real_user)
+    
+    # Run the tray icon installation script as the real user
+    info "Configuring tray icon desktop entries and autostart..."
+    sudo -u "$real_user" bash "$install_script" || warning "Tray icon configuration encountered issues"
+    
+    # Configure sudoers for password-less pwrcfg
+    info "Configuring password-less sudo for pwrcfg..."
+    if [[ -f "$tray_dir/install-policy.sh" ]]; then
+        bash "$tray_dir/install-policy.sh" || warning "Sudoers configuration encountered issues"
+    else
+        warning "Sudoers installation script not found. You may need to configure password-less sudo manually."
+    fi
+    
+    success "GZ302 Power Manager (Tray Icon) installation complete!"
+    echo
+    info "The tray icon has been installed and configured. You can:"
+    echo "  - Launch it from your applications menu as 'GZ302 Power Manager'"
+    echo "  - Run: python3 $tray_dir/src/gz302_tray.py"
+    echo "  - It will start automatically on login"
+    echo
+    info "For more information, see: $tray_dir/README.md"
+}
+
 # --- Module Download and Execution ---
 download_and_execute_module() {
     local module_name="$1"
@@ -2616,10 +2693,16 @@ offer_optional_modules() {
     echo "   - Enhanced system security and boot integrity"
     echo "   - Automatic kernel signing on updates"
     echo
-    echo "6. Skip optional modules"
+    echo "6. Tray Icon (GZ302 Power Manager)"
+    echo "   - System tray icon for quick power profile switching"
+    echo "   - Right-click menu access to all 7 power profiles"
+    echo "   - Real-time status updates and battery indicators"
+    echo "   - Password-less sudo configuration"
+    echo
+    echo "7. Skip optional modules"
     echo
     
-    read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 6 to skip): " module_choice
+    read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 7 to skip): " module_choice
     
     # Parse the choices
     IFS=',' read -ra CHOICES <<< "$module_choice"
@@ -2642,6 +2725,9 @@ offer_optional_modules() {
                 download_and_execute_module "gz302-secureboot" "$distro" || warning "Secure boot module installation failed"
                 ;;
             6)
+                install_tray_icon || warning "Tray icon installation failed"
+                ;;
+            7)
                 info "Skipping optional modules"
                 ;;
             *)
