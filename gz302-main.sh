@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.1.0
+# Version: 1.1.1
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -140,71 +140,7 @@ check_kernel_version() {
         echo "  - AMD P-State driver with dynamic core ranking"
         echo "  - Critical RDNA 3.5 GPU support for Radeon 8060S"
         echo
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "OPTION: Install linux-g14 kernel (Arch-based distros only)"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "The linux-g14 kernel is a customized kernel for ASUS ROG devices"
-        echo "that includes the latest patches and optimizations for GZ302EA."
-        echo
-        # Detect if Arch-based distribution
-        local distro=""
-        if [[ -f /etc/os-release ]]; then
-            # shellcheck disable=SC1091
-            source /etc/os-release
-            if [[ "$ID" == "arch" ]] || [[ "$ID_LIKE" == *"arch"* ]]; then
-                distro="arch"
-            fi
-        fi
-        
-        if [[ "$distro" == "arch" ]]; then
-            echo "Would you like to install the linux-g14 kernel and headers?"
-            echo "This will provide kernel 6.17+ with full GZ302EA support."
-            echo
-            read -p "Install linux-g14 kernel? (y/N): " -n 1 -r
-            echo
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                info "Installing linux-g14 kernel and headers..."
-                echo
-                
-                # Add G14 repository
-                if ! grep -q "arch.asus-linux.org" /etc/pacman.conf 2>/dev/null; then
-                    info "Adding G14 repository..."
-                    { echo ""; echo "[g14]"; echo "Server = https://arch.asus-linux.org"; } >> /etc/pacman.conf
-                    
-                    # Import GPG key
-                    pacman-key --recv-keys 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35
-                    pacman-key --lsign-key 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35
-                fi
-                
-                # Update package database
-                pacman -Sy
-                
-                # Install linux-g14 and headers
-                if pacman -S --noconfirm linux-g14 linux-g14-headers; then
-                    success "linux-g14 kernel installed successfully!"
-                    echo
-                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                    echo "REBOOT REQUIRED"
-                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                    echo
-                    echo "The linux-g14 kernel has been installed."
-                    echo "Please REBOOT your system and run this script again."
-                    echo
-                    echo "After rebooting, verify your kernel version with: uname -r"
-                    echo "You should see a kernel version 6.17 or higher."
-                    echo
-                    exit 0
-                else
-                    echo "Failed to install linux-g14 kernel"
-                    echo
-                    echo "Please install a compatible kernel manually and try again."
-                    echo "See: https://asus-linux.org for more information"
-                    # Fall through to cancellation message below
-                fi
-            fi
-        fi
-        
-        error "Installation cancelled. Kernel 6.14+ is required.\nOther upgrade options:\n  1. Use your distribution's kernel update mechanism\n  2. Install a mainline kernel from kernel.org\n  3. Check Info/kernel_changelog.md for version details\nIf you cannot upgrade, please create an issue on GitHub:\n  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
+        error "Installation cancelled. Kernel 6.14+ is required.\nUpgrade options:\n  1. Use your distribution's kernel update mechanism\n  2. Install a mainline kernel from kernel.org\n  3. (Arch only) Install linux-g14 kernel: Optional/gz302-g14-kernel.sh\n  4. Check Info/kernel_changelog.md for version details\nIf you cannot upgrade, please create an issue on GitHub:\n  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
     elif [[ $version_num -lt $recommended_version ]]; then
         warning "Your kernel version ($kernel_version) meets minimum requirements (6.14+)"
         info "For optimal performance, consider upgrading to kernel 6.17+ which includes:"
@@ -366,75 +302,6 @@ EOF
     # Enable the service
     systemctl daemon-reload
     systemctl enable reload-hid_asus.service
-
-    # Ask user if they want folio resume fix (optional for Issue #83)
-    echo
-    info "Optional: Folio keyboard/touchpad resume fix"
-    echo "Some users experience issues where the folio keyboard/touchpad stops"
-    echo "working after suspend/resume and requires reconnecting the folio."
-    echo
-    # Single-key prompt with 30s timeout; defaults to 'N' if no input or non-interactive
-    if [ -t 0 ]; then
-        read -r -n 1 -t 30 -p "Install folio resume workaround? (y/N): " folio_response || folio_response=""
-        echo
-    else
-        folio_response=""
-    fi
-    
-    if [[ "$folio_response" =~ ^[Yy]$ ]]; then
-        # Create folio resume script for touchpad/keyboard after suspend
-        info "Creating folio resume script for Issue #83 workaround..."
-        cat > /usr/local/bin/gz302-folio-resume.sh <<'EOF'
-#!/bin/bash
-# Resume fix for ASUS Flow Z13 folio keyboard/touchpad after suspend
-# Reloads hid_asus and attempts to rebind folio USB device
-
-# Reload hid_asus module
-modprobe -r hid_asus
-sleep 1
-modprobe hid_asus
-
-# Attempt to rebind folio keyboard (auto-detect by vendor:product if possible)
-# Replace these IDs with actual values if known
-FOLIO_VENDOR="0b05"   # ASUS
-FOLIO_PRODUCT="1e0f"  # Example product ID (replace if known)
-
-# Find folio device path
-for DEV in /sys/bus/usb/devices/*; do
-  if grep -q "$FOLIO_VENDOR" "$DEV/idVendor" 2>/dev/null && grep -q "$FOLIO_PRODUCT" "$DEV/idProduct" 2>/dev/null; then
-    echo "Unbinding folio keyboard: $DEV"
-    echo -n $(basename "$DEV") > /sys/bus/usb/drivers/usb/unbind
-    sleep 1
-    echo -n $(basename "$DEV") > /sys/bus/usb/drivers/usb/bind
-  fi
-done
-
-exit 0
-EOF
-        chmod +x /usr/local/bin/gz302-folio-resume.sh
-
-        # Create systemd service to reload hid_asus module after suspend/resume
-        info "Creating suspend/resume HID module reload service for touchpad gestures..."
-        cat > /etc/systemd/system/reload-hid_asus-resume.service <<'EOF'
-[Unit]
-Description=Reload hid_asus module after resume for GZ302 Touchpad gestures
-After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
-
-[Service]
-Type=oneshot
-ExecStartPre=/bin/sleep 2
-ExecStart=/bin/bash /usr/local/bin/gz302-folio-resume.sh
-
-[Install]
-WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
-EOF
-
-        # Enable the resume service
-        systemctl enable reload-hid_asus-resume.service
-        success "Folio resume fix installed"
-    else
-        info "Skipping folio resume fix - you can install it later if needed"
-    fi
 
     # Reload hardware database and udev
     systemd-hwdb update 2>/dev/null || true
@@ -2555,139 +2422,6 @@ enable_opensuse_services() {
     info "Services configuration complete for OpenSUSE"
 }
 
-# --- Bootloader Configuration ---
-configure_bootloader_for_kernel() {
-    local kernel_name="$1"  # e.g., "linux" or "linux-g14"
-    
-    # Detect and update GRUB if present
-    if [ -f /etc/default/grub ] || command -v grub-mkconfig >/dev/null 2>&1; then
-        info "Updating GRUB bootloader configuration for ${kernel_name}..."
-        if command -v grub-mkconfig >/dev/null 2>&1; then
-            if [ -f /boot/grub/grub.cfg ]; then
-                if grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null; then
-                    success "GRUB configuration updated"
-                else
-                    warning "Failed to regenerate GRUB config"
-                fi
-            elif command -v update-grub >/dev/null 2>&1; then
-                if update-grub 2>/dev/null; then
-                    success "GRUB configuration updated (Ubuntu/Debian)"
-                else
-                    warning "Failed to update GRUB"
-                fi
-            fi
-        fi
-    fi
-    
-    # Detect and update systemd-boot if present
-    if command -v bootctl >/dev/null 2>&1; then
-        info "Updating systemd-boot configuration for ${kernel_name}..."
-        
-        # Check if systemd-boot is installed
-        if bootctl status >/dev/null 2>&1; then
-            # Verify boot entries directory exists
-            if [ -d /boot/loader/entries ] || [ -d /efi/loader/entries ]; then
-                # Update systemd-boot (graceful update to prevent boot issues)
-                if bootctl update 2>/dev/null; then
-                    success "systemd-boot updated"
-                else
-                    warning "Failed to update systemd-boot"
-                fi
-            fi
-        fi
-    fi
-    
-    # Log the kernel parameters that were applied
-    if [ -f /proc/cmdline ]; then
-        info "Current kernel command line:"
-        if grep -q "amd_pstate=" /proc/cmdline; then
-            info "$(grep -o 'amd_pstate=[^ ]*' /proc/cmdline)"
-        else
-            info "amd_pstate parameter not yet applied (reboot required)"
-        fi
-        if grep -q "amdgpu.ppfeaturemask=" /proc/cmdline; then
-            info "$(grep -o 'amdgpu.ppfeaturemask=[^ ]*' /proc/cmdline)"
-        else
-            info "amdgpu.ppfeaturemask parameter not yet applied (reboot required)"
-        fi
-    fi
-}
-
-# --- Linux-G14 Kernel Installation ---
-install_linux_g14_kernel() {
-    local distro="$1"
-    
-    if [[ "$distro" != "arch" ]]; then
-        warning "linux-g14 kernel is only available for Arch-based systems"
-        warning "For other distributions, use your official package manager for kernel updates"
-        return 1
-    fi
-    
-    info "Installing linux-g14 kernel and headers..."
-    info "This provides kernel 6.17+ with full ASUS ROG optimizations for GZ302EA"
-    echo
-    
-    # Add G14 repository if not already present
-    if ! grep -q "arch.asus-linux.org" /etc/pacman.conf 2>/dev/null; then
-        info "Adding ASUS Linux repository..."
-        { echo ""; echo "[g14]"; echo "Server = https://arch.asus-linux.org"; } >> /etc/pacman.conf
-        
-        # Import and sign GPG key
-        info "Importing ASUS Linux GPG key..."
-        if pacman-key --recv-keys 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35 2>/dev/null; then
-            pacman-key --lsign-key 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35 2>/dev/null
-            success "GPG key imported and signed"
-        else
-            warning "Failed to import GPG key. You may need to verify the key manually."
-        fi
-    else
-        info "ASUS Linux repository already configured"
-    fi
-    
-    # Update package database
-    info "Updating package database..."
-    if ! pacman -Sy 2>/dev/null; then
-        warning "Failed to update package database"
-        return 1
-    fi
-    
-    # Install linux-g14 and headers
-    info "Installing linux-g14 and linux-g14-headers..."
-    if pacman -S --noconfirm linux-g14 linux-g14-headers 2>/dev/null; then
-        success "linux-g14 kernel installed successfully!"
-        
-        # Update bootloader configuration after kernel installation
-        info "Updating bootloader entries for linux-g14..."
-        configure_bootloader_for_kernel "linux-g14"
-        
-        echo
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "REBOOT REQUIRED"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo
-        echo "The linux-g14 kernel has been installed successfully."
-        echo
-        echo "Bootloader Configuration Status:"
-        echo "  ✓ Kernel parameters (amd_pstate=guided, amdgpu.ppfeaturemask) applied"
-        echo "  ✓ GRUB configuration regenerated (if installed)"
-        echo "  ✓ systemd-boot updated (if installed)"
-        echo
-        echo "Next steps:"
-        echo "  1. REBOOT your system to activate the new kernel"
-        echo "  2. Verify kernel version after reboot: uname -r"
-        echo "     (you should see 'linux-g14' or a 6.17+ kernel version)"
-        echo "  3. Verify boot parameters: cat /proc/cmdline | grep 'amd_pstate'"
-        echo
-        echo "For more information:"
-        echo "  See: https://asus-linux.org"
-        echo "  Analysis: Info/LINUX_G14_ANALYSIS.md"
-        echo
-        return 0
-    else
-        error "Failed to install linux-g14 kernel. Please check your internet connection and try again."
-    fi
-}
-
 # --- Module Download and Execution ---
 download_and_execute_module() {
     local module_name="$1"
@@ -2858,40 +2592,34 @@ offer_optional_modules() {
     echo
     info "The following optional modules can be installed:"
     echo
-    echo "1. Linux-G14 Kernel (Arch only) (linux-g14)"
-    echo "   - Community-maintained ASUS-optimized kernel (6.17.3)"
-    echo "   - Kernel-level LED control and suspend/resume hooks"
-    echo "   - OLED panel optimizations and power management tunables"
-    echo "   - See: Info/LINUX_G14_ANALYSIS.md for detailed comparison"
-    echo
-    echo "2. Gaming Software (gz302-gaming)"
+    echo "1. Gaming Software (gz302-gaming)"
     echo "   - Steam, Lutris, ProtonUp-Qt"
     echo "   - MangoHUD, GameMode, Wine"
     echo "   - Gaming optimizations and performance tweaks"
     echo
-    echo "3. LLM/AI Software (gz302-llm)"
+    echo "2. LLM/AI Software (gz302-llm)"
     echo "   - Ollama for local LLM inference"
     echo "   - ROCm for AMD GPU acceleration (gfx1151)"
     echo "   - PyTorch, MIOpen, and bitsandbytes"
     echo "   - Transformers and Accelerate libraries"
     echo
-    echo "4. Hypervisor Software (gz302-hypervisor)"
+    echo "3. Hypervisor Software (gz302-hypervisor)"
     echo "   - KVM/QEMU, VirtualBox, VMware, Xen, or Proxmox"
     echo "   - Virtual machine management tools"
     echo
-    echo "5. System Snapshots (gz302-snapshots)"
+    echo "4. System Snapshots (gz302-snapshots)"
     echo "   - Automatic daily system backups"
     echo "   - Easy system recovery and rollback"
     echo "   - Supports ZFS, Btrfs, ext4 (LVM), and XFS"
     echo
-    echo "6. Secure Boot (gz302-secureboot)"
+    echo "5. Secure Boot (gz302-secureboot)"
     echo "   - Enhanced system security and boot integrity"
     echo "   - Automatic kernel signing on updates"
     echo
-    echo "7. Skip optional modules"
+    echo "6. Skip optional modules"
     echo
     
-    read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 7 to skip): " module_choice
+    read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 6 to skip): " module_choice
     
     # Parse the choices
     IFS=',' read -ra CHOICES <<< "$module_choice"
@@ -2899,24 +2627,21 @@ offer_optional_modules() {
         choice=$(echo "$choice" | tr -d ' ') # Remove spaces
         case "$choice" in
             1)
-                install_linux_g14_kernel "$distro" || warning "linux-g14 kernel installation failed"
-                ;;
-            2)
                 download_and_execute_module "gz302-gaming" "$distro" || warning "Gaming module installation failed"
                 ;;
-            3)
+            2)
                 download_and_execute_module "gz302-llm" "$distro" || warning "LLM module installation failed"
                 ;;
-            4)
+            3)
                 download_and_execute_module "gz302-hypervisor" "$distro" || warning "Hypervisor module installation failed"
                 ;;
-            5)
+            4)
                 download_and_execute_module "gz302-snapshots" "$distro" || warning "Snapshots module installation failed"
                 ;;
-            6)
+            5)
                 download_and_execute_module "gz302-secureboot" "$distro" || warning "Secure boot module installation failed"
                 ;;
-            7)
+            6)
                 info "Skipping optional modules"
                 ;;
             *)
@@ -2934,7 +2659,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 1.1.0"
+    echo "  Version 1.1.1"
     echo "============================================================"
     echo
     
