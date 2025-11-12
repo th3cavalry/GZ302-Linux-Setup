@@ -655,7 +655,12 @@ build_asusctl_from_source() {
     echo
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo
-    read -r -p "Would you like to build asusctl from source? (y/N): " response
+    if [[ -t 0 ]]; then
+        read -r -p "Would you like to build asusctl from source? (y/N): " response
+    else
+        warning "Non-interactive environment detected - skipping asusctl build"
+        response="N"
+    fi
 
     if [[ ! "$response" =~ ^[Yy]$ ]]; then
         warning "Skipping asusctl installation"
