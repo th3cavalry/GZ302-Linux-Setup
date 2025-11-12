@@ -757,7 +757,7 @@ build_asusctl_from_source() {
 
         return 0
     else
-        error "asusctl installation verification failed - command not found"
+        warning "asusctl installation verification failed - command not found"
         return 1
     fi
 }
