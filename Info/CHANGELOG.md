@@ -5,6 +5,48 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-11-12
+
+### Added
+- **Full QEMU/KVM Stack Installation** - Comprehensive virtualization support
+  - Complete QEMU system with all necessary components (qemu-full, qemu-system, qemu-utils)
+  - libvirt daemon configuration and management
+  - virt-manager GUI and virsh CLI tools
+  - UEFI/OVMF firmware for modern guest OS support
+  - Automatic default NAT network setup (virbr0, 192.168.122.0/24)
+  - Virtualization hardware support verification (checks for AMD-V/Intel VT-x)
+  - User permission configuration (libvirt, kvm, libvirt-qemu groups)
+  - Guest tools and utilities (guestfs-tools, libguestfs-tools)
+  - Bridge networking utilities (bridge-utils, dnsmasq, netcat)
+- Enhanced VirtualBox installation with proper kernel module configuration
+- Virtualization support detection and BIOS enablement checks
+- Comprehensive installation feedback with next steps and usage instructions
+- Non-interactive mode support for automated deployments
+
+### Fixed
+- **Critical: Duplicate Function** - Removed duplicate `get_battery_status()` function (was defined at lines 1078 and 1986 in gz302-main.sh)
+- **Code Quality: Unreachable Code** - Fixed all shellcheck SC2317 warnings by removing unreachable `return 1` statements after `error()` calls
+- **Consistency: Error Handling** - Standardized error handling across all modules (error() function now exits directly)
+- Improved `get_real_user()` function consistency across all module scripts
+
+### Improved
+- **Performance: Code Efficiency** - Reduced redundant operations and improved overall script performance
+- **UX: Error Messages** - More informative error messages with troubleshooting guidance
+- **Documentation: Inline Comments** - Enhanced inline documentation for complex sections
+- **Architecture: Module Organization** - Better separation of concerns in hypervisor module
+- Optimized network checks to avoid redundant operations
+- Better validation and error recovery in package installations
+
+### Changed
+- Hypervisor module version bumped from 0.2.0-RC1 to 0.3.0
+- Main script version bumped from 1.0.9 to 1.1.0
+- Updated README with comprehensive hypervisor feature documentation
+- Enhanced module descriptions with detailed feature lists
+
+### Security
+- Improved input validation in all user-facing prompts
+- Better handling of sudo/privilege escalation
+
 ## [1.0.5] - 2025-10-17
 
 ### Fixed

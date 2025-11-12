@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.0.9
+# Version: 1.1.0
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -698,7 +698,6 @@ build_asusctl_from_source() {
         libclang-dev libudev-dev libseat-dev libinput-dev \
         libxkbcommon-dev libgbm-dev git || {
             error "Failed to install build dependencies"
-            return 1
         }
 
     # Clone or update asusctl repository
@@ -716,7 +715,6 @@ build_asusctl_from_source() {
         cd /tmp || return 1
         git clone https://gitlab.com/asus-linux/asusctl.git || {
             error "Failed to clone asusctl repository"
-            return 1
         }
         cd asusctl || return 1
     fi
@@ -728,7 +726,6 @@ build_asusctl_from_source() {
         success "asusctl build completed successfully"
     else
         error "asusctl build failed - see /tmp/asusctl-build.log for details"
-        return 1
     fi
 
     # Install asusctl
@@ -737,7 +734,6 @@ build_asusctl_from_source() {
         success "asusctl installed successfully"
     else
         error "asusctl installation failed - see /tmp/asusctl-install.log for details"
-        return 1
     fi
 
     # Reload systemd and start services
@@ -1983,23 +1979,8 @@ list_profiles() {
     done
 }
 
-get_battery_status() {
-    if command -v acpi >/dev/null 2>&1; then
-        if acpi -a 2>/dev/null | grep -q "on-line"; then
-            echo "AC"
-        else
-            echo "Battery"
-        fi
-    elif [[ -f /sys/class/power_supply/ADP1/online ]]; then
-        if [[ "$(cat /sys/class/power_supply/ADP1/online 2>/dev/null)" == "1" ]]; then
-            echo "AC"
-        else
-            echo "Battery"
-        fi
-    else
-        echo "Unknown"
-    fi
-}
+# Note: get_battery_status() is defined in pwrcfg template (lines 1078-1145)
+# This is the comprehensive version with multiple fallback methods
 
 # Enhanced VRR Functions
 apply_vrr_ranges() {
@@ -2953,7 +2934,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 1.0.7"
+    echo "  Version 1.1.0"
     echo "============================================================"
     echo
     
