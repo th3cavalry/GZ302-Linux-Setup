@@ -725,6 +725,7 @@ build_asusctl_from_source() {
     info "Configuring asusctl services..."
     systemctl daemon-reload
     systemctl enable --now asusd.service 2>/dev/null || warning "Failed to enable asusd service"
+    systemctl enable --now asusd-user.service 2>/dev/null || warning "Failed to enable asusd-user service"
 
     # Wait a moment for service to initialize
     sleep 2
