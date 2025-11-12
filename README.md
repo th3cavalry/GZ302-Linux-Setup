@@ -292,6 +292,49 @@ A: Remove `/etc/sudoers.d/gz302-pwrcfg` and reboot.
 **Q: Can I use `pwrcfg`/`rrcfg` with custom profiles?**
 A: Yes! See the advanced usage section in the documentation for details.
 
+## 🗂️ Repository Organization
+
+### Uninstall/ - Removal Tools
+
+The `Uninstall/` folder contains scripts to safely remove GZ302 setup components:
+
+**gz302-uninstall.sh** - Comprehensive uninstall utility
+- Detects all installed components automatically
+- Interactive selection (choose what to remove)
+- Supports: Hardware fixes, TDP management, Refresh control, Folio fix, G14 kernel
+- Safe removal with confirmation prompts
+
+**Usage:**
+```bash
+cd Uninstall
+sudo ./gz302-uninstall.sh
+```
+
+### Temporary/ - Experimental Features
+
+The `Temporary/` folder contains **experimental scripts** being tested before integration:
+
+**⚠️ WARNING: Use at your own risk! These are not production-ready.**
+
+**gz302-rgb-backlight.sh** - Keyboard backlight control (EXPERIMENTAL)
+- asusctl-based RGB control (full LED modes)
+- sysfs-based brightness control (basic)
+- Persistence across suspend/resume
+- Creates helper commands: `kbd-brightness`, `kbd-led-mode`
+
+**Limitations:**
+- Rear window LED control NOT supported (hardware limitation)
+- May not work on all GZ302 variants
+- Requires thorough testing
+
+**Usage:**
+```bash
+cd Temporary
+sudo ./gz302-rgb-backlight.sh
+```
+
+See `Temporary/README.md` for detailed information and research notes.
+
 ## 🕰️ History
 
 Legacy scripts and architecture:
