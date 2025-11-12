@@ -336,7 +336,8 @@ sudo apt update
 sudo apt install -y curl git build-essential pkg-config \
     libusb-1.0-0-dev libdbus-1-dev libglib2.0-dev \
     libgudev-1.0-dev libhidapi-dev libssl-dev \
-    libudev-dev cmake
+    libudev-dev cmake libasound2-dev libfreetype6-dev libxcb-composite0-dev \
+    libseat-dev libinput-dev libxkbcommon-dev libgbm-dev
 
 # Install Rust (if not already installed)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
