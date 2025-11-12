@@ -7,7 +7,7 @@
 - **GZ302EA-XS64** - 64GB RAM variant
 - **GZ302EA-XS32** - 32GB RAM variant
 
-> **🚀 Version 1.0.9 - Stable Release (November 2025)!** Updated for kernel 6.17.7 stable baseline (6.18-rc4 testing), refreshed distribution kernel status, improved MT7925 conditional logic, and clarified Arch linux-g14 optional path. Includes robust `pwrcfg`/`rrcfg` sync, folio resume enhancement, keyboard backlight persistence, and password-less sudo integration. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended; 6.17.7 current best) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
+> **🚀 Version 1.1.0 - Performance & Features Release (November 2025)!** Major code improvements including full QEMU/KVM stack installation, duplicate function removal, optimized error handling, and enhanced hypervisor module. Fixed shellcheck warnings, removed unreachable code, and improved code efficiency. Updated for kernel 6.17.7 stable baseline. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
 
 ## ✨ Key Features
 
@@ -200,8 +200,20 @@ See: https://asus-linux.org and https://gitlab.com/asus-linux/linux-g14
 - Optional AI frontends (LocalAI, ComfyUI, text-generation-webui, etc.)
 
 ### Hypervisor Module (`gz302-hypervisor`)
-- KVM/QEMU with virt-manager (recommended)
-- VirtualBox (alternative option)
+- **Full KVM/QEMU Stack** (Recommended)
+  - Complete QEMU virtualization system with hardware acceleration
+  - libvirt daemon for VM management
+  - virt-manager GUI and virsh CLI tools
+  - UEFI/OVMF firmware support for modern guest OSes
+  - Automatic default NAT network configuration
+  - User permission configuration (libvirt, kvm groups)
+  - Virtualization support verification
+  - Guest tools and utilities (guestfs-tools, libguestfs)
+- **VirtualBox** (Alternative)
+  - Cross-platform hypervisor
+  - User-friendly GUI interface
+  - Kernel module configuration
+  - Extension pack and guest additions
 
 ### Snapshots Module (`gz302-snapshots`)
 - Automatic system snapshots
@@ -354,4 +366,4 @@ This project is provided as-is for the GZ302 community.
 
 ---
 
-**Last Updated:** October 2024
+**Last Updated:** November 2025 (v1.1.0)
