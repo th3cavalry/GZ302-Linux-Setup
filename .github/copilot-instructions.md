@@ -37,7 +37,8 @@ This repository provides modular Linux setup scripts for the ASUS ROG Flow Z13 (
 - **Versioning:**
     - Always increment the version in `gz302-main.sh` (line 7) when making any change (PATCH for bugfixes, MINOR for features, MAJOR for breaking changes).
     - Update the version in this file's header and in commit messages as well.
-    - Example: `sed -i 's/Version: 1.0.4/Version: 1.0.5/' gz302-main.sh`
+    - Example: `sed -i 's/Version: 1.1.0/Version: 1.1.1/' gz302-main.sh`
+    - **All module scripts must match the main script version (currently 1.1.0)**
 - **Documentation:** Update `README.md` and this file for any user-facing change. Follow markdown style and keep technical accuracy.
 - Always check git status before and after operations
 
@@ -86,7 +87,9 @@ wc -l gz302-*.sh
 
 ---
 
-**Last updated:** October 2025
+**Last updated:** November 2025 (v1.1.0)
+
+**Current Version:** 1.1.0 (synced across all module scripts)
 
 ### Bug Fixes
 1. **Identify bug location**: Main script or specific module

@@ -366,4 +366,4 @@ This project is provided as-is for the GZ302 community.
 
 ---
 
-**Last Updated:** October 2024
+**Last Updated:** November 2025 (v1.1.0)
