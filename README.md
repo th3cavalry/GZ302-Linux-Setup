@@ -7,7 +7,7 @@
 - **GZ302EA-XS64** - 64GB RAM variant
 - **GZ302EA-XS32** - 32GB RAM variant
 
-> **🚀 Version 1.1.0 - Performance & Features Release (November 2025)!** Major code improvements including full QEMU/KVM stack installation, duplicate function removal, optimized error handling, and enhanced hypervisor module. Fixed shellcheck warnings, removed unreachable code, and improved code efficiency. Updated for kernel 6.17.7 stable baseline. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
+> **🚀 Version 1.1.1 - Modularity Release (November 2025)!** Moved folio fix and linux-g14 kernel to Optional/ folder for cleaner main script. These advanced features are now standalone scripts for users who need them. Core script remains streamlined with essential hardware fixes and management tools. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
 
 ## ✨ Key Features
 
@@ -95,9 +95,6 @@ Based on latest research from GZ302 community and comprehensive testing:
 - **GPU optimization**: AMD Radeon 8060S integrated graphics (RDNA 3.5) - full feature mask enabled, ROCm-compatible
 - **Wi-Fi stability**: MediaTek MT7925 conditional fixes - automatic ASPM workaround for kernels < 6.15, native support for 6.15+
 - **ASUS HID**: Keyboard and touchpad module configuration with mature gesture support
-- **Folio Resume Fix**: Automatic reload of HID and USB rebind for folio keyboard/touchpad after suspend/resume (see Issue #83)
-
-**Note:** If your folio keyboard/touchpad does not work after sleep, the setup now includes a resume service that reloads the HID module and attempts to rebind the folio USB device. If you have a custom folio or different vendor/product IDs, update `gz302-folio-resume.sh` accordingly.
 
 **Research Sources**: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org, Strix Halo HomeLab, Ubuntu 25.10 benchmarks, Phoronix community
 
@@ -130,33 +127,6 @@ Automated installation from official sources:
   - Power mode switching (balanced 85W, performance 100W, turbo 120W)
   - APU temperature monitoring
   - See: https://github.com/cmetz/ec-su_axb35-linux
-
-### About linux-g14 Kernel (Arch Linux)
-The `linux-g14` custom kernel is **optional** for GZ302 users. This is a community-maintained, ASUS-optimized kernel variant (currently 6.17.3) with enhanced ROG laptop support.
-
-**GZ302-Specific Features in linux-g14:**
-- ✅ **Keyboard RGB LED Control** (4-zone per-key matrix) - Enhanced kernel-level control vs userspace
-- ✅ **Suspend/Resume LED Restoration** - Kernel hooks to prevent keyboard LED blackout after sleep
-- ✅ **Power Management (PPT) Tuning** - Strix Halo-compatible APU/platform package limits (sPPT/fPPT/SPPT)
-- ✅ **OLED Panel Optimizations** - Panel overdrive, HD/UHD mode switching, auto-brightness
-
-**What's NOT in linux-g14 for GZ302:**
-- ❌ ROG Ally gamepad support (not applicable - GZ302 lacks gamepad)
-- ❌ NVIDIA GPU features (not applicable - GZ302 is 100% AMD)
-- ❌ GPU MUX switching (not applicable - no discrete GPU on GZ302)
-
-**Recommendation:**
-- **For most users**: Use **mainline kernel 6.17.4** (Arch stable) - excellent Strix Halo support, community-tested, upstream security updates
-- **For advanced users**: Use **linux-g14 6.17.3** (AUR) - if you want kernel-level LED/power management features. Trade-off: smaller testing community, slightly older patch set
-- **Either way**: v1.0.5 setup script handles both kernels seamlessly
-
-**Installation (linux-g14 on Arch):**
-```bash
-yay -S linux-g14 linux-g14-headers  # Install from AUR
-# Then rebuild bootloader and reboot
-```
-
-See: https://asus-linux.org and https://gitlab.com/asus-linux/linux-g14
 
 ### Management Tools (Always Installed)
 - **Power Management** (`pwrcfg` command)
@@ -224,6 +194,48 @@ See: https://asus-linux.org and https://gitlab.com/asus-linux/linux-g14
 - Boot integrity tools
 - Automatic kernel signing setup
 
+## 📁 Optional Scripts (Advanced Use Cases)
+
+The `Optional/` folder contains standalone scripts for specific use cases that are not needed by most users:
+
+### Folio Resume Fix (`Optional/gz302-folio-fix.sh`)
+**Use case:** If your folio keyboard/touchpad stops working after suspend/resume and requires physical reconnection.
+
+- Automatically reloads HID and USB rebind for folio keyboard/touchpad after suspend/resume
+- Creates systemd service for automatic recovery
+- Configurable vendor/product IDs for custom folios
+
+**Installation:**
+```bash
+cd Optional
+sudo ./gz302-folio-fix.sh
+```
+
+**Note:** Most users do NOT need this fix. Only install if you experience folio keyboard/touchpad issues after sleep.
+
+### Linux-G14 Kernel (`Optional/gz302-g14-kernel.sh`)
+**Use case:** Advanced users who want kernel-level RGB LED control and ASUS-specific optimizations (Arch Linux only).
+
+The `linux-g14` custom kernel is a community-maintained, ASUS-optimized kernel variant (6.17.3) with enhanced ROG laptop support.
+
+**GZ302-Specific Features:**
+- ✅ **Keyboard RGB LED Control** - Enhanced kernel-level control (4-zone per-key matrix)
+- ✅ **Suspend/Resume LED Restoration** - Kernel hooks to prevent keyboard LED blackout after sleep
+- ✅ **Power Management Tunables** - Strix Halo-compatible APU limits (sPPT/fPPT/SPPT)
+- ✅ **OLED Panel Optimizations** - Panel overdrive, HD/UHD mode switching, auto-brightness
+
+**Installation (Arch Linux only):**
+```bash
+cd Optional
+sudo ./gz302-g14-kernel.sh
+```
+
+**Recommendation:**
+- **For most users**: Use **mainline kernel 6.17+** - excellent Strix Halo support, community-tested, upstream security updates
+- **For advanced users**: Use **linux-g14** - if you want kernel-level LED/power management features (trade-off: smaller testing community, slightly older patch set)
+
+See: https://asus-linux.org and https://gitlab.com/asus-linux/linux-g14 and `Info/LINUX_G14_ANALYSIS.md`
+
 ## 🎯 Usage Examples
 
 ### Using Power Management
@@ -279,6 +291,49 @@ A: Remove `/etc/sudoers.d/gz302-pwrcfg` and reboot.
 
 **Q: Can I use `pwrcfg`/`rrcfg` with custom profiles?**
 A: Yes! See the advanced usage section in the documentation for details.
+
+## 🗂️ Repository Organization
+
+### Uninstall/ - Removal Tools
+
+The `Uninstall/` folder contains scripts to safely remove GZ302 setup components:
+
+**gz302-uninstall.sh** - Comprehensive uninstall utility
+- Detects all installed components automatically
+- Interactive selection (choose what to remove)
+- Supports: Hardware fixes, TDP management, Refresh control, Folio fix, G14 kernel
+- Safe removal with confirmation prompts
+
+**Usage:**
+```bash
+cd Uninstall
+sudo ./gz302-uninstall.sh
+```
+
+### Temporary/ - Experimental Features
+
+The `Temporary/` folder contains **experimental scripts** being tested before integration:
+
+**⚠️ WARNING: Use at your own risk! These are not production-ready.**
+
+**gz302-rgb-backlight.sh** - Keyboard backlight control (EXPERIMENTAL)
+- asusctl-based RGB control (full LED modes)
+- sysfs-based brightness control (basic)
+- Persistence across suspend/resume
+- Creates helper commands: `kbd-brightness`, `kbd-led-mode`
+
+**Limitations:**
+- Rear window LED control NOT supported (hardware limitation)
+- May not work on all GZ302 variants
+- Requires thorough testing
+
+**Usage:**
+```bash
+cd Temporary
+sudo ./gz302-rgb-backlight.sh
+```
+
+See `Temporary/README.md` for detailed information and research notes.
 
 ## 🕰️ History
 
