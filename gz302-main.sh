@@ -628,8 +628,10 @@ EOF
     if [[ "$limit" == "80" ]]; then
         success "Battery charge limit set to 80%"
         info "Battery will stop charging at 80% to preserve battery health"
+        return 0
     else
         warning "Failed to set battery charge limit - may require asusctl for this hardware"
+        return 1
     fi
 }
 
