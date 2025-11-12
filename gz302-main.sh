@@ -599,40 +599,238 @@ install_arch_asus_packages() {
     success "ASUS packages installed"
 }
 
+# --- Battery Limit Fallback Service ---
+setup_battery_limit_service() {
+    info "Setting up battery charge limit service (80%)"
+
+    # Create script to set battery charge limit
+    local script_path="/usr/local/bin/set-battery-limit.sh"
+    cat > "$script_path" << 'EOS'
+#!/bin/sh
+echo 80 > /sys/class/power_supply/BAT0/charge_control_end_threshold
+EOS
+    chmod 755 "$script_path"
+    chown root:root "$script_path"
+
+    # Create systemd service for battery charge limit
+    cat > /etc/systemd/system/battery-charge-limit.service << EOF
+[Unit]
+Description=Set battery charge limit to 80%
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=$script_path
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Reload systemd and enable service
+    systemctl daemon-reload
+    systemctl enable --now battery-charge-limit.service 2>/dev/null || warning "Failed to enable battery charge limit service"
+
+    # Verify the setting was applied
+    local limit
+    limit=$(cat /sys/class/power_supply/BAT0/charge_control_end_threshold 2>/dev/null || echo "0")
+    if [[ "$limit" == "80" ]]; then
+        success "Battery charge limit set to 80%"
+        info "Battery will stop charging at 80% to preserve battery health"
+        return 0
+    else
+        warning "Failed to set battery charge limit - may require asusctl for this hardware"
+        return 1
+    fi
+}
+
+# --- Build asusctl from Source (Fallback for Ubuntu 25.10) ---
+build_asusctl_from_source() {
+    info "PPA installation failed - asusctl packages not available for this Ubuntu version"
+    echo
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  asusctl Build Options"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo
+    echo "asusctl provides essential hardware control features:"
+    echo "  • Battery charge limit (preserve battery health)"
+    echo "  • Fan curve control (customize cooling)"
+    echo "  • Keyboard backlight control (RGB customization)"
+    echo "  • Performance profiles (silent/balanced/performance)"
+    echo
+    echo "Option 1: Build asusctl from source (~5-10 minutes)"
+    echo "          Full ASUS hardware control with GUI"
+    echo
+    echo "Option 2: Skip and use basic battery limit service"
+    echo "          Only battery charge limit (no other features)"
+    echo
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo
+    if [[ -t 0 ]]; then
+        read -r -p "Would you like to build asusctl from source? (y/N): " response
+    else
+        warning "Non-interactive environment detected - skipping asusctl build"
+        response="N"
+    fi
+
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        warning "Skipping asusctl installation"
+        info "Attempting to set up basic battery limit service instead..."
+        if setup_battery_limit_service; then
+            info "Basic battery limit configured successfully"
+        else
+            warning "Battery limit service setup failed"
+        fi
+        info "For full asusctl features, see: https://gitlab.com/asus-linux/asusctl"
+        return 1
+    fi
+
+    info "Building asusctl from source - this will take 5-10 minutes..."
+
+    # Install build dependencies
+    info "Installing build dependencies..."
+    apt-get update || warning "Failed to update package list"
+    apt-get install -y \
+        make cargo gcc pkg-config \
+        libasound2-dev cmake build-essential python3 \
+        libfreetype6-dev libexpat1-dev libxcb-composite0-dev \
+        libssl-dev libx11-dev libfontconfig1-dev curl \
+        libclang-dev libudev-dev libseat-dev libinput-dev \
+        libxkbcommon-dev libgbm-dev git || {
+            error "Failed to install build dependencies"
+            return 1
+        }
+
+    # Clone or update asusctl repository
+    local asusctl_dir="/tmp/asusctl"
+    if [[ -d "$asusctl_dir" ]]; then
+        info "Using existing asusctl repository at $asusctl_dir"
+        cd "$asusctl_dir" || return 1
+        if git fetch origin; then
+            git reset --hard origin/main || warning "Failed to reset to latest"
+        else
+            warning "Failed to fetch latest changes - using existing state"
+        fi
+    else
+        info "Cloning asusctl repository..."
+        cd /tmp || return 1
+        git clone https://gitlab.com/asus-linux/asusctl.git || {
+            error "Failed to clone asusctl repository"
+            return 1
+        }
+        cd asusctl || return 1
+    fi
+
+    # Build asusctl
+    info "Building asusctl (this may take several minutes)..."
+    info "Progress: Compiling Rust code with cargo..."
+    if make 2>&1 | tee /tmp/asusctl-build.log; then
+        success "asusctl build completed successfully"
+    else
+        error "asusctl build failed - see /tmp/asusctl-build.log for details"
+        return 1
+    fi
+
+    # Install asusctl
+    info "Installing asusctl..."
+    if make install 2>&1 | tee /tmp/asusctl-install.log; then
+        success "asusctl installed successfully"
+    else
+        error "asusctl installation failed - see /tmp/asusctl-install.log for details"
+        return 1
+    fi
+
+    # Reload systemd and start services
+    info "Configuring asusctl services..."
+    systemctl daemon-reload
+    systemctl enable --now asusd.service 2>/dev/null || warning "Failed to enable asusd service"
+    systemctl enable --now asusd-user.service 2>/dev/null || warning "Failed to enable asusd-user service"
+
+    # Wait a moment for service to initialize
+    sleep 2
+
+    # Verify installation
+    info "Verifying asusctl installation..."
+    if command -v asusctl >/dev/null 2>&1; then
+        local version
+        version=$(asusctl --version 2>/dev/null | head -n1)
+        success "asusctl installed: $version"
+
+        # Check if asusd service is running
+        if systemctl is-active --quiet asusd.service; then
+            success "asusd service is running"
+
+            # Set battery charge limit to 80% (recommended for longevity)
+            info "Setting battery charge limit to 80%..."
+            if asusctl -c 80 2>/dev/null; then
+                success "Battery charge limit set to 80%"
+                info "Your battery will stop charging at 80% to preserve battery health"
+            else
+                warning "Failed to set battery charge limit with asusctl"
+                info "You can set it manually later with: asusctl -c 80"
+            fi
+        else
+            warning "asusd service is not running - asusctl may not work correctly"
+            info "Try restarting the service: sudo systemctl restart asusd"
+        fi
+
+        return 0
+    else
+        warning "asusctl installation verification failed - command not found"
+        return 1
+    fi
+}
+
 install_debian_asus_packages() {
     info "Installing ASUS control packages for Debian/Ubuntu..."
-    
+
     # Install power-profiles-daemon
     apt install -y power-profiles-daemon || warning "power-profiles-daemon install failed"
-    
+
     # Install switcheroo-control
     apt install -y switcheroo-control || warning "switcheroo-control install failed"
-    
+
     # Try to install asusctl from PPA
     info "Attempting to install asusctl from PPA..."
+    local ppa_success=0
+
     if command -v add-apt-repository >/dev/null 2>&1; then
         # Add Mitchell Austin's asusctl PPA
-        add-apt-repository -y ppa:mitchellaugustin/asusctl 2>/dev/null || warning "Failed to add asusctl PPA"
-        apt update 2>/dev/null || warning "Failed to update package list"
-        
-        # Try to install rog-control-center (includes asusctl)
-        if apt install -y rog-control-center 2>/dev/null; then
-            systemctl daemon-reload
-            systemctl restart asusd 2>/dev/null || warning "Failed to restart asusd"
-            success "asusctl installed from PPA"
+        if add-apt-repository -y ppa:mitchellaugustin/asusctl 2>/dev/null; then
+            apt update 2>/dev/null || warning "Failed to update package list"
+
+            # Try to install rog-control-center (includes asusctl)
+            if apt install -y rog-control-center 2>/dev/null; then
+                systemctl daemon-reload
+                systemctl restart asusd 2>/dev/null || warning "Failed to restart asusd"
+                success "asusctl installed from PPA"
+                ppa_success=1
+            else
+                warning "PPA packages not available for this Ubuntu version"
+            fi
         else
-            warning "PPA installation failed"
-            info "Manual installation: https://mitchellaugustin.com/asusctl.html"
+            warning "Failed to add asusctl PPA"
         fi
     else
         warning "add-apt-repository not available"
-        info "Install software-properties-common and retry, or see: https://asus-linux.org"
+        info "Install software-properties-common first: apt install software-properties-common"
     fi
-    
+
+    # If PPA installation failed, try building from source
+    if [[ $ppa_success -eq 0 ]]; then
+        if build_asusctl_from_source; then
+            success "asusctl built and installed from source"
+        else
+            warning "asusctl installation skipped"
+            info "Manual installation guide: https://asus-linux.org/guides/asusctl-install/"
+            info "Ubuntu 25.10 workarounds: Info/ubuntu-25.10-notes.md"
+        fi
+    fi
+
     # Enable services
     systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
-    
-    success "ASUS packages installed"
+
+    success "ASUS packages installation complete"
 }
 
 install_fedora_asus_packages() {
