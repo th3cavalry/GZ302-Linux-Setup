@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.1.2
+# Version: 1.2.0
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -1664,6 +1664,38 @@ show_usage() {
     echo "  rrcfg thermal-status # Check thermal throttling"
 }
 
+# Keyboard RGB Control Installation
+install_kbrgb_control() {
+    info "Installing keyboard RGB color control (kbrgb command)..."
+    
+    # Copy kbrgb template to /usr/local/bin
+    if [[ -f "kbrgb.template.sh" ]]; then
+        cp kbrgb.template.sh /usr/local/bin/kbrgb
+        chmod +x /usr/local/bin/kbrgb
+        success "kbrgb command installed to /usr/local/bin/kbrgb"
+    else
+        warning "kbrgb.template.sh not found - skipping kbrgb installation"
+        return 1
+    fi
+    
+    echo ""
+    echo "═══════════════════════════════════════════════════════"
+    echo "  Keyboard RGB Control Installed"
+    echo "═══════════════════════════════════════════════════════"
+    echo ""
+    echo "Usage examples:"
+    echo "  kbrgb color red          # Set keyboard to red"
+    echo "  kbrgb hex ff00ff         # Set custom color (magenta)"
+    echo "  kbrgb brightness 2       # Set brightness level 2"
+    echo "  kbrgb effect breathe     # Set breathing effect"
+    echo "  kbrgb list               # List color palette"
+    echo "  kbrgb status             # Show current status"
+    echo ""
+    echo "Note: RGB color and effect control requires asusctl."
+    echo "      Basic brightness control works without asusctl."
+    echo ""
+}
+
 detect_displays() {
     # Detect connected displays and their capabilities
     local displays=()
@@ -2658,6 +2690,9 @@ EOFYAY
     # Setup refresh rate management (always install for all systems)
     install_refresh_management
     
+    # Install keyboard RGB control (always install for all systems)
+    install_kbrgb_control
+    
     enable_arch_services
 }
 
@@ -2687,6 +2722,9 @@ setup_debian_based() {
     # Setup refresh rate management (always install for all systems)
     install_refresh_management
     
+    # Install keyboard RGB control (always install for all systems)
+    install_kbrgb_control
+    
     enable_debian_services
 }
 
@@ -2713,6 +2751,9 @@ setup_fedora_based() {
     
     # Setup refresh rate management (always install for all systems)
     install_refresh_management
+    
+    # Install keyboard RGB control (always install for all systems)
+    install_kbrgb_control
     
     enable_fedora_services
 }
@@ -2741,6 +2782,9 @@ setup_opensuse() {
     
     # Setup refresh rate management (always install for all systems)
     install_refresh_management
+    
+    # Install keyboard RGB control (always install for all systems)
+    install_kbrgb_control
     
     enable_opensuse_services
 }
