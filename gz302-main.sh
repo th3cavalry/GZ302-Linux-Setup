@@ -877,19 +877,44 @@ setup_tdp_management() {
 
 set -euo pipefail
 
-# Auto-elevate: allow running 'pwrcfg <profile>' without typing sudo
+# Determine if this command requires elevated privileges
+requires_elevation() {
+    local cmd="$1"
+    local arg="$2"
+    # Read-only commands that don't need root
+    case "$cmd" in
+        status|list|help|"")
+            return 1  # Does not require elevation
+            ;;
+        charge-limit)
+            # charge-limit without args is read-only, charge-limit <value> needs elevation
+            if [ -z "$arg" ]; then
+                return 1  # Read-only: doesn't require elevation
+            else
+                return 0  # Write operation: requires elevation
+            fi
+            ;;
+        *)
+            return 0  # All other commands require elevation
+            ;;
+    esac
+}
+
+# Auto-elevate only for commands that modify system state
 if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
-    if command -v sudo >/dev/null 2>&1; then
-        # If password-less sudo is configured, re-exec without prompting
-        if sudo -n true 2>/dev/null; then
-            exec sudo -n "$0" "$@"
+    if requires_elevation "${1:-}" "${2:-}"; then
+        if command -v sudo >/dev/null 2>&1; then
+            # If password-less sudo is configured, re-exec without prompting
+            if sudo -n true 2>/dev/null; then
+                exec sudo -n "$0" "$@"
+            fi
+            echo "pwrcfg requires elevated privileges to apply power limits." >&2
+            echo "Enable password-less sudo for /usr/local/bin/pwrcfg (recommended) or run with sudo." >&2
+            exit 1
+        else
+            echo "pwrcfg requires elevated privileges and 'sudo' was not found. Run as root." >&2
+            exit 1
         fi
-        echo "pwrcfg requires elevated privileges to apply power limits." >&2
-        echo "Enable password-less sudo for /usr/local/bin/pwrcfg (recommended) or run with sudo." >&2
-        exit 1
-    else
-        echo "pwrcfg requires elevated privileges and 'sudo' was not found. Run as root." >&2
-        exit 1
     fi
 fi
 
@@ -1398,7 +1423,7 @@ auto_switch_profile() {
 }
 
 # Main script logic
-case "$1" in
+case "${1:-}" in
     maximum|gaming|performance|balanced|efficient|battery|emergency)
         set_tdp_profile "$1"
         ;;
