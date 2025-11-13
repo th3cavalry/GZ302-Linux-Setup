@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 Gaming Software Module
-# Version: 1.1.2
+# Version: 1.2.0
 #
 # This module installs gaming software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Steam, Lutris, MangoHUD, GameMode, Wine, and performance tools
