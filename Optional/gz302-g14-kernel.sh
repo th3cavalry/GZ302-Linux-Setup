@@ -59,7 +59,7 @@ detect_distribution() {
         source /etc/os-release
         
         # Detect Arch-based systems
-        if [[ "$ID" == "arch" || "$ID_LIKE" == *"arch"* ]]; then
+        if [[ "$ID" == "arch" || "${ID_LIKE:-}" == *"arch"* ]]; then
             distro="arch"
         fi
     fi
