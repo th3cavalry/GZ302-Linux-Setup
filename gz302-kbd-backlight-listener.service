@@ -1,0 +1,17 @@
+[Unit]
+Description=GZ302 Keyboard Backlight Physical Button Listener
+Documentation=https://github.com/th3cavalry/GZ302-Linux-Setup
+After=multi-user.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/gz302-kbd-backlight-listener
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=graphical-session.target
