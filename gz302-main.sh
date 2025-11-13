@@ -1686,7 +1686,10 @@ install_kbrgb_control() {
     echo "Usage examples:"
     echo "  kbrgb color red          # Set keyboard to red"
     echo "  kbrgb hex ff00ff         # Set custom color (magenta)"
-    echo "  kbrgb brightness 2       # Set brightness level 2"
+    echo "  kbrgb brightness 0       # Off"
+    echo "  kbrgb brightness 1       # Low"
+    echo "  kbrgb brightness 2       # Medium"
+    echo "  kbrgb brightness 3       # High (max)"
     echo "  kbrgb effect breathe     # Set breathing effect"
     echo "  kbrgb list               # List color palette"
     echo "  kbrgb status             # Show current status"
@@ -2684,13 +2687,9 @@ EOFYAY
     # Install SOF firmware for audio support
     install_sof_firmware "arch"
     
-    # Setup TDP management (always install for all systems)
+    # Setup TDP management, refresh rate, and keyboard RGB (always install)
     setup_tdp_management "arch"
-    
-    # Setup refresh rate management (always install for all systems)
     install_refresh_management
-    
-    # Install keyboard RGB control (always install for all systems)
     install_kbrgb_control
     
     enable_arch_services
@@ -2716,13 +2715,9 @@ setup_debian_based() {
     # Install SOF firmware for audio support
     install_sof_firmware "ubuntu"
     
-    # Setup TDP management (always install for all systems)
+    # Setup TDP management, refresh rate, and keyboard RGB (always install)
     setup_tdp_management "debian"
-    
-    # Setup refresh rate management (always install for all systems)
     install_refresh_management
-    
-    # Install keyboard RGB control (always install for all systems)
     install_kbrgb_control
     
     enable_debian_services
@@ -2746,13 +2741,9 @@ setup_fedora_based() {
     # Install SOF firmware for audio support
     install_sof_firmware "fedora"
     
-    # Setup TDP management (always install for all systems)
+    # Setup TDP management, refresh rate, and keyboard RGB (always install)
     setup_tdp_management "fedora"
-    
-    # Setup refresh rate management (always install for all systems)
     install_refresh_management
-    
-    # Install keyboard RGB control (always install for all systems)
     install_kbrgb_control
     
     enable_fedora_services
@@ -2777,13 +2768,9 @@ setup_opensuse() {
     # Install SOF firmware for audio support
     install_sof_firmware "opensuse"
     
-    # Setup TDP management (always install for all systems)
+    # Setup TDP management, refresh rate, and keyboard RGB (always install)
     setup_tdp_management "opensuse"
-    
-    # Setup refresh rate management (always install for all systems)
     install_refresh_management
-    
-    # Install keyboard RGB control (always install for all systems)
     install_kbrgb_control
     
     enable_opensuse_services
