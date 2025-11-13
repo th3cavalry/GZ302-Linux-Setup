@@ -82,7 +82,7 @@ pwrcfg config
 
 All distributions receive identical treatment with equal priority:
 
-- **Arch-based:** Arch Linux, EndeavourOS, Manjaro
+- **Arch-based:** Arch Linux, CachyOS, EndeavourOS, Manjaro
 - **Debian-based:** Ubuntu, Pop!_OS, Linux Mint  
 - **RPM-based:** Fedora, Nobara
 - **OpenSUSE:** Tumbleweed and Leap
