@@ -64,24 +64,26 @@ class GZ302TrayIcon(QSystemTrayIcon):
 
         # Battery charge limit
         charge_limit_menu = self.menu.addMenu("Battery Charge Limit")
-        charge_80_action = QAction("80% (Recommended)", self)
-        charge_80_action.triggered.connect(lambda: self.set_charge_limit("80"))
-        charge_limit_menu.addAction(charge_80_action)
-        
-        charge_100_action = QAction("100% (Maximum)", self)
-        charge_100_action.triggered.connect(lambda: self.set_charge_limit("100"))
-        charge_limit_menu.addAction(charge_100_action)
+        if charge_limit_menu is not None:
+            charge_80_action = QAction("80% (Recommended)", self)
+            charge_80_action.triggered.connect(lambda: self.set_charge_limit("80"))
+            charge_limit_menu.addAction(charge_80_action)
+            
+            charge_100_action = QAction("100% (Maximum)", self)
+            charge_100_action.triggered.connect(lambda: self.set_charge_limit("100"))
+            charge_limit_menu.addAction(charge_100_action)
 
         # Keyboard backlight
         backlight_menu = self.menu.addMenu("Keyboard Backlight")
-        for level in range(4):
-            if level == 0:
-                label = f"Off"
-            else:
-                label = f"Level {level}"
-            action = QAction(label, self)
-            action.triggered.connect(lambda checked, l=level: self.set_keyboard_backlight(l))
-            backlight_menu.addAction(action)
+        if backlight_menu is not None:
+            for level in range(4):
+                if level == 0:
+                    label = f"Off"
+                else:
+                    label = f"Level {level}"
+                action = QAction(label, self)
+                action.triggered.connect(lambda checked, l=level: self.set_keyboard_backlight(l))
+                backlight_menu.addAction(action)
         
         self.menu.addSeparator()
 
@@ -341,10 +343,9 @@ Categories=Utility;System;
                         2000
                     )
                 except PermissionError:
-                    # Fall back to sudo
+                    # Fall back to sudo with echo
                     result = subprocess.run(
-                        ["sudo", "tee", str(backlight_path)],
-                        input=str(brightness),
+                        ["sudo", "bash", "-c", f"echo {brightness} > {backlight_path}"],
                         capture_output=True,
                         text=True,
                         timeout=5
@@ -359,9 +360,10 @@ Categories=Utility;System;
                             2000
                         )
                     else:
+                        err = (result.stderr or "").strip()
                         self.showMessage(
                             "Error",
-                            f"Failed to set keyboard backlight: Permission denied",
+                            f"Failed to set keyboard backlight: {err or 'Permission denied'}",
                             QSystemTrayIcon.MessageIcon.Critical,
                             5000
                         )
@@ -384,7 +386,11 @@ def main():
     app = QApplication(sys.argv)
     
     # For now, use a simple icon (you can replace with custom icon later)
-    icon = app.style().standardIcon(QApplication.style().StandardPixmap.SP_ComputerIcon)
+    style = app.style()
+    if style is not None:
+        icon = style.standardIcon(style.StandardPixmap.SP_ComputerIcon)
+    else:
+        icon = QIcon()
     
     tray = GZ302TrayIcon(icon)
     

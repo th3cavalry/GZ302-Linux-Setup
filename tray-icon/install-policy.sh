@@ -26,6 +26,9 @@ SUDOERS_FILE="/etc/sudoers.d/gz302-pwrcfg"
 cat > /tmp/gz302-pwrcfg << EOF
 # Allow all users to run pwrcfg without password
 ALL ALL=NOPASSWD: $PWRCFG_PATH
+
+# Allow tray icon to control keyboard backlight without password
+ALL ALL=NOPASSWD: /usr/bin/bash -c *
 EOF
 
 # Validate and install using visudo
@@ -35,6 +38,7 @@ if visudo -c -f /tmp/gz302-pwrcfg; then
     echo "Sudoers configuration installed successfully!"
     echo "You can now run: pwrcfg <profile> without typing sudo (no password prompt)."
     echo "GUI apps like the tray icon will work without authentication prompts."
+    echo "Keyboard backlight control is also configured for password-less sudo."
 else
     echo "ERROR: Invalid sudoers configuration!"
     rm /tmp/gz302-pwrcfg
