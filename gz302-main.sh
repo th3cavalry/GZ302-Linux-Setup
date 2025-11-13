@@ -50,6 +50,22 @@ set -euo pipefail # Exit on error, undefined variable, or pipe failure
 # GitHub repository base URL for downloading modules
 GITHUB_RAW_URL="https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main"
 
+# --- Script directory detection (must work with sudo and various invocation methods) ---
+# Resolves the directory containing this script, handling symlinks and various execution contexts
+resolve_script_dir() {
+    local source="${BASH_SOURCE[0]}"
+    while [[ -L "$source" ]]; do
+        local dir
+        dir=$(cd -P "$(dirname "$source")" && pwd)
+        source=$(readlink "$source")
+        [[ $source != /* ]] && source="${dir}/${source}"
+    done
+    cd -P "$(dirname "$source")" && pwd
+}
+
+# Set SCRIPT_DIR early so it's available to all functions, including error handlers
+SCRIPT_DIR="${SCRIPT_DIR:-$(resolve_script_dir)}"
+
 # --- Color codes for output (must be defined before error handler) ---
 C_BLUE='\033[0;34m'
 C_GREEN='\033[0;32m'
@@ -2427,10 +2443,8 @@ install_tray_icon() {
     info "Starting GZ302 Power Manager (Tray Icon) installation..."
     echo
     
-    # Determine script directory (where gz302-main.sh is located)
-    local script_dir
-    script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-    local tray_dir="$script_dir/tray-icon"
+    # Use the global SCRIPT_DIR that was determined at script initialization
+    local tray_dir="$SCRIPT_DIR/tray-icon"
     local install_script="$tray_dir/install-tray.sh"
     
     # Check if tray-icon directory exists
