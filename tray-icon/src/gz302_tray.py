@@ -62,6 +62,29 @@ class GZ302TrayIcon(QSystemTrayIcon):
         
         self.menu.addSeparator()
 
+        # Battery charge limit
+        charge_limit_menu = self.menu.addMenu("Battery Charge Limit")
+        charge_80_action = QAction("80% (Recommended)", self)
+        charge_80_action.triggered.connect(lambda: self.set_charge_limit("80"))
+        charge_limit_menu.addAction(charge_80_action)
+        
+        charge_100_action = QAction("100% (Maximum)", self)
+        charge_100_action.triggered.connect(lambda: self.set_charge_limit("100"))
+        charge_limit_menu.addAction(charge_100_action)
+
+        # Keyboard backlight
+        backlight_menu = self.menu.addMenu("Keyboard Backlight")
+        for level in range(4):
+            if level == 0:
+                label = f"Off"
+            else:
+                label = f"Level {level}"
+            action = QAction(label, self)
+            action.triggered.connect(lambda checked, l=level: self.set_keyboard_backlight(l))
+            backlight_menu.addAction(action)
+        
+        self.menu.addSeparator()
+
         # Autostart
         autostart_action = QAction("Enable Autostart", self)
         autostart_action.triggered.connect(self.enable_autostart)
@@ -255,6 +278,107 @@ Categories=Utility;System;
             self.showMessage("Autostart", "Autostart entry created at ~/.config/autostart/gz302-tray.desktop", QSystemTrayIcon.MessageIcon.Information, 4000)
         except Exception as e:
             self.showMessage("Autostart Error", f"Failed to create autostart: {e}", QSystemTrayIcon.MessageIcon.Warning, 4000)
+
+    def set_charge_limit(self, limit):
+        """Set battery charge limit (80 or 100)."""
+        try:
+            result = subprocess.run(
+                ["sudo", "/usr/local/bin/pwrcfg", "charge-limit", limit],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            if result.returncode == 0:
+                self.showMessage(
+                    "Charge Limit Changed",
+                    f"Battery charge limit set to {limit}%",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    3000
+                )
+                self.update_current_profile()
+            else:
+                err = (result.stderr or "").strip()
+                self.showMessage(
+                    "Error",
+                    f"Failed to set charge limit: {err}",
+                    QSystemTrayIcon.MessageIcon.Critical,
+                    5000
+                )
+        except Exception as e:
+            self.showMessage(
+                "Error",
+                f"Failed to set charge limit: {str(e)}",
+                QSystemTrayIcon.MessageIcon.Critical,
+                5000
+            )
+
+    def set_keyboard_backlight(self, brightness):
+        """Set keyboard backlight brightness (0-3)."""
+        try:
+            # Validate brightness level
+            if not isinstance(brightness, int) or brightness < 0 or brightness > 3:
+                self.showMessage(
+                    "Error",
+                    "Keyboard brightness must be between 0 and 3",
+                    QSystemTrayIcon.MessageIcon.Warning,
+                    3000
+                )
+                return
+            
+            # Try primary keyboard backlight
+            backlight_path = Path("/sys/class/leds/asus::kbd_backlight/brightness")
+            
+            if backlight_path.exists():
+                try:
+                    # Try writing directly first (might work without sudo on some systems)
+                    backlight_path.write_text(str(brightness))
+                    level_name = ["Off", "Level 1", "Level 2", "Level 3"][brightness]
+                    self.showMessage(
+                        "Keyboard Backlight",
+                        f"Brightness set to {level_name}",
+                        QSystemTrayIcon.MessageIcon.Information,
+                        2000
+                    )
+                except PermissionError:
+                    # Fall back to sudo
+                    result = subprocess.run(
+                        ["sudo", "tee", str(backlight_path)],
+                        input=str(brightness),
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    
+                    if result.returncode == 0:
+                        level_name = ["Off", "Level 1", "Level 2", "Level 3"][brightness]
+                        self.showMessage(
+                            "Keyboard Backlight",
+                            f"Brightness set to {level_name}",
+                            QSystemTrayIcon.MessageIcon.Information,
+                            2000
+                        )
+                    else:
+                        self.showMessage(
+                            "Error",
+                            f"Failed to set keyboard backlight: Permission denied",
+                            QSystemTrayIcon.MessageIcon.Critical,
+                            5000
+                        )
+            else:
+                self.showMessage(
+                    "Error",
+                    "Keyboard backlight not found on this system",
+                    QSystemTrayIcon.MessageIcon.Warning,
+                    3000
+                )
+        except Exception as e:
+            self.showMessage(
+                "Error",
+                f"Failed to set keyboard backlight: {str(e)}",
+                QSystemTrayIcon.MessageIcon.Critical,
+                5000
+            )
 
 def main():
     app = QApplication(sys.argv)

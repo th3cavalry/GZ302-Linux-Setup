@@ -929,7 +929,7 @@ REFRESH_RATES[maximum]="180"
 mkdir -p "$TDP_CONFIG_DIR"
 
 show_usage() {
-    echo "Usage: pwrcfg [PROFILE|status|list|auto|config]"
+    echo "Usage: pwrcfg [PROFILE|status|list|auto|config|charge-limit]"
     echo ""
     echo "Power Profiles (SPL/sPPT/fPPT):"
     echo "  emergency     - 10/12/12W  @ 30Hz  - Emergency battery extension"
@@ -941,10 +941,11 @@ show_usage() {
     echo "  maximum       - 90/90/90W  @ 180Hz - Absolute maximum (AC only)"
     echo ""
     echo "Commands:"
-    echo "  status           - Show current power profile and settings"
-    echo "  list             - List available profiles with details"
-    echo "  auto             - Enable/disable automatic profile switching"
-    echo "  config           - Configure automatic profile preferences"
+    echo "  status              - Show current power profile and settings"
+    echo "  list                - List available profiles with details"
+    echo "  auto                - Enable/disable automatic profile switching"
+    echo "  config              - Configure automatic profile preferences"
+    echo "  charge-limit [80|100] - Set battery charge limit (80% or 100%)"
     echo ""
     echo "Notes:"
     echo "  - Refresh rate changes automatically with power profile"
@@ -952,6 +953,7 @@ show_usage() {
     echo "  - SPL: Sustained Power Limit (long-term steady power)"
     echo "  - sPPT: Slow Power Boost (short-term, ~2 minutes)"
     echo "  - fPPT: Fast Power Boost (very short-term, few seconds)"
+    echo "  - charge-limit: Helps extend battery lifespan by limiting max charge"
 }
 
 get_battery_status() {
@@ -1236,6 +1238,7 @@ show_status() {
     echo "GZ302 Power Status:"
     echo "  Power Source: $power_source"
     echo "  Battery: $battery_pct%"
+    echo "  Charge Limit: $(get_charge_limit)%"
     echo "  Current Profile: $current_profile"
     
     if [ "$current_profile" != "Unknown" ] && [ -n "${POWER_PROFILES[$current_profile]}" ]; then
@@ -1262,6 +1265,44 @@ list_profiles() {
             printf "  %-12s %2d/%2d/%2dW @ %3dHz\n" "$profile:" $(($spl/1000)) $(($sppt/1000)) $(($fppt/1000)) $refresh
         fi
     done
+}
+
+# Battery charge limit management
+get_charge_limit() {
+    # Read current battery charge limit
+    local charge_limit_path="/sys/class/power_supply/BAT0/charge_control_end_threshold"
+    if [ -f "$charge_limit_path" ]; then
+        cat "$charge_limit_path"
+    else
+        echo "N/A"
+    fi
+}
+
+set_charge_limit() {
+    local limit="$1"
+    local charge_limit_path="/sys/class/power_supply/BAT0/charge_control_end_threshold"
+    
+    if [ ! -f "$charge_limit_path" ]; then
+        echo "Error: Battery charge limit not supported on this system"
+        echo "File not found: $charge_limit_path"
+        return 1
+    fi
+    
+    # Validate input
+    if [ "$limit" != "80" ] && [ "$limit" != "100" ]; then
+        echo "Error: Charge limit must be 80 or 100"
+        return 1
+    fi
+    
+    # Set the charge limit
+    if echo "$limit" > "$charge_limit_path" 2>/dev/null; then
+        echo "Battery charge limit set to $limit%"
+        return 0
+    else
+        echo "Error: Failed to set battery charge limit to $limit%"
+        echo "You may need to run this with sudo"
+        return 1
+    fi
 }
 
 # Configuration management functions
@@ -1372,6 +1413,13 @@ case "$1" in
         ;;
     config)
         configure_auto_switching
+        ;;
+    charge-limit)
+        if [ -z "${2:-}" ]; then
+            echo "Current battery charge limit: $(get_charge_limit)%"
+        else
+            set_charge_limit "$2"
+        fi
         ;;
     "")
         show_usage
