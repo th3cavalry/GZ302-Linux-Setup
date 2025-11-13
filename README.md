@@ -7,7 +7,7 @@
 - **GZ302EA-XS64** - 64GB RAM variant
 - **GZ302EA-XS32** - 32GB RAM variant
 
-> **🚀 Version 1.1.1 - Modularity Release (November 2025)!** Moved folio fix and linux-g14 kernel to Optional/ folder for cleaner main script. These advanced features are now standalone scripts for users who need them. Core script remains streamlined with essential hardware fixes and management tools. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
+> **🚀 Version 1.2.0 - Keyboard RGB Control (November 2025)!** Added full RGB color control for keyboard backlight with the new `kbrgb` command. Choose from 10 colors, custom hex codes, brightness levels, and visual effects. Full integration with system tray icon for GUI control. See [KEYBOARD_RGB.md](KEYBOARD_RGB.md) for details. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
 
 ## ✨ Key Features
 
@@ -18,6 +18,7 @@
 - **Advanced thermal management** - Sustained performance without throttling
 - **Power control system (pwrcfg)** - 7 power profiles with SPL/sPPT/fPPT (10W-90W)
 - **Display management (rrcfg)** - 7 refresh rate profiles (30Hz-180Hz, auto-sync with power)
+- **Keyboard RGB control (kbrgb)** - 10-color palette, hex colors, brightness, effects
 
 ### 📦 **Optional Modular Software** (Download On Demand)
 Download and install only what you need:
@@ -29,7 +30,7 @@ Download and install only what you need:
 - **🔒 Secure Boot Module** - Boot integrity and security tools
 
 ### 🎯 **GUI Tools**
-- **🖱️ [Tray Icon](tray-icon/)** - System tray utility for quick power profile switching. Now supports password-less sudo for `pwrcfg`, AC/Battery indicators, and autostart.
+- **🖱️ [Tray Icon](tray-icon/)** - System tray utility for quick power profile switching, keyboard RGB colors, and brightness control. Supports password-less sudo for `pwrcfg`, AC/Battery indicators, and autostart.
 
 ## 🚀 Installation
 
@@ -77,6 +78,38 @@ pwrcfg config
 ```
 
 **How it works:** `pwrcfg` automatically elevates itself using `sudo -n` when needed. With the sudoers rule installed, no password prompt appears—just instant profile switching. If password-less sudo is not configured, use `sudo pwrcfg ...` instead.
+
+## 🌈 Using Keyboard RGB Control
+
+After installation, you can control keyboard backlight colors and effects:
+
+```bash
+# Set keyboard to a color from the palette
+kbrgb color red
+
+# Set custom color using hex code
+kbrgb hex ff00ff         # Magenta
+
+# Adjust brightness (0-3)
+kbrgb brightness 2
+
+# Apply visual effects (requires asusctl)
+kbrgb effect breathe
+
+# List available colors
+kbrgb list
+
+# Show current status
+kbrgb status
+```
+
+**Available colors**: red, green, blue, cyan, magenta, yellow, white, orange, purple, pink
+
+**Available effects**: static, breathe, pulse, rainbow, strobe
+
+For full RGB control documentation, see [KEYBOARD_RGB.md](KEYBOARD_RGB.md).
+
+**Note about rear window RGB**: The rear window LEDs on the GZ302 are not currently supported on Linux. See [KEYBOARD_RGB.md](KEYBOARD_RGB.md) for research findings and potential future support.
 
 ## 📋 Supported Distributions
 
