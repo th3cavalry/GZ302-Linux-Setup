@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.1.1
+# Version: 1.1.2
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -25,7 +25,7 @@
 # - gz302-secureboot: Secure boot configuration
 #
 # Supported Distributions:
-# - Arch-based: Arch Linux (also supports EndeavourOS, Manjaro)
+# - Arch-based: Arch Linux (also supports CachyOS, EndeavourOS, Manjaro)
 # - Debian-based: Ubuntu (also supports Pop!_OS, Linux Mint)
 # - RPM-based: Fedora (also supports Nobara)
 # - OpenSUSE: Tumbleweed and Leap
@@ -170,16 +170,16 @@ detect_distribution() {
         source /etc/os-release
         
         # Detect Arch-based systems
-        if [[ "$ID" == "arch" || "$ID_LIKE" == *"arch"* ]]; then
+        if [[ "$ID" == "arch" || "$ID" == "cachyos" || "${ID_LIKE:-}" == *"arch"* ]]; then
             distro="arch"
         # Detect Debian/Ubuntu-based systems
-        elif [[ "$ID" == "ubuntu" || "$ID" == "debian" || "$ID" == "pop" || "$ID" == "linuxmint" || "$ID_LIKE" == *"ubuntu"* || "$ID_LIKE" == *"debian"* ]]; then
+        elif [[ "$ID" == "ubuntu" || "$ID" == "debian" || "$ID" == "pop" || "$ID" == "linuxmint" || "${ID_LIKE:-}" == *"ubuntu"* || "${ID_LIKE:-}" == *"debian"* ]]; then
             distro="ubuntu"
         # Detect Fedora-based systems
-        elif [[ "$ID" == "fedora" || "$ID_LIKE" == *"fedora"* ]]; then
+        elif [[ "$ID" == "fedora" || "${ID_LIKE:-}" == *"fedora"* ]]; then
             distro="fedora"
         # Detect OpenSUSE-based systems
-        elif [[ "$ID" == "opensuse-tumbleweed" || "$ID" == "opensuse-leap" || "$ID" == "opensuse" || "$ID_LIKE" == *"suse"* ]]; then
+        elif [[ "$ID" == "opensuse-tumbleweed" || "$ID" == "opensuse-leap" || "$ID" == "opensuse" || "${ID_LIKE:-}" == *"suse"* ]]; then
             distro="opensuse"
         fi
     fi
