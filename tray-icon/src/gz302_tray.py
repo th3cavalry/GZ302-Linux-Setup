@@ -75,10 +75,10 @@ class GZ302TrayIcon(QSystemTrayIcon):
         self.menu.addAction(quit_action)
     
     def change_profile(self, profile):
-        """Change power profile by invoking pwrcfg directly (self-elevates when configured)."""
+        """Change power profile by invoking pwrcfg with sudo (password-less via sudoers)."""
         try:
             result = subprocess.run(
-                ["pwrcfg", profile],
+                ["sudo", "/usr/local/bin/pwrcfg", profile],
                 capture_output=True,
                 text=True,
                 timeout=30
@@ -122,7 +122,7 @@ class GZ302TrayIcon(QSystemTrayIcon):
         """Show current power profile status"""
         try:
             result = subprocess.run(
-                ["pwrcfg", "status"],
+                ["sudo", "/usr/local/bin/pwrcfg", "status"],
                 capture_output=True,
                 text=True,
                 timeout=10
@@ -154,7 +154,7 @@ class GZ302TrayIcon(QSystemTrayIcon):
         """Update tooltip with current profile"""
         try:
             result = subprocess.run(
-                ["pwrcfg", "status"],
+                ["sudo", "/usr/local/bin/pwrcfg", "status"],
                 capture_output=True,
                 text=True,
                 timeout=5
