@@ -7,7 +7,7 @@
 - **GZ302EA-XS64** - 64GB RAM variant
 - **GZ302EA-XS32** - 32GB RAM variant
 
-> **🚀 Version 1.2.0 - Keyboard RGB Control (November 2025)!** Added full RGB color control for keyboard backlight with the new `kbrgb` command. Choose from 10 colors, custom hex codes, brightness levels, and visual effects. Full integration with system tray icon for GUI control. See [KEYBOARD_RGB.md](KEYBOARD_RGB.md) for details. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
+> **🚀 Version 1.2.0 - Keyboard RGB Control (November 2025)!** Added full RGB color control for keyboard backlight with the new `kbrgb` command. Choose from 10 colors, custom hex codes, brightness levels, and visual effects. Full integration with system tray icon for GUI control. Physical FN+F11 button support for brightness cycling. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
 
 ## ✨ Key Features
 
@@ -79,37 +79,166 @@ pwrcfg config
 
 **How it works:** `pwrcfg` automatically elevates itself using `sudo -n` when needed. With the sudoers rule installed, no password prompt appears—just instant profile switching. If password-less sudo is not configured, use `sudo pwrcfg ...` instead.
 
-## 🌈 Using Keyboard RGB Control
+## 🌈 Keyboard RGB and Brightness Control
 
-After installation, you can control keyboard backlight colors and effects:
+### RGB Color Control (kbrgb command)
+
+The `kbrgb` command provides comprehensive RGB color control for your keyboard backlight:
 
 ```bash
 # Set keyboard to a color from the palette
-kbrgb color red
+kbrgb color red          # Choose from 10 colors
 
 # Set custom color using hex code
-kbrgb hex ff00ff         # Magenta
+kbrgb hex ff00ff         # Magenta (RRGGBB format)
+kbrgb hex 008080         # Custom teal
 
 # Adjust brightness (0-3)
-kbrgb brightness 2
+kbrgb brightness 0       # Off
+kbrgb brightness 1       # Low
+kbrgb brightness 2       # Medium
+kbrgb brightness 3       # High (max)
 
 # Apply visual effects (requires asusctl)
-kbrgb effect breathe
+kbrgb effect static      # Solid color (no animation)
+kbrgb effect breathe     # Breathing animation
+kbrgb effect pulse       # Pulsing animation
+kbrgb effect rainbow     # Rainbow cycle
+kbrgb effect strobe      # Strobe effect
 
-# List available colors
-kbrgb list
-
-# Show current status
-kbrgb status
+# Information commands
+kbrgb list               # List all available colors
+kbrgb effects            # List all available effects
+kbrgb status             # Show current RGB status
+kbrgb help               # Show usage help
 ```
 
 **Available colors**: red, green, blue, cyan, magenta, yellow, white, orange, purple, pink
 
 **Available effects**: static, breathe, pulse, rainbow, strobe
 
-For full RGB control documentation, see [KEYBOARD_RGB.md](KEYBOARD_RGB.md).
+#### Built-in Color Palette
 
-**Note about rear window RGB**: The rear window LEDs on the GZ302 are not currently supported on Linux. See [KEYBOARD_RGB.md](KEYBOARD_RGB.md) for research findings and potential future support.
+| Color Name | Hex Code | RGB Values |
+|------------|----------|------------|
+| Red        | `ff0000` | 255, 0, 0  |
+| Green      | `00ff00` | 0, 255, 0  |
+| Blue       | `0000ff` | 0, 0, 255  |
+| Cyan       | `00ffff` | 0, 255, 255 |
+| Magenta    | `ff00ff` | 255, 0, 255 |
+| Yellow     | `ffff00` | 255, 255, 0 |
+| White      | `ffffff` | 255, 255, 255 |
+| Orange     | `ff8000` | 255, 128, 0 |
+| Purple     | `8000ff` | 128, 0, 255 |
+| Pink       | `ff0080` | 255, 0, 128 |
+
+### Physical FN+F11 Button Support
+
+The keyboard backlight listener daemon (`gz302-kbd-backlight-listener`) monitors ASUS function key events and automatically cycles the keyboard backlight brightness when you press **FN+F11**.
+
+**Features:**
+- ✅ **Physical Button Support**: Press FN+F11 to cycle brightness levels
+- ✅ **Auto Cycling**: 0 (Off) → 1 → 2 → 3 → 0 (repeats)
+- ✅ **Systemd Integration**: Runs as background service
+- ✅ **Key Detection Tool**: `gz302-kbd-detect-key` helps identify correct key codes
+- ✅ **Syslog Logging**: All events logged to systemd journal
+
+**Usage:**
+```bash
+# Press FN+F11 to cycle: Off → Level 1 → Level 2 → Level 3 → Off (repeats)
+
+# Check service status
+systemctl status gz302-kbd-backlight-listener
+
+# View real-time logs
+journalctl -u gz302-kbd-backlight-listener -f
+
+# Enable/Disable the service
+sudo systemctl enable gz302-kbd-backlight-listener
+sudo systemctl start gz302-kbd-backlight-listener
+```
+
+**Detecting Key Codes (if FN+F11 doesn't work):**
+```bash
+sudo python3 gz302-kbd-detect-key.py
+# Press FN+F11 and note the "Code" value
+# Update the key code in /usr/local/bin/gz302-kbd-backlight-listener if needed
+```
+
+### Tray Icon Integration
+
+The GZ302 system tray icon includes a full keyboard RGB control menu:
+
+**Menu Structure:**
+```
+Keyboard Backlight
+├── Brightness (Off, Level 1, Level 2, Level 3)
+├── RGB Colors (10-color palette + Custom Hex Color...)
+└── Effects (Static, Breathe, Pulse, Rainbow, Strobe)
+```
+
+Simply right-click the tray icon → Keyboard Backlight → Choose your color or effect.
+
+### Technical Details
+
+#### RGB Control Methods
+
+1. **asusctl (Preferred - Full RGB)**
+   - **Requirement**: `asusctl` package installed (automatically installed by main script)
+   - **Capabilities**: Full RGB color control, effects, brightness
+   - **Best for**: Complete RGB customization
+
+2. **sysfs (Fallback - Brightness Only)**
+   - **Requirement**: Standard Linux kernel support
+   - **Capabilities**: Brightness control only (0-3)
+   - **Path**: `/sys/class/leds/asus::kbd_backlight/brightness`
+   - **Best for**: Systems without asusctl
+
+#### Troubleshooting RGB Control
+
+**RGB colors don't work:**
+```bash
+# Solution: Install asusctl (or re-run main setup script)
+sudo ./gz302-main.sh
+
+# For Arch-based systems
+sudo pacman -S asusctl
+
+# For Debian/Ubuntu
+sudo add-apt-repository ppa:asus-linux/ppa
+sudo apt update && sudo apt install asusctl
+
+# For Fedora
+sudo dnf install asusctl
+```
+
+**Colors not changing:**
+```bash
+# Check asusctl service
+sudo systemctl status asusd
+
+# Restart asusctl service
+sudo systemctl restart asusd
+
+# Check hardware support
+asusctl led-mode
+
+# Try setting color directly
+sudo asusctl led-mode static -c ff0000
+```
+
+### Rear Window RGB LEDs
+
+**Status:** Rear window RGB LED control is **NOT supported on Linux** for the GZ302.
+
+**Research Findings:**
+- Limited Linux support - only ON/OFF toggle may be available on some models
+- Full color control requires Windows + Armoury Crate
+- The rear window LEDs use a separate controller with incomplete Linux kernel drivers
+- Community issue tracking: [GitLab #681](https://gitlab.com/asus-linux/asusctl/-/issues/681)
+- Phoronix article: [ASUS Z13 RGB improvements](https://www.phoronix.com/news/ASUS-Z13-ROG-Ally-RGB)
+
+**Contributing:** If you have hardware expertise, see [asusctl GitLab](https://gitlab.com/asus-linux/asusctl) and [ASUS Linux Community](https://asus-linux.org)
 
 ## 📋 Supported Distributions
 
@@ -343,45 +472,10 @@ cd Uninstall
 sudo ./gz302-uninstall.sh
 ```
 
-### Temporary/ - Experimental Features
-
-The `Temporary/` folder contains **experimental scripts** being tested before integration:
-
-**⚠️ WARNING: Use at your own risk! These are not production-ready.**
-
-**gz302-rgb-backlight.sh** - Keyboard backlight control (EXPERIMENTAL)
-- asusctl-based RGB control (full LED modes)
-- sysfs-based brightness control (basic)
-- Persistence across suspend/resume
-- Creates helper commands: `kbd-brightness`, `kbd-led-mode`
-
-**Limitations:**
-- Rear window LED control NOT supported (hardware limitation)
-- May not work on all GZ302 variants
-- Requires thorough testing
-
-**Usage:**
-```bash
-cd Temporary
-sudo ./gz302-rgb-backlight.sh
-```
-
-See `Temporary/README.md` for detailed information and research notes.
-
-## 🕰️ History
-
-Legacy scripts and architecture:
-- **gz302_setup.sh** (version 4.3.2) - Old monolithic bash script
-- **gz302_setup.py** (version 4.3.2) - Old Python implementation
-- **VERSION_INCREMENT_GUIDE.md** - Old version management guide
-- **ARCHIVED.md** - Information about legacy scripts (v4.3.1)
-
-For details on previous versions and migration notes, see [Old/ARCHIVED.md](Old/ARCHIVED.md).
-
-## �� Architecture
+## 📚 Architecture
 
 ### Modular Design
-The new architecture separates concerns:
+The architecture separates concerns for easy maintenance and flexible installation:
 
 - **gz302-main.sh** - Core hardware fixes and management tools (always runs)
 - **gz302-gaming.sh** - Gaming software (optional, downloaded on demand)
@@ -449,7 +543,6 @@ This project is provided as-is for the GZ302 community.
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines and contribution process
 - [CHANGELOG.md](Info/CHANGELOG.md) - Version history and release notes
-- [Old/ARCHIVED.md](Old/ARCHIVED.md) - Information about legacy scripts (v4.3.1)
 - [tray-icon/](tray-icon/) - GUI system tray utility (work in progress)
 
 ---
