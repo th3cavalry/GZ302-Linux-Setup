@@ -7,7 +7,7 @@
 - **GZ302EA-XS64** - 64GB RAM variant
 - **GZ302EA-XS32** - 32GB RAM variant
 
-> **🚀 Version 1.2.1 - Tray Icon Integration (November 2025)!** Keyboard backlight and RGB color control now unified in the system tray icon for seamless GUI control. Physical FN+F11 button support for brightness cycling. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
+> **🚀 Version 1.3.1 - Keyboard RGB Control via System Tray (November 2025)!** Full RGB keyboard support integrated into the system tray icon with custom optimized CLI. Supports static colors, animations (breathing, color cycle, rainbow), and custom hex colors. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
 
 ## ✨ Key Features
 

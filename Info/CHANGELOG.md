@@ -5,6 +5,31 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-11-15
+
+### Added
+- **Custom GZ302-specific RGB CLI** (`gz302-rgb-cli.c`): 318-line C implementation optimized for the GZ302
+  - 70% smaller binary size (17KB vs 58KB) compared to rogauracore
+  - MIT licensed with full copyright attribution
+  - Supports static colors, breathing/color-cycle/rainbow animations, and brightness control
+  - Compiled automatically by `gz302-rgb.sh` module
+- **System Tray RGB Integration**: Keyboard RGB controls now available in system tray icon
+  - New "Keyboard RGB" submenu with static color presets (Red, Green, Blue, Yellow, Cyan, Magenta, White, Black)
+  - Animation controls with adjustable speed (Breathing, Color Cycle, Rainbow)
+  - Custom hex color input dialog
+  - Auto-detects gz302-rgb binary availability
+  - Seamless integration with power profile switching
+
+### Fixed
+- Replaced external rogauracore dependency with built-in custom CLI
+- Removed multi-model support complexity, streamlined for GZ302 hardware only
+- Improved binary size and installation performance across all distributions
+
+### Changed
+- `gz302-rgb.sh` module redesigned: now compiles custom binary instead of downloading external tools
+- Tray icon now provides centralized control for both brightness and RGB colors
+- Version bumped: 1.2.1 → 1.3.1 (MINOR version for new RGB features and custom CLI architecture)
+
 ## [1.2.1] - 2025-11-15
 
 ### Added
