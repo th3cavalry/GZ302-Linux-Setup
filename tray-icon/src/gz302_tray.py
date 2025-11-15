@@ -73,20 +73,17 @@ class GZ302TrayIcon(QSystemTrayIcon):
             charge_100_action.triggered.connect(lambda: self.set_charge_limit("100"))
             charge_limit_menu.addAction(charge_100_action)
 
-        # Keyboard backlight (GZ302 supports brightness 0-3 only, no RGB)
-        backlight_menu = self.menu.addMenu("Keyboard Backlight")
-        if backlight_menu is not None:
-            # Brightness submenu
-            brightness_submenu = backlight_menu.addMenu("Brightness")
-            if brightness_submenu is not None:
-                for level in range(4):
-                    if level == 0:
-                        label = f"Off"
-                    else:
-                        label = f"Level {level}"
-                    action = QAction(label, self)
-                    action.triggered.connect(lambda checked, l=level: self.set_keyboard_backlight(l))
-                    brightness_submenu.addAction(action)
+        # Keyboard brightness (GZ302 supports brightness 0-3 only, no RGB)
+        brightness_menu = self.menu.addMenu("Keyboard Brightness")
+        if brightness_menu is not None:
+            for level in range(4):
+                if level == 0:
+                    label = f"Off"
+                else:
+                    label = f"Level {level}"
+                action = QAction(label, self)
+                action.triggered.connect(lambda checked, l=level: self.set_keyboard_backlight(l))
+                brightness_menu.addAction(action)
         
         self.menu.addSeparator()
 
