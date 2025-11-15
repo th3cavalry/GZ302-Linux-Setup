@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.2.5
+# Version: 1.3.0
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -23,6 +23,7 @@
 # - gz302-hypervisor: Virtualization (KVM, VirtualBox, VMware, etc.)
 # - gz302-snapshots: System snapshots (Snapper, LVM, etc.)
 # - gz302-secureboot: Secure boot configuration
+# - gz302-rgb: Keyboard RGB control (rogauracore with GZ302 support)
 #
 # Supported Distributions:
 # - Arch-based: Arch Linux (also supports CachyOS, EndeavourOS, Manjaro)
@@ -2896,10 +2897,15 @@ offer_optional_modules() {
     echo "   - Enhanced system security and boot integrity"
     echo "   - Automatic kernel signing on updates"
     echo
-    echo "6. Skip optional modules"
+    echo "6. Keyboard RGB Control (gz302-rgb)"
+    echo "   - Full RGB keyboard control via rogauracore"
+    echo "   - Static colors, animations, breathing effects"
+    echo "   - Requires rogauracore with GZ302 support"
+    echo
+    echo "7. Skip optional modules"
     echo
     
-    read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 6 to skip): " module_choice
+    read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 7 to skip): " module_choice
     
     # Parse the choices
     IFS=',' read -ra CHOICES <<< "$module_choice"
@@ -2922,6 +2928,9 @@ offer_optional_modules() {
                 download_and_execute_module "gz302-secureboot" "$distro" || warning "Secure boot module installation failed"
                 ;;
             6)
+                bash "$SCRIPT_DIR/gz302-rgb.sh" "$distro" || warning "RGB keyboard control module installation failed"
+                ;;
+            7)
                 info "Skipping optional modules"
                 ;;
             *)
