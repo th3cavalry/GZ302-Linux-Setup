@@ -435,11 +435,11 @@ Categories=Utility;System;
             )
 
     def set_keyboard_color(self, color):
-        """Set keyboard RGB color using kbrgb command."""
+        """Set keyboard RGB color using asusctl."""
         try:
-            # Check if kbrgb command exists
+            # Check if asusctl command exists
             result = subprocess.run(
-                ["which", "kbrgb"],
+                ["which", "asusctl"],
                 capture_output=True,
                 text=True
             )
@@ -447,15 +447,15 @@ Categories=Utility;System;
             if result.returncode != 0:
                 self.showMessage(
                     "Error",
-                    "kbrgb command not found. Please run the main setup script first.",
+                    "asusctl command not found. Please install asusctl for RGB color control.",
                     QSystemTrayIcon.MessageIcon.Warning,
                     3000
                 )
                 return
             
-            # Set color using kbrgb
+            # Set color using asusctl
             result = subprocess.run(
-                ["kbrgb", "color", color],
+                ["asusctl", "led", "-c", color],
                 capture_output=True,
                 text=True,
                 timeout=10
@@ -470,21 +470,12 @@ Categories=Utility;System;
                 )
             else:
                 err = (result.stderr or "").strip()
-                if "asusctl is required" in err:
-                    hint = "\n\nTip: Install asusctl for RGB color control.\nUse 'Brightness' submenu for basic backlight control."
-                    self.showMessage(
-                        "RGB Not Available",
-                        f"{err}{hint}",
-                        QSystemTrayIcon.MessageIcon.Warning,
-                        5000
-                    )
-                else:
-                    self.showMessage(
-                        "Error",
-                        f"Failed to set color: {err}",
-                        QSystemTrayIcon.MessageIcon.Critical,
-                        5000
-                    )
+                self.showMessage(
+                    "Error",
+                    f"Failed to set color: {err}",
+                    QSystemTrayIcon.MessageIcon.Critical,
+                    5000
+                )
         except Exception as e:
             self.showMessage(
                 "Error",
@@ -515,9 +506,9 @@ Categories=Utility;System;
                 return
             
             try:
-                # Set color using kbrgb
+                # Set color using asusctl
                 result = subprocess.run(
-                    ["kbrgb", "hex", hex_color],
+                    ["asusctl", "led", "-c", hex_color],
                     capture_output=True,
                     text=True,
                     timeout=10
@@ -547,11 +538,11 @@ Categories=Utility;System;
                 )
     
     def set_keyboard_effect(self, effect):
-        """Set keyboard RGB effect using kbrgb command."""
+        """Set keyboard RGB effect using asusctl."""
         try:
-            # Check if kbrgb command exists
+            # Check if asusctl command exists
             result = subprocess.run(
-                ["which", "kbrgb"],
+                ["which", "asusctl"],
                 capture_output=True,
                 text=True
             )
@@ -559,15 +550,15 @@ Categories=Utility;System;
             if result.returncode != 0:
                 self.showMessage(
                     "Error",
-                    "kbrgb command not found. Please run the main setup script first.",
+                    "asusctl command not found. Please install asusctl for RGB effects.",
                     QSystemTrayIcon.MessageIcon.Warning,
                     3000
                 )
                 return
             
-            # Set effect using kbrgb
+            # Set effect using asusctl
             result = subprocess.run(
-                ["kbrgb", "effect", effect],
+                ["asusctl", "led", "-m", effect],
                 capture_output=True,
                 text=True,
                 timeout=10
@@ -582,21 +573,12 @@ Categories=Utility;System;
                 )
             else:
                 err = (result.stderr or "").strip()
-                if "asusctl is required" in err:
-                    hint = "\n\nTip: Install asusctl for RGB effects."
-                    self.showMessage(
-                        "Effects Not Available",
-                        f"{err}{hint}",
-                        QSystemTrayIcon.MessageIcon.Warning,
-                        5000
-                    )
-                else:
-                    self.showMessage(
-                        "Error",
-                        f"Failed to set effect: {err}",
-                        QSystemTrayIcon.MessageIcon.Critical,
-                        5000
-                    )
+                self.showMessage(
+                    "Error",
+                    f"Failed to set effect: {err}",
+                    QSystemTrayIcon.MessageIcon.Critical,
+                    5000
+                )
         except Exception as e:
             self.showMessage(
                 "Error",

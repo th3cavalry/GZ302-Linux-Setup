@@ -5,6 +5,19 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-11-15
+
+### Added
+- New `kbrgb` CLI template script with palette presets, custom hex colors, brightness control, and RGB effects.
+- Persistent RGB state tracking under `~/.config/gz302` so tray icon and CLI share the last selected color/effect.
+
+### Fixed
+- Restored `install_kbrgb_control` functionality by shipping the missing template file, preventing "install_kbrgb_control: command not found" errors.
+- Updated documentation and module headers so every script reports version 1.2.1 consistently.
+
+### Changed
+- README and contributor instructions now reflect version 1.2.1 and clarify the asusctl dependency for RGB controls.
+
 ## [1.1.0] - 2025-11-12
 
 ### Added

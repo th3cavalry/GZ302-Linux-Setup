@@ -1560,48 +1560,111 @@ MONITOR_EOF
 }
 
 # Refresh Rate Management Installation
-# Keyboard RGB Control Installation
-install_kbrgb_control() {
-    info "Installing keyboard RGB color control (kbrgb command)..."
+install_refresh_management() {
+    info "Installing virtual refresh rate management system..."
     
-    # Find kbrgb template relative to this script
-    local script_dir
-    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local template_file="${script_dir}/kbrgb.template.sh"
-    
-    # Copy kbrgb template to /usr/local/bin
-    if [[ -f "$template_file" ]]; then
-        cp "$template_file" /usr/local/bin/kbrgb
-        chmod +x /usr/local/bin/kbrgb
-        success "kbrgb command installed to /usr/local/bin/kbrgb"
-    else
-        warning "kbrgb.template.sh not found at $template_file - skipping kbrgb installation"
-        return 0
-    fi
-    
+    # Create refresh rate management script
+    cat > /usr/local/bin/rrcfg <<'EOF'
+#!/bin/bash
+# GZ302 Refresh Rate Management Script
+# Manual refresh rate control - auto-switching handled by pwrcfg
+
+REFRESH_CONFIG_DIR="/etc/rrcfg"
+CURRENT_PROFILE_FILE="$REFRESH_CONFIG_DIR/current-profile"
+VRR_ENABLED_FILE="$REFRESH_CONFIG_DIR/vrr-enabled"
+GAME_PROFILES_FILE="$REFRESH_CONFIG_DIR/game-profiles"
+VRR_RANGES_FILE="$REFRESH_CONFIG_DIR/vrr-ranges"
+MONITOR_CONFIGS_FILE="$REFRESH_CONFIG_DIR/monitor-configs"
+POWER_MONITORING_FILE="$REFRESH_CONFIG_DIR/power-monitoring"
+
+# Refresh Rate Profiles - Matched to power profiles for GZ302 display and AMD GPU
+declare -A REFRESH_PROFILES
+REFRESH_PROFILES[emergency]="30"         # Emergency battery extension
+REFRESH_PROFILES[battery]="30"           # Maximum battery life
+REFRESH_PROFILES[efficient]="60"         # Efficient with good performance
+REFRESH_PROFILES[balanced]="90"          # Balanced performance/power
+REFRESH_PROFILES[performance]="120"      # High performance applications
+REFRESH_PROFILES[gaming]="180"           # Gaming optimized
+REFRESH_PROFILES[maximum]="180"          # Absolute maximum
+
+# Frame rate limiting profiles (for VRR)
+declare -A FRAME_LIMITS
+FRAME_LIMITS[emergency]="30"             # Cap at 30fps
+FRAME_LIMITS[battery]="30"               # Cap at 30fps
+FRAME_LIMITS[efficient]="60"             # Cap at 60fps
+FRAME_LIMITS[balanced]="90"              # Cap at 90fps
+FRAME_LIMITS[performance]="120"          # Cap at 120fps
+FRAME_LIMITS[gaming]="0"                 # No frame limiting (VRR handles it)
+FRAME_LIMITS[maximum]="0"              # No frame limiting
+
+# VRR min/max refresh ranges by profile
+declare -A VRR_MIN_RANGES
+declare -A VRR_MAX_RANGES
+VRR_MIN_RANGES[emergency]="20"           # Allow 20-30Hz range
+VRR_MAX_RANGES[emergency]="30"
+VRR_MIN_RANGES[battery]="20"             # Allow 20-30Hz range
+VRR_MAX_RANGES[battery]="30"
+VRR_MIN_RANGES[efficient]="30"           # Allow 30-60Hz range
+VRR_MAX_RANGES[efficient]="60"
+VRR_MIN_RANGES[balanced]="30"            # Allow 30-90Hz range
+VRR_MAX_RANGES[balanced]="90"
+VRR_MIN_RANGES[performance]="48"         # Allow 48-120Hz range
+VRR_MAX_RANGES[performance]="120"
+VRR_MIN_RANGES[gaming]="48"              # Allow 48-180Hz range for VRR
+VRR_MAX_RANGES[gaming]="180"
+VRR_MIN_RANGES[maximum]="48"             # Allow 48-180Hz range
+VRR_MAX_RANGES[maximum]="180"
+
+# Power consumption estimates (watts) by profile for monitoring (matches pwrcfg)
+declare -A POWER_ESTIMATES
+POWER_ESTIMATES[emergency]="10"          # Minimal power
+POWER_ESTIMATES[battery]="18"            # Low power
+POWER_ESTIMATES[efficient]="30"          # Lower power
+POWER_ESTIMATES[balanced]="40"           # Balanced power
+POWER_ESTIMATES[performance]="55"        # Medium-high power
+POWER_ESTIMATES[gaming]="70"             # High power consumption
+POWER_ESTIMATES[maximum]="90"            # Maximum power
+
+# Create config directory
+mkdir -p "$REFRESH_CONFIG_DIR"
+
+show_usage() {
+    echo "Usage: rrcfg [PROFILE|COMMAND|GAME_NAME]"
     echo ""
-    echo "═══════════════════════════════════════════════════════"
-    echo "  Keyboard RGB Control Installed"
-    echo "═══════════════════════════════════════════════════════"
+    echo "Refresh Rate Profiles (auto-synced by pwrcfg when power profile changes):"
+    echo "  emergency     - 30Hz  - Emergency battery extension"
+    echo "  battery       - 30Hz  - Maximum battery life"
+    echo "  efficient     - 60Hz  - Efficient with good performance"
+    echo "  balanced      - 90Hz  - Balanced performance/power (default)"
+    echo "  performance   - 120Hz - High performance applications"
+    echo "  gaming        - 180Hz - Gaming optimized"
+    echo "  maximum       - 180Hz - Absolute maximum"
     echo ""
-    echo "Usage examples:"
-    echo "  kbrgb color red          # Set keyboard to red"
-    echo "  kbrgb hex ff00ff         # Set custom color (magenta)"
-    echo "  kbrgb brightness 0       # Off"
-    echo "  kbrgb brightness 1       # Low"
-    echo "  kbrgb brightness 2       # Medium"
-    echo "  kbrgb brightness 3       # High (max)"
-    echo "  kbrgb effect breathe     # Set breathing effect"
-    echo "  kbrgb list               # List color palette"
-    echo "  kbrgb status             # Show current status"
+    echo "Commands:"
+    echo "  status           - Show current refresh rate and VRR status"
+    echo "  list             - List available profiles and supported rates"
+    echo "  vrr [on|off|ranges] - VRR control and min/max range configuration"
+    echo "  monitor [display] - Configure specific monitor settings"
+    echo "  game [add|remove|list] - Manage game-specific profiles"
+    echo "  color [set|auto|reset] - Display color temperature management"
+    echo "  monitor-power    - Show real-time power consumption monitoring"
+    echo "  thermal-status   - Check thermal throttling status"
+    echo "  battery-predict  - Predict battery life with different refresh rates"
     echo ""
-    echo "Note: RGB color and effect control requires asusctl."
-    echo "      Basic brightness control works without asusctl."
+    echo "Note: Refresh rates are automatically adjusted when using 'pwrcfg' to change power profiles."
+    echo "      Use 'rrcfg [profile]' to manually override refresh rate independent of power settings."
+    echo "      To enable automatic power/refresh switching, use: pwrcfg config"
     echo ""
+    echo "Examples:"
+    echo "  rrcfg gaming        # Manually set gaming refresh rate (180Hz)"
+    echo "  rrcfg game add steam # Add game-specific profile for Steam"
+    echo "  rrcfg vrr ranges    # Configure VRR min/max ranges"
+    echo "  rrcfg monitor DP-1  # Configure specific monitor"
+    echo "  rrcfg color set 6500K # Set color temperature"
+    echo "  rrcfg thermal-status # Check thermal throttling"
 }
 
-install_refresh_management() {
-
+# Keyboard RGB Control Installation
 detect_displays() {
     # Detect connected displays and their capabilities
     local displays=()
@@ -2590,10 +2653,9 @@ EOFYAY
     # Install SOF firmware for audio support
     install_sof_firmware "arch"
     
-    # Setup TDP management, refresh rate, and keyboard RGB (always install)
+    # Setup TDP management and refresh rate (always install)
     setup_tdp_management "arch"
     install_refresh_management
-    install_kbrgb_control
     
     enable_arch_services
 }
@@ -2618,10 +2680,9 @@ setup_debian_based() {
     # Install SOF firmware for audio support
     install_sof_firmware "ubuntu"
     
-    # Setup TDP management, refresh rate, and keyboard RGB (always install)
+    # Setup TDP management and refresh rate (always install)
     setup_tdp_management "debian"
     install_refresh_management
-    install_kbrgb_control
     
     enable_debian_services
 }
@@ -2644,10 +2705,9 @@ setup_fedora_based() {
     # Install SOF firmware for audio support
     install_sof_firmware "fedora"
     
-    # Setup TDP management, refresh rate, and keyboard RGB (always install)
+    # Setup TDP management and refresh rate (always install)
     setup_tdp_management "fedora"
     install_refresh_management
-    install_kbrgb_control
     
     enable_fedora_services
 }
@@ -2671,10 +2731,9 @@ setup_opensuse() {
     # Install SOF firmware for audio support
     install_sof_firmware "opensuse"
     
-    # Setup TDP management, refresh rate, and keyboard RGB (always install)
+    # Setup TDP management and refresh rate (always install)
     setup_tdp_management "opensuse"
     install_refresh_management
-    install_kbrgb_control
     
     enable_opensuse_services
 }

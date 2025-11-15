@@ -7,7 +7,7 @@
 - **GZ302EA-XS64** - 64GB RAM variant
 - **GZ302EA-XS32** - 32GB RAM variant
 
-> **🚀 Version 1.2.0 - Keyboard RGB Control (November 2025)!** Added full RGB color control for keyboard backlight with the new `kbrgb` command. Choose from 10 colors, custom hex codes, brightness levels, and visual effects. Full integration with system tray icon for GUI control. Physical FN+F11 button support for brightness cycling. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
+> **🚀 Version 1.2.1 - Tray Icon Integration (November 2025)!** Keyboard backlight and RGB color control now unified in the system tray icon for seamless GUI control. Physical FN+F11 button support for brightness cycling. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
 
 ## ✨ Key Features
 
@@ -18,7 +18,7 @@
 - **Advanced thermal management** - Sustained performance without throttling
 - **Power control system (pwrcfg)** - 7 power profiles with SPL/sPPT/fPPT (10W-90W)
 - **Display management (rrcfg)** - 7 refresh rate profiles (30Hz-180Hz, auto-sync with power)
-- **Keyboard RGB control (kbrgb)** - 10-color palette, hex colors, brightness, effects
+- **Keyboard backlight control** - Brightness levels and RGB colors via system tray icon
 
 ### 📦 **Optional Modular Software** (Download On Demand)
 Download and install only what you need:
@@ -30,7 +30,7 @@ Download and install only what you need:
 - **🔒 Secure Boot Module** - Boot integrity and security tools
 
 ### 🎯 **GUI Tools**
-- **🖱️ [Tray Icon](tray-icon/)** - System tray utility for quick power profile switching, keyboard RGB colors, and brightness control. Supports password-less sudo for `pwrcfg`, AC/Battery indicators, and autostart.
+- **🖱️ [Tray Icon](tray-icon/)** - System tray utility for quick power profile switching and keyboard RGB/brightness control. Supports password-less sudo for `pwrcfg`, AC/Battery indicators, and autostart.
 
 ## 🚀 Installation
 
@@ -79,68 +79,38 @@ pwrcfg config
 
 **How it works:** `pwrcfg` automatically elevates itself using `sudo -n` when needed. With the sudoers rule installed, no password prompt appears—just instant profile switching. If password-less sudo is not configured, use `sudo pwrcfg ...` instead.
 
-## 🌈 Keyboard RGB and Brightness Control
+## 🌈 Keyboard Backlight Control
 
-### RGB Color Control (kbrgb command)
+### Tray Icon Control (Recommended)
 
-The `kbrgb` command provides comprehensive RGB color control for your keyboard backlight:
+The GZ302 system tray icon provides the easiest way to control keyboard brightness and RGB colors:
 
-```bash
-# Set keyboard to a color from the palette
-kbrgb color red          # Choose from 10 colors
-
-# Set custom color using hex code
-kbrgb hex ff00ff         # Magenta (RRGGBB format)
-kbrgb hex 008080         # Custom teal
-
-# Adjust brightness (0-3)
-kbrgb brightness 0       # Off
-kbrgb brightness 1       # Low
-kbrgb brightness 2       # Medium
-kbrgb brightness 3       # High (max)
-
-# Apply visual effects (requires asusctl)
-kbrgb effect static      # Solid color (no animation)
-kbrgb effect breathe     # Breathing animation
-kbrgb effect pulse       # Pulsing animation
-kbrgb effect rainbow     # Rainbow cycle
-kbrgb effect strobe      # Strobe effect
-
-# Information commands
-kbrgb list               # List all available colors
-kbrgb effects            # List all available effects
-kbrgb status             # Show current RGB status
-kbrgb help               # Show usage help
+**Menu Structure:**
+```
+Keyboard Backlight
+├── Brightness (Off, Level 1, Level 2, Level 3)
+├── RGB Colors (10-color palette + Custom Hex Color...)
+└── Effects (Static, Breathe, Pulse, Rainbow, Strobe)
 ```
 
-**Available colors**: red, green, blue, cyan, magenta, yellow, white, orange, purple, pink
+Simply right-click the tray icon → **Keyboard Backlight** → Choose your brightness level, color, or effect.
 
-**Available effects**: static, breathe, pulse, rainbow, strobe
+**Installation:**
+```bash
+cd tray-icon
+sudo ./install-tray.sh
+```
 
-#### Built-in Color Palette
-
-| Color Name | Hex Code | RGB Values |
-|------------|----------|------------|
-| Red        | `ff0000` | 255, 0, 0  |
-| Green      | `00ff00` | 0, 255, 0  |
-| Blue       | `0000ff` | 0, 0, 255  |
-| Cyan       | `00ffff` | 0, 255, 255 |
-| Magenta    | `ff00ff` | 255, 0, 255 |
-| Yellow     | `ffff00` | 255, 255, 0 |
-| White      | `ffffff` | 255, 255, 255 |
-| Orange     | `ff8000` | 255, 128, 0 |
-| Purple     | `8000ff` | 128, 0, 255 |
-| Pink       | `ff0080` | 255, 0, 128 |
+The tray icon will appear in your system tray after installation and will start automatically on login.
 
 ### Physical FN+F11 Button Support
 
-The keyboard backlight listener daemon (`gz302-kbd-backlight-listener`) monitors ASUS function key events and automatically cycles the keyboard backlight brightness when you press **FN+F11**.
+The keyboard backlight listener daemon (`gz302-kbd-backlight-listener`) monitors ASUS function key events and automatically cycles keyboard backlight brightness when you press **FN+F11**.
 
 **Features:**
 - ✅ **Physical Button Support**: Press FN+F11 to cycle brightness levels
 - ✅ **Auto Cycling**: 0 (Off) → 1 → 2 → 3 → 0 (repeats)
 - ✅ **Systemd Integration**: Runs as background service
-- ✅ **Key Detection Tool**: `gz302-kbd-detect-key` helps identify correct key codes
 - ✅ **Syslog Logging**: All events logged to systemd journal
 
 **Usage:**
@@ -158,26 +128,17 @@ sudo systemctl enable gz302-kbd-backlight-listener
 sudo systemctl start gz302-kbd-backlight-listener
 ```
 
-**Detecting Key Codes (if FN+F11 doesn't work):**
-```bash
-sudo python3 gz302-kbd-detect-key.py
-# Press FN+F11 and note the "Code" value
-# Update the key code in /usr/local/bin/gz302-kbd-backlight-listener if needed
-```
+### Technical Details
 
-### Tray Icon Integration
+**Brightness Control:**
+Brightness changes use `/sys/class/leds/*::kbd_backlight/brightness` and may prompt for sudo if passwordless access is not configured. See the [ArchWiki keyboard backlight guide](https://wiki.archlinux.org/title/Keyboard_backlight) for details.
 
-The GZ302 system tray icon includes a full keyboard RGB control menu:
+**RGB Colors:**
+RGB color and effect commands use [asusctl](https://asus-linux.org/manual/asusctl-manual/) CLI.
 
-**Menu Structure:**
-```
-Keyboard Backlight
-├── Brightness (Off, Level 1, Level 2, Level 3)
-├── RGB Colors (10-color palette + Custom Hex Color...)
-└── Effects (Static, Breathe, Pulse, Rainbow, Strobe)
-```
+**Available Colors**: red, green, blue, cyan, magenta, yellow, white, orange, purple, pink
 
-Simply right-click the tray icon → Keyboard Backlight → Choose your color or effect.
+**Available Effects**: static, breathe, pulse, rainbow, strobe
 
 ### Technical Details
 
