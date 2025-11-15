@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.2.1
+# Version: 1.2.2
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -1489,7 +1489,7 @@ EOF
         info "Skipping sudoers configuration for 'pwrcfg'. You can enable later via tray-icon/install-policy.sh."
     fi
     
-    # Create systemd service for automatic TDP management
+    # Create systemd service for automatic TDP management (restores saved profile on boot)
     cat > /etc/systemd/system/pwrcfg-auto.service <<EOF
 [Unit]
 Description=GZ302 Automatic TDP Management
@@ -1498,7 +1498,7 @@ Wants=pwrcfg-monitor.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/pwrcfg balanced
+ExecStart=/usr/local/bin/pwrcfg-restore
 RemainAfterExit=yes
 
 [Install]
@@ -1534,6 +1534,42 @@ done
 MONITOR_EOF
 
     chmod +x /usr/local/bin/pwrcfg-monitor
+    
+    # Create power profile restore script (restores saved profile on boot)
+    cat > /usr/local/bin/pwrcfg-restore <<'RESTORE_EOF'
+#!/bin/bash
+# GZ302 Power Profile Restore Script
+# Restores the previously saved power profile on system boot
+# Called by pwrcfg-auto.service during startup
+
+TDP_CONFIG_DIR="/etc/pwrcfg"
+CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
+
+# Default to balanced if no profile was previously saved
+DEFAULT_PROFILE="balanced"
+
+# Read the saved profile, or use default if file doesn't exist
+if [[ -f "$CURRENT_PROFILE_FILE" ]]; then
+    SAVED_PROFILE=$(cat "$CURRENT_PROFILE_FILE" 2>/dev/null | tr -d ' \n')
+else
+    SAVED_PROFILE="$DEFAULT_PROFILE"
+fi
+
+# Validate that the saved profile is one of the known profiles
+case "$SAVED_PROFILE" in
+    emergency|battery|efficient|balanced|performance|gaming|maximum)
+        # Valid profile, restore it
+        /usr/local/bin/pwrcfg "$SAVED_PROFILE"
+        ;;
+    *)
+        # Invalid profile, use default
+        echo "Invalid saved profile '$SAVED_PROFILE', using default: $DEFAULT_PROFILE"
+        /usr/local/bin/pwrcfg "$DEFAULT_PROFILE"
+        ;;
+esac
+RESTORE_EOF
+
+    chmod +x /usr/local/bin/pwrcfg-restore
     
     # Reload systemd units to ensure new services are recognized
     systemctl daemon-reload
