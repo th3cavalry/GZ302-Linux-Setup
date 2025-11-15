@@ -35,10 +35,6 @@ class GZ302TrayIcon(QSystemTrayIcon):
         # Update current profile on startup
         self.update_current_profile()
         
-        # Update icon based on power state on startup
-        power = self.get_power_status()
-        self.update_icon_for_power(power)
-        
         # Set up timer to update profile status every 5 seconds
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_current_profile)
@@ -183,7 +179,7 @@ class GZ302TrayIcon(QSystemTrayIcon):
             )
     
     def update_current_profile(self):
-        """Update tooltip with current profile"""
+        """Update tooltip with current profile and icon"""
         try:
             result = subprocess.run(
                 ["sudo", "/usr/local/bin/pwrcfg", "status"],
@@ -195,7 +191,34 @@ class GZ302TrayIcon(QSystemTrayIcon):
             if result.returncode == 0:
                 # Extract profile name from status output
                 status = result.stdout
-                # Append power status
+                
+                # Extract the profile name from the status (first line typically contains it)
+                profile_name = "balanced"  # default
+                for line in status.split('\n'):
+                    line_lower = line.lower()
+                    if 'emergency' in line_lower:
+                        profile_name = "emergency"
+                        break
+                    elif 'battery' in line_lower:
+                        profile_name = "battery"
+                        break
+                    elif 'efficient' in line_lower:
+                        profile_name = "efficient"
+                        break
+                    elif 'balanced' in line_lower:
+                        profile_name = "balanced"
+                        break
+                    elif 'performance' in line_lower:
+                        profile_name = "performance"
+                        break
+                    elif 'gaming' in line_lower:
+                        profile_name = "gaming"
+                        break
+                    elif 'maximum' in line_lower:
+                        profile_name = "maximum"
+                        break
+                
+                # Append power status for tooltip only
                 power = self.get_power_status()
                 power_line = ''
                 if power.get('present'):
@@ -207,12 +230,16 @@ class GZ302TrayIcon(QSystemTrayIcon):
                         power_line = f"Power: {'AC' if plugged else 'Battery'}"
 
                 self.setToolTip(f"GZ302 Power Manager\n{status}\n{power_line}")
-                # Update icon based on power
-                self.update_icon_for_power(power)
+                
+                # Update icon based on current profile letter
+                self.update_icon_for_profile(profile_name)
             else:
                 self.setToolTip("GZ302 Power Manager\nStatus: Unknown")
+                # Use balanced as fallback
+                self.update_icon_for_profile("balanced")
         except:
             self.setToolTip("GZ302 Power Manager")
+            self.update_icon_for_profile("balanced")
 
     def get_power_status(self):
         """Try multiple methods to determine AC/battery status and percentage.
@@ -248,21 +275,29 @@ class GZ302TrayIcon(QSystemTrayIcon):
 
         return { 'present': False, 'percent': None, 'plugged': None }
 
-    def update_icon_for_power(self, power):
-        """Set tray icon depending on power state, if asset icons exist."""
+    def update_icon_for_profile(self, profile):
+        """Set tray icon based on power profile letter."""
         try:
             assets_dir = Path(__file__).resolve().parent.parent / 'assets'
             if not assets_dir.exists():
                 return
-            if power.get('present'):
-                if power.get('plugged'):
-                    icon_file = assets_dir / 'ac.svg'
-                else:
-                    icon_file = assets_dir / 'battery.svg'
-            else:
-                icon_file = None
-
-            if icon_file and icon_file.exists():
+            
+            # Map profile to first letter and icon file
+            profile_icons = {
+                "emergency": "profile-e.svg",
+                "battery": "profile-b.svg",
+                "efficient": "profile-f.svg",
+                "balanced": "profile-b.svg",
+                "performance": "profile-p.svg",
+                "gaming": "profile-g.svg",
+                "maximum": "profile-m.svg"
+            }
+            
+            # Get the icon filename for this profile
+            icon_filename = profile_icons.get(profile, "profile-b.svg")
+            icon_file = assets_dir / icon_filename
+            
+            if icon_file.exists():
                 self.setIcon(QIcon(str(icon_file)))
         except Exception:
             pass
@@ -394,12 +429,12 @@ Categories=Utility;System;
 def main():
     app = QApplication(sys.argv)
     
-    # Try to load custom SVG icon, fallback to system icon if not available
+    # Try to load default profile icon (balanced), fallback to system icon if not available
     assets_dir = Path(__file__).resolve().parent.parent / 'assets'
     
     if assets_dir.exists():
-        # Use battery icon as primary (adapts to theme via currentColor)
-        icon_path = assets_dir / 'battery.svg'
+        # Use balanced icon as default (B for Balanced)
+        icon_path = assets_dir / 'profile-b.svg'
         if icon_path.exists():
             icon = QIcon(str(icon_path))
         else:
