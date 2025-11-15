@@ -323,6 +323,16 @@ EOF
     # Reload hardware database and udev
     systemd-hwdb update 2>/dev/null || true
     udevadm control --reload 2>/dev/null || true
+
+    # GZ302 Keyboard RGB udev rule for non-root access
+    info "Configuring udev rules for keyboard RGB control..."
+    cat > /etc/udev/rules.d/99-gz302-keyboard.rules <<'EOF'
+# GZ302 Keyboard RGB Control - Allow unprivileged USB access
+# ASUS ROG Flow Z13 keyboard (USB 0b05:1a30)
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1a30", MODE="0666"
+EOF
+    udevadm control --reload 2>/dev/null || true
+    udevadm trigger 2>/dev/null || true
     
         # Set up keyboard backlight restore after suspend/resume
         info "Configuring keyboard backlight resume restore..."
