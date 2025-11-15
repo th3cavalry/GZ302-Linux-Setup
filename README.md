@@ -18,7 +18,7 @@
 - **Advanced thermal management** - Sustained performance without throttling
 - **Power control system (pwrcfg)** - 7 power profiles with SPL/sPPT/fPPT (10W-90W)
 - **Display management (rrcfg)** - 7 refresh rate profiles (30Hz-180Hz, auto-sync with power)
-- **Keyboard backlight control** - Brightness levels and RGB colors via system tray icon
+- **Keyboard backlight control** - Brightness control (0-3 levels) via system tray icon
 
 ### 📦 **Optional Modular Software** (Download On Demand)
 Download and install only what you need:
@@ -81,19 +81,25 @@ pwrcfg config
 
 ## 🌈 Keyboard Backlight Control
 
+### Important: GZ302 Hardware Limitations
+
+The ASUS ROG Flow Z13 (GZ302) **only supports keyboard backlight brightness control** (levels 0-3). RGB color and effect controls are **not available** on this model due to hardware limitations (missing Aura LED interface on the keyboard).
+
+- ✅ **Brightness**: Off, Level 1, Level 2, Level 3 (fully supported)
+- ❌ **RGB Colors**: Not supported by GZ302 hardware
+- ❌ **Effects**: Not supported by GZ302 hardware
+
 ### Tray Icon Control (Recommended)
 
-The GZ302 system tray icon provides the easiest way to control keyboard brightness and RGB colors:
+The GZ302 system tray icon provides the easiest way to control keyboard brightness:
 
 **Menu Structure:**
 ```
 Keyboard Backlight
-├── Brightness (Off, Level 1, Level 2, Level 3)
-├── RGB Colors (10-color palette + Custom Hex Color...)
-└── Effects (Static, Breathe, Pulse, Rainbow, Strobe)
+└── Brightness (Off, Level 1, Level 2, Level 3)
 ```
 
-Simply right-click the tray icon → **Keyboard Backlight** → Choose your brightness level, color, or effect.
+Simply right-click the tray icon → **Keyboard Backlight** → Choose your brightness level.
 
 **Installation:**
 ```bash
@@ -132,34 +138,6 @@ sudo systemctl start gz302-kbd-backlight-listener
 
 **Brightness Control:**
 Brightness changes use `/sys/class/leds/*::kbd_backlight/brightness` and may prompt for sudo if passwordless access is not configured. See the [ArchWiki keyboard backlight guide](https://wiki.archlinux.org/title/Keyboard_backlight) for details.
-
-**RGB Colors:**
-RGB color and effect commands use [asusctl](https://asus-linux.org/manual/asusctl-manual/) CLI.
-
-**Available Colors**: red, green, blue, cyan, magenta, yellow, white, orange, purple, pink
-
-**Available Effects**: static, breathe, pulse, rainbow, strobe
-
-### Technical Details
-
-#### RGB Control Methods
-
-1. **asusctl (Preferred - Full RGB)**
-   - **Requirement**: `asusctl` package installed (automatically installed by main script)
-   - **Capabilities**: Full RGB color control, effects, brightness
-   - **Best for**: Complete RGB customization
-
-2. **sysfs (Fallback - Brightness Only)**
-   - **Requirement**: Standard Linux kernel support
-   - **Capabilities**: Brightness control only (0-3)
-   - **Path**: `/sys/class/leds/asus::kbd_backlight/brightness`
-   - **Best for**: Systems without asusctl
-
-#### Troubleshooting RGB Control
-
-**RGB colors don't work:**
-```bash
-# Solution: Install asusctl (or re-run main setup script)
 sudo ./gz302-main.sh
 
 # For Arch-based systems

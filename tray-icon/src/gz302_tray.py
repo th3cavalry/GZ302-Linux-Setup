@@ -73,7 +73,7 @@ class GZ302TrayIcon(QSystemTrayIcon):
             charge_100_action.triggered.connect(lambda: self.set_charge_limit("100"))
             charge_limit_menu.addAction(charge_100_action)
 
-        # Keyboard backlight
+        # Keyboard backlight (GZ302 supports brightness 0-3 only, no RGB)
         backlight_menu = self.menu.addMenu("Keyboard Backlight")
         if backlight_menu is not None:
             # Brightness submenu
@@ -87,55 +87,6 @@ class GZ302TrayIcon(QSystemTrayIcon):
                     action = QAction(label, self)
                     action.triggered.connect(lambda checked, l=level: self.set_keyboard_backlight(l))
                     brightness_submenu.addAction(action)
-            
-            backlight_menu.addSeparator()
-            
-            # RGB Colors submenu
-            colors_submenu = backlight_menu.addMenu("RGB Colors")
-            if colors_submenu is not None:
-                # Color palette
-                color_palette = [
-                    ("Red", "red"),
-                    ("Green", "green"),
-                    ("Blue", "blue"),
-                    ("Cyan", "cyan"),
-                    ("Magenta", "magenta"),
-                    ("Yellow", "yellow"),
-                    ("White", "white"),
-                    ("Orange", "orange"),
-                    ("Purple", "purple"),
-                    ("Pink", "pink"),
-                ]
-                
-                for name, color in color_palette:
-                    action = QAction(name, self)
-                    action.triggered.connect(lambda checked, c=color: self.set_keyboard_color(c))
-                    colors_submenu.addAction(action)
-                
-                colors_submenu.addSeparator()
-                
-                # Custom hex color
-                custom_action = QAction("Custom Hex Color...", self)
-                custom_action.triggered.connect(self.set_custom_hex_color)
-                colors_submenu.addAction(custom_action)
-            
-            backlight_menu.addSeparator()
-            
-            # Effects submenu
-            effects_submenu = backlight_menu.addMenu("Effects")
-            if effects_submenu is not None:
-                effects = [
-                    ("Static", "static"),
-                    ("Breathe", "breathe"),
-                    ("Pulse", "pulse"),
-                    ("Rainbow", "rainbow"),
-                    ("Strobe", "strobe"),
-                ]
-                
-                for name, effect in effects:
-                    action = QAction(name, self)
-                    action.triggered.connect(lambda checked, e=effect: self.set_keyboard_effect(e))
-                    effects_submenu.addAction(action)
         
         self.menu.addSeparator()
 
@@ -434,158 +385,7 @@ Categories=Utility;System;
                 5000
             )
 
-    def set_keyboard_color(self, color):
-        """Set keyboard RGB color using asusctl."""
-        try:
-            # Check if asusctl command exists
-            result = subprocess.run(
-                ["which", "asusctl"],
-                capture_output=True,
-                text=True
-            )
-            
-            if result.returncode != 0:
-                self.showMessage(
-                    "Error",
-                    "asusctl command not found. Please install asusctl for RGB color control.",
-                    QSystemTrayIcon.MessageIcon.Warning,
-                    3000
-                )
-                return
-            
-            # Set color using asusctl
-            result = subprocess.run(
-                ["asusctl", "led", "-c", color],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            
-            if result.returncode == 0:
-                self.showMessage(
-                    "Keyboard RGB",
-                    f"Color set to {color}",
-                    QSystemTrayIcon.MessageIcon.Information,
-                    2000
-                )
-            else:
-                err = (result.stderr or "").strip()
-                self.showMessage(
-                    "Error",
-                    f"Failed to set color: {err}",
-                    QSystemTrayIcon.MessageIcon.Critical,
-                    5000
-                )
-        except Exception as e:
-            self.showMessage(
-                "Error",
-                f"Failed to set keyboard color: {str(e)}",
-                QSystemTrayIcon.MessageIcon.Critical,
-                5000
-            )
-    
-    def set_custom_hex_color(self):
-        """Prompt user for custom hex color and set it."""
-        text, ok = QInputDialog.getText(
-            None,
-            "Custom Hex Color",
-            "Enter hex color (RRGGBB, e.g., ff00ff for magenta):",
-            text="ff00ff"
-        )
-        
-        if ok and text:
-            # Validate hex format
-            hex_color = text.strip().lower()
-            if not all(c in "0123456789abcdef" for c in hex_color) or len(hex_color) != 6:
-                self.showMessage(
-                    "Invalid Format",
-                    "Please enter a 6-digit hex color (e.g., ff00ff)",
-                    QSystemTrayIcon.MessageIcon.Warning,
-                    3000
-                )
-                return
-            
-            try:
-                # Set color using asusctl
-                result = subprocess.run(
-                    ["asusctl", "led", "-c", hex_color],
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
-                
-                if result.returncode == 0:
-                    self.showMessage(
-                        "Keyboard RGB",
-                        f"Color set to #{hex_color}",
-                        QSystemTrayIcon.MessageIcon.Information,
-                        2000
-                    )
-                else:
-                    err = (result.stderr or "").strip()
-                    self.showMessage(
-                        "Error",
-                        f"Failed to set color: {err}",
-                        QSystemTrayIcon.MessageIcon.Critical,
-                        5000
-                    )
-            except Exception as e:
-                self.showMessage(
-                    "Error",
-                    f"Failed to set custom color: {str(e)}",
-                    QSystemTrayIcon.MessageIcon.Critical,
-                    5000
-                )
-    
-    def set_keyboard_effect(self, effect):
-        """Set keyboard RGB effect using asusctl."""
-        try:
-            # Check if asusctl command exists
-            result = subprocess.run(
-                ["which", "asusctl"],
-                capture_output=True,
-                text=True
-            )
-            
-            if result.returncode != 0:
-                self.showMessage(
-                    "Error",
-                    "asusctl command not found. Please install asusctl for RGB effects.",
-                    QSystemTrayIcon.MessageIcon.Warning,
-                    3000
-                )
-                return
-            
-            # Set effect using asusctl
-            result = subprocess.run(
-                ["asusctl", "led", "-m", effect],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            
-            if result.returncode == 0:
-                self.showMessage(
-                    "Keyboard RGB",
-                    f"Effect set to {effect}",
-                    QSystemTrayIcon.MessageIcon.Information,
-                    2000
-                )
-            else:
-                err = (result.stderr or "").strip()
-                self.showMessage(
-                    "Error",
-                    f"Failed to set effect: {err}",
-                    QSystemTrayIcon.MessageIcon.Critical,
-                    5000
-                )
-        except Exception as e:
-            self.showMessage(
-                "Error",
-                f"Failed to set keyboard effect: {str(e)}",
-                QSystemTrayIcon.MessageIcon.Critical,
-                5000
-            )
+
 
 def main():
     app = QApplication(sys.argv)
