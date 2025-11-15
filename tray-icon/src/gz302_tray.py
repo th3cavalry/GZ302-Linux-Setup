@@ -192,31 +192,18 @@ class GZ302TrayIcon(QSystemTrayIcon):
                 # Extract profile name from status output
                 status = result.stdout
                 
-                # Extract the profile name from the status (first line typically contains it)
+                # Extract the profile name from "Current Profile:" line
                 profile_name = "balanced"  # default
                 for line in status.split('\n'):
-                    line_lower = line.lower()
-                    if 'emergency' in line_lower:
-                        profile_name = "emergency"
-                        break
-                    elif 'battery' in line_lower:
-                        profile_name = "battery"
-                        break
-                    elif 'efficient' in line_lower:
-                        profile_name = "efficient"
-                        break
-                    elif 'balanced' in line_lower:
-                        profile_name = "balanced"
-                        break
-                    elif 'performance' in line_lower:
-                        profile_name = "performance"
-                        break
-                    elif 'gaming' in line_lower:
-                        profile_name = "gaming"
-                        break
-                    elif 'maximum' in line_lower:
-                        profile_name = "maximum"
-                        break
+                    if 'current profile:' in line.lower():
+                        # Extract the profile name after the colon
+                        parts = line.split(':')
+                        if len(parts) > 1:
+                            extracted = parts[1].strip().lower()
+                            # Validate it's a known profile
+                            if extracted in ['emergency', 'battery', 'efficient', 'balanced', 'performance', 'gaming', 'maximum']:
+                                profile_name = extracted
+                            break
                 
                 # Append power status for tooltip only
                 power = self.get_power_status()
