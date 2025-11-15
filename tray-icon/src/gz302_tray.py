@@ -35,6 +35,10 @@ class GZ302TrayIcon(QSystemTrayIcon):
         # Update current profile on startup
         self.update_current_profile()
         
+        # Update icon based on power state on startup
+        power = self.get_power_status()
+        self.update_icon_for_power(power)
+        
         # Set up timer to update profile status every 5 seconds
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_current_profile)
@@ -390,12 +394,22 @@ Categories=Utility;System;
 def main():
     app = QApplication(sys.argv)
     
-    # For now, use a simple icon (you can replace with custom icon later)
-    style = app.style()
-    if style is not None:
-        icon = style.standardIcon(style.StandardPixmap.SP_ComputerIcon)
+    # Try to load custom SVG icon, fallback to system icon if not available
+    assets_dir = Path(__file__).resolve().parent.parent / 'assets'
+    
+    if assets_dir.exists():
+        # Use battery icon as primary (adapts to theme via currentColor)
+        icon_path = assets_dir / 'battery.svg'
+        if icon_path.exists():
+            icon = QIcon(str(icon_path))
+        else:
+            # Fallback to system icon
+            style = app.style()
+            icon = style.standardIcon(style.StandardPixmap.SP_ComputerIcon) if style else QIcon()
     else:
-        icon = QIcon()
+        # Fallback to system icon
+        style = app.style()
+        icon = style.standardIcon(style.StandardPixmap.SP_ComputerIcon) if style else QIcon()
     
     tray = GZ302TrayIcon(icon)
     
