@@ -79,105 +79,72 @@ pwrcfg config
 
 **How it works:** `pwrcfg` automatically elevates itself using `sudo -n` when needed. With the sudoers rule installed, no password prompt appears—just instant profile switching. If password-less sudo is not configured, use `sudo pwrcfg ...` instead.
 
-## 🌈 Keyboard Backlight Control
+## 🌈 Keyboard Control (Brightness & RGB)
 
-### Important: GZ302 Hardware Limitations
+The GZ302 system tray icon provides convenient control for both keyboard brightness and RGB colors:
 
-The ASUS ROG Flow Z13 (GZ302) **only supports keyboard backlight brightness control** (levels 0-3). RGB color and effect controls are **not available** on this model due to hardware limitations (missing Aura LED interface on the keyboard).
+### Tray Icon Features
 
-- ✅ **Brightness**: Off, Level 1, Level 2, Level 3 (fully supported)
-- ❌ **RGB Colors**: Not supported by GZ302 hardware
-- ❌ **Effects**: Not supported by GZ302 hardware
+**Keyboard Brightness:**
+- ✅ **4 Brightness Levels**: Off, Level 1, Level 2, Level 3
+- ✅ **Tray Icon Control**: Right-click tray → Keyboard Backlight → Select level
+- ✅ **Auto-start**: Installed via `tray-icon/install-tray.sh`
 
-### Tray Icon Control (Recommended)
+**Keyboard RGB Colors & Animations:**
+- ✅ **Static Colors**: Red, Green, Blue, Yellow, Cyan, Magenta, White, Black presets
+- ✅ **Animations**: Breathing, Color Cycle, Rainbow (with adjustable speed)
+- ✅ **Custom Colors**: Hex color input dialog for unlimited color choices
+- ✅ **Auto-detection**: RGB menu only appears if `gz302-rgb` binary is available
 
-The GZ302 system tray icon provides the easiest way to control keyboard brightness:
+### Installation & Usage
 
-**Menu Structure:**
-```
-Keyboard Backlight
-└── Brightness (Off, Level 1, Level 2, Level 3)
-```
-
-Simply right-click the tray icon → **Keyboard Backlight** → Choose your brightness level.
-
-**Installation:**
+**Install tray icon:**
 ```bash
 cd tray-icon
 sudo ./install-tray.sh
 ```
 
-The tray icon will appear in your system tray after installation and will start automatically on login.
+**Control via menu:**
+- Right-click the tray icon
+- Select **Keyboard Backlight** for brightness (0-3 levels)
+- Select **Keyboard RGB** for colors and animations (if `gz302-rgb` is installed)
 
-### Physical FN+F11 Button Support
-
-The keyboard backlight listener daemon (`gz302-kbd-backlight-listener`) monitors ASUS function key events and automatically cycles keyboard backlight brightness when you press **FN+F11**.
-
-**Features:**
-- ✅ **Physical Button Support**: Press FN+F11 to cycle brightness levels
-- ✅ **Auto Cycling**: 0 (Off) → 1 → 2 → 3 → 0 (repeats)
-- ✅ **Systemd Integration**: Runs as background service
-- ✅ **Syslog Logging**: All events logged to systemd journal
-
-**Usage:**
+**Install optional RGB module:**
 ```bash
-# Press FN+F11 to cycle: Off → Level 1 → Level 2 → Level 3 → Off (repeats)
-
-# Check service status
-systemctl status gz302-kbd-backlight-listener
-
-# View real-time logs
-journalctl -u gz302-kbd-backlight-listener -f
-
-# Enable/Disable the service
-sudo systemctl enable gz302-kbd-backlight-listener
-sudo systemctl start gz302-kbd-backlight-listener
-```
-
-### Technical Details
-
-**Brightness Control:**
-Brightness changes use `/sys/class/leds/*::kbd_backlight/brightness` and may prompt for sudo if passwordless access is not configured. See the [ArchWiki keyboard backlight guide](https://wiki.archlinux.org/title/Keyboard_backlight) for details.
+# During main script setup, select option 6 for RGB module
 sudo ./gz302-main.sh
 
-# For Arch-based systems
-sudo pacman -S asusctl
-
-# For Debian/Ubuntu
-sudo add-apt-repository ppa:asus-linux/ppa
-sudo apt update && sudo apt install asusctl
-
-# For Fedora
-sudo dnf install asusctl
+# Or install standalone
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-rgb.sh -o gz302-rgb.sh
+chmod +x gz302-rgb.sh
+sudo ./gz302-rgb.sh
 ```
 
-**Colors not changing:**
+**Command-line RGB control:**
 ```bash
-# Check asusctl service
-sudo systemctl status asusd
+# Set static color
+gz302-rgb static ff0000    # Red
+gz302-rgb static 00ff00    # Green
+gz302-rgb static 0000ff    # Blue
 
-# Restart asusctl service
-sudo systemctl restart asusd
+# Start animation
+gz302-rgb breathing ff0000  # Red breathing effect
+gz302-rgb colorcycle 30     # Color cycle (30 speed)
+gz302-rgb rainbow 50        # Rainbow animation (50 speed)
 
-# Check hardware support
-asusctl led-mode
-
-# Try setting color directly
-sudo asusctl led-mode static -c ff0000
+# Set brightness
+gz302-rgb brightness 100    # 0-100%
 ```
 
-### Rear Window RGB LEDs
+**Technical Details:**
 
-**Status:** Rear window RGB LED control is **NOT supported on Linux** for the GZ302.
+Brightness control uses `/sys/class/leds/*::kbd_backlight/brightness` and may prompt for sudo if passwordless access is not configured. See the [ArchWiki keyboard backlight guide](https://wiki.archlinux.org/title/Keyboard_backlight) for details.
 
-**Research Findings:**
-- Limited Linux support - only ON/OFF toggle may be available on some models
-- Full color control requires Windows + Armoury Crate
-- The rear window LEDs use a separate controller with incomplete Linux kernel drivers
-- Community issue tracking: [GitLab #681](https://gitlab.com/asus-linux/asusctl/-/issues/681)
-- Phoronix article: [ASUS Z13 RGB improvements](https://www.phoronix.com/news/ASUS-Z13-ROG-Ally-RGB)
-
-**Contributing:** If you have hardware expertise, see [asusctl GitLab](https://gitlab.com/asus-linux/asusctl) and [ASUS Linux Community](https://asus-linux.org)
+RGB control via custom GZ302-optimized CLI (`gz302-rgb-cli.c`):
+- Built-in binary, no external dependencies
+- 70% smaller than rogauracore (17KB vs 58KB)
+- Supports USB device 0x0b05:0x1a30 (GZ302 keyboard)
+- MIT licensed with full copyright attribution
 
 ## 📋 Supported Distributions
 
