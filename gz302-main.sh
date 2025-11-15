@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.2.2
+# Version: 1.2.3
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -817,6 +817,12 @@ install_opensuse_asus_packages() {
 # --- TDP Management Functions ---
 
 install_ryzenadj_arch() {
+    # Check if ryzenadj is already installed
+    if pacman -Qi ryzenadj >/dev/null 2>&1; then
+        success "ryzenadj already installed"
+        return 0
+    fi
+    
     info "Installing ryzenadj for Arch-based system..."
     
     # Check for and remove conflicting packages first (only if installed)
@@ -842,6 +848,12 @@ install_ryzenadj_arch() {
 }
 
 install_ryzenadj_debian() {
+    # Check if ryzenadj is already installed
+    if command -v ryzenadj >/dev/null 2>&1; then
+        success "ryzenadj already installed"
+        return 0
+    fi
+    
     info "Installing ryzenadj for Debian-based system..."
     apt-get update
     apt-get install -y build-essential cmake libpci-dev git
@@ -857,6 +869,12 @@ install_ryzenadj_debian() {
 }
 
 install_ryzenadj_fedora() {
+    # Check if ryzenadj is already installed
+    if command -v ryzenadj >/dev/null 2>&1; then
+        success "ryzenadj already installed"
+        return 0
+    fi
+    
     info "Installing ryzenadj for Fedora-based system..."
     dnf install -y gcc gcc-c++ cmake pciutils-devel git
     cd /tmp
@@ -871,6 +889,12 @@ install_ryzenadj_fedora() {
 }
 
 install_ryzenadj_opensuse() {
+    # Check if ryzenadj is already installed
+    if command -v ryzenadj >/dev/null 2>&1; then
+        success "ryzenadj already installed"
+        return 0
+    fi
+    
     info "Installing ryzenadj for OpenSUSE..."
     zypper install -y gcc gcc-c++ cmake pciutils-devel git
     cd /tmp
