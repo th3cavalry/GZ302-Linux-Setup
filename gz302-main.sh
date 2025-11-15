@@ -375,6 +375,42 @@ exit 0
 EOF
         chmod +x /usr/lib/systemd/system-sleep/gz302-kbd-backlight
 
+        # Create systemd service to restore keyboard backlight brightness on boot
+        cat > /etc/systemd/system/gz302-kbd-backlight-restore.service <<EOF
+[Unit]
+Description=GZ302 Keyboard Backlight Restore
+After=multi-user.target
+ConditionPathExists=/var/lib/gz302/kbd_backlight.brightness
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'for led in /sys/class/leds/*kbd*backlight*; do [[ -f \$led/brightness ]] && cat /var/lib/gz302/kbd_backlight.brightness > \$led/brightness 2>/dev/null || true; done'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+        # Create systemd service to save keyboard backlight brightness on shutdown
+        cat > /etc/systemd/system/gz302-kbd-backlight-save.service <<EOF
+[Unit]
+Description=GZ302 Keyboard Backlight Save
+DefaultDependencies=no
+Before=shutdown.target reboot.target halt.target poweroff.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'for led in /sys/class/leds/*kbd*backlight*; do [[ -f \$led/brightness ]] && cat \$led/brightness > /var/lib/gz302/kbd_backlight.brightness 2>/dev/null || true; break; done'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=shutdown.target reboot.target halt.target poweroff.target
+EOF
+
+        systemctl daemon-reload 2>/dev/null || true
+        systemctl enable gz302-kbd-backlight-restore.service 2>/dev/null || true
+        systemctl enable gz302-kbd-backlight-save.service 2>/dev/null || true
+
         # Note about advanced fan/power control
     info "Note: For advanced fan and power mode control, consider the ec_su_axb35 kernel module"
     info "See: https://github.com/cmetz/ec-su_axb35-linux for Strix Halo-specific controls"
