@@ -1,0 +1,318 @@
+/**
+ * GZ302 RGB Keyboard Control
+ * 
+ * This is a minimal, GZ302-specific implementation derived from rogauracore.
+ * Extracted code is used under the MIT License (see below).
+ *
+ * Original rogauracore:
+ *   Author: Will Roberts <wildwilhelm@gmail.com>
+ *   Copyright (c) 2019 Will Roberts, Josh Ventura
+ *   https://github.com/Syndelis/rogauracore
+ *   License: MIT
+ *
+ * MIT License:
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * sublicense, and/or sell copies of the Software, and to permit persons
+ * to whom the Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * GZ302 Modifications:
+ *   - Removed support for multiple ASUS ROG models
+ *   - Focused exclusively on GZ302EA keyboard (USB 0x0b05:0x1a30)
+ *   - Removed unnecessary functions and color presets for minimal binary
+ *   - Streamlined command-line interface
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdint.h>
+#include <errno.h>
+#include <libusb-1.0/libusb.h>
+
+#define MESSAGE_LENGTH 17
+#define GZ302_VENDOR_ID 0x0b05
+#define GZ302_PRODUCT_ID 0x1a30
+
+/* USB protocol constants for GZ302 keyboard */
+const uint8_t SPEED_BYTE_VALUES[] = {0xe1, 0xeb, 0xf5};
+const uint8_t MESSAGE_BRIGHTNESS[MESSAGE_LENGTH] = {0x5a, 0xba, 0xc5, 0xc4};
+const uint8_t MESSAGE_SET[MESSAGE_LENGTH] = {0x5d, 0xb5};
+const uint8_t MESSAGE_APPLY[MESSAGE_LENGTH] = {0x5d, 0xb4};
+
+typedef struct {
+    uint8_t r, g, b;
+} Color;
+
+/* Initialize a USB control message */
+void init_message(uint8_t *msg) {
+    memset(msg, 0, MESSAGE_LENGTH);
+    msg[0] = 0x5d;
+    msg[1] = 0xb3;
+}
+
+/* Single static color */
+void single_static(uint8_t *msg, Color color) {
+    init_message(msg);
+    msg[4] = color.r;
+    msg[5] = color.g;
+    msg[6] = color.b;
+}
+
+/* Single breathing animation */
+void single_breathing(uint8_t *msg, Color color1, Color color2, int speed) {
+    init_message(msg);
+    msg[3] = 1;
+    msg[4] = color1.r;
+    msg[5] = color1.g;
+    msg[6] = color1.b;
+    msg[7] = SPEED_BYTE_VALUES[speed - 1];
+    msg[9] = 1;
+    msg[10] = color2.r;
+    msg[11] = color2.g;
+    msg[12] = color2.b;
+}
+
+/* Color cycling animation */
+void single_colorcycle(uint8_t *msg, int speed) {
+    init_message(msg);
+    msg[3] = 2;
+    msg[4] = 0xff;
+    msg[7] = SPEED_BYTE_VALUES[speed - 1];
+}
+
+/* Rainbow cycling animation */
+void rainbow_cycle(uint8_t *msg, int speed) {
+    init_message(msg);
+    msg[3] = 3;
+    msg[4] = 0xff;
+    msg[7] = SPEED_BYTE_VALUES[speed - 1];
+}
+
+/* Set keyboard brightness (0-3) */
+void set_brightness(uint8_t *msg, int brightness) {
+    memcpy(msg, MESSAGE_BRIGHTNESS, MESSAGE_LENGTH);
+    msg[4] = brightness;
+}
+
+/* Parse hex color string (e.g., "FF0000" -> Color{255,0,0}) */
+int parse_color(const char *arg, Color *color) {
+    if (strlen(arg) != 6) {
+        fprintf(stderr, "Error: Color must be 6 hex digits (e.g., FF0000)\n");
+        return -1;
+    }
+    for (int i = 0; i < 6; i++) {
+        if (!isxdigit(arg[i])) {
+            fprintf(stderr, "Error: Invalid hex color: %s\n", arg);
+            return -1;
+        }
+    }
+    uint32_t v = (uint32_t)strtol(arg, NULL, 16);
+    if (errno == ERANGE) {
+        fprintf(stderr, "Error: Color value out of range\n");
+        return -1;
+    }
+    color->r = (v >> 16) & 0xff;
+    color->g = (v >> 8) & 0xff;
+    color->b = v & 0xff;
+    return 0;
+}
+
+/* Parse integer (speed or brightness) */
+int parse_int(const char *arg, int min, int max, int *result) {
+    long val = strtol(arg, NULL, 10);
+    if (errno == ERANGE || val < min || val > max) {
+        fprintf(stderr, "Error: Value must be between %d and %d\n", min, max);
+        return -1;
+    }
+    *result = (int)val;
+    return 0;
+}
+
+/* USB control transfer to device */
+int control_transfer(libusb_device_handle *handle, unsigned char *data, uint16_t length) {
+    int ret = libusb_control_transfer(
+        handle,
+        0x21,           /* bmRequestType */
+        9,              /* bRequest */
+        0x035d,         /* wValue */
+        0,              /* wIndex */
+        data,
+        length,
+        0               /* timeout */
+    );
+    if (ret < 0) {
+        fprintf(stderr, "USB control transfer error: %s\n", libusb_error_name(ret));
+    }
+    return ret;
+}
+
+/* Find and open GZ302 keyboard */
+libusb_device_handle *find_gz302_device(void) {
+    libusb_device **devices;
+    libusb_device_handle *handle = NULL;
+    ssize_t count = libusb_get_device_list(NULL, &devices);
+    
+    if (count < 0) {
+        fprintf(stderr, "Error: Could not get USB device list\n");
+        return NULL;
+    }
+    
+    for (ssize_t i = 0; i < count; i++) {
+        struct libusb_device_descriptor desc;
+        libusb_get_device_descriptor(devices[i], &desc);
+        
+        if (desc.idVendor == GZ302_VENDOR_ID && desc.idProduct == GZ302_PRODUCT_ID) {
+            if (libusb_open(devices[i], &handle) == 0) {
+                libusb_free_device_list(devices, 1);
+                return handle;
+            }
+        }
+    }
+    
+    fprintf(stderr, "Error: GZ302 keyboard not found (USB 0x0b05:0x1a30)\n");
+    libusb_free_device_list(devices, 1);
+    return NULL;
+}
+
+/* Send message to GZ302 keyboard */
+int send_to_gz302(uint8_t *message) {
+    libusb_device_handle *handle;
+    int ret;
+    
+    if (libusb_init(NULL) < 0) {
+        fprintf(stderr, "Error: Could not initialize libusb\n");
+        return -1;
+    }
+    
+    handle = find_gz302_device();
+    if (!handle) {
+        libusb_exit(NULL);
+        return -1;
+    }
+    
+    /* Try to detach kernel drivers */
+    libusb_set_auto_detach_kernel_driver(handle, 1);
+    
+    /* Send control message */
+    ret = control_transfer(handle, message, MESSAGE_LENGTH);
+    
+    /* Apply changes */
+    if (ret >= 0) {
+        control_transfer(handle, (unsigned char *)MESSAGE_SET, MESSAGE_LENGTH);
+        control_transfer(handle, (unsigned char *)MESSAGE_APPLY, MESSAGE_LENGTH);
+    }
+    
+    libusb_close(handle);
+    libusb_exit(NULL);
+    
+    return ret;
+}
+
+void print_usage(const char *prog) {
+    printf("GZ302 RGB Keyboard Control\n");
+    printf("Usage: %s COMMAND [ARGS]\n\n", prog);
+    printf("Commands:\n");
+    printf("  single_static <HEX_COLOR>              - Static color (e.g., FF0000 for red)\n");
+    printf("  single_breathing <HEX_COLOR1> <HEX_COLOR2> <SPEED>  - Breathing (speed 1-3)\n");
+    printf("  single_colorcycle <SPEED>              - Color cycling (speed 1-3)\n");
+    printf("  rainbow_cycle <SPEED>                  - Rainbow animation (speed 1-3)\n");
+    printf("  brightness <0-3>                       - Set brightness level\n");
+    printf("  red|green|blue|yellow|cyan|magenta|white|black - Preset colors\n");
+}
+
+int main(int argc, char **argv) {
+    uint8_t message[MESSAGE_LENGTH];
+    Color color1, color2;
+    int speed, brightness;
+    
+    if (argc < 2) {
+        print_usage(argv[0]);
+        return 1;
+    }
+    
+    const char *cmd = argv[1];
+    
+    if (strcmp(cmd, "single_static") == 0) {
+        if (argc != 3 || parse_color(argv[2], &color1) < 0) {
+            fprintf(stderr, "Usage: %s single_static <HEX_COLOR>\n", argv[0]);
+            return 1;
+        }
+        single_static(message, color1);
+    }
+    else if (strcmp(cmd, "single_breathing") == 0) {
+        if (argc != 5 || parse_color(argv[2], &color1) < 0 || 
+            parse_color(argv[3], &color2) < 0 || parse_int(argv[4], 1, 3, &speed) < 0) {
+            fprintf(stderr, "Usage: %s single_breathing <HEX_COLOR1> <HEX_COLOR2> <SPEED>\n", argv[0]);
+            return 1;
+        }
+        single_breathing(message, color1, color2, speed);
+    }
+    else if (strcmp(cmd, "single_colorcycle") == 0) {
+        if (argc != 3 || parse_int(argv[2], 1, 3, &speed) < 0) {
+            fprintf(stderr, "Usage: %s single_colorcycle <SPEED>\n", argv[0]);
+            return 1;
+        }
+        single_colorcycle(message, speed);
+    }
+    else if (strcmp(cmd, "rainbow_cycle") == 0) {
+        if (argc != 3 || parse_int(argv[2], 1, 3, &speed) < 0) {
+            fprintf(stderr, "Usage: %s rainbow_cycle <SPEED>\n", argv[0]);
+            return 1;
+        }
+        rainbow_cycle(message, speed);
+    }
+    else if (strcmp(cmd, "brightness") == 0) {
+        if (argc != 3 || parse_int(argv[2], 0, 3, &brightness) < 0) {
+            fprintf(stderr, "Usage: %s brightness <0-3>\n", argv[0]);
+            return 1;
+        }
+        set_brightness(message, brightness);
+    }
+    else if (strcmp(cmd, "red") == 0) {
+        color1 = (Color){0xff, 0x00, 0x00};
+        single_static(message, color1);
+    }
+    else if (strcmp(cmd, "green") == 0) {
+        color1 = (Color){0x00, 0xff, 0x00};
+        single_static(message, color1);
+    }
+    else if (strcmp(cmd, "blue") == 0) {
+        color1 = (Color){0x00, 0x00, 0xff};
+        single_static(message, color1);
+    }
+    else if (strcmp(cmd, "yellow") == 0) {
+        color1 = (Color){0xff, 0xff, 0x00};
+        single_static(message, color1);
+    }
+    else if (strcmp(cmd, "cyan") == 0) {
+        color1 = (Color){0x00, 0xff, 0xff};
+        single_static(message, color1);
+    }
+    else if (strcmp(cmd, "magenta") == 0) {
+        color1 = (Color){0xff, 0x00, 0xff};
+        single_static(message, color1);
+    }
+    else if (strcmp(cmd, "white") == 0) {
+        color1 = (Color){0xff, 0xff, 0xff};
+        single_static(message, color1);
+    }
+    else if (strcmp(cmd, "black") == 0) {
+        color1 = (Color){0x00, 0x00, 0x00};
+        single_static(message, color1);
+    }
+    else {
+        fprintf(stderr, "Unknown command: %s\n", cmd);
+        print_usage(argv[0]);
+        return 1;
+    }
+    
+    return send_to_gz302(message);
+}
