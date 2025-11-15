@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.2.4
+# Version: 1.2.5
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -2834,6 +2834,33 @@ setup_opensuse() {
     enable_opensuse_services
 }
 
+# --- Tray Icon Installation (Core Feature) ---
+install_tray_icon_prompt() {
+    local distro="$1"
+    
+    echo
+    echo "============================================================"
+    echo "  GZ302 Power Manager (System Tray Icon)"
+    echo "============================================================"
+    echo
+    info "The GZ302 Power Manager is a system tray utility that provides:"
+    echo "  • Quick access to all 7 power profiles (Emergency to Maximum)"
+    echo "  • Keyboard brightness control (0-3 levels)"
+    echo "  • Battery charge limit control (80% or 100%)"
+    echo "  • Real-time power profile status and battery indicators"
+    echo "  • Right-click menu for instant profile switching"
+    echo "  • Essential for convenient keyboard brightness management"
+    echo
+    read -p "Install GZ302 Power Manager? (Y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        install_tray_icon
+    else
+        info "Skipping GZ302 Power Manager installation"
+    fi
+    echo
+}
+
 # --- Optional Module Installation ---
 offer_optional_modules() {
     local distro="$1"
@@ -2869,16 +2896,10 @@ offer_optional_modules() {
     echo "   - Enhanced system security and boot integrity"
     echo "   - Automatic kernel signing on updates"
     echo
-    echo "6. Tray Icon (GZ302 Power Manager)"
-    echo "   - System tray icon for quick power profile switching"
-    echo "   - Right-click menu access to all 7 power profiles"
-    echo "   - Real-time status updates and battery indicators"
-    echo "   - Password-less sudo configuration"
-    echo
-    echo "7. Skip optional modules"
+    echo "6. Skip optional modules"
     echo
     
-    read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 7 to skip): " module_choice
+    read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 6 to skip): " module_choice
     
     # Parse the choices
     IFS=',' read -ra CHOICES <<< "$module_choice"
@@ -2901,9 +2922,6 @@ offer_optional_modules() {
                 download_and_execute_module "gz302-secureboot" "$distro" || warning "Secure boot module installation failed"
                 ;;
             6)
-                install_tray_icon || warning "Tray icon installation failed"
-                ;;
-            7)
                 info "Skipping optional modules"
                 ;;
             *)
@@ -3004,6 +3022,9 @@ main() {
     success "- Refresh rate control: Use 'rrcfg' command"
     success "============================================================"
     echo
+    
+    # Install tray icon (core feature with default yes)
+    install_tray_icon_prompt "$detected_distro"
     
     # Offer optional modules
     offer_optional_modules "$detected_distro"
