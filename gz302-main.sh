@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.2.3
+# Version: 1.2.4
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -1417,12 +1417,12 @@ configure_auto_switching() {
         echo "Select battery profile (when on battery):"
         list_profiles
         echo ""
-        read -p "Battery profile [efficient]: " battery_profile || true
-        battery_profile="${battery_profile:-efficient}"
+        read -p "Battery profile [battery]: " battery_profile || true
+        battery_profile="${battery_profile:-battery}"
         
         if [ -z "${POWER_PROFILES[$battery_profile]:-}" ]; then
-            echo "Invalid profile, using 'efficient'"
-            battery_profile="efficient"
+            echo "Invalid profile, using 'battery'"
+            battery_profile="battery"
         fi
         
         # Save configuration
