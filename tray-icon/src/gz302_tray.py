@@ -474,7 +474,7 @@ Categories=Utility;System;
         """Set RGB keyboard to static color."""
         try:
             result = subprocess.run(
-                ["sudo", "gz302-rgb", "single_static", hex_color],
+                ["sudo", "-n", "gz302-rgb", "single_static", hex_color],
                 capture_output=True,
                 text=True,
                 timeout=5
@@ -514,13 +514,13 @@ Categories=Utility;System;
         """Set RGB keyboard animation."""
         try:
             if animation_type == "breathing":
-                cmd = ["sudo", "gz302-rgb", "single_breathing", color1, color2, str(speed)]
+                cmd = ["sudo", "-n", "gz302-rgb", "single_breathing", color1, color2, str(speed)]
                 desc = "Breathing animation"
             elif animation_type == "colorcycle":
-                cmd = ["sudo", "gz302-rgb", "single_colorcycle", str(speed)]
+                cmd = ["sudo", "-n", "gz302-rgb", "single_colorcycle", str(speed)]
                 desc = "Color cycle animation"
             elif animation_type == "rainbow":
-                cmd = ["sudo", "gz302-rgb", "rainbow_cycle", str(speed)]
+                cmd = ["sudo", "-n", "gz302-rgb", "rainbow_cycle", str(speed)]
                 desc = "Rainbow animation"
             else:
                 self.showMessage(
