@@ -73,7 +73,7 @@ class GZ302TrayIcon(QSystemTrayIcon):
             charge_100_action.triggered.connect(lambda: self.set_charge_limit("100"))
             charge_limit_menu.addAction(charge_100_action)
 
-        # Keyboard brightness (GZ302 supports brightness 0-3 only, no RGB)
+        # Keyboard brightness
         brightness_menu = self.menu.addMenu("Keyboard Brightness")
         if brightness_menu is not None:
             for level in range(4):
@@ -86,6 +86,56 @@ class GZ302TrayIcon(QSystemTrayIcon):
                 brightness_menu.addAction(action)
         
         self.menu.addSeparator()
+
+        # Keyboard RGB Colors
+        if self.check_rgb_available():
+            rgb_menu = self.menu.addMenu("Keyboard RGB")
+            if rgb_menu is not None:
+                # Static colors submenu
+                colors_submenu = rgb_menu.addMenu("Static Colors")
+                color_options = [
+                    ("Red", "FF0000"),
+                    ("Green", "00FF00"),
+                    ("Blue", "0000FF"),
+                    ("Yellow", "FFFF00"),
+                    ("Cyan", "00FFFF"),
+                    ("Magenta", "FF00FF"),
+                    ("White", "FFFFFF"),
+                    ("Black", "000000"),
+                ]
+                for color_name, hex_value in color_options:
+                    action = QAction(color_name, self)
+                    action.triggered.connect(lambda checked, h=hex_value: self.set_rgb_color(h))
+                    colors_submenu.addAction(action)
+                
+                rgb_menu.addSeparator()
+                
+                # Animations submenu
+                animations_submenu = rgb_menu.addMenu("Animations")
+                
+                # Breathing animation
+                breathing_action = QAction("Breathing (Red)", self)
+                breathing_action.triggered.connect(lambda: self.set_rgb_animation("breathing", "FF0000", "000000", 2))
+                animations_submenu.addAction(breathing_action)
+                
+                # Color cycle
+                cycle_action = QAction("Color Cycle", self)
+                cycle_action.triggered.connect(lambda: self.set_rgb_animation("colorcycle", None, None, 2))
+                animations_submenu.addAction(cycle_action)
+                
+                # Rainbow
+                rainbow_action = QAction("Rainbow", self)
+                rainbow_action.triggered.connect(lambda: self.set_rgb_animation("rainbow", None, None, 2))
+                animations_submenu.addAction(rainbow_action)
+                
+                rgb_menu.addSeparator()
+                
+                # Custom color
+                custom_action = QAction("Custom Color...", self)
+                custom_action.triggered.connect(self.set_custom_rgb_color)
+                rgb_menu.addAction(custom_action)
+            
+            self.menu.addSeparator()
 
         # Autostart
         autostart_action = QAction("Enable Autostart", self)
@@ -404,6 +454,146 @@ Categories=Utility;System;
             self.showMessage(
                 "Error",
                 f"Failed to set keyboard backlight: {str(e)}",
+                QSystemTrayIcon.MessageIcon.Critical,
+                5000
+            )
+
+    def check_rgb_available(self):
+        """Check if gz302-rgb binary is available."""
+        try:
+            result = subprocess.run(
+                ["which", "gz302-rgb"],
+                capture_output=True,
+                timeout=2
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    def set_rgb_color(self, hex_color):
+        """Set RGB keyboard to static color."""
+        try:
+            result = subprocess.run(
+                ["sudo", "gz302-rgb", "single_static", hex_color],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if result.returncode == 0:
+                self.showMessage(
+                    "Keyboard RGB",
+                    f"Color set to #{hex_color}",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2000
+                )
+            else:
+                err = (result.stderr or "").strip()
+                self.showMessage(
+                    "Error",
+                    f"Failed to set RGB color: {err or 'Unknown error'}",
+                    QSystemTrayIcon.MessageIcon.Critical,
+                    5000
+                )
+        except subprocess.TimeoutExpired:
+            self.showMessage(
+                "Error",
+                "RGB command timed out",
+                QSystemTrayIcon.MessageIcon.Critical,
+                5000
+            )
+        except Exception as e:
+            self.showMessage(
+                "Error",
+                f"Failed to set RGB color: {str(e)}",
+                QSystemTrayIcon.MessageIcon.Critical,
+                5000
+            )
+
+    def set_rgb_animation(self, animation_type, color1=None, color2=None, speed=2):
+        """Set RGB keyboard animation."""
+        try:
+            if animation_type == "breathing":
+                cmd = ["sudo", "gz302-rgb", "single_breathing", color1, color2, str(speed)]
+                desc = "Breathing animation"
+            elif animation_type == "colorcycle":
+                cmd = ["sudo", "gz302-rgb", "single_colorcycle", str(speed)]
+                desc = "Color cycle animation"
+            elif animation_type == "rainbow":
+                cmd = ["sudo", "gz302-rgb", "rainbow_cycle", str(speed)]
+                desc = "Rainbow animation"
+            else:
+                self.showMessage(
+                    "Error",
+                    f"Unknown animation type: {animation_type}",
+                    QSystemTrayIcon.MessageIcon.Warning,
+                    3000
+                )
+                return
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if result.returncode == 0:
+                self.showMessage(
+                    "Keyboard RGB",
+                    f"{desc} activated",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2000
+                )
+            else:
+                err = (result.stderr or "").strip()
+                self.showMessage(
+                    "Error",
+                    f"Failed to set animation: {err or 'Unknown error'}",
+                    QSystemTrayIcon.MessageIcon.Critical,
+                    5000
+                )
+        except subprocess.TimeoutExpired:
+            self.showMessage(
+                "Error",
+                "RGB command timed out",
+                QSystemTrayIcon.MessageIcon.Critical,
+                5000
+            )
+        except Exception as e:
+            self.showMessage(
+                "Error",
+                f"Failed to set animation: {str(e)}",
+                QSystemTrayIcon.MessageIcon.Critical,
+                5000
+            )
+
+    def set_custom_rgb_color(self):
+        """Prompt user for custom RGB color (hex format)."""
+        try:
+            text, ok = QInputDialog.getText(
+                None,
+                "Custom RGB Color",
+                "Enter hex color (e.g., FF0000 for red):",
+                text="FF0000"
+            )
+            
+            if ok and text:
+                # Validate hex color
+                hex_color = text.strip().upper()
+                if len(hex_color) == 6 and all(c in '0123456789ABCDEF' for c in hex_color):
+                    self.set_rgb_color(hex_color)
+                else:
+                    self.showMessage(
+                        "Error",
+                        "Invalid hex color. Use format: RRGGBB (e.g., FF0000)",
+                        QSystemTrayIcon.MessageIcon.Warning,
+                        3000
+                    )
+        except Exception as e:
+            self.showMessage(
+                "Error",
+                f"Failed to get custom color: {str(e)}",
                 QSystemTrayIcon.MessageIcon.Critical,
                 5000
             )
