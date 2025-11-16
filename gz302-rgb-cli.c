@@ -35,6 +35,8 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <errno.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <libusb-1.0/libusb.h>
 
 #define MESSAGE_LENGTH 17
@@ -136,24 +138,6 @@ int parse_int(const char *arg, int min, int max, int *result) {
     return 0;
 }
 
-/* USB control transfer to device */
-int control_transfer(libusb_device_handle *handle, unsigned char *data, uint16_t length) {
-    int ret = libusb_control_transfer(
-        handle,
-        0x21,           /* bmRequestType */
-        9,              /* bRequest */
-        0x035d,         /* wValue */
-        0,              /* wIndex */
-        data,
-        length,
-        0               /* timeout */
-    );
-    if (ret < 0) {
-        fprintf(stderr, "USB control transfer error: %s\n", libusb_error_name(ret));
-    }
-    return ret;
-}
-
 /* Find and open GZ302 keyboard */
 libusb_device_handle *find_gz302_device(void) {
     libusb_device **devices;
@@ -182,10 +166,86 @@ libusb_device_handle *find_gz302_device(void) {
     return NULL;
 }
 
-/* Send message to GZ302 keyboard */
-int send_to_gz302(uint8_t *message) {
+/* Check if device is GZ302 by examining sysfs */
+int is_gz302_device(const char *hidraw_path) {
+    char sysfs_path[512];
+    char vendor[16], product[16];
+    FILE *f;
+    
+    /* Get the hidraw device number from path */
+    const char *device_num = hidraw_path + strlen("/dev/hidraw");
+    
+    /* Check sysfs for device info */
+    snprintf(sysfs_path, sizeof(sysfs_path), "/sys/class/hidraw/hidraw%s/device/../../idVendor", device_num);
+    
+    f = fopen(sysfs_path, "r");
+    if (!f) return 0;
+    if (!fgets(vendor, sizeof(vendor), f)) {
+        fclose(f);
+        return 0;
+    }
+    fclose(f);
+    
+    snprintf(sysfs_path, sizeof(sysfs_path), "/sys/class/hidraw/hidraw%s/device/../../idProduct", device_num);
+    f = fopen(sysfs_path, "r");
+    if (!f) return 0;
+    if (!fgets(product, sizeof(product), f)) {
+        fclose(f);
+        return 0;
+    }
+    fclose(f);
+    
+    /* Check if vendor:product matches GZ302 (0b05:1a30) */
+    int v = (int)strtol(vendor, NULL, 16);
+    int p = (int)strtol(product, NULL, 16);
+    
+    return (v == 0x0b05 && p == 0x1a30);
+}
+
+/* Send message to GZ302 keyboard via hidraw device */
+int send_to_gz302_hidraw(uint8_t *message) {
+    int fd;
+    ssize_t ret;
+    
+    /* Try to open the GZ302 keyboard hidraw device */
+    for (int i = 0; i < 64; i++) {
+        char hidraw_path[256];
+        snprintf(hidraw_path, sizeof(hidraw_path), "/dev/hidraw%d", i);
+        
+        fd = open(hidraw_path, O_WRONLY);
+        if (fd < 0) continue;
+        
+        /* Verify this is the GZ302 keyboard */
+        if (is_gz302_device(hidraw_path)) {
+            fprintf(stderr, "Found GZ302 keyboard at %s\n", hidraw_path);
+            
+            ret = write(fd, message, MESSAGE_LENGTH);
+            if (ret == MESSAGE_LENGTH) {
+                fprintf(stderr, "Sent RGB command via %s\n", hidraw_path);
+                
+                /* Apply changes */
+                fprintf(stderr, "Applying MESSAGE_SET...\n");
+                write(fd, MESSAGE_SET, MESSAGE_LENGTH);
+                
+                fprintf(stderr, "Applying MESSAGE_APPLY...\n");
+                write(fd, MESSAGE_APPLY, MESSAGE_LENGTH);
+                
+                close(fd);
+                return 0;
+            }
+        }
+        close(fd);
+    }
+    
+    fprintf(stderr, "Error: Could not find GZ302 hidraw device\n");
+    return -1;
+}
+
+/* Send message to GZ302 keyboard via libusb (no driver detach) */
+int send_to_gz302_libusb(uint8_t *message) {
     libusb_device_handle *handle;
     int ret;
+    int actual_length;
     
     if (libusb_init(NULL) < 0) {
         fprintf(stderr, "Error: Could not initialize libusb\n");
@@ -198,22 +258,68 @@ int send_to_gz302(uint8_t *message) {
         return -1;
     }
     
-    /* Try to detach kernel drivers */
-    libusb_set_auto_detach_kernel_driver(handle, 1);
+    fprintf(stderr, "Found GZ302 keyboard via libusb\n");
     
-    /* Send control message */
-    ret = control_transfer(handle, message, MESSAGE_LENGTH);
+    /* NOTE: We deliberately do NOT detach kernel drivers */
+    /* This keeps the keyboard functional while sending RGB commands */
     
-    /* Apply changes */
-    if (ret >= 0) {
-        control_transfer(handle, (unsigned char *)MESSAGE_SET, MESSAGE_LENGTH);
-        control_transfer(handle, (unsigned char *)MESSAGE_APPLY, MESSAGE_LENGTH);
+    /* Claim interface 0 for communication */
+    ret = libusb_claim_interface(handle, 0);
+    if (ret < 0) {
+        fprintf(stderr, "Warning: Could not claim interface: %s\n", libusb_error_name(ret));
+        /* Continue anyway, might still work */
     }
     
+    /* Send via interrupt transfer */
+    fprintf(stderr, "Sending RGB command via EP 4...\n");
+    
+    ret = libusb_interrupt_transfer(
+        handle,
+        0x04,           /* EP 4 OUT */
+        message,
+        MESSAGE_LENGTH,
+        &actual_length,
+        1000
+    );
+    
+    if (ret < 0) {
+        fprintf(stderr, "USB interrupt transfer error: %s\n", libusb_error_name(ret));
+        libusb_release_interface(handle, 0);
+        libusb_close(handle);
+        libusb_exit(NULL);
+        return ret;
+    }
+    
+    fprintf(stderr, "Interrupt transfer successful, wrote %d bytes\n", actual_length);
+    
+    /* Apply changes */
+    fprintf(stderr, "Applying MESSAGE_SET...\n");
+    libusb_interrupt_transfer(handle, 0x04, (unsigned char *)MESSAGE_SET, MESSAGE_LENGTH, &actual_length, 1000);
+    
+    fprintf(stderr, "Applying MESSAGE_APPLY...\n");
+    libusb_interrupt_transfer(handle, 0x04, (unsigned char *)MESSAGE_APPLY, MESSAGE_LENGTH, &actual_length, 1000);
+    
+    libusb_release_interface(handle, 0);
     libusb_close(handle);
     libusb_exit(NULL);
     
-    return ret;
+    fprintf(stderr, "RGB command completed\n");
+    
+    return 0;
+}
+
+/* Send message to GZ302 keyboard */
+int send_to_gz302(uint8_t *message) {
+    /* Try hidraw first (kernel-managed, no detach needed) */
+    int ret = send_to_gz302_hidraw(message);
+    if (ret == 0) {
+        return 0;
+    }
+    
+    fprintf(stderr, "Hidraw device not available, trying libusb with driver detach...\n");
+    
+    /* Fall back to libusb with driver detach */
+    return send_to_gz302_libusb(message);
 }
 
 void print_usage(const char *prog) {

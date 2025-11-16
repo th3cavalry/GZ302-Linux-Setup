@@ -12,12 +12,12 @@ SOURCE = gz302-rgb-cli.c
 OBJECT = $(SOURCE:.c=.o)
 
 $(TARGET): $(OBJECT)
-$(CC) $(CFLAGS) -o $@ $^ $(LIBUSB_LIBS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBUSB_LIBS)
 
 $(OBJECT): $(SOURCE)
-$(CC) $(CFLAGS) $(LIBUSB_CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(LIBUSB_CFLAGS) -c -o $@ $<
 
 clean:
-rm -f $(OBJECT) $(TARGET)
+	rm -f $(OBJECT) $(TARGET)
 
 .PHONY: clean
