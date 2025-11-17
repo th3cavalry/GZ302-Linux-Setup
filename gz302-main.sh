@@ -2754,9 +2754,34 @@ install_tray_icon() {
     local tray_dir="$SCRIPT_DIR/tray-icon"
     local install_script="$tray_dir/install-tray.sh"
     
-    # Check if tray-icon directory exists
+    # Check if tray-icon directory exists; if not, download it
     if [[ ! -d "$tray_dir" ]]; then
-        error "Tray icon directory not found at $tray_dir\nThe tray-icon folder must be present in the GZ302-Linux-Setup repository."
+        info "Downloading tray icon files from GitHub..."
+        mkdir -p "$tray_dir"
+        
+        # Download the necessary tray icon files
+        local tray_files=("install-tray.sh" "install-policy.sh" "README.md")
+        for file in "${tray_files[@]}"; do
+            if ! curl -fsSL "${GITHUB_RAW_URL}/tray-icon/${file}" -o "$tray_dir/${file}" 2>/dev/null; then
+                warning "Failed to download tray-icon/${file}"
+            else
+                chmod +x "$tray_dir/${file}"
+            fi
+        done
+        
+        # Download tray icon source directory
+        mkdir -p "$tray_dir/src"
+        mkdir -p "$tray_dir/assets"
+        if ! curl -fsSL "${GITHUB_RAW_URL}/tray-icon/src/gz302_tray.py" -o "$tray_dir/src/gz302_tray.py" 2>/dev/null; then
+            warning "Failed to download tray-icon/src/gz302_tray.py"
+        else
+            chmod +x "$tray_dir/src/gz302_tray.py"
+        fi
+        
+        # Download requirements.txt
+        if ! curl -fsSL "${GITHUB_RAW_URL}/tray-icon/requirements.txt" -o "$tray_dir/requirements.txt" 2>/dev/null; then
+            warning "Failed to download tray-icon/requirements.txt"
+        fi
     fi
     
     # Check if install script exists
