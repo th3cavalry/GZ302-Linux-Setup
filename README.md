@@ -7,7 +7,7 @@
 - **GZ302EA-XS64** - 64GB RAM variant
 - **GZ302EA-XS32** - 32GB RAM variant
 
-> **🚀 Version 1.4.1 - Enhanced System Tray Visibility (November 2025)!** System tray now shows checkmarks on active power profiles and displays detailed power values in notifications. Perfect visibility when using KDE or HHD alongside GZ302 power management. Plus RGB keyboard persistence, full RGB support, static colors, and animations. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
+> **🚀 Version 1.4.2 - KDE/HHD Power Profile Sync Fix (November 2025)!** Power profiles now sync with KDE and HandHeld Daemon (HHD). When you change profiles via the system tray, KDE's battery icon and HHD will reflect the change. System tray shows checkmarks on active profiles with detailed power values. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
 
 ## ✨ Key Features
 

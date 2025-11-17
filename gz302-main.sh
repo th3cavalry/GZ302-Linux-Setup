@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.4.1
+# Version: 1.4.2
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -1350,6 +1350,21 @@ set_tdp_profile() {
         if ryzenadj --stapm-limit="$spl" --slow-limit="$sppt" --fast-limit="$fppt" >/dev/null 2>&1; then
             success=true
             echo "Power limits applied successfully using ryzenadj"
+            
+            # Sync with power-profiles-daemon for KDE/HHD integration
+            if command -v powerprofilesctl >/dev/null 2>&1; then
+                case "$profile" in
+                    maximum|gaming|performance)
+                        powerprofilesctl set performance >/dev/null 2>&1 && echo "Synced with power-profiles-daemon (performance)"
+                        ;;
+                    balanced|efficient)
+                        powerprofilesctl set balanced >/dev/null 2>&1 && echo "Synced with power-profiles-daemon (balanced)"
+                        ;;
+                    battery|emergency)
+                        powerprofilesctl set power-saver >/dev/null 2>&1 && echo "Synced with power-profiles-daemon (power-saver)"
+                        ;;
+                esac
+            fi
         else
             echo "ryzenadj failed, checking for common issues..."
             

@@ -5,6 +5,21 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2025-11-17
+
+### Fixed
+- **KDE/HHD Power Profile Synchronization**: `pwrcfg` now syncs with power-profiles-daemon after applying TDP changes
+  - Previously, `pwrcfg` only used power-profiles-daemon as a fallback when ryzenadj failed
+  - Now `pwrcfg` updates power-profiles-daemon alongside ryzenadj to keep KDE and HHD in sync
+  - KDE's battery icon (leaf/rocket) and HHD's TDP display now reflect changes made via system tray
+  - Fan speeds and power indicators now update correctly when changing profiles via tray icon
+  - Fixes issue where users couldn't tell if tray icon profile changes were working
+
+### Changed
+- `set_tdp_profile()` function now always syncs with power-profiles-daemon after successful ryzenadj execution
+- Power profile mapping: maximum/gaming/performance → performance, balanced/efficient → balanced, battery/emergency → power-saver
+- Version bumped: 1.4.1 → 1.4.2 (PATCH version for power profile sync bug fix)
+
 ## [1.4.1] - 2025-11-17
 
 ### Added
