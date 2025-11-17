@@ -206,39 +206,44 @@ int is_gz302_device(const char *hidraw_path) {
 int send_to_gz302_hidraw(uint8_t *message) {
     int fd;
     ssize_t ret;
+    int found_any = 0;
+    int success = 0;
     
-    /* Try to open the GZ302 keyboard hidraw device */
+    /* Find ALL hidraw devices that belong to GZ302 keyboard and send to all of them */
+    /* The RGB control may be on any of the 5 interfaces, so we send to all to ensure it works */
     for (int i = 0; i < 64; i++) {
         char hidraw_path[256];
         snprintf(hidraw_path, sizeof(hidraw_path), "/dev/hidraw%d", i);
         
-        fd = open(hidraw_path, O_WRONLY);
+        fd = open(hidraw_path, O_RDWR);
         if (fd < 0) continue;
         
         /* Verify this is the GZ302 keyboard */
         if (is_gz302_device(hidraw_path)) {
-            fprintf(stderr, "Found GZ302 keyboard at %s\n", hidraw_path);
+            found_any = 1;
+            fprintf(stderr, "Sending to GZ302 keyboard at %s\n", hidraw_path);
             
             ret = write(fd, message, MESSAGE_LENGTH);
             if (ret == MESSAGE_LENGTH) {
-                fprintf(stderr, "Sent RGB command via %s\n", hidraw_path);
-                
-                /* Apply changes */
-                fprintf(stderr, "Applying MESSAGE_SET...\n");
+                /* Apply changes to this interface */
                 write(fd, MESSAGE_SET, MESSAGE_LENGTH);
-                
-                fprintf(stderr, "Applying MESSAGE_APPLY...\n");
                 write(fd, MESSAGE_APPLY, MESSAGE_LENGTH);
-                
-                close(fd);
-                return 0;
+                success = 1;
+                fprintf(stderr, "Sent RGB command via %s\n", hidraw_path);
             }
         }
         close(fd);
     }
     
-    fprintf(stderr, "Error: Could not find GZ302 hidraw device\n");
-    return -1;
+    if (success) {
+        return 0;
+    } else if (found_any) {
+        fprintf(stderr, "Error: Found GZ302 keyboard but could not send RGB command\n");
+        return -1;
+    } else {
+        fprintf(stderr, "Error: Could not find GZ302 hidraw device\n");
+        return -1;
+    }
 }
 
 /* Send message to GZ302 keyboard via libusb (no driver detach) */
