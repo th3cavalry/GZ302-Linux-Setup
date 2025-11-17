@@ -480,7 +480,10 @@ Categories=Utility;System;
                 timeout=5
             )
             
-            if result.returncode == 0:
+            # Check for actual errors (RGB binary writes diagnostics to stderr, so we check for "Error:" messages)
+            has_error = result.returncode != 0 or "Error:" in result.stderr
+            
+            if not has_error:
                 self.showMessage(
                     "Keyboard RGB",
                     f"Color set to #{hex_color}",
@@ -538,7 +541,10 @@ Categories=Utility;System;
                 timeout=5
             )
             
-            if result.returncode == 0:
+            # Check for actual errors (RGB binary writes diagnostics to stderr, so we check for "Error:" messages)
+            has_error = result.returncode != 0 or "Error:" in result.stderr
+            
+            if not has_error:
                 self.showMessage(
                     "Keyboard RGB",
                     f"{desc} activated",
