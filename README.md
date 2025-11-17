@@ -7,7 +7,7 @@
 - **GZ302EA-XS64** - 64GB RAM variant
 - **GZ302EA-XS32** - 32GB RAM variant
 
-> **🚀 Version 1.4.0 - RGB Keyboard Persistence on Boot (November 2025)!** Now automatically restores your last used RGB color or animation after system reboot. Full RGB keyboard support integrated into the system tray icon with custom optimized CLI. Supports static colors, animations (breathing, color cycle, rainbow), and custom hex colors. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
+> **🚀 Version 1.4.2 - KDE/HHD Power Profile Sync Fix (November 2025)!** Power profiles now sync with KDE and HandHeld Daemon (HHD). When you change profiles via the system tray, KDE's battery icon and HHD will reflect the change. System tray shows checkmarks on active profiles with detailed power values. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
 
 ## ✨ Key Features
 
@@ -30,7 +30,13 @@ Download and install only what you need:
 - **🔒 Secure Boot Module** - Boot integrity and security tools
 
 ### 🎯 **GUI Tools**
-- **🖱️ [Tray Icon](tray-icon/)** - System tray utility for quick power profile switching and keyboard RGB/brightness control. Supports password-less sudo for `pwrcfg`, AC/Battery indicators, and autostart.
+- **🖱️ [Tray Icon](tray-icon/)** - System tray utility for quick power profile switching and keyboard RGB/brightness control. Features:
+  - ✓ **Visual Indicators** - Checkmarks show active power profile and charge limit
+  - ✓ **Detailed Notifications** - See actual power values (SPL, sPPT, fPPT) and refresh rates when switching
+  - ✓ **Real-time Updates** - Menu automatically updates when profiles change
+  - ✓ **Password-less sudo** - No password prompts with `pwrcfg` sudoers configured
+  - ✓ **AC/Battery Indicators** - See power source and battery percentage in tooltip
+  - ✓ **Auto-start Support** - Launch on login
 
 ## 🚀 Installation
 

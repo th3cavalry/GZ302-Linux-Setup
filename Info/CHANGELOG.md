@@ -5,6 +5,47 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2025-11-17
+
+### Fixed
+- **KDE/HHD Power Profile Synchronization**: `pwrcfg` now syncs with power-profiles-daemon after applying TDP changes
+  - Previously, `pwrcfg` only used power-profiles-daemon as a fallback when ryzenadj failed
+  - Now `pwrcfg` updates power-profiles-daemon alongside ryzenadj to keep KDE and HHD in sync
+  - KDE's battery icon (leaf/rocket) and HHD's TDP display now reflect changes made via system tray
+  - Fan speeds and power indicators now update correctly when changing profiles via tray icon
+  - Fixes issue where users couldn't tell if tray icon profile changes were working
+
+### Changed
+- `set_tdp_profile()` function now always syncs with power-profiles-daemon after successful ryzenadj execution
+- Power profile mapping: maximum/gaming/performance → performance, balanced/efficient → balanced, battery/emergency → power-saver
+- Version bumped: 1.4.1 → 1.4.2 (PATCH version for power profile sync bug fix)
+
+## [1.4.1] - 2025-11-17
+
+### Added
+- **Visual Feedback in System Tray Menu**: Checkmarks (✓) now indicate currently active power profile
+  - Active profile is marked with ✓, inactive profiles have 3-space indent for alignment
+  - Battery charge limit menu (80%/100%) also shows checkmarks for active setting
+  - Menu automatically rebuilds when profile changes (manual or external)
+- **Enhanced Profile Change Notifications**: More detailed feedback when switching profiles
+  - Notifications now display actual power values (SPL, sPPT, fPPT) and target refresh rate
+  - Notification duration increased from 3s to 4s for better readability
+  - Users can now clearly see the power profile change took effect
+
+### Fixed
+- Addressed user feedback that power profile changes via system tray were unclear/invisible
+  - Issue particularly noticeable when KDE and HHD sync with power profiles
+  - Users can now immediately see which profile is active in the menu
+  - Real-time visual confirmation that profile change succeeded
+
+### Changed
+- `create_menu()` method now adds visual indicators (✓) to active items
+- `change_profile()` parses pwrcfg output to show detailed power information in notifications
+- `update_current_profile()` detects profile changes and rebuilds menu automatically
+- Added `self.current_profile` attribute to track active power profile
+- Added `get_current_charge_limit()` helper method for charge limit menu
+- Version bumped: 1.4.0 → 1.4.1 (PATCH version for UI/visibility improvements)
+
 ## [1.4.0] - 2025-11-16
 
 ### Added

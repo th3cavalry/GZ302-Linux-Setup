@@ -27,6 +27,9 @@ class GZ302TrayIcon(QSystemTrayIcon):
             ("Maximum (90W)", "maximum")
         ]
         
+        # Store current profile name
+        self.current_profile = "balanced"
+        
         # Create menu
         self.menu = QMenu()
         self.create_menu()
@@ -49,7 +52,13 @@ class GZ302TrayIcon(QSystemTrayIcon):
         
         # Add profile options
         for name, profile in self.profiles:
-            action = QAction(name, self)
+            # Add checkmark to currently active profile
+            if profile == self.current_profile:
+                display_name = f"✓ {name}"
+            else:
+                display_name = f"   {name}"
+            
+            action = QAction(display_name, self)
             action.triggered.connect(lambda checked, p=profile: self.change_profile(p))
             self.menu.addAction(action)
         
@@ -65,11 +74,18 @@ class GZ302TrayIcon(QSystemTrayIcon):
         # Battery charge limit
         charge_limit_menu = self.menu.addMenu("Battery Charge Limit")
         if charge_limit_menu is not None:
-            charge_80_action = QAction("80% (Recommended)", self)
+            # Get current charge limit
+            current_limit = self.get_current_charge_limit()
+            
+            # 80% option
+            label_80 = "✓ 80% (Recommended)" if current_limit == "80" else "   80% (Recommended)"
+            charge_80_action = QAction(label_80, self)
             charge_80_action.triggered.connect(lambda: self.set_charge_limit("80"))
             charge_limit_menu.addAction(charge_80_action)
             
-            charge_100_action = QAction("100% (Maximum)", self)
+            # 100% option
+            label_100 = "✓ 100% (Maximum)" if current_limit == "100" else "   100% (Maximum)"
+            charge_100_action = QAction(label_100, self)
             charge_100_action.triggered.connect(lambda: self.set_charge_limit("100"))
             charge_limit_menu.addAction(charge_100_action)
 
@@ -160,13 +176,28 @@ class GZ302TrayIcon(QSystemTrayIcon):
             )
             
             if result.returncode == 0:
+                # Parse the output to get power values
+                power_info = ""
+                for line in result.stdout.split('\n'):
+                    if 'SPL' in line or 'Refresh' in line:
+                        power_info += line.strip() + "\n"
+                
+                # Show detailed notification
+                notification_text = f"Switched to {profile} profile"
+                if power_info:
+                    notification_text += f"\n{power_info.strip()}"
+                
                 self.showMessage(
                     "Power Profile Changed",
-                    f"Switched to {profile} profile",
+                    notification_text,
                     QSystemTrayIcon.MessageIcon.Information,
-                    3000
+                    4000
                 )
+                
+                # Update current profile and refresh menu immediately
+                self.current_profile = profile
                 self.update_current_profile()
+                self.create_menu()  # Rebuild menu to show checkmark on new profile
             else:
                 err = (result.stderr or "").strip()
                 hint = ""
@@ -251,6 +282,11 @@ class GZ302TrayIcon(QSystemTrayIcon):
                             if extracted in ['emergency', 'battery', 'efficient', 'balanced', 'performance', 'gaming', 'maximum']:
                                 profile_name = extracted
                             break
+                
+                # Update current profile and rebuild menu if it changed
+                if self.current_profile != profile_name:
+                    self.current_profile = profile_name
+                    self.create_menu()  # Rebuild menu to show checkmark on new profile
                 
                 # Append power status for tooltip only
                 power = self.get_power_status()
@@ -357,6 +393,29 @@ Categories=Utility;System;
         except Exception as e:
             self.showMessage("Autostart Error", f"Failed to create autostart: {e}", QSystemTrayIcon.MessageIcon.Warning, 4000)
 
+    def get_current_charge_limit(self):
+        """Get the current battery charge limit setting."""
+        try:
+            result = subprocess.run(
+                ["sudo", "/usr/local/bin/pwrcfg", "charge-limit"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if result.returncode == 0:
+                # Parse output to find the limit value
+                for line in result.stdout.split('\n'):
+                    if 'Charge Limit:' in line:
+                        # Extract percentage value
+                        parts = line.split(':')
+                        if len(parts) > 1:
+                            limit = parts[1].strip().rstrip('%')
+                            return limit
+            return "N/A"
+        except Exception:
+            return "N/A"
+
     def set_charge_limit(self, limit):
         """Set battery charge limit (80 or 100)."""
         try:
@@ -375,6 +434,7 @@ Categories=Utility;System;
                     3000
                 )
                 self.update_current_profile()
+                self.create_menu()  # Rebuild menu to show checkmark on new limit
             else:
                 err = (result.stderr or "").strip()
                 self.showMessage(
