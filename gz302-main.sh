@@ -17,13 +17,19 @@
 #
 # REQUIRED: Linux kernel 6.14+ minimum (6.17+ strongly recommended)
 #
+# Core features (automatically installed):
+# - Hardware fixes and optimizations
+# - Power management (TDP control via pwrcfg)
+# - Refresh rate control (rrcfg)
+# - Keyboard RGB control (gz302-rgb - all colors and animations)
+# - System tray power manager
+#
 # Optional software can be installed via modular scripts:
 # - gz302-gaming: Gaming software (Steam, Lutris, MangoHUD, etc.)
 # - gz302-llm: AI/LLM software (Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, etc.)
 # - gz302-hypervisor: Virtualization (KVM, VirtualBox, VMware, etc.)
 # - gz302-snapshots: System snapshots (Snapper, LVM, etc.)
 # - gz302-secureboot: Secure boot configuration
-# - gz302-rgb: Keyboard RGB control (rogauracore with GZ302 support)
 #
 # Supported Distributions:
 # - Arch-based: Arch Linux (also supports CachyOS, EndeavourOS, Manjaro)
@@ -3010,15 +3016,10 @@ offer_optional_modules() {
     echo "   - Enhanced system security and boot integrity"
     echo "   - Automatic kernel signing on updates"
     echo
-    echo "6. Keyboard RGB Control (gz302-rgb)"
-    echo "   - Full RGB keyboard control via rogauracore"
-    echo "   - Static colors, animations, breathing effects"
-    echo "   - Requires rogauracore with GZ302 support"
-    echo
-    echo "7. Skip optional modules"
+    echo "6. Skip optional modules"
     echo
     
-    read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 7 to skip): " module_choice
+    read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 6 to skip): " module_choice
     
     # Parse the choices
     IFS=',' read -ra CHOICES <<< "$module_choice"
@@ -3041,9 +3042,6 @@ offer_optional_modules() {
                 download_and_execute_module "gz302-secureboot" "$distro" || warning "Secure boot module installation failed"
                 ;;
             6)
-                bash "$SCRIPT_DIR/gz302-rgb.sh" "$distro" || warning "RGB keyboard control module installation failed"
-                ;;
-            7)
                 info "Skipping optional modules"
                 ;;
             *)
