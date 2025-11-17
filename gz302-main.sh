@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.3.1
+# Version: 1.3.2
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -476,6 +476,97 @@ install_sof_firmware() {
     systemctl enable --now alsa-state.service 2>/dev/null || true
     
     info "SOF audio configuration complete"
+}
+
+# --- GZ302 RGB Keyboard Control Installation ---
+install_gz302_rgb_keyboard() {
+    info "Installing GZ302 RGB Keyboard Control..."
+    
+    local distro="$1"
+    local build_dir="/tmp/gz302-rgb-build"
+    
+    # Check if gcc and libusb development headers are available
+    case "$distro" in
+        arch)
+            pacman -S --noconfirm --needed base-devel libusb 2>/dev/null || warning "Failed to install build dependencies"
+            ;;
+        ubuntu)
+            apt-get install -y build-essential libusb-1.0-0-dev 2>/dev/null || warning "Failed to install build dependencies"
+            ;;
+        fedora)
+            dnf install -y gcc make libusb1-devel 2>/dev/null || warning "Failed to install build dependencies"
+            ;;
+        opensuse)
+            zypper install -y gcc make libusb-1_0-devel 2>/dev/null || warning "Failed to install build dependencies"
+            ;;
+    esac
+    
+    # Create build directory
+    mkdir -p "$build_dir"
+    cd "$build_dir"
+    
+    # Download the RGB source files
+    info "Downloading GZ302 RGB control source..."
+    if ! curl -L "${GITHUB_RAW_URL}/gz302-rgb-cli.c" -o gz302-rgb-cli.c 2>/dev/null; then
+        warning "Failed to download gz302-rgb-cli.c"
+        return 1
+    fi
+    
+    if ! curl -L "${GITHUB_RAW_URL}/Makefile.rgb" -o Makefile -z Makefile 2>/dev/null; then
+        warning "Failed to download Makefile.rgb"
+        return 1
+    fi
+    
+    # Compile the RGB binary
+    info "Compiling GZ302 RGB control..."
+    if ! make -f Makefile 2>/dev/null; then
+        warning "Failed to compile gz302-rgb"
+        return 1
+    fi
+    
+    # Install the binary
+    if ! cp gz302-rgb /usr/local/bin/gz302-rgb 2>/dev/null; then
+        warning "Failed to install gz302-rgb binary"
+        return 1
+    fi
+    
+    chmod +x /usr/local/bin/gz302-rgb
+    
+    # Configure passwordless sudo for RGB control
+    info "Configuring passwordless sudo for RGB control..."
+    
+    # Check if gz302-pwrcfg sudoers file exists, if so add gz302-rgb to it
+    if [[ -f /etc/sudoers.d/gz302-pwrcfg ]]; then
+        if ! grep -q "gz302-rgb" /etc/sudoers.d/gz302-pwrcfg; then
+            echo "Defaults use_pty" >> /etc/sudoers.d/gz302-pwrcfg
+            echo "%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb" >> /etc/sudoers.d/gz302-pwrcfg
+            echo "%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb" >> /etc/sudoers.d/gz302-pwrcfg
+        fi
+    else
+        # Create new sudoers entry
+        cat > /etc/sudoers.d/gz302-pwrcfg <<EOF
+# GZ302 Power and RGB Control - Passwordless Sudo
+Defaults use_pty
+%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/pwrcfg
+%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/rrcfg
+%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
+%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/pwrcfg
+%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/rrcfg
+%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
+EOF
+    fi
+    
+    chmod 440 /etc/sudoers.d/gz302-pwrcfg
+    
+    # Verify RGB control works
+    info "Testing RGB control..."
+    if /usr/local/bin/gz302-rgb blue 2>&1 | grep -q "Found\|Sent"; then
+        success "GZ302 RGB Keyboard Control installed successfully"
+        return 0
+    else
+        warning "RGB control test inconclusive but binary installed"
+        return 0
+    fi
 }
 
 # --- Distribution-Specific Package Installation ---
@@ -2760,6 +2851,9 @@ EOFYAY
     # Install SOF firmware for audio support
     install_sof_firmware "arch"
     
+    # Install GZ302 RGB keyboard control
+    install_gz302_rgb_keyboard "arch" || warning "RGB keyboard installation failed"
+    
     # Setup TDP management and refresh rate (always install)
     setup_tdp_management "arch"
     install_refresh_management
@@ -2787,6 +2881,9 @@ setup_debian_based() {
     # Install SOF firmware for audio support
     install_sof_firmware "ubuntu"
     
+    # Install GZ302 RGB keyboard control
+    install_gz302_rgb_keyboard "ubuntu" || warning "RGB keyboard installation failed"
+    
     # Setup TDP management and refresh rate (always install)
     setup_tdp_management "debian"
     install_refresh_management
@@ -2811,6 +2908,9 @@ setup_fedora_based() {
     
     # Install SOF firmware for audio support
     install_sof_firmware "fedora"
+    
+    # Install GZ302 RGB keyboard control
+    install_gz302_rgb_keyboard "fedora" || warning "RGB keyboard installation failed"
     
     # Setup TDP management and refresh rate (always install)
     setup_tdp_management "fedora"
@@ -2837,6 +2937,9 @@ setup_opensuse() {
     
     # Install SOF firmware for audio support
     install_sof_firmware "opensuse"
+    
+    # Install GZ302 RGB keyboard control
+    install_gz302_rgb_keyboard "opensuse" || warning "RGB keyboard installation failed"
     
     # Setup TDP management and refresh rate (always install)
     setup_tdp_management "opensuse"
@@ -2958,7 +3061,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 1.1.1"
+    echo "  Version 1.3.2"
     echo "============================================================"
     echo
     
