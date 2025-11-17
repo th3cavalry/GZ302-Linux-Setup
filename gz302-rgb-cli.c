@@ -37,11 +37,14 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <libusb-1.0/libusb.h>
 
 #define MESSAGE_LENGTH 17
 #define GZ302_VENDOR_ID 0x0b05
 #define GZ302_PRODUCT_ID 0x1a30
+#define RGB_CONFIG_DIR "/etc/gz302-rgb"
+#define RGB_CONFIG_FILE "/etc/gz302-rgb/last-setting.conf"
 
 /* USB protocol constants for GZ302 keyboard */
 const uint8_t SPEED_BYTE_VALUES[] = {0xe1, 0xeb, 0xf5};
@@ -136,6 +139,31 @@ int parse_int(const char *arg, int min, int max, int *result) {
     }
     *result = (int)val;
     return 0;
+}
+
+/* Save RGB setting to config file for boot restoration */
+void save_rgb_setting(int argc, char **argv) {
+    FILE *config_file;
+    
+    /* Try to create config directory if it doesn't exist */
+    mkdir(RGB_CONFIG_DIR, 0755);
+    
+    /* Open config file for writing */
+    config_file = fopen(RGB_CONFIG_FILE, "w");
+    if (!config_file) {
+        fprintf(stderr, "Warning: Could not save RGB setting to %s\n", RGB_CONFIG_FILE);
+        return;
+    }
+    
+    /* Write command and all arguments to config file */
+    fprintf(config_file, "COMMAND=%s\n", argv[1]);
+    for (int i = 2; i < argc; i++) {
+        fprintf(config_file, "ARG%d=%s\n", i - 1, argv[i]);
+    }
+    fprintf(config_file, "ARGC=%d\n", argc);
+    
+    fclose(config_file);
+    fprintf(stderr, "RGB setting saved for boot restoration\n");
 }
 
 /* Find and open GZ302 keyboard */
@@ -425,5 +453,13 @@ int main(int argc, char **argv) {
         return 1;
     }
     
-    return send_to_gz302(message);
+    /* Send RGB command to keyboard */
+    int result = send_to_gz302(message);
+    
+    /* If successful, save setting for boot restoration */
+    if (result == 0) {
+        save_rgb_setting(argc, argv);
+    }
+    
+    return result;
 }

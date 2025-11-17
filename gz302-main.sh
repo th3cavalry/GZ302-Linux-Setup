@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.3.2
+# Version: 1.4.0
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -564,10 +564,39 @@ EOF
     
     chmod 440 /etc/sudoers.d/gz302-pwrcfg
     
+    # Create RGB config directory
+    info "Setting up RGB persistence..."
+    mkdir -p /etc/gz302-rgb
+    chmod 755 /etc/gz302-rgb
+    
+    # Download and install restore script
+    if ! curl -L "${GITHUB_RAW_URL}/gz302-rgb-restore.sh" -o /usr/local/bin/gz302-rgb-restore 2>/dev/null; then
+        warning "Failed to download gz302-rgb-restore script"
+    else
+        chmod +x /usr/local/bin/gz302-rgb-restore
+        
+        # Configure passwordless sudo for restore script
+        if [[ -f /etc/sudoers.d/gz302-pwrcfg ]]; then
+            if ! grep -q "gz302-rgb-restore" /etc/sudoers.d/gz302-pwrcfg; then
+                echo "%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-restore" >> /etc/sudoers.d/gz302-pwrcfg
+                echo "%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-restore" >> /etc/sudoers.d/gz302-pwrcfg
+            fi
+        fi
+    fi
+    
+    # Download and install systemd service
+    if ! curl -L "${GITHUB_RAW_URL}/gz302-rgb-restore.service" -o /etc/systemd/system/gz302-rgb-restore.service 2>/dev/null; then
+        warning "Failed to download gz302-rgb-restore service"
+    else
+        systemctl daemon-reload
+        systemctl enable gz302-rgb-restore.service 2>/dev/null || warning "Failed to enable RGB restore service"
+        success "RGB persistence service installed"
+    fi
+    
     # Verify RGB control works
     info "Testing RGB control..."
     if /usr/local/bin/gz302-rgb blue 2>&1 | grep -q "Found\|Sent"; then
-        success "GZ302 RGB Keyboard Control installed successfully"
+        success "GZ302 RGB Keyboard Control with persistence installed successfully"
         return 0
     else
         warning "RGB control test inconclusive but binary installed"

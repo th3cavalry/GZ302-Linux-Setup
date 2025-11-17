@@ -470,6 +470,42 @@ Categories=Utility;System;
         except Exception:
             return False
 
+    def save_rgb_setting(self, command, *args):
+        """Save RGB setting to config file for boot persistence."""
+        try:
+            config_file = "/etc/gz302-rgb/last-setting.conf"
+            
+            # Build the config content
+            config_lines = [f"COMMAND={command}"]
+            for i, arg in enumerate(args, 1):
+                config_lines.append(f"ARG{i}={arg}")
+            config_lines.append(f"ARGC={len(args) + 1}")
+            config_content = "\n".join(config_lines) + "\n"
+            
+            # Write to config file using sudo
+            # Create a temporary file and use tee to write it
+            temp_file = f"/tmp/gz302-rgb-{os.getpid()}.conf"
+            with open(temp_file, 'w') as f:
+                f.write(config_content)
+            
+            subprocess.run(
+                ["sudo", "-n", "tee", config_file],
+                input=config_content,
+                text=True,
+                capture_output=True,
+                timeout=2
+            )
+            
+            # Clean up temp file
+            try:
+                os.remove(temp_file)
+            except:
+                pass
+                
+        except Exception as e:
+            # Silently fail - saving is not critical
+            pass
+
     def set_rgb_color(self, hex_color):
         """Set RGB keyboard to static color."""
         try:
@@ -484,6 +520,8 @@ Categories=Utility;System;
             has_error = result.returncode != 0 or "Error:" in result.stderr
             
             if not has_error:
+                # Save the RGB setting for boot persistence
+                self.save_rgb_setting("single_static", hex_color)
                 self.showMessage(
                     "Keyboard RGB",
                     f"Color set to #{hex_color}",
@@ -545,6 +583,14 @@ Categories=Utility;System;
             has_error = result.returncode != 0 or "Error:" in result.stderr
             
             if not has_error:
+                # Save animation setting for boot persistence
+                if animation_type == "breathing":
+                    self.save_rgb_setting("single_breathing", color1, color2, str(speed))
+                elif animation_type == "colorcycle":
+                    self.save_rgb_setting("single_colorcycle", str(speed))
+                elif animation_type == "rainbow":
+                    self.save_rgb_setting("rainbow_cycle", str(speed))
+                
                 self.showMessage(
                     "Keyboard RGB",
                     f"{desc} activated",

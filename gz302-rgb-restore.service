@@ -1,0 +1,14 @@
+[Unit]
+Description=Restore GZ302 Keyboard RGB Settings on Boot
+After=multi-user.target
+Documentation=https://github.com/th3cavalry/GZ302-Linux-Setup
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/gz302-rgb-restore
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
