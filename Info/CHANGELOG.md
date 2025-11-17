@@ -5,6 +5,23 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-11-16
+
+### Added
+- **RGB Keyboard Persistence on Boot**: Automatically restore last used RGB setting after system reboot
+  - New `save_rgb_setting()` function in `gz302-rgb-cli.c` to persist RGB commands to `/etc/gz302-rgb/last-setting.conf`
+  - New `gz302-rgb-restore.sh` script to restore RGB settings during system boot
+  - New `gz302-rgb-restore.service` systemd unit file for automatic boot-time restoration
+  - Tray icon now saves RGB settings for color and animation changes via `save_rgb_setting()` method
+  - Config file format: `COMMAND`, `ARG*`, `ARGC` for reliable argument reconstruction
+
+### Fixed
+- Tray icon animation settings (breathing, color cycle, rainbow) now persist across reboots via `save_rgb_setting()` integration
+
+### Changed
+- Version bumped: 1.3.2 → 1.4.0 (MINOR version for RGB persistence feature)
+- All module scripts now at version 1.4.0 for consistency
+
 ## [1.3.1] - 2025-11-15
 
 ### Added

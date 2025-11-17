@@ -7,7 +7,7 @@
 - **GZ302EA-XS64** - 64GB RAM variant
 - **GZ302EA-XS32** - 32GB RAM variant
 
-> **🚀 Version 1.3.1 - Keyboard RGB Control via System Tray (November 2025)!** Full RGB keyboard support integrated into the system tray icon with custom optimized CLI. Supports static colors, animations (breathing, color cycle, rainbow), and custom hex colors. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
+> **🚀 Version 1.4.0 - RGB Keyboard Persistence on Boot (November 2025)!** Now automatically restores your last used RGB color or animation after system reboot. Full RGB keyboard support integrated into the system tray icon with custom optimized CLI. Supports static colors, animations (breathing, color cycle, rainbow), and custom hex colors. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
 
 ## ✨ Key Features
 
@@ -145,6 +145,14 @@ RGB control via custom GZ302-optimized CLI (`gz302-rgb-cli.c`):
 - 70% smaller than rogauracore (17KB vs 58KB)
 - Supports USB device 0x0b05:0x1a30 (GZ302 keyboard)
 - MIT licensed with full copyright attribution
+
+**RGB Persistence (Automatic Boot Restoration):**
+- ✅ **Automatic Restoration**: Last used RGB color/animation is automatically restored on system boot
+- ✅ **Transparent to User**: No configuration needed - settings are saved automatically when set via CLI or tray icon
+- ✅ **Config Storage**: Settings stored in `/etc/gz302-rgb/last-setting.conf`
+- ✅ **Boot Service**: `gz302-rgb-restore.service` (systemd) handles restoration at boot time
+- ✅ **All Methods Supported**: Settings persist whether changed via CLI (`gz302-rgb`), tray icon, or direct command
+- Example workflow: Set `gz302-rgb breathing FF0000 00FF00 2` → Reboot → Breathing animation restored automatically
 
 ## 📋 Supported Distributions
 
