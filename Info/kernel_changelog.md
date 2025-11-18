@@ -19,7 +19,7 @@ This document tracks kernel changes specifically relevant to the ASUS ROG Flow Z
 
 ## Bootloader Configuration for linux-g14
 
-The GZ302 setup scripts (v1.0.7+) automatically configure both GRUB and systemd-boot when installing the linux-g14 kernel:
+The GZ302 setup scripts automatically configure both GRUB and systemd-boot when installing the linux-g14 kernel:
 
 ### GRUB Configuration (Debian/Ubuntu/Fedora/OpenSUSE)
 - **Automatic grub-mkconfig regeneration** after kernel installation

@@ -178,4 +178,4 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ---
 
-**Last Updated:** November 2025 (v1.4.2)
+**Last Updated:** November 2025 (v2.0.0)

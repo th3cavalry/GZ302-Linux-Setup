@@ -193,7 +193,7 @@ If running **Ubuntu 25.10 (Oracular)**, you should:
 **Recommendation for Users**:
 - **New installations**: Use Arch Linux, Fedora 42+, or OpenSUSE Tumbleweed for best out-of-box experience
 - **Ubuntu 25.10 users**: Upgrade to HWE kernel 6.14+ immediately
-- **All users**: Run GZ302 setup script v1.0.5+ to get keyboard backlight and touchpad fixes
+- **All users**: Run GZ302 setup script to get keyboard backlight and touchpad fixes
 
 ---
 

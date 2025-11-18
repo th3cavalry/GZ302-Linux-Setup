@@ -3,12 +3,12 @@
 **Date**: November 2025
 **Ubuntu Version**: 25.10 "Oracular Oriole" (codename: questing)
 **Kernel Version**: 6.17.0-6-generic
-**Script Version**: 1.0.7
+**Script Version**: 2.0.0
 **Hardware**: ASUS ROG Flow Z13 GZ302EA (AMD Strix Halo)
 
 ## Executive Summary
 
-Ubuntu 25.10 "Oracular Oriole" (codename: questing) is fully functional on the ASUS ROG Flow Z13 GZ302EA with the gz302-main.sh setup script (v1.0.7). The newer release codename causes **asusctl PPA unavailability**, preventing automatic installation of battery charge limit tools. Core hardware functionality (WiFi, touchpad, CPU optimization, GPU features) works perfectly, and workarounds are available for missing ASUS-specific utilities.
+Ubuntu 25.10 "Oracular Oriole" (codename: questing) is fully functional on the ASUS ROG Flow Z13 GZ302EA with the gz302-main.sh setup script (v2.0.0). The newer release codename causes **asusctl PPA unavailability**, preventing automatic installation of battery charge limit tools. Core hardware functionality (WiFi, touchpad, CPU optimization, GPU features) works perfectly, and workarounds are available for missing ASUS-specific utilities.
 
 **TL;DR**: Ubuntu 25.10 works great on GZ302EA hardware. asusctl PPA isn't available yet (404 error), but all critical features work. Battery charge limit requires manual workarounds until the PPA adds "questing" support.
 
@@ -233,7 +233,7 @@ cat /proc/cmdline
 - **WiFi**: MediaTek MT7925 (PCIe)
 - **OS**: Ubuntu Server 25.10 (Oracular Oriole, codename: questing)
 - **Kernel**: 6.17.0-6-generic
-- **Script Version**: gz302-main.sh v1.0.7
+- **Script Version**: gz302-main.sh v2.0.0
 
 ### Test Date
 November 5, 2025
@@ -806,7 +806,7 @@ Ubuntu 25.10 "Oracular Oriole" works excellently on the ASUS ROG Flow Z13 GZ302E
 ---
 
 **Document Version**: 1.0
-**Last Updated**: November 5, 2025
+**Last Updated**: November 18, 2025
 **Hardware Tested**: ASUS ROG Flow Z13 GZ302EA-XS99 (AMD Strix Halo)
 **Kernel Tested**: 6.17.0-6-generic
-**Script Version**: gz302-main.sh v1.0.7
+**Script Version**: gz302-main.sh v2.0.0
