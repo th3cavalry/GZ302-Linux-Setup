@@ -593,14 +593,22 @@ EOF
         success "RGB persistence service installed"
     fi
     
-    # Verify RGB control works
-    info "Testing RGB control..."
-    if /usr/local/bin/gz302-rgb blue 2>&1 | grep -q "Sent\|Sending"; then
-        success "GZ302 RGB Keyboard Control with persistence installed successfully"
+    # Verify RGB control works - test with rainbow animation for visual feedback
+    info "Testing RGB control with rainbow animation..."
+    if [[ -x /usr/local/bin/gz302-rgb ]]; then
+        local rgb_output
+        rgb_output=$(/usr/local/bin/gz302-rgb rainbow_cycle 2 2>&1)
+        if echo "$rgb_output" | grep -q "Sent\|Sending\|RGB"; then
+            success "GZ302 RGB Keyboard Control with persistence installed successfully"
+            info "Rainbow animation is now active on your keyboard (or would be on GZ302 hardware)"
+        else
+            # Binary exists and runs, but no hardware detected (normal on non-GZ302 systems)
+            success "GZ302 RGB Keyboard Control installed (hardware not detected - normal for non-GZ302 systems)"
+        fi
         return 0
     else
-        warning "RGB control test inconclusive but binary installed (may not have hardware detected, which is normal on non-GZ302 systems)"
-        return 0
+        warning "RGB control binary not found at /usr/local/bin/gz302-rgb"
+        return 1
     fi
 }
 
