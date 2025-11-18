@@ -595,11 +595,11 @@ EOF
     
     # Verify RGB control works
     info "Testing RGB control..."
-    if /usr/local/bin/gz302-rgb blue 2>&1 | grep -q "Found\|Sent"; then
+    if /usr/local/bin/gz302-rgb blue 2>&1 | grep -q "Sent\|Sending"; then
         success "GZ302 RGB Keyboard Control with persistence installed successfully"
         return 0
     else
-        warning "RGB control test inconclusive but binary installed"
+        warning "RGB control test inconclusive but binary installed (may not have hardware detected, which is normal on non-GZ302 systems)"
         return 0
     fi
 }
