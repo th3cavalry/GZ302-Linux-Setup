@@ -1,470 +1,181 @@
 # GZ302 Linux Setup
 
-**Modular Linux setup scripts specifically designed for the ASUS ROG Flow Z13 (GZ302) laptop.** Transform your GZ302 into a perfectly optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional downloadable modules for gaming, AI development, virtualization, and more.
+**The ultimate modular Linux suite for the ASUS ROG Flow Z13 (GZ302).**
+Transform your device into an optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional gaming/AI modules.
 
-**Supported Models**:
-- **GZ302EA-XS99** - 128GB RAM variant
-- **GZ302EA-XS64** - 64GB RAM variant
-- **GZ302EA-XS32** - 32GB RAM variant
+> **🚀 Version 1.4.2 Update (Nov 2025)**
+> **KDE & HandHeld Daemon Sync:** Power profiles now automatically sync with KDE system tray and HHD.
+> **Kernel Requirement:** Linux 6.14+ required (6.17+ recommended) for AMD XDNA NPU and Strix Halo optimizations.
 
-> **🚀 Version 1.4.2 - KDE/HHD Power Profile Sync Fix (November 2025)!** Power profiles now sync with KDE and HandHeld Daemon (HHD). When you change profiles via the system tray, KDE's battery icon and HHD will reflect the change. System tray shows checkmarks on active profiles with detailed power values. **Required: Linux kernel 6.14+ minimum (6.17+ strongly recommended) for AMD XDNA NPU, Strix Halo optimizations, and WiFi stability.**
+---
 
-## ✨ Key Features
+## ⚡ Quick Start
 
-### 🔧 **Core Hardware Support** (Always Installed)
-- **Automated MediaTek MT7925e Wi-Fi fixes** - Eliminates disconnection issues
-- **Complete ASUS touchpad integration** - Full gesture and precision support  
-- **Optimized AMD Ryzen AI MAX+ 395 performance** - Unlocks full processor potential
-- **Advanced thermal management** - Sustained performance without throttling
-- **Power control system (pwrcfg)** - 7 power profiles with SPL/sPPT/fPPT (10W-90W)
-- **Display management (rrcfg)** - 7 refresh rate profiles (30Hz-180Hz, auto-sync with power)
-- **Keyboard backlight control** - Brightness control (0-3 levels) via system tray icon
+**One-line installation for all supported distros (Arch, Debian/Ubuntu, Fedora, OpenSUSE):**
 
-### 📦 **Optional Modular Software** (Download On Demand)
-Download and install only what you need:
-
-- **🎮 Gaming Module** - Steam, Lutris, MangoHUD, GameMode, Wine
-- **🤖 AI/LLM Module** - Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
-- **💻 Hypervisor Module** - KVM/QEMU or VirtualBox
-- **📸 Snapshots Module** - Automatic system backups with Snapper
-- **🔒 Secure Boot Module** - Boot integrity and security tools
-
-### 🎯 **GUI Tools**
-- **🖱️ [Tray Icon](tray-icon/)** - System tray utility for quick power profile switching and keyboard RGB/brightness control. Features:
-  - ✓ **Visual Indicators** - Checkmarks show active power profile and charge limit
-  - ✓ **Detailed Notifications** - See actual power values (SPL, sPPT, fPPT) and refresh rates when switching
-  - ✓ **Real-time Updates** - Menu automatically updates when profiles change
-  - ✓ **Password-less sudo** - No password prompts with `pwrcfg` sudoers configured
-  - ✓ **AC/Battery Indicators** - See power source and battery percentage in tooltip
-  - ✓ **Auto-start Support** - Launch on login
-
-## 🚀 Installation
-
-**Quick Start:**
 ```bash
-# Download and run the main setup script
 curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-main.sh -o gz302-main.sh
 chmod +x gz302-main.sh
 sudo ./gz302-main.sh
 ```
 
-The main script will:
-1. Detect your Linux distribution automatically
-2. Apply all GZ302 hardware fixes
-3. Install TDP and refresh rate management
-4. Offer optional software modules for download
-5. Optionally configure password-less `pwrcfg` (no sudo required)
+The script will automatically:
+- Detect your distro
+- Apply core hardware fixes (WiFi, Touchpad, GPU)
+- Install Power (pwrcfg) and Refresh Rate (rrcfg) tools
+- Ask if you want to install optional modules (Gaming, AI, RGB, etc.)
 
-## 🔑 Using `pwrcfg` Without Sudo
+## 💻 Supported Hardware
 
-After installation, you can enable password-less power profile switching:
+| Model | Variant | RAM | Status |
+|---|---|---|---|
+| GZ302EA-XS99 | Top Spec | 128GB | ✅ Fully Supported |
+| GZ302EA-XS64 | Mid Spec | 64GB | ✅ Fully Supported |
+| GZ302EA-XS32 | Base Spec | 32GB | ✅ Fully Supported |
 
-**Option 1: During main script installation**
-- The setup script will prompt you to enable password-less `pwrcfg`
-- Answer 'y' when asked: "Enable password-less pwrcfg (no sudo required) for all users?"
+## ✨ Features & Modules
 
-**Option 2: After installation**
+This setup is modular. The core script installs essential fixes; everything else is optional.
+
+### 🔧 Core System (Always Installed)
+
+- **WiFi Fixes:** Automated MediaTek MT7925e patches for stability
+- **Input:** Complete ASUS touchpad gestures and keyboard integration
+- **Performance:** Optimized AMD Ryzen AI MAX+ 395 scheduling
+- **Power Management:** 7 custom power profiles (10W - 90W)
+- **Display:** 7 refresh rate profiles (30Hz - 180Hz) that auto-sync with power
+- **Keyboard Control:** Brightness control (0-3 levels) and RGB lighting
+
+### 📦 Optional Modules (Select during install)
+
+| Module | Description |
+|---|---|
+| 🎮 Gaming | Steam, Lutris, MangoHUD, GameMode, Wine |
+| 🤖 AI / LLM | Ollama, ROCm, PyTorch, bitsandbytes, Transformers |
+| 🌈 RGB | Advanced keyboard lighting control (Static, Breathing, Rainbow) |
+| 💻 Hypervisor | KVM/QEMU stack (recommended) or VirtualBox |
+| 📸 Snapshots | Automatic system backups via Snapper/Btrfs |
+| 🔒 Secure Boot | Boot integrity and kernel signing tools |
+
+## 🎛️ Control Center: Usage Guide
+
+### 1. System Tray Icon (GUI)
+
+The easiest way to manage your device.
+
+- **Right-click** the tray icon to switch profiles
+- **Visuals:** Checkmarks indicate active profiles; Tooltips show battery % and power draw
+- **Keyboard:** Adjust brightness (0-3) and RGB effects directly from the menu
+
+**Install Tray Icon manually:**
 ```bash
-cd tray-icon
-sudo ./install-policy.sh
+cd tray-icon && sudo ./install-tray.sh
 ```
 
-Once configured, you can switch power profiles without typing `sudo`:
+### 2. Command Line Tools
+
+You can control everything via terminal. If you enabled "password-less sudo" during setup, you do not need to type sudo.
+
+**Power Management (pwrcfg)**
 ```bash
-# Switch to battery profile
-pwrcfg battery
-# Switch to gaming profile
-pwrcfg gaming
-# Check current profile
-pwrcfg status
-# List all available profiles
-pwrcfg list
-# Configure automatic AC/battery switching
-pwrcfg config
+pwrcfg gaming       # Switch to Gaming profile (High Wattage)
+pwrcfg battery      # Switch to Battery profile (Low Wattage)
+pwrcfg status       # Show current watts, temp, and limits
+pwrcfg config       # Enable auto-switching when plugging/unplugging AC
 ```
 
-**How it works:** `pwrcfg` automatically elevates itself using `sudo -n` when needed. With the sudoers rule installed, no password prompt appears—just instant profile switching. If password-less sudo is not configured, use `sudo pwrcfg ...` instead.
-
-## 🌈 Keyboard Control (Brightness & RGB)
-
-The GZ302 system tray icon provides convenient control for both keyboard brightness and RGB colors:
-
-### Tray Icon Features
-
-**Keyboard Brightness:**
-- ✅ **4 Brightness Levels**: Off, Level 1, Level 2, Level 3
-- ✅ **Tray Icon Control**: Right-click tray → Keyboard Backlight → Select level
-- ✅ **Auto-start**: Installed via `tray-icon/install-tray.sh`
-
-**Keyboard RGB Colors & Animations:**
-- ✅ **Static Colors**: Red, Green, Blue, Yellow, Cyan, Magenta, White, Black presets
-- ✅ **Animations**: Breathing, Color Cycle, Rainbow (with adjustable speed)
-- ✅ **Custom Colors**: Hex color input dialog for unlimited color choices
-- ✅ **Auto-detection**: RGB menu only appears if `gz302-rgb` binary is available
-
-### Installation & Usage
-
-**Install tray icon:**
+**Refresh Rate (rrcfg)**
 ```bash
-cd tray-icon
-sudo ./install-tray.sh
+rrcfg gaming        # Set screen to 180Hz
+rrcfg powersave     # Set screen to 30Hz
+rrcfg vrr on        # Enable Variable Refresh Rate (FreeSync)
 ```
 
-**Control via menu:**
-- Right-click the tray icon
-- Select **Keyboard Backlight** for brightness (0-3 levels)
-- Select **Keyboard RGB** for colors and animations (if `gz302-rgb` is installed)
-
-**Install optional RGB module:**
+**RGB Control (gz302-rgb)**
 ```bash
-# During main script setup, select option 6 for RGB module
-sudo ./gz302-main.sh
-
-# Or install standalone
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-rgb.sh -o gz302-rgb.sh
-chmod +x gz302-rgb.sh
-sudo ./gz302-rgb.sh
+gz302-rgb static ff0000     # Set keyboard to Red
+gz302-rgb breathing 00ff00  # Green breathing animation
+gz302-rgb brightness 50     # Set brightness to 50%
 ```
 
-**Command-line RGB control:**
+*Note: RGB settings persist across reboots automatically.*
+
+## 📊 Technical Specifications
+
+### Power Profiles (TDP)
+
+| Profile | TDP | Target Use Case |
+|---|---|---|
+| Emergency | 10W | Critical battery preservation (30Hz) |
+| Battery | 18W | Maximum battery life |
+| Efficient | 30W | Light tasks with good performance |
+| Balanced | 40W | General computing (Default) |
+| Performance | 55W | Heavy workloads (AC Recommended) |
+| Gaming | 70W | Optimized for gaming (AC Required) |
+| Maximum | 90W | Absolute peak performance (AC Only) |
+
+### Kernel Requirements
+
+- **Minimum:** Linux 6.14+ (Required for NPU & WiFi)
+- **Recommended:** Linux 6.17+ (Best for Strix Halo performance)
+- See `Info/DISTRIBUTION_KERNEL_STATUS.md` for distro-specific details
+
+### Hardware Specifications
+
+- **Processor:** AMD Ryzen AI MAX+ 395 (Strix Halo) - 16 cores, 32 threads
+- **Graphics:** AMD Radeon 8060S (RDNA 3.5 integrated) - 100% AMD, NO discrete GPU
+- **WiFi:** MediaTek MT7925 (kernel module: mt7925e)
+- **NPU:** AMD XDNA™ up to 50TOPS
+
+## 🛠️ Troubleshooting & Advanced
+
+### Password Prompts
+
+If `pwrcfg` asks for a password, the sudoers file is missing. Run:
 ```bash
-# Set static color
-gz302-rgb static ff0000    # Red
-gz302-rgb static 00ff00    # Green
-gz302-rgb static 0000ff    # Blue
-
-# Start animation
-gz302-rgb breathing ff0000  # Red breathing effect
-gz302-rgb colorcycle 30     # Color cycle (30 speed)
-gz302-rgb rainbow 50        # Rainbow animation (50 speed)
-
-# Set brightness
-gz302-rgb brightness 100    # 0-100%
+cd tray-icon && sudo ./install-policy.sh
 ```
 
-**Technical Details:**
+### Folio Keyboard Issues
 
-Brightness control uses `/sys/class/leds/*::kbd_backlight/brightness` and may prompt for sudo if passwordless access is not configured. See the [ArchWiki keyboard backlight guide](https://wiki.archlinux.org/title/Keyboard_backlight) for details.
+If your keyboard disconnects after sleep, run the specific fix:
+```bash
+cd Optional && sudo ./gz302-folio-fix.sh
+```
 
-RGB control via custom GZ302-optimized CLI (`gz302-rgb-cli.c`):
-- Built-in binary, no external dependencies
-- 70% smaller than rogauracore (17KB vs 58KB)
-- Supports USB device 0x0b05:0x1a30 (GZ302 keyboard)
-- MIT licensed with full copyright attribution
+### Uninstallation
 
-**RGB Persistence (Automatic Boot Restoration):**
-- ✅ **Automatic Restoration**: Last used RGB color/animation is automatically restored on system boot
-- ✅ **Transparent to User**: No configuration needed - settings are saved automatically when set via CLI or tray icon
-- ✅ **Config Storage**: Settings stored in `/etc/gz302-rgb/last-setting.conf`
-- ✅ **Boot Service**: `gz302-rgb-restore.service` (systemd) handles restoration at boot time
-- ✅ **All Methods Supported**: Settings persist whether changed via CLI (`gz302-rgb`), tray icon, or direct command
-- Example workflow: Set `gz302-rgb breathing FF0000 00FF00 2` → Reboot → Breathing animation restored automatically
-
-## 📋 Supported Distributions
-
-All distributions receive identical treatment with equal priority:
-
-- **Arch-based:** Arch Linux, CachyOS, EndeavourOS, Manjaro
-- **Debian-based:** Ubuntu, Pop!_OS, Linux Mint  
-- **RPM-based:** Fedora, Nobara
-- **OpenSUSE:** Tumbleweed and Leap
-
-## 🔧 What Gets Installed (Core Script)
-
-### Hardware Fixes (Always Applied)
-Based on latest research from GZ302 community and comprehensive testing:
-- **Kernel parameters**: AMD P-State driver (`amd_pstate=guided`) - optimal for Strix Halo (confirmed by benchmarks)
-- **GPU optimization**: AMD Radeon 8060S integrated graphics (RDNA 3.5) - full feature mask enabled, ROCm-compatible
-- **Wi-Fi stability**: MediaTek MT7925 conditional fixes - automatic ASPM workaround for kernels < 6.15, native support for 6.15+
-- **ASUS HID**: Keyboard and touchpad module configuration with mature gesture support
-
-**Research Sources**: Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs forums, asus-linux.org, Strix Halo HomeLab, Ubuntu 25.10 benchmarks, Phoronix community
-
-**Kernel Requirements**: 
-- **Minimum**: Linux kernel 6.14+ (REQUIRED - AMD XDNA NPU driver, MT7925 WiFi integration, P-State driver)
-- **Recommended**: Linux kernel 6.17+ (latest stable) for enhanced Strix Halo performance and GPU scheduling
-- **Documentation**:
-  - `Info/kernel_changelog.md` - Detailed kernel version features (6.14-6.18)
-  - `Info/DISTRIBUTION_KERNEL_STATUS.md` - **NEW** Current kernel versions by distribution (Arch, Ubuntu, Fedora, OpenSUSE)
-- **Benefits of 6.14+**: AMD XDNA NPU support, basic MT7925 WiFi stability, AMD P-State dynamic core ranking
-- **Benefits of 6.15+**: Cleaner shader support for RDNA 3.5, extended XDNA optimizations
-- **Benefits of 6.16+**: Enhanced KVM virtualization, improved GPU context switching, better I/O operations
-- **Benefits of 6.17+**: Fine-tuned AI task management, optimized WiFi performance, enhanced GPU scheduling
-
-### ASUS-Specific Packages (Distribution-dependent)
-Automated installation from official sources:
-- **Arch Linux**: asusctl from G14 repository (https://arch.asus-linux.org) or AUR fallback
-- **Ubuntu/Debian**: asusctl from PPA (ppa:mitchellaugustin/asusctl) with rog-control-center
-- **Fedora**: asusctl from COPR repository (lukenukem/asus-linux)
-- **OpenSUSE**: asusctl from OBS repository (hardware:asus)
-- **power-profiles-daemon**: System power management integration
-- **switcheroo-control**: Display management
-
-**Features**: Keyboard backlight control, custom fan curves, power profiles, battery charge limits
-
+To safely remove all components:
+```bash
+cd Uninstall && sudo ./gz302-uninstall.sh
+```
 
 ### Advanced Control Options
-- **ec_su_axb35 kernel module** (optional, manual installation): Advanced fan speed and power mode control for Strix Halo
-  - Direct fan RPM control with custom curves
-  - Power mode switching (balanced 85W, performance 100W, turbo 120W)
-  - APU temperature monitoring
+
+- **ec_su_axb35 kernel module** (optional, manual): Advanced fan speed and power mode control for Strix Halo
   - See: https://github.com/cmetz/ec-su_axb35-linux
 
-### Management Tools (Always Installed)
-- **Power Management** (`pwrcfg` command)
-  - 7 power profiles with SPL/sPPT/fPPT architecture
-  - Emergency: 10/12/12W @ 30Hz - Emergency battery extension
-  - Battery: 18/20/20W @ 30Hz - Maximum battery life
-  - Efficient: 30/35/35W @ 60Hz - Efficient with good performance
-  - Balanced: 40/45/45W @ 90Hz - Balanced performance/efficiency (default)
-  - Performance: 55/60/60W @ 120Hz - High performance (AC recommended)
-  - Gaming: 70/80/80W @ 180Hz - Gaming optimized (AC required)
-  - Maximum: 90/90/90W @ 180Hz - Absolute maximum (AC only)
-  - Automatic AC/battery switching
-  - Real-time power monitoring
-  - Auto-adjusts refresh rate with power profile
-  
-- **Refresh Rate Control** (`rrcfg` command)
-  - 7 refresh rate profiles matched to power profiles (30Hz-180Hz)
-  - Automatically syncs when pwrcfg changes power profiles
-  - Manual override available for custom configurations
-  - VRR/FreeSync support with configurable ranges
-  - Multi-monitor independent control
-  - Game-specific profiles
-  - **Note**: Automatic AC/battery switching is configured via `pwrcfg config` (not `rrcfg`)
+- **Linux-G14 Kernel** (optional, Arch only): Enhanced ROG laptop support with kernel-level RGB LED control
+  - See: `Optional/gz302-g14-kernel.sh` and https://asus-linux.org
 
-## 📦 Optional Modules
-
-### Gaming Module (`gz302-gaming`)
-- Steam with Proton compatibility
-- Lutris for GOG, Epic, and other platforms
-- MangoHUD for performance overlays
-- GameMode for automatic optimizations
-- Wine for Windows application support
-
-### AI/LLM Module (`gz302-llm`)
-- Ollama for local LLM inference (Llama, Mistral, CodeLlama)
-- ROCm for AMD GPU acceleration (gfx1151 support)
-- PyTorch with ROCm backend
-- MIOpen deep learning primitives library
-- bitsandbytes for 8-bit quantization
-- Transformers and Accelerate libraries
-- Optional AI frontends (LocalAI, ComfyUI, text-generation-webui, etc.)
-
-### Hypervisor Module (`gz302-hypervisor`)
-- **Full KVM/QEMU Stack** (Recommended)
-  - Complete QEMU virtualization system with hardware acceleration
-  - libvirt daemon for VM management
-  - virt-manager GUI and virsh CLI tools
-  - UEFI/OVMF firmware support for modern guest OSes
-  - Automatic default NAT network configuration
-  - User permission configuration (libvirt, kvm groups)
-  - Virtualization support verification
-  - Guest tools and utilities (guestfs-tools, libguestfs)
-- **VirtualBox** (Alternative)
-  - Cross-platform hypervisor
-  - User-friendly GUI interface
-  - Kernel module configuration
-  - Extension pack and guest additions
-
-### Snapshots Module (`gz302-snapshots`)
-- Automatic system snapshots
-- Btrfs/Snapper integration
-- LVM snapshot support
-
-### Secure Boot Module (`gz302-secureboot`)
-- Boot integrity tools
-- Automatic kernel signing setup
-
-## 📁 Optional Scripts (Advanced Use Cases)
-
-The `Optional/` folder contains standalone scripts for specific use cases that are not needed by most users:
-
-### Folio Resume Fix (`Optional/gz302-folio-fix.sh`)
-**Use case:** If your folio keyboard/touchpad stops working after suspend/resume and requires physical reconnection.
-
-- Automatically reloads HID and USB rebind for folio keyboard/touchpad after suspend/resume
-- Creates systemd service for automatic recovery
-- Configurable vendor/product IDs for custom folios
-
-**Installation:**
-```bash
-cd Optional
-sudo ./gz302-folio-fix.sh
-```
-
-**Note:** Most users do NOT need this fix. Only install if you experience folio keyboard/touchpad issues after sleep.
-
-### Linux-G14 Kernel (`Optional/gz302-g14-kernel.sh`)
-**Use case:** Advanced users who want kernel-level RGB LED control and ASUS-specific optimizations (Arch Linux only).
-
-The `linux-g14` custom kernel is a community-maintained, ASUS-optimized kernel variant (6.17.3) with enhanced ROG laptop support.
-
-**GZ302-Specific Features:**
-- ✅ **Keyboard RGB LED Control** - Enhanced kernel-level control (4-zone per-key matrix)
-- ✅ **Suspend/Resume LED Restoration** - Kernel hooks to prevent keyboard LED blackout after sleep
-- ✅ **Power Management Tunables** - Strix Halo-compatible APU limits (sPPT/fPPT/SPPT)
-- ✅ **OLED Panel Optimizations** - Panel overdrive, HD/UHD mode switching, auto-brightness
-
-**Installation (Arch Linux only):**
-```bash
-cd Optional
-sudo ./gz302-g14-kernel.sh
-```
-
-**Recommendation:**
-- **For most users**: Use **mainline kernel 6.17+** - excellent Strix Halo support, community-tested, upstream security updates
-- **For advanced users**: Use **linux-g14** - if you want kernel-level LED/power management features (trade-off: smaller testing community, slightly older patch set)
-
-See: https://asus-linux.org and https://gitlab.com/asus-linux/linux-g14 and `Info/LINUX_G14_ANALYSIS.md`
-
-## 🎯 Usage Examples
-
-### Using Power Management
-```bash
-# Set power profile (automatically adjusts refresh rate)
-pwrcfg gaming
-# Check current status
-pwrcfg status
-# List all available profiles
-pwrcfg list
-# Configure automatic AC/battery switching
-pwrcfg config
-```
-
-### Using Refresh Rate Control
-```bash
-# Manually set refresh rate (independent of power profile)
-rrcfg gaming
-# Check current refresh rate
-rrcfg status
-# List available profiles
-rrcfg list
-# Enable VRR/FreeSync
-rrcfg vrr on
-# Configure game-specific profiles
-rrcfg game add steam gaming
-```
-
-### Quick Reference
-```bash
-# View current power and refresh settings
-pwrcfg status
-rrcfg status
-# Enable automatic AC/battery switching (controls both power AND refresh)
-pwrcfg config
-# List available profiles
-pwrcfg list
-rrcfg list
-```
-## 🛠️ Troubleshooting FAQ
-
-**Q: I get a password prompt when running `pwrcfg` or `rrcfg`.**
-A: Make sure you enabled password-less sudo during setup, or run `sudo ./install-policy.sh` from the `tray-icon` directory. If you still get a prompt, check `/etc/sudoers.d/gz302-pwrcfg` exists and is valid.
-
-**Q: `pwrcfg` says it can't elevate privileges.**
-A: The sudoers rule may be missing or misconfigured. Run `sudo visudo -c -f /etc/sudoers.d/gz302-pwrcfg` to check for errors. Re-run the main setup script or `install-policy.sh` to fix.
-
-**Q: My profile changes don't take effect.**
-A: Make sure you are running the latest version of the script and that your user is in the correct group (if required by your distro).
-
-**Q: How do I revert to requiring a password for `pwrcfg`?**
-A: Remove `/etc/sudoers.d/gz302-pwrcfg` and reboot.
-
-**Q: Can I use `pwrcfg`/`rrcfg` with custom profiles?**
-A: Yes! See the advanced usage section in the documentation for details.
-
-## 🗂️ Repository Organization
-
-### Uninstall/ - Removal Tools
-
-The `Uninstall/` folder contains scripts to safely remove GZ302 setup components:
-
-**gz302-uninstall.sh** - Comprehensive uninstall utility
-- Detects all installed components automatically
-- Interactive selection (choose what to remove)
-- Supports: Hardware fixes, TDP management, Refresh control, Folio fix, G14 kernel
-- Safe removal with confirmation prompts
-
-**Usage:**
-```bash
-cd Uninstall
-sudo ./gz302-uninstall.sh
-```
-
-## 📚 Architecture
-
-### Modular Design
-The architecture separates concerns for easy maintenance and flexible installation:
-
-- **gz302-main.sh** - Core hardware fixes and management tools (always runs)
-- **gz302-gaming.sh** - Gaming software (optional, downloaded on demand)
-- **gz302-llm.sh** - AI/ML software (optional, downloaded on demand)
-- **gz302-hypervisor.sh** - Virtualization (optional, downloaded on demand)
-- **gz302-snapshots.sh** - System backups (optional, downloaded on demand)
-- **gz302-secureboot.sh** - Secure boot (optional, downloaded on demand)
-
-### Benefits
-- **Smaller downloads** - Only get what you need
-- **Faster setup** - Core hardware fixes complete in minutes
-- **Easy maintenance** - Update individual modules independently
-- **Flexibility** - Install optional software at any time
-
-## 📚 Documentation
-
-### TDP Profiles
-| Profile | TDP | Use Case |
-|---------|-----|----------|
-| emergency | 10W | Critical battery preservation |
-| battery | 15W | Extended battery life |
-| efficient | 20W | Light tasks, good battery |
-| balanced | 30W | General computing |
-| performance | 45W | Heavy workloads |
-| gaming | 54W | Gaming and intensive tasks |
-| maximum | 65W | Maximum performance |
-
-### Refresh Rate Profiles
-| Profile | Refresh Rate | Use Case |
-|---------|--------------|----------|
-| powersave | 30Hz | Maximum battery saving |
-| battery | 60Hz | Good balance |
-| balanced | 90Hz | Smooth general use |
-| smooth | 120Hz | Enhanced smoothness |
-| performance | 165Hz | High refresh gaming |
-| gaming | 180Hz | Maximum gaming performance |
-
-## ⚠️ Important Notes
-
-- **Root privileges required** - Scripts must be run with `sudo`
-- **Internet connection needed** - For downloading packages and modules
-- **Reboot recommended** - After hardware fixes are applied
-- **Backup your data** - Always recommended before system modifications
-
-## 🤝 Contributing
-
-This is an open-source project. Contributions are welcome! Please ensure:
-- Bash scripts follow existing style
-- All 4 distributions are equally supported
-- Changes are tested on target hardware
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guidelines, testing procedures, and code style requirements.
-
-## 📜 License
-
-This project is provided as-is for the GZ302 community.
-
-## 🙏 Credits
-
-- Author: th3cavalry using GitHub Copilot
-- Hardware research: Shahzebqazi's Asus-Z13-Flow-2025-PCMR
-- Community testing and feedback
-
-## 📖 Additional Documentation
+## 📚 Additional Documentation
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines and contribution process
 - [CHANGELOG.md](Info/CHANGELOG.md) - Version history and release notes
-- [tray-icon/](tray-icon/) - GUI system tray utility (work in progress)
+- [Info/kernel_changelog.md](Info/kernel_changelog.md) - Detailed kernel version features (6.14-6.18)
+- [Info/DISTRIBUTION_KERNEL_STATUS.md](Info/DISTRIBUTION_KERNEL_STATUS.md) - Current kernel versions by distribution
+- [tray-icon/](tray-icon/) - GUI system tray utility documentation
+
+## 🤝 Contributing
+
+Open source and community driven.
+
+- **Author:** th3cavalry
+- **Research:** Shahzebqazi's Asus-Z13-Flow-PCMR
+- **License:** MIT
+
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ---
 
-**Last Updated:** November 2025 (v1.1.0)
+**Last Updated:** November 2025 (v1.4.2)
