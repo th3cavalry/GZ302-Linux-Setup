@@ -268,7 +268,7 @@ uname -a  # Shows current kernel
 **Recommendation for GZ302 users:**
 - 🟢 **Default:** Use mainline kernel 6.17.4 (Arch official) - fully functional, perfect for 95% of users
 - 🟡 **Optional:** Use linux-g14 6.17.3 if you want kernel-level LED control or OLED panel optimizations
-- 🟢 **Either way:** GZ302 v1.0.5 scripts work seamlessly with both kernels
+- 🟢 **Either way:** GZ302 scripts work seamlessly with both kernels
 
 **Key decision factor:** Compilation time vs. features
 - Mainline: Ready to use immediately

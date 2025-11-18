@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 1.4.2
+# Version: 2.0.0
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
