@@ -5,6 +5,18 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2025-11-18
+
+### Changed
+- **Version Bump**: Major version bump to 2.0.0 reflecting project maturity and stability
+- All module scripts now synchronized to version 2.0.0 for consistency
+- Documentation cleanup and standardization across all files
+
+### Documentation
+- Cleaned up and standardized formatting across all documentation files
+- Improved consistency with README cleanup from previous release
+- Enhanced readability and navigation of documentation
+
 ## [1.4.2] - 2025-11-17
 
 ### Fixed

@@ -3,7 +3,7 @@
 **The ultimate modular Linux suite for the ASUS ROG Flow Z13 (GZ302).**
 Transform your device into an optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional gaming/AI modules.
 
-> **🚀 Version 1.4.2 Update (Nov 2025)**
+> **🚀 Version 2.0.0 Update (Nov 2025)**
 > **KDE & HandHeld Daemon Sync:** Power profiles now automatically sync with KDE system tray and HHD.
 > **Kernel Requirement:** Linux 6.14+ required (6.17+ recommended) for AMD XDNA NPU and Strix Halo optimizations.
 
