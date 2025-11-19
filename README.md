@@ -51,7 +51,7 @@ This setup is modular. The core script installs essential fixes; everything else
 | Module | Description |
 |---|---|
 | 🎮 Gaming | Steam, Lutris, MangoHUD, GameMode, Wine |
-| 🤖 AI / LLM | Ollama, ROCm, PyTorch, bitsandbytes, Transformers |
+| 🤖 AI / LLM | llama.cpp, ROCm, PyTorch, bitsandbytes, Transformers |
 | 🌈 RGB | Advanced keyboard lighting control (Static, Breathing, Rainbow) |
 | 💻 Hypervisor | KVM/QEMU stack (recommended) or VirtualBox |
 | 📸 Snapshots | Automatic system backups via Snapper/Btrfs |

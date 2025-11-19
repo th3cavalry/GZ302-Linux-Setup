@@ -26,7 +26,7 @@
 #
 # Optional software can be installed via modular scripts:
 # - gz302-gaming: Gaming software (Steam, Lutris, MangoHUD, etc.)
-# - gz302-llm: AI/LLM software (Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, etc.)
+# - gz302-llm: AI/LLM software (llama.cpp, ROCm, PyTorch, MIOpen, bitsandbytes, etc.)
 # - gz302-hypervisor: Virtualization (KVM, VirtualBox, VMware, etc.)
 # - gz302-snapshots: System snapshots (Snapper, LVM, etc.)
 # - gz302-secureboot: Secure boot configuration
@@ -3075,8 +3075,8 @@ offer_optional_modules() {
     echo "   - Gaming optimizations and performance tweaks"
     echo
     echo "2. LLM/AI Software (gz302-llm)"
-    echo "   - Ollama for local LLM inference"
-    echo "   - ROCm for AMD GPU acceleration (gfx1151)"
+    echo "   - llama.cpp with ROCm/HIP support (gfx1151 optimized)"
+    echo "   - ROCm for AMD GPU acceleration (Radeon 8060S)"
     echo "   - PyTorch, MIOpen, and bitsandbytes"
     echo "   - Transformers and Accelerate libraries"
     echo

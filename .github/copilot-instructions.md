@@ -111,7 +111,7 @@ wc -l gz302-*.sh
 - **User environment**: Functions that run commands as non-root user (get_real_user)
 - **Module downloads**: Download and execution of optional modules
 - **Gaming software**: Repository setup varies by distro (in gz302-gaming.sh)
-- **LLM/AI software**: Ollama installation, PyTorch with ROCm (in gz302-llm.sh)
+- **LLM/AI software**: llama.cpp with ROCm/HIP support, PyTorch with ROCm (in gz302-llm.sh)
 
 ## GZ302EA-XS99 Hardware Specifications
 
@@ -248,7 +248,7 @@ Use the `install_arch_packages_with_yay()` helper function that:
 
 ### Distribution-Specific Package Installation
 - **Gaming** (gz302-gaming.sh): Each distro has repository setup (multiverse/universe, RPM Fusion, Packman) before package installation
-- **LLM/AI** (gz302-llm.sh): Ollama via curl script, PyTorch with ROCm 5.7, transformers/accelerate
+- **LLM/AI** (gz302-llm.sh): llama.cpp built from source with ROCm/HIP (gfx1151), PyTorch with ROCm 5.7, transformers/accelerate
 - **ASUS packages** (gz302-main.sh): asusctl, power-profiles-daemon, switcheroo-control installed based on distro availability
 - **All features**: Implemented for all 4 distribution families with equal priority
 
