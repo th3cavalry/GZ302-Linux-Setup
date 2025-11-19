@@ -3163,6 +3163,35 @@ main() {
     fi
     echo
     
+    # Check for old custom paths and run migration if needed
+    info "Checking for legacy custom paths..."
+    if [[ -d "/opt/llama.cpp" ]] || [[ -d "/home/$(logname 2>/dev/null || echo $SUDO_USER)/.gz302-llm-venv" ]] || [[ -d "/home/$(logname 2>/dev/null || echo $SUDO_USER)/.local/share/gz302/frontends" ]]; then
+        warning "Legacy custom paths detected from previous installation"
+        if [[ -f "./gz302-migrate-paths.sh" ]]; then
+            info "Running path migration script..."
+            ./gz302-migrate-paths.sh
+            if [[ $? -eq 0 ]]; then
+                success "Path migration completed successfully"
+            else
+                warning "Path migration encountered issues (non-fatal)"
+            fi
+        else
+            warning "Migration script not found. Downloading from repository..."
+            if curl -fsSL https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-migrate-paths.sh -o /tmp/gz302-migrate-paths.sh; then
+                chmod +x /tmp/gz302-migrate-paths.sh
+                /tmp/gz302-migrate-paths.sh
+                rm -f /tmp/gz302-migrate-paths.sh
+            else
+                warning "Could not download migration script. Old paths will remain."
+                info "You can manually run: sudo ./gz302-migrate-paths.sh later"
+            fi
+        fi
+        echo
+    else
+        info "No legacy paths detected - using standard default paths"
+    fi
+    echo
+    
     info "Detecting your Linux distribution..."
     
     # Get original distribution name for display

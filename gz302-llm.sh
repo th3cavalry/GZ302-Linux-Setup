@@ -2,12 +2,13 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.0.1
+# Version: 2.1.0
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: llama.cpp, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
 #
 # This script is designed to be called by gz302-main.sh
+# Now uses standard default paths for better troubleshooting
 # ==============================================================================
 
 set -euo pipefail
@@ -128,6 +129,32 @@ add_rocm_repo_opensuse() {
 install_arch_llm_software() {
     info "Installing LLM/AI software for Arch-based system..."
     
+    # Check if user chose to keep Ollama (from migration script)
+    if [[ -f "/tmp/.gz302-llm-choice" ]]; then
+        source /tmp/.gz302-llm-choice
+        if [[ "${KEEP_OLLAMA:-false}" == "true" ]]; then
+            info "User chose to keep Ollama. Skipping llama.cpp installation."
+            info "Installing ROCm and Python AI libraries only..."
+            rm -f /tmp/.gz302-llm-choice
+            # Skip to ROCm/Python installation at the end
+            # Install ROCm for AMD GPU acceleration
+            info "Installing ROCm for AMD GPU acceleration..."
+            if ! pacman -Si rocm-opencl-runtime >/dev/null 2>&1; then
+                warning "ROCm packages not found in default repositories"
+                if ask_add_rocm_repo "arch"; then
+                    add_rocm_repo_arch
+                else
+                    warning "Proceeding without ROCm repository."
+                fi
+            fi
+            pacman -S --noconfirm --needed rocm-opencl-runtime rocm-hip-runtime rocblas miopen-hip hip-runtime-amd rocm-smi-lib || true
+            # Continue to Python installation section
+        elif [[ "${MIGRATE_TO_LLAMACPP:-false}" == "true" ]] || [[ "${INSTALL_BOTH:-false}" == "true" ]]; then
+            info "Proceeding with llama.cpp installation..."
+            rm -f /tmp/.gz302-llm-choice
+        fi
+    fi
+    
     # Install llama.cpp with ROCm support
     info "Installing llama.cpp with ROCm support for Strix Halo..."
     
@@ -154,7 +181,6 @@ install_arch_llm_software() {
     # Build and install llama.cpp with ROCm support
     info "Building llama.cpp with ROCm/HIP support for gfx1151 (Radeon 8060S)..."
     local llama_build_dir="/tmp/llama.cpp-build-$$"
-    local llama_install_dir="/opt/llama.cpp"
     
     git clone https://github.com/ggerganov/llama.cpp.git "$llama_build_dir"
     cd "$llama_build_dir"
@@ -165,21 +191,14 @@ install_arch_llm_software() {
     cmake .. \
         -DGGML_HIPBLAS=ON \
         -DAMDGPU_TARGETS=gfx1151 \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$llama_install_dir"
+        -DCMAKE_BUILD_TYPE=Release
     
     local nproc_count
     nproc_count="$(nproc)"
     cmake --build . --config Release -j"${nproc_count}"
     
-    # Install llama.cpp binaries
-    mkdir -p "$llama_install_dir"
+    # Install llama.cpp binaries to standard /usr/local prefix
     cmake --install .
-    
-    # Create symbolic links in /usr/local/bin for easy access
-    ln -sf "$llama_install_dir/bin/llama-cli" /usr/local/bin/llama-cli
-    ln -sf "$llama_install_dir/bin/llama-server" /usr/local/bin/llama-server
-    ln -sf "$llama_install_dir/bin/llama-quantize" /usr/local/bin/llama-quantize
     
     # Create systemd service for llama-server
     cat > /etc/systemd/system/llama-server.service <<'EOF'
@@ -228,7 +247,7 @@ EOF
     local primary_user
     primary_user=$(get_real_user)
     local venv_dir
-    venv_dir="/home/$primary_user/.gz302-llm-venv"
+    venv_dir="/home/$primary_user/llm-venv"
     if [[ "$primary_user" != "root" ]]; then
         sudo -u "$primary_user" python -m venv "$venv_dir"
         info "Created Python virtual environment at $venv_dir"
@@ -260,13 +279,12 @@ EOF
         if sudo -u "$primary_user" "$venv_dir/bin/python" -c "import importlib; importlib.import_module('torch')" >/dev/null 2>&1; then
             info "PyTorch import succeeded inside the venv"
             # remove any stale failure marker
-            if [[ -f "$venv_dir/.gz302/torch_install_failed" ]]; then
-                rm -f "$venv_dir/.gz302/torch_install_failed" || true
+            if [[ -f "$venv_dir/.torch_install_failed" ]]; then
+                rm -f "$venv_dir/.torch_install_failed" || true
             fi
         else
             warning "PyTorch could not be imported after installation attempts in the venv. Attempting conda/miniforge fallback for better binary compatibility (recommended for ROCm)."
             # Attempt a conda/miniforge fallback in the user's home to provide a reliable binary environment
-            mkdir -p "$venv_dir/.gz302" || true
 
             # Detect existing conda
             conda_cmd=""
@@ -311,18 +329,18 @@ EOF
                 if sudo -u "$primary_user" "$conda_cmd" run -n gz302-llm python -c "import importlib; importlib.import_module('torch')" >/dev/null 2>&1; then
                     info "PyTorch import succeeded inside conda env 'gz302-llm'"
                     # remove any stale failure marker
-                    if [[ -f "$venv_dir/.gz302/torch_install_failed" ]]; then
-                        rm -f "$venv_dir/.gz302/torch_install_failed" || true
+                    if [[ -f "$venv_dir/.torch_install_failed" ]]; then
+                        rm -f "$venv_dir/.torch_install_failed" || true
                     fi
                     # write a small helper file noting conda env success
-                    echo "conda_env:gz302-llm" > "$venv_dir/.gz302/torch_install_success" || true
+                    echo "conda_env:gz302-llm" > "$venv_dir/.torch_install_success" || true
                 else
                     warning "PyTorch still could not be imported after conda fallback. See https://pytorch.org for platform-specific instructions."
-                    touch "$venv_dir/.gz302/torch_install_failed"
+                    touch "$venv_dir/.torch_install_failed"
                 fi
             else
                 warning "No conda/miniforge available and automatic install failed; leaving venv-only installation state."
-                touch "$venv_dir/.gz302/torch_install_failed"
+                touch "$venv_dir/.torch_install_failed"
             fi
         fi
 
@@ -345,16 +363,11 @@ EOF
 }
 
     # --- Frontend installers (opt-in, lightweight/idempotent) ---
-    ensure_user_dirs() {
-        local user="$1"
-        sudo -u "$user" mkdir -p "/home/$user/.local/share/gz302/frontends" || true
-    }
 
     install_localai_docker() {
         local user="$1"
         info "(frontend) Setting up LocalAI (docker) for $user"
-        ensure_user_dirs "$user"
-        local dst="/home/$user/.local/share/gz302/frontends/localai"
+        local dst="/home/$user/localai"
                 mkdir -p "$dst" || true
         cat > "$dst/docker-compose.yml" <<'EOF'
 version: '3.8'
@@ -381,8 +394,7 @@ EOF
     install_textgen_webui() {
         local user="$1"
         info "(frontend) Installing text-generation-webui (clone only) for $user"
-        ensure_user_dirs "$user"
-        local dst="/home/$user/.local/share/gz302/frontends/text-generation-webui"
+        local dst="/home/$user/text-generation-webui"
         if [[ -d "$dst/.git" ]]; then
             info "text-generation-webui already cloned at $dst"
             return
@@ -394,8 +406,7 @@ EOF
     install_comfyui() {
         local user="$1"
         info "(frontend) Installing ComfyUI (clone only) for $user"
-        ensure_user_dirs "$user"
-        local dst="/home/$user/.local/share/gz302/frontends/ComfyUI"
+        local dst="/home/$user/ComfyUI"
         if [[ -d "$dst/.git" ]]; then
             info "ComfyUI already cloned at $dst"
             return
@@ -407,8 +418,7 @@ EOF
     install_flowise() {
         local user="$1"
         info "(frontend) Installing Flowise (docker recommended) for $user"
-        ensure_user_dirs "$user"
-        local dst="/home/$user/.local/share/gz302/frontends/flowise"
+        local dst="/home/$user/flowise"
         mkdir -p "$dst" || true
         # Provide docker-compose pointer
     cat > "$dst/README.txt" <<EOF
@@ -421,8 +431,7 @@ EOF
     install_swarmui() {
         local user="$1"
         info "(frontend) Installing SwarmUI (clone only) for $user"
-        ensure_user_dirs "$user"
-        local dst="/home/$user/.local/share/gz302/frontends/SwarmUI"
+        local dst="/home/$user/SwarmUI"
         if [[ -d "$dst/.git" ]]; then
             info "SwarmUI already cloned at $dst"
             return
@@ -434,8 +443,7 @@ EOF
     install_invokeai() {
         local user="$1"
         info "(frontend) Installing InvokeAI (clone only) for $user"
-        ensure_user_dirs "$user"
-        local dst="/home/$user/.local/share/gz302/frontends/InvokeAI"
+        local dst="/home/$user/InvokeAI"
         if [[ -d "$dst/.git" ]]; then
             info "InvokeAI already cloned at $dst"
             return
@@ -563,7 +571,6 @@ install_debian_llm_software() {
     # Build and install llama.cpp with ROCm support
     info "Building llama.cpp with ROCm/HIP support for gfx1151 (Radeon 8060S)..."
     local llama_build_dir="/tmp/llama.cpp-build-$$"
-    local llama_install_dir="/opt/llama.cpp"
     
     git clone https://github.com/ggerganov/llama.cpp.git "$llama_build_dir"
     cd "$llama_build_dir"
@@ -575,18 +582,14 @@ install_debian_llm_software() {
         -DGGML_HIPBLAS=ON \
         -DAMDGPU_TARGETS=gfx1151 \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$llama_install_dir"
+        
     
     local nproc_count; nproc_count="$(nproc)"; cmake --build . --config Release -j"${nproc_count}"
     
     # Install llama.cpp binaries
-    mkdir -p "$llama_install_dir"
     cmake --install .
     
     # Create symbolic links in /usr/local/bin for easy access
-    ln -sf "$llama_install_dir/bin/llama-cli" /usr/local/bin/llama-cli
-    ln -sf "$llama_install_dir/bin/llama-server" /usr/local/bin/llama-server
-    ln -sf "$llama_install_dir/bin/llama-quantize" /usr/local/bin/llama-quantize
     
     # Create systemd service for llama-server
     cat > /etc/systemd/system/llama-server.service <<'EOF'
@@ -679,7 +682,6 @@ install_fedora_llm_software() {
     # Build and install llama.cpp with ROCm support
     info "Building llama.cpp with ROCm/HIP support for gfx1151 (Radeon 8060S)..."
     local llama_build_dir="/tmp/llama.cpp-build-$$"
-    local llama_install_dir="/opt/llama.cpp"
     
     git clone https://github.com/ggerganov/llama.cpp.git "$llama_build_dir"
     cd "$llama_build_dir"
@@ -691,18 +693,14 @@ install_fedora_llm_software() {
         -DGGML_HIPBLAS=ON \
         -DAMDGPU_TARGETS=gfx1151 \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$llama_install_dir"
+        
     
     local nproc_count; nproc_count="$(nproc)"; cmake --build . --config Release -j"${nproc_count}"
     
     # Install llama.cpp binaries
-    mkdir -p "$llama_install_dir"
     cmake --install .
     
     # Create symbolic links in /usr/local/bin for easy access
-    ln -sf "$llama_install_dir/bin/llama-cli" /usr/local/bin/llama-cli
-    ln -sf "$llama_install_dir/bin/llama-server" /usr/local/bin/llama-server
-    ln -sf "$llama_install_dir/bin/llama-quantize" /usr/local/bin/llama-quantize
     
     # Create systemd service for llama-server
     cat > /etc/systemd/system/llama-server.service <<'EOF'
@@ -784,7 +782,6 @@ install_opensuse_llm_software() {
     # Build and install llama.cpp with ROCm support
     info "Building llama.cpp with ROCm/HIP support for gfx1151 (Radeon 8060S)..."
     local llama_build_dir="/tmp/llama.cpp-build-$$"
-    local llama_install_dir="/opt/llama.cpp"
     
     git clone https://github.com/ggerganov/llama.cpp.git "$llama_build_dir"
     cd "$llama_build_dir"
@@ -796,18 +793,14 @@ install_opensuse_llm_software() {
         -DGGML_HIPBLAS=ON \
         -DAMDGPU_TARGETS=gfx1151 \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$llama_install_dir"
+        
     
     local nproc_count; nproc_count="$(nproc)"; cmake --build . --config Release -j"${nproc_count}"
     
     # Install llama.cpp binaries
-    mkdir -p "$llama_install_dir"
     cmake --install .
     
     # Create symbolic links in /usr/local/bin for easy access
-    ln -sf "$llama_install_dir/bin/llama-cli" /usr/local/bin/llama-cli
-    ln -sf "$llama_install_dir/bin/llama-server" /usr/local/bin/llama-server
-    ln -sf "$llama_install_dir/bin/llama-quantize" /usr/local/bin/llama-quantize
     
     # Create systemd service for llama-server
     cat > /etc/systemd/system/llama-server.service <<'EOF'
