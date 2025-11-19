@@ -96,6 +96,7 @@ install_rgb_arch() {
 
     info "Compiling GZ302 RGB keyboard CLI..."
     cd "$SCRIPT_DIR"
+    # shellcheck disable=SC2046
     gcc -Wall -Wextra -O2 -o gz302-rgb gz302-rgb-cli.c $(pkg-config --cflags --libs libusb-1.0)
     
     info "Installing compiled binary..."
@@ -128,6 +129,7 @@ install_rgb_fedora() {
 
     info "Compiling GZ302 RGB keyboard CLI..."
     cd "$SCRIPT_DIR"
+    # shellcheck disable=SC2046
     gcc -Wall -Wextra -O2 -o gz302-rgb gz302-rgb-cli.c $(pkg-config --cflags --libs libusb-1.0)
     
     info "Installing compiled binary..."
@@ -143,6 +145,7 @@ install_rgb_opensuse() {
 
     info "Compiling GZ302 RGB keyboard CLI..."
     cd "$SCRIPT_DIR"
+    # shellcheck disable=SC2046
     gcc -Wall -Wextra -O2 -o gz302-rgb gz302-rgb-cli.c $(pkg-config --cflags --libs libusb-1.0)
     
     info "Installing compiled binary..."

@@ -544,9 +544,11 @@ install_gz302_rgb_keyboard() {
     # Check if gz302-pwrcfg sudoers file exists, if so add gz302-rgb to it
     if [[ -f /etc/sudoers.d/gz302-pwrcfg ]]; then
         if ! grep -q "gz302-rgb" /etc/sudoers.d/gz302-pwrcfg; then
-            echo "Defaults use_pty" >> /etc/sudoers.d/gz302-pwrcfg
-            echo "%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb" >> /etc/sudoers.d/gz302-pwrcfg
-            echo "%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb" >> /etc/sudoers.d/gz302-pwrcfg
+            {
+                echo "Defaults use_pty"
+                echo "%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb"
+                echo "%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb"
+            } >> /etc/sudoers.d/gz302-pwrcfg
         fi
     else
         # Create new sudoers entry
@@ -3165,12 +3167,11 @@ main() {
     
     # Check for old custom paths and run migration if needed
     info "Checking for legacy custom paths..."
-    if [[ -d "/opt/llama.cpp" ]] || [[ -d "/home/$(logname 2>/dev/null || echo $SUDO_USER)/.gz302-llm-venv" ]] || [[ -d "/home/$(logname 2>/dev/null || echo $SUDO_USER)/.local/share/gz302/frontends" ]]; then
+    if [[ -d "/opt/llama.cpp" ]] || [[ -d "/home/$(logname 2>/dev/null || echo "$SUDO_USER")/.gz302-llm-venv" ]] || [[ -d "/home/$(logname 2>/dev/null || echo "$SUDO_USER")/.local/share/gz302/frontends" ]]; then
         warning "Legacy custom paths detected from previous installation"
         if [[ -f "./gz302-migrate-paths.sh" ]]; then
             info "Running path migration script..."
-            ./gz302-migrate-paths.sh
-            if [[ $? -eq 0 ]]; then
+            if ./gz302-migrate-paths.sh; then
                 success "Path migration completed successfully"
             else
                 warning "Path migration encountered issues (non-fatal)"
