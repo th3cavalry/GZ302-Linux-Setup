@@ -61,16 +61,18 @@ This setup is modular. The core script installs essential fixes; everything else
 
 ### 1. System Tray Icon (GUI)
 
-The easiest way to manage your device.
+Easy power management from your desktop.
 
-- **Right-click** the tray icon to switch profiles
-- **Visuals:** Checkmarks indicate active profiles; Tooltips show battery % and power draw
-- **Keyboard:** Adjust brightness (0-3) and RGB effects directly from the menu
+- **Right-click** to switch power profiles
+- **Visual indicators:** Checkmarks show active profile, tooltips display battery % and power draw
+- **Keyboard controls:** Adjust backlight brightness (0-3 levels) and RGB effects
 
-**Install Tray Icon manually:**
+**Install:**
 ```bash
 cd tray-icon && sudo ./install-tray.sh
 ```
+
+**Requirements:** Python 3.8+, PyQt6. Configure password-less sudo with `sudo ./install-policy.sh` (recommended).
 
 ### 2. Command Line Tools
 
@@ -114,11 +116,16 @@ gz302-rgb brightness 50     # Set brightness to 50%
 | Gaming | 70W | Optimized for gaming (AC Required) |
 | Maximum | 90W | Absolute peak performance (AC Only) |
 
-### Kernel Requirements
+### Kernel Requirements & Distribution Status
 
 - **Minimum:** Linux 6.14+ (Required for NPU & WiFi)
 - **Recommended:** Linux 6.17+ (Best for Strix Halo performance)
-- See `Info/DISTRIBUTION_KERNEL_STATUS.md` for distro-specific details
+
+**Current Kernel Status (Nov 2025):**
+- ✅ Arch Linux: 6.17.7 - Excellent
+- ✅ Fedora 42: 6.17.7 - Excellent  
+- ✅ OpenSUSE Tumbleweed: 6.17.7 - Excellent
+- ⚠️ Ubuntu 25.10: 6.11.0 (upgrade to 6.14+ HWE recommended)
 
 ### Hardware Specifications
 
@@ -160,11 +167,9 @@ cd Uninstall && sudo ./gz302-uninstall.sh
 
 ## 📚 Additional Documentation
 
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines and contribution process
-- [CHANGELOG.md](Info/CHANGELOG.md) - Version history and release notes
-- [Info/kernel_changelog.md](Info/kernel_changelog.md) - Detailed kernel version features (6.14-6.18)
-- [Info/DISTRIBUTION_KERNEL_STATUS.md](Info/DISTRIBUTION_KERNEL_STATUS.md) - Current kernel versions by distribution
-- [tray-icon/](tray-icon/) - GUI system tray utility documentation
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines
+- [CHANGELOG.md](Info/CHANGELOG.md) - Version history
+- [Info/](Info/) - Extended technical references
 
 ## 🤝 Contributing
 

@@ -1,7 +1,5 @@
 # Contributing to GZ302-Linux-Setup
 
-Thank you for your interest in contributing to the GZ302 Linux Setup project! This guide will help you contribute effectively.
-
 ## 🎯 Project Goals
 
 - **Hardware-specific**: Focused on ASUS ROG Flow Z13 (GZ302EA-XS99) with AMD Ryzen AI MAX+ 395
@@ -34,114 +32,65 @@ sudo dnf install ShellCheck
 sudo zypper install ShellCheck
 ```
 
-## 📝 Code Style Guidelines
+## 📝 Code Standards
 
-### Bash Script Standards
+### Bash Scripts
 
-1. **Always use `set -euo pipefail`** at the start of scripts
-2. **Quote all variables** to prevent word splitting: `"$variable"`
-3. **Quote command substitutions**: `"$(command)"`
-4. **Use `-r` flag with `read`**: `read -r -p "prompt: " variable`
-5. **Separate variable declarations**: 
+1. Start with `set -euo pipefail`
+2. Quote variables: `"$variable"`
+3. Quote command substitutions: `"$(command)"`
+4. Use `read -r` for input
+5. Separate variable declarations:
    ```bash
-   # Good
    local var
    var=$(command)
-   
-   # Avoid
-   local var=$(command)  # Can mask return values
    ```
 
-### Function Conventions
+### Functions & Output
 
-- Use descriptive function names with underscores: `install_arch_packages`
-- Document complex functions with comments
+- Use descriptive names: `install_arch_packages`
 - Return 0 for success, non-zero for errors
-- Use `local` for function-scoped variables
+- Use `local` for function scope
+- Use helper functions: `info`, `success`, `warning`, `error`
 
-### Output Messages
+## 🧪 Testing
 
-Use the helper functions consistently:
+### Required Before Commit
+
 ```bash
-info "Informational message"
-success "Success message"
-warning "Warning message"
-error "Error message (exits script)"
-```
-
-## 🧪 Testing Your Changes
-
-### 1. Syntax Validation
-
-**Required before committing:**
-```bash
-# Test individual script
+# Syntax validation
 bash -n gz302-main.sh
 
-# Test all scripts
-for script in gz302-*.sh; do
-    bash -n "$script" && echo "✓ $script" || echo "✗ $script FAILED"
-done
-```
-
-### 2. ShellCheck Linting
-
-**Required before committing:**
-```bash
-# Lint individual script
+# ShellCheck (must pass with zero warnings)
 shellcheck gz302-main.sh
-
-# Lint all scripts
-for script in gz302-*.sh; do
-    echo "=== $script ==="
-    shellcheck "$script"
-done
 ```
 
-**All scripts must pass with zero warnings.**
+### Distribution Testing (Recommended)
 
-### 3. Distribution Testing
-
-**Strongly recommended:**
-Test your changes on all supported distributions:
-- Arch Linux (or EndeavourOS, Manjaro)
-- Ubuntu (or Pop!_OS, Linux Mint)
-- Fedora (or Nobara)
-- OpenSUSE Tumbleweed or Leap
-
-You can use virtual machines or containers for testing.
+Test on all supported distributions:
+- Arch Linux / Manjaro / EndeavourOS
+- Ubuntu / Pop!_OS / Linux Mint
+- Fedora / Nobara
+- OpenSUSE Tumbleweed / Leap
 
 ## 🔀 Pull Request Process
 
-1. **Fork the repository** and create a feature branch
-2. **Make your changes** following the code style guidelines
-3. **Test thoroughly**:
-   - Run syntax validation: `bash -n script.sh`
-   - Run shellcheck: `shellcheck script.sh`
-   - Test on target hardware or VM if possible
-4. **Commit with clear messages**:
-   ```
-   Add support for XYZ feature
-   
-   - Specific change 1
-   - Specific change 2
-   - Tested on: Arch Linux, Ubuntu 24.04
-   ```
-5. **Ensure equal distribution support**: If you add a feature, implement it for all 4 distributions
-6. **Submit pull request** with:
-   - Clear description of changes
-   - Testing details (which distributions you tested)
-   - Any known limitations or issues
+1. Fork and create feature branch
+2. Make changes following code standards
+3. Test: syntax validation and shellcheck
+4. Commit with clear messages (include tested distros)
+5. Ensure equal distribution support (all 4 distros)
+6. Submit PR with description and testing details
 
 ## 📦 Module Development
 
-When creating or modifying modules (`gz302-*.sh`):
+Requirements for modules (`gz302-*.sh`):
 
-1. **Follow the modular pattern**: Each module should be self-contained
-2. **Include standard helpers**: Copy color codes and helper functions
-3. **Support all distributions**: Implement for Arch, Debian, Fedora, OpenSUSE
-4. **Add proper error handling**: Use `set -euo pipefail`
-5. **Document usage**: Add comments explaining what the module does
+1. Self-contained modular design
+2. Include standard helper functions
+3. Support all 4 distributions
+4. Use `set -euo pipefail`
+5. Document purpose in comments
 
 ### Module Template
 
@@ -213,61 +162,44 @@ install_module "$1"
 
 ## 🐛 Bug Reports
 
-When reporting bugs, please include:
-
-1. **Distribution and version**: `cat /etc/os-release`
-2. **Hardware info**: `lscpu`, `lspci` output
-3. **Error messages**: Complete error output
-4. **Steps to reproduce**: Exact commands you ran
-5. **Expected vs actual behavior**: What should happen vs what happened
+Include:
+1. Distribution and version (`cat /etc/os-release`)
+2. Hardware info (`lscpu`, `lspci`)
+3. Complete error messages
+4. Steps to reproduce
+5. Expected vs actual behavior
 
 ## 💡 Feature Requests
 
-For new features:
-
-1. **Check existing issues** to avoid duplicates
-2. **Describe the use case**: Why is this feature needed?
-3. **Hardware relevance**: Is it specific to GZ302 hardware?
-4. **Distribution support**: Can it work on all 4 distributions?
+Include:
+1. Use case and rationale
+2. GZ302 hardware relevance
+3. Multi-distribution feasibility
 
 ## 📚 Documentation
 
-When updating documentation:
+Guidelines:
+1. Keep README.md user-focused
+2. Update version numbers
+3. Use clear command examples
+4. Maintain consistency
 
-1. **Keep README.md user-focused**: Installation and usage instructions
-2. **Update version numbers** in both README.md and script headers
-3. **Use clear examples**: Show actual commands users would run
-4. **Maintain consistency**: Follow existing formatting and style
+## ✅ Pre-Submit Checklist
 
-## ✅ Checklist Before Submitting
+- [ ] `bash -n` passes
+- [ ] `shellcheck` passes with zero warnings
+- [ ] Tested on at least one distribution
+- [ ] All 4 distributions supported
+- [ ] Documentation updated
+- [ ] Clear commit messages
+- [ ] No sensitive data in commits
 
-- [ ] Code passes `bash -n` syntax check
-- [ ] Code passes `shellcheck` with zero warnings
-- [ ] Changes tested on at least one supported distribution
-- [ ] All 4 distributions have equivalent implementation
-- [ ] Documentation updated if needed
-- [ ] Commit messages are clear and descriptive
-- [ ] No sensitive data (credentials, personal info) in commits
+## 📞 Help & Support
 
-## 🤝 Code Review
-
-All contributions go through code review:
-
-- Maintainers will review for code quality, security, and compatibility
-- Feedback will be provided constructively
-- You may be asked to make changes before merging
-- Be patient - reviews may take a few days
-
-## 📞 Getting Help
-
-- **Questions**: Open a GitHub issue with the "question" label
-- **Discussion**: Use GitHub Discussions for general topics
-- **Security issues**: Report privately to the maintainer
-
-## 📜 License
-
-By contributing, you agree that your contributions will be provided as-is for the GZ302 community, matching the project's license.
+- Questions: GitHub issues
+- Discussion: GitHub Discussions
+- Security: Report privately to maintainer
 
 ---
 
-**Thank you for helping make GZ302 Linux Setup better!** 🎉
+**License**: Contributions are provided as-is, matching project license (MIT).
