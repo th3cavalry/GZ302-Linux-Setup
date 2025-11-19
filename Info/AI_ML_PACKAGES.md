@@ -10,7 +10,7 @@
 
 This document details the current state of AI/ML package support for the ASUS ROG Flow Z13 (GZ302EA) with AMD Radeon 8060S integrated graphics (gfx1151 architecture). The GZ302 setup script now includes comprehensive AI/ML support through the `gz302-llm.sh` module, which installs:
 
-- **Ollama**: Local LLM server
+- **llama.cpp**: High-performance LLM inference engine with ROCm/HIP support (gfx1151 optimized)
 - **ROCm**: AMD GPU acceleration framework
 - **PyTorch**: Deep learning framework with ROCm backend
 - **MIOpen**: AMD's deep learning primitives library
@@ -336,7 +336,7 @@ python -m bitsandbytes
 
 The GZ302 now has comprehensive AI/ML support through the updated `gz302-llm.sh` module. While ROCm support for gfx1151 is in preview stage, the installation includes:
 
-✅ **Ollama** - Local LLM server  
+✅ **llama.cpp** - High-performance LLM inference with ROCm/HIP (gfx1151 optimized)  
 ✅ **ROCm** - AMD GPU acceleration  
 ✅ **PyTorch** - Deep learning framework  
 ✅ **MIOpen** - Optimized deep learning primitives  

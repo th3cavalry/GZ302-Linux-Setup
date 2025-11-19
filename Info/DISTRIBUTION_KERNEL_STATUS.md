@@ -272,7 +272,7 @@ Legend: ✅ = Supported | ⚠️ = Supported with workaround | ++ = Enhanced ove
 - **Why**: Latest kernel features, proton compatibility, latest graphics drivers
 - **Avoid**: Ubuntu 25.10 with default 6.11 (upgrade to HWE 6.14+ first)
 
-### AI/ML Development (Ollama, PyTorch with ROCm)
+### AI/ML Development (llama.cpp, PyTorch with ROCm)
 - **Best**: Any distribution with kernel 6.15+
 - **Recommended**: Arch Linux, Fedora 42+, OpenSUSE Tumbleweed (all have 6.17+)
 - **Ubuntu**: Upgrade to HWE kernel before installing ROCm/PyTorch

@@ -2,12 +2,13 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.0.0
+# Version: 2.1.0
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
-# Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
+# Includes: llama.cpp, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
 #
 # This script is designed to be called by gz302-main.sh
+# Now uses standard default paths for better troubleshooting
 # ==============================================================================
 
 set -euo pipefail
@@ -45,18 +46,187 @@ get_real_user() {
     fi
 }
 
+# Ask user if they want to add ROCm repository
+ask_add_rocm_repo() {
+    local distro="$1"
+    
+    # Skip prompt if not running in a TTY
+    if [[ ! -t 0 ]]; then
+        info "Non-interactive mode: skipping ROCm repository prompt"
+        return 1
+    fi
+    
+    echo
+    echo "ROCm packages may not be available in default repositories."
+    echo "Would you like to add the official AMD ROCm repository?"
+    echo "This will enable better GPU acceleration support for LLM inference."
+    read -r -p "Add ROCm repository? [Y/n]: " response
+    
+    response="${response,,}" # to lowercase
+    if [[ -z "$response" || "$response" == "y" || "$response" == "yes" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Add ROCm repository for Arch Linux
+add_rocm_repo_arch() {
+    info "ROCm packages are available in Arch official repositories"
+    info "No additional repository configuration needed"
+}
+
+# Add ROCm repository for Debian/Ubuntu
+add_rocm_repo_debian() {
+    info "Adding AMD ROCm repository for Debian/Ubuntu..."
+    
+    # Add AMD GPG key
+    mkdir -p /etc/apt/keyrings
+    wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor > /etc/apt/keyrings/rocm.gpg
+    
+    # Detect Ubuntu/Debian
+    local os_name
+    os_name=$(lsb_release -is | tr '[:upper:]' '[:lower:]')
+    
+    # Add ROCm repository
+    if [[ "$os_name" == "ubuntu" ]]; then
+        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.2 jammy main" > /etc/apt/sources.list.d/rocm.list
+    elif [[ "$os_name" == "debian" ]]; then
+        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.2 ubuntu main" > /etc/apt/sources.list.d/rocm.list
+    fi
+    
+    apt update
+    success "AMD ROCm repository added successfully"
+}
+
+# Add ROCm repository for Fedora
+add_rocm_repo_fedora() {
+    info "Adding AMD ROCm repository for Fedora..."
+    
+    cat > /etc/yum.repos.d/rocm.repo <<'EOF'
+[ROCm]
+name=ROCm
+baseurl=https://repo.radeon.com/rocm/rhel9/6.2/main
+enabled=1
+gpgcheck=1
+gpgkey=https://repo.radeon.com/rocm/rocm.gpg.key
+EOF
+    
+    dnf makecache
+    success "AMD ROCm repository added successfully"
+}
+
+# Add ROCm repository for OpenSUSE
+add_rocm_repo_opensuse() {
+    info "Adding AMD ROCm repository for OpenSUSE..."
+    
+    zypper addrepo -f https://repo.radeon.com/rocm/zyp/6.2/main rocm
+    zypper --gpg-auto-import-keys refresh
+    success "AMD ROCm repository added successfully"
+}
+
 # --- LLM/AI Software Installation Functions ---
 install_arch_llm_software() {
     info "Installing LLM/AI software for Arch-based system..."
     
-    # Install Ollama
-    info "Installing Ollama..."
-    pacman -S --noconfirm --needed ollama
-    systemctl enable --now ollama
+    # Check if user chose to keep Ollama (from migration script)
+    if [[ -f "/tmp/.gz302-llm-choice" ]]; then
+        source /tmp/.gz302-llm-choice
+        if [[ "${KEEP_OLLAMA:-false}" == "true" ]]; then
+            info "User chose to keep Ollama. Skipping llama.cpp installation."
+            info "Installing ROCm and Python AI libraries only..."
+            rm -f /tmp/.gz302-llm-choice
+            # Skip to ROCm/Python installation at the end
+            # Install ROCm for AMD GPU acceleration
+            info "Installing ROCm for AMD GPU acceleration..."
+            if ! pacman -Si rocm-opencl-runtime >/dev/null 2>&1; then
+                warning "ROCm packages not found in default repositories"
+                if ask_add_rocm_repo "arch"; then
+                    add_rocm_repo_arch
+                else
+                    warning "Proceeding without ROCm repository."
+                fi
+            fi
+            pacman -S --noconfirm --needed rocm-opencl-runtime rocm-hip-runtime rocblas miopen-hip hip-runtime-amd rocm-smi-lib || true
+            # Continue to Python installation section
+        elif [[ "${MIGRATE_TO_LLAMACPP:-false}" == "true" ]] || [[ "${INSTALL_BOTH:-false}" == "true" ]]; then
+            info "Proceeding with llama.cpp installation..."
+            rm -f /tmp/.gz302-llm-choice
+        fi
+    fi
     
-    # Install ROCm for AMD GPU acceleration
+    # Install llama.cpp with ROCm support
+    info "Installing llama.cpp with ROCm support for Strix Halo..."
+    
+    # Install build dependencies
+    pacman -S --noconfirm --needed git cmake make gcc pkgconf
+    
+    # Install ROCm for AMD GPU acceleration (required for llama.cpp)
     info "Installing ROCm for AMD GPU acceleration..."
-    pacman -S --noconfirm --needed rocm-opencl-runtime rocm-hip-runtime rocblas miopen-hip
+    
+    # Check if ROCm packages are available and offer to add repo if needed
+    if ! pacman -Si rocm-opencl-runtime >/dev/null 2>&1; then
+        warning "ROCm packages not found in default repositories"
+        if ask_add_rocm_repo "arch"; then
+            add_rocm_repo_arch
+        else
+            warning "Proceeding without ROCm repository. GPU acceleration may not be available."
+        fi
+    fi
+    
+    # Always attempt to install ROCm packages
+    pacman -S --noconfirm --needed rocm-opencl-runtime rocm-hip-runtime rocblas miopen-hip hip-runtime-amd rocm-smi-lib || \
+        warning "Some ROCm packages failed to install. llama.cpp will build with limited GPU support."
+    
+    # Build and install llama.cpp with ROCm support
+    info "Building llama.cpp with ROCm/HIP support for gfx1151 (Radeon 8060S)..."
+    local llama_build_dir="/tmp/llama.cpp-build-$$"
+    
+    git clone https://github.com/ggerganov/llama.cpp.git "$llama_build_dir"
+    cd "$llama_build_dir"
+    
+    # Build with ROCm support targeting gfx1151 (Strix Halo/Radeon 8060S)
+    mkdir build
+    cd build
+    cmake .. \
+        -DGGML_HIPBLAS=ON \
+        -DAMDGPU_TARGETS=gfx1151 \
+        -DCMAKE_BUILD_TYPE=Release
+    
+    local nproc_count
+    nproc_count="$(nproc)"
+    cmake --build . --config Release -j"${nproc_count}"
+    
+    # Install llama.cpp binaries to standard /usr/local prefix
+    cmake --install .
+    
+    # Create systemd service for llama-server
+    cat > /etc/systemd/system/llama-server.service <<'EOF'
+[Unit]
+Description=llama.cpp server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=5
+User=nobody
+Group=nobody
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    systemctl daemon-reload
+    
+    # Clean up build directory
+    cd /
+    rm -rf "$llama_build_dir"
+    
+    success "llama.cpp installed successfully with ROCm support for gfx1151"
+    info "llama-cli and llama-server are available in /usr/local/bin"
+    info "To start llama-server: sudo systemctl enable --now llama-server"
     
     # MIOpen precompiled kernels (gfx1151 for Radeon 8060S)
     # Note: As of Nov 2025, precompiled kernels for gfx1151 may not be available in repositories
@@ -77,7 +247,7 @@ install_arch_llm_software() {
     local primary_user
     primary_user=$(get_real_user)
     local venv_dir
-    venv_dir="/home/$primary_user/.gz302-llm-venv"
+    venv_dir="/home/$primary_user/llm-venv"
     if [[ "$primary_user" != "root" ]]; then
         sudo -u "$primary_user" python -m venv "$venv_dir"
         info "Created Python virtual environment at $venv_dir"
@@ -109,13 +279,12 @@ install_arch_llm_software() {
         if sudo -u "$primary_user" "$venv_dir/bin/python" -c "import importlib; importlib.import_module('torch')" >/dev/null 2>&1; then
             info "PyTorch import succeeded inside the venv"
             # remove any stale failure marker
-            if [[ -f "$venv_dir/.gz302/torch_install_failed" ]]; then
-                rm -f "$venv_dir/.gz302/torch_install_failed" || true
+            if [[ -f "$venv_dir/.torch_install_failed" ]]; then
+                rm -f "$venv_dir/.torch_install_failed" || true
             fi
         else
             warning "PyTorch could not be imported after installation attempts in the venv. Attempting conda/miniforge fallback for better binary compatibility (recommended for ROCm)."
             # Attempt a conda/miniforge fallback in the user's home to provide a reliable binary environment
-            mkdir -p "$venv_dir/.gz302" || true
 
             # Detect existing conda
             conda_cmd=""
@@ -160,18 +329,18 @@ install_arch_llm_software() {
                 if sudo -u "$primary_user" "$conda_cmd" run -n gz302-llm python -c "import importlib; importlib.import_module('torch')" >/dev/null 2>&1; then
                     info "PyTorch import succeeded inside conda env 'gz302-llm'"
                     # remove any stale failure marker
-                    if [[ -f "$venv_dir/.gz302/torch_install_failed" ]]; then
-                        rm -f "$venv_dir/.gz302/torch_install_failed" || true
+                    if [[ -f "$venv_dir/.torch_install_failed" ]]; then
+                        rm -f "$venv_dir/.torch_install_failed" || true
                     fi
                     # write a small helper file noting conda env success
-                    echo "conda_env:gz302-llm" > "$venv_dir/.gz302/torch_install_success" || true
+                    echo "conda_env:gz302-llm" > "$venv_dir/.torch_install_success" || true
                 else
                     warning "PyTorch still could not be imported after conda fallback. See https://pytorch.org for platform-specific instructions."
-                    touch "$venv_dir/.gz302/torch_install_failed"
+                    touch "$venv_dir/.torch_install_failed"
                 fi
             else
                 warning "No conda/miniforge available and automatic install failed; leaving venv-only installation state."
-                touch "$venv_dir/.gz302/torch_install_failed"
+                touch "$venv_dir/.torch_install_failed"
             fi
         fi
 
@@ -194,16 +363,11 @@ install_arch_llm_software() {
 }
 
     # --- Frontend installers (opt-in, lightweight/idempotent) ---
-    ensure_user_dirs() {
-        local user="$1"
-        sudo -u "$user" mkdir -p "/home/$user/.local/share/gz302/frontends" || true
-    }
 
     install_localai_docker() {
         local user="$1"
         info "(frontend) Setting up LocalAI (docker) for $user"
-        ensure_user_dirs "$user"
-        local dst="/home/$user/.local/share/gz302/frontends/localai"
+        local dst="/home/$user/localai"
                 mkdir -p "$dst" || true
         cat > "$dst/docker-compose.yml" <<'EOF'
 version: '3.8'
@@ -230,8 +394,7 @@ EOF
     install_textgen_webui() {
         local user="$1"
         info "(frontend) Installing text-generation-webui (clone only) for $user"
-        ensure_user_dirs "$user"
-        local dst="/home/$user/.local/share/gz302/frontends/text-generation-webui"
+        local dst="/home/$user/text-generation-webui"
         if [[ -d "$dst/.git" ]]; then
             info "text-generation-webui already cloned at $dst"
             return
@@ -243,8 +406,7 @@ EOF
     install_comfyui() {
         local user="$1"
         info "(frontend) Installing ComfyUI (clone only) for $user"
-        ensure_user_dirs "$user"
-        local dst="/home/$user/.local/share/gz302/frontends/ComfyUI"
+        local dst="/home/$user/ComfyUI"
         if [[ -d "$dst/.git" ]]; then
             info "ComfyUI already cloned at $dst"
             return
@@ -256,8 +418,7 @@ EOF
     install_flowise() {
         local user="$1"
         info "(frontend) Installing Flowise (docker recommended) for $user"
-        ensure_user_dirs "$user"
-        local dst="/home/$user/.local/share/gz302/frontends/flowise"
+        local dst="/home/$user/flowise"
         mkdir -p "$dst" || true
         # Provide docker-compose pointer
     cat > "$dst/README.txt" <<EOF
@@ -270,8 +431,7 @@ EOF
     install_swarmui() {
         local user="$1"
         info "(frontend) Installing SwarmUI (clone only) for $user"
-        ensure_user_dirs "$user"
-        local dst="/home/$user/.local/share/gz302/frontends/SwarmUI"
+        local dst="/home/$user/SwarmUI"
         if [[ -d "$dst/.git" ]]; then
             info "SwarmUI already cloned at $dst"
             return
@@ -283,8 +443,7 @@ EOF
     install_invokeai() {
         local user="$1"
         info "(frontend) Installing InvokeAI (clone only) for $user"
-        ensure_user_dirs "$user"
-        local dst="/home/$user/.local/share/gz302/frontends/InvokeAI"
+        local dst="/home/$user/InvokeAI"
         if [[ -d "$dst/.git" ]]; then
             info "InvokeAI already cloned at $dst"
             return
@@ -385,15 +544,80 @@ EOF
 install_debian_llm_software() {
     info "Installing LLM/AI software for Debian-based system..."
     
-    # Install Ollama
-    info "Installing Ollama..."
-    curl -fsSL https://ollama.ai/install.sh | sh
-    systemctl enable --now ollama
+    # Install llama.cpp with ROCm support
+    info "Installing llama.cpp with ROCm support for Strix Halo..."
     
-    # Install ROCm (if available)
+    # Install build dependencies
+    apt update
+    apt install -y git cmake make g++ pkg-config
+    
+    # Install ROCm for AMD GPU acceleration (required for llama.cpp)
     info "Installing ROCm for AMD GPU acceleration..."
-    # Try to install ROCm packages if available
-    apt install -y rocm-opencl-runtime rocblas miopen-hip || warning "ROCm packages not available in default repositories. Consider adding AMD ROCm repository."
+    
+    # Check if ROCm packages are available and offer to add repo if needed
+    if ! apt-cache show rocm-opencl-runtime >/dev/null 2>&1; then
+        warning "ROCm packages not found in default repositories"
+        if ask_add_rocm_repo "debian"; then
+            add_rocm_repo_debian
+        else
+            warning "Proceeding without ROCm repository. GPU acceleration may not be available."
+        fi
+    fi
+    
+    # Always attempt to install ROCm packages
+    apt install -y rocm-opencl-runtime rocblas miopen-hip hip-runtime-amd rocm-smi-lib || \
+        warning "Some ROCm packages failed to install. llama.cpp will build with limited GPU support."
+    
+    # Build and install llama.cpp with ROCm support
+    info "Building llama.cpp with ROCm/HIP support for gfx1151 (Radeon 8060S)..."
+    local llama_build_dir="/tmp/llama.cpp-build-$$"
+    
+    git clone https://github.com/ggerganov/llama.cpp.git "$llama_build_dir"
+    cd "$llama_build_dir"
+    
+    # Build with ROCm support targeting gfx1151 (Strix Halo/Radeon 8060S)
+    mkdir build
+    cd build
+    cmake .. \
+        -DGGML_HIPBLAS=ON \
+        -DAMDGPU_TARGETS=gfx1151 \
+        -DCMAKE_BUILD_TYPE=Release \
+        
+    
+    local nproc_count; nproc_count="$(nproc)"; cmake --build . --config Release -j"${nproc_count}"
+    
+    # Install llama.cpp binaries
+    cmake --install .
+    
+    # Create symbolic links in /usr/local/bin for easy access
+    
+    # Create systemd service for llama-server
+    cat > /etc/systemd/system/llama-server.service <<'EOF'
+[Unit]
+Description=llama.cpp server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=5
+User=nobody
+Group=nogroup
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    systemctl daemon-reload
+    
+    # Clean up build directory
+    cd /
+    rm -rf "$llama_build_dir"
+    
+    success "llama.cpp installed successfully with ROCm support for gfx1151"
+    info "llama-cli and llama-server are available in /usr/local/bin"
+    info "To start llama-server: sudo systemctl enable --now llama-server"
     
     # Install MIOpen precompiled kernels if available
     # Note: As of Nov 2025, precompiled kernels for gfx1151 may not be available
@@ -432,15 +656,79 @@ install_debian_llm_software() {
 install_fedora_llm_software() {
     info "Installing LLM/AI software for Fedora-based system..."
     
-    # Install Ollama
-    info "Installing Ollama..."
-    curl -fsSL https://ollama.ai/install.sh | sh
-    systemctl enable --now ollama
+    # Install llama.cpp with ROCm support
+    info "Installing llama.cpp with ROCm support for Strix Halo..."
     
-    # Install ROCm (if available)
+    # Install build dependencies
+    dnf install -y git cmake make gcc-c++ pkgconfig
+    
+    # Install ROCm for AMD GPU acceleration (required for llama.cpp)
     info "Installing ROCm for AMD GPU acceleration..."
-    # ROCm packages may be available via EPEL or custom repos
-    dnf install -y rocm-opencl rocblas miopen-hip || warning "ROCm packages not available in default repositories. Consider adding AMD ROCm repository."
+    
+    # Check if ROCm packages are available and offer to add repo if needed
+    if ! dnf list rocm-opencl >/dev/null 2>&1; then
+        warning "ROCm packages not found in default repositories"
+        if ask_add_rocm_repo "fedora"; then
+            add_rocm_repo_fedora
+        else
+            warning "Proceeding without ROCm repository. GPU acceleration may not be available."
+        fi
+    fi
+    
+    # Always attempt to install ROCm packages
+    dnf install -y rocm-opencl rocblas miopen-hip hip-runtime-amd rocm-smi-lib || \
+        warning "Some ROCm packages failed to install. llama.cpp will build with limited GPU support."
+    
+    # Build and install llama.cpp with ROCm support
+    info "Building llama.cpp with ROCm/HIP support for gfx1151 (Radeon 8060S)..."
+    local llama_build_dir="/tmp/llama.cpp-build-$$"
+    
+    git clone https://github.com/ggerganov/llama.cpp.git "$llama_build_dir"
+    cd "$llama_build_dir"
+    
+    # Build with ROCm support targeting gfx1151 (Strix Halo/Radeon 8060S)
+    mkdir build
+    cd build
+    cmake .. \
+        -DGGML_HIPBLAS=ON \
+        -DAMDGPU_TARGETS=gfx1151 \
+        -DCMAKE_BUILD_TYPE=Release \
+        
+    
+    local nproc_count; nproc_count="$(nproc)"; cmake --build . --config Release -j"${nproc_count}"
+    
+    # Install llama.cpp binaries
+    cmake --install .
+    
+    # Create symbolic links in /usr/local/bin for easy access
+    
+    # Create systemd service for llama-server
+    cat > /etc/systemd/system/llama-server.service <<'EOF'
+[Unit]
+Description=llama.cpp server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=5
+User=nobody
+Group=nobody
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    systemctl daemon-reload
+    
+    # Clean up build directory
+    cd /
+    rm -rf "$llama_build_dir"
+    
+    success "llama.cpp installed successfully with ROCm support for gfx1151"
+    info "llama-cli and llama-server are available in /usr/local/bin"
+    info "To start llama-server: sudo systemctl enable --now llama-server"
     
     # Install Python and AI libraries
     info "Installing Python AI libraries..."
@@ -468,15 +756,79 @@ install_fedora_llm_software() {
 install_opensuse_llm_software() {
     info "Installing LLM/AI software for OpenSUSE..."
     
-    # Install Ollama
-    info "Installing Ollama..."
-    curl -fsSL https://ollama.ai/install.sh | sh
-    systemctl enable --now ollama
+    # Install llama.cpp with ROCm support
+    info "Installing llama.cpp with ROCm support for Strix Halo..."
     
-    # Install ROCm (if available)
+    # Install build dependencies
+    zypper install -y git cmake make gcc-c++ pkg-config
+    
+    # Install ROCm for AMD GPU acceleration (required for llama.cpp)
     info "Installing ROCm for AMD GPU acceleration..."
-    # ROCm packages may be available via OBS repositories
-    zypper install -y rocm-opencl rocblas miopen-hip || warning "ROCm packages not available in default repositories. Consider adding AMD ROCm repository."
+    
+    # Check if ROCm packages are available and offer to add repo if needed
+    if ! zypper search -i rocm-opencl >/dev/null 2>&1; then
+        warning "ROCm packages not found in default repositories"
+        if ask_add_rocm_repo "opensuse"; then
+            add_rocm_repo_opensuse
+        else
+            warning "Proceeding without ROCm repository. GPU acceleration may not be available."
+        fi
+    fi
+    
+    # Always attempt to install ROCm packages
+    zypper install -y rocm-opencl rocblas miopen-hip hip-runtime-amd rocm-smi-lib || \
+        warning "Some ROCm packages failed to install. llama.cpp will build with limited GPU support."
+    
+    # Build and install llama.cpp with ROCm support
+    info "Building llama.cpp with ROCm/HIP support for gfx1151 (Radeon 8060S)..."
+    local llama_build_dir="/tmp/llama.cpp-build-$$"
+    
+    git clone https://github.com/ggerganov/llama.cpp.git "$llama_build_dir"
+    cd "$llama_build_dir"
+    
+    # Build with ROCm support targeting gfx1151 (Strix Halo/Radeon 8060S)
+    mkdir build
+    cd build
+    cmake .. \
+        -DGGML_HIPBLAS=ON \
+        -DAMDGPU_TARGETS=gfx1151 \
+        -DCMAKE_BUILD_TYPE=Release \
+        
+    
+    local nproc_count; nproc_count="$(nproc)"; cmake --build . --config Release -j"${nproc_count}"
+    
+    # Install llama.cpp binaries
+    cmake --install .
+    
+    # Create symbolic links in /usr/local/bin for easy access
+    
+    # Create systemd service for llama-server
+    cat > /etc/systemd/system/llama-server.service <<'EOF'
+[Unit]
+Description=llama.cpp server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=5
+User=nobody
+Group=nobody
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    systemctl daemon-reload
+    
+    # Clean up build directory
+    cd /
+    rm -rf "$llama_build_dir"
+    
+    success "llama.cpp installed successfully with ROCm support for gfx1151"
+    info "llama-cli and llama-server are available in /usr/local/bin"
+    info "To start llama-server: sudo systemctl enable --now llama-server"
     
     # Install Python and AI libraries
     info "Installing Python AI libraries..."
