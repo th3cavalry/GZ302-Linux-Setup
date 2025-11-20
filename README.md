@@ -100,7 +100,141 @@ gz302-rgb brightness 50     # Set brightness to 50%
 
 *Note: RGB settings persist across reboots automatically.*
 
-## 📊 Technical Specifications
+## 🤖 AI/LLM Module: Complete Setup Guide
+
+The AI module provides a complete local LLM inference stack optimized for Strix Halo. This section covers backend selection, frontend options, Python 3.11 setup, and kernel optimization.
+
+### Backend Options
+
+When you run the AI module, you'll be prompted to choose an inference backend:
+
+**1. Ollama (Model Management)**
+- Unified model downloading, management, and serving
+- Requires a separate frontend UI (Open WebUI recommended)
+- Best for: Multiple model experimentation, easy model switching
+- Python 3.11 venv automatically set up at `~/.gz302-open-webui-venv`
+- Run Open WebUI: `source ~/.gz302-open-webui-venv/bin/activate && open-webui serve`
+
+**2. llama.cpp (Fast Inference)**
+- Direct model inference, built-in web UI (port 8080)
+- Single-model focused, optimized for performance
+- Best for: Speed, low resource overhead
+- Systemd service: `sudo systemctl enable --now llama-server`
+- Access web UI: http://localhost:8080
+
+**3. Both (Recommended)**
+- Installs Ollama + llama.cpp for maximum flexibility
+- Use Ollama for complex workflows, llama.cpp for quick inference
+- Default in non-interactive mode
+
+### Frontend UIs (Top 3)
+
+After selecting a backend, you can install one or more frontends:
+
+**1. text-generation-webui** (Feature-Rich LLM Interface)
+- Popular, community-driven, extensive customization
+- Best for: Text generation, fine-tuning, advanced settings
+- Install location: `~/.local/share/gz302/frontends/text-generation-webui`
+- Setup: `cd ~/.local/share/gz302/frontends/text-generation-webui && python -m venv venv && source venv/bin/activate && pip install -r requirements/portable/requirements.txt`
+
+**2. ComfyUI** (Node-Based Visual Workflows)
+- Ideal for image generation and complex pipelines
+- Best for: Stable Diffusion, ControlNet, advanced image workflows
+- Install location: `~/.local/share/gz302/frontends/ComfyUI`
+- Setup: `cd ~/.local/share/gz302/frontends/ComfyUI && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`
+
+**3. llama.cpp Built-In WebUI** (Lightweight)
+- No separate installation needed
+- Runs on port 8080 when llama.cpp service is active
+- Best for: Quick inference without overhead
+- Automatically available when llama.cpp backend is selected
+
+### Strix Halo GPU Optimization
+
+**Critical Flags for llama-server (Automatically Applied):**
+```bash
+-fa 1          # Flash attention - REQUIRED for Strix Halo, improves throughput by 10x
+--no-mmap      # Prevents memory-mapping issues with unified memory aperture
+-ngl 999       # All layers to GPU for maximum performance
+```
+
+These flags are automatically configured in the systemd service (`/etc/systemd/system/llama-server.service`). Without `-fa 1 --no-mmap`, performance collapses or the system crashes.
+
+**Kernel Parameters (Set by main script):**
+```bash
+amd_iommu=off              # Disables IOMMU for lower latency
+amdgpu.gttsize=131072      # Enables unified GPU/system memory (up to 128 GiB)
+ttm.pages_limit=33554432   # Allows large pinned memory allocations (128 GiB)
+```
+
+These are automatically configured during the core setup. To verify: `cat /proc/cmdline`
+
+### Python 3.11 & Open WebUI
+
+Open WebUI requires **exactly** Python 3.11 (not 3.12, not 3.13). The installer automatically detects your Python version and handles it:
+
+- **If Python 3.11 not found:** Installer attempts distro-specific installation:
+  - **Arch:** `pacman -S python3.11`
+  - **Debian/Ubuntu:** `apt install python3.11 python3.11-venv`
+  - **Fedora:** `dnf install python3.11`
+  - **OpenSUSE:** `zypper install python311`
+
+- **Venv Location:** `~/.gz302-open-webui-venv`
+- **Activation:** `source ~/.gz302-open-webui-venv/bin/activate`
+- **Launch:** `open-webui serve`
+- **Access:** http://localhost:8000
+
+### Model Selection & VRAM Planning
+
+All models should be in GGUF format (quantized for CPU/GPU inference). Recommended sources:
+
+- **Unsloth GGUF Models:** https://huggingface.co/unsloth (High quality, actively maintained)
+- **TheBloke:** https://huggingface.co/TheBloke (Largest GGUF collection)
+
+**VRAM Estimation Tool:**
+Use the VRAM estimator from kyuz0 Strix Halo toolbox to plan:
+```
+Model Size + Context Memory + Overhead = Total VRAM
+Example: 7B model (7GB) + 8K context (2GB) + 1GB overhead = ~10GB required
+```
+
+See: https://github.com/kyuz0/amd-strix-halo-toolboxes#4--memory-planning--vram-estimator
+
+### Performance Tuning
+
+**Recommended ROCm Versions (in order):**
+1. **ROCm 7.1 with ROCWMMA** - Best throughput, flash attention optimized
+2. **ROCm 6.4.4** - Stable, excellent compatibility
+3. **Vulkan RADV** - Most stable, works everywhere (slower)
+
+**Model Quantization Guidelines:**
+- **Q4_K_M:** Best balance (4-bit, medium) - Recommended starting point
+- **Q3_K_XL:** For larger models or limited VRAM
+- **BF16/FP16:** For maximum quality, requires more VRAM
+
+**Batch Size Tuning:**
+- Start with `-ngl 999` (all layers to GPU)
+- If OOM: Reduce context length (`-c 4096` instead of 8192)
+- Test batch sizes with small context first
+
+### Troubleshooting
+
+**"Flash attention disabled" warning:**
+- The system is running without optimization. Recheck kernel params.
+- Solution: `pwrcfg` and verify `--no-mmap` in llama-server service
+
+**"Could not find Open WebUI wheels for Python X.Y":**
+- Open WebUI requires Python 3.11 specifically
+- Solution: Manually set up Python 3.11 venv or use Ollama Docker container
+
+**Slow inference (< 10 tokens/sec):**
+- Missing `-fa 1` flag
+- Check: `sudo systemctl cat llama-server.service | grep ExecStart`
+- Fix: Reinstall or manually update the service file
+
+---
+
+📊 Technical Specifications
 
 ### Power Profiles (TDP)
 
