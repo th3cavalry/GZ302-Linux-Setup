@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 Hypervisor Software Module
-# Version: 2.0.3
+# Version: 2.0.4
 #
 # This module installs hypervisor software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Full KVM/QEMU stack, VirtualBox
@@ -157,13 +157,13 @@ install_kvm_qemu() {
                 vde2 \
                 || warning "Some packages may have failed to install"
             
-            # Try to install iptables-nft if not conflicting
-            if ! pacman -Q iptables-nft >/dev/null 2>&1; then
-                info "Installing iptables-nft (modern nftables-based iptables)..."
-                if pacman -S --noconfirm iptables-nft 2>/dev/null; then
-                    success "iptables-nft installed successfully"
+            # Try to install nftables (modern firewall framework)
+            if ! pacman -Q nftables >/dev/null 2>&1; then
+                info "Installing nftables (modern firewall framework for KVM networking)..."
+                if pacman -S --noconfirm nftables 2>/dev/null; then
+                    success "nftables installed successfully"
                 else
-                    warning "iptables-nft installation failed (likely due to conflicts with existing iptables). This is usually safe to ignore."
+                    warning "nftables installation failed. KVM networking will use available firewall backend."
                 fi
             fi
             
