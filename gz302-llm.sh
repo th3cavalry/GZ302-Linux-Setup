@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.2.2
+# Version: 2.2.4
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
@@ -100,14 +100,26 @@ configure_systemd_boot_kernel_params() {
     local default_entry=""
 
     if [[ -f "$loader_conf" ]]; then
-        default_entry=$(grep "^default" "$loader_conf" | cut -d' ' -f2- | tr -d ' ')
+        default_entry=$(grep "^default" "$loader_conf" | cut -d' ' -f2- | tr -d ' ' || echo "")
     fi
 
     if [[ -z "$default_entry" ]]; then
         default_entry="linux"
     fi
 
-    local entry_file="/boot/loader/entries/${default_entry}.conf"
+    local entry_file
+    if [[ "$default_entry" == "linux" ]]; then
+        # Find the actual linux entry file
+        local linux_entry
+        linux_entry=$(find /boot/loader/entries -name "*_linux.conf" | head -1)
+        if [[ -n "$linux_entry" ]]; then
+            entry_file="$linux_entry"
+        else
+            entry_file="/boot/loader/entries/${default_entry}.conf"
+        fi
+    else
+        entry_file="/boot/loader/entries/${default_entry}.conf"
+    fi
 
     if [[ -f "$entry_file" ]]; then
         # Check if parameters already exist
@@ -240,7 +252,7 @@ check_llamacpp_installed() {
 setup_openwebui_with_uv() {
     local user="$1"
     local distro="$2"
-    local openwebui_dir="/home/$user/open-webui"
+    local openwebui_dir="/home/$user/.local/share/open-webui"
     
     if [[ -d "$openwebui_dir" ]] && [[ -f "$openwebui_dir/.venv/bin/open-webui" ]]; then
         info "Open WebUI is already installed at $openwebui_dir"
@@ -463,9 +475,14 @@ EOF
         local primary_user
         primary_user=$(get_real_user)
         local venv_dir
-        venv_dir="/home/$primary_user/.gz302-llm-venv"
+        venv_dir="/home/$primary_user/.local/share/gz302-llm"
         if [[ "$primary_user" != "root" ]]; then
-            sudo -u "$primary_user" python -m venv "$venv_dir"
+            # Create venv with Python 3.11 if available for better PyTorch compatibility
+            if command -v python3.11 >/dev/null 2>&1; then
+                sudo -u "$primary_user" python3.11 -m venv "$venv_dir"
+            else
+                sudo -u "$primary_user" python -m venv "$venv_dir"
+            fi
             info "Created Python virtual environment at $venv_dir"
             sudo -u "$primary_user" "$venv_dir/bin/pip" install --upgrade pip
 
@@ -561,11 +578,8 @@ EOF
                 fi
             fi
 
-            # Cleanup: remove any temporary pip TMPDIR we may have used and purge pip cache inside venv
-            if [[ -d "/home/$primary_user/.cache/pip-tmp" ]]; then
-                sudo -u "$primary_user" rm -rf "/home/$primary_user/.cache/pip-tmp" || true
-                info "Removed temporary pip TMPDIR /home/$primary_user/.cache/pip-tmp"
-            fi
+            # Cleanup: purge pip cache inside venv
+            # Note: pip cache is automatically managed by pip in ~/.cache/pip/
             if [[ -x "$venv_dir/bin/pip" ]]; then
                 sudo -u "$primary_user" "$venv_dir/bin/pip" cache purge || true
                 info "Purged pip cache inside venv"
@@ -593,8 +607,7 @@ EOF
             case "$frontend" in
                 1|text-generation-webui|textgen|text)
                     info "Installing text-generation-webui..."
-                    ensure_user_dirs "$primary_user"
-                    local dst="/home/$primary_user/.local/share/gz302/frontends/text-generation-webui"
+                    local dst="/home/$primary_user/.local/share/text-generation-webui"
                     if [[ -d "$dst/.git" ]]; then
                         info "text-generation-webui already cloned"
                     else
@@ -605,8 +618,7 @@ EOF
                     ;;
                 2|comfyui|comfy)
                     info "Installing ComfyUI..."
-                    ensure_user_dirs "$primary_user"
-                    local dst="/home/$primary_user/.local/share/gz302/frontends/ComfyUI"
+                    local dst="/home/$primary_user/.local/share/comfyui"
                     if [[ -d "$dst/.git" ]]; then
                         info "ComfyUI already cloned"
                     else
@@ -633,12 +645,6 @@ EOF
     
     success "LLM/AI software installation completed"
 }
-
-    # --- Frontend installers (opt-in, lightweight/idempotent) ---
-    ensure_user_dirs() {
-        local user="$1"
-        sudo -u "$user" mkdir -p "/home/$user/.local/share/gz302/frontends" || true
-    }
 
 install_debian_llm_software() {
     info "Installing LLM/AI software for Debian-based system..."
@@ -784,8 +790,7 @@ EOF
             case "$frontend" in
                 1|text-generation-webui|textgen|text)
                     info "Installing text-generation-webui..."
-                    ensure_user_dirs "$primary_user"
-                    local dst="/home/$primary_user/.local/share/gz302/frontends/text-generation-webui"
+                    local dst="/home/$primary_user/.local/share/text-generation-webui"
                     if [[ -d "$dst/.git" ]]; then
                         info "text-generation-webui already cloned"
                     else
@@ -796,8 +801,7 @@ EOF
                     ;;
                 2|comfyui|comfy)
                     info "Installing ComfyUI..."
-                    ensure_user_dirs "$primary_user"
-                    local dst="/home/$primary_user/.local/share/gz302/frontends/ComfyUI"
+                    local dst="/home/$primary_user/.local/share/comfyui"
                     if [[ -d "$dst/.git" ]]; then
                         info "ComfyUI already cloned"
                     else
@@ -957,8 +961,7 @@ EOF
             case "$frontend" in
                 1|text-generation-webui|textgen|text)
                     info "Installing text-generation-webui..."
-                    ensure_user_dirs "$primary_user"
-                    local dst="/home/$primary_user/.local/share/gz302/frontends/text-generation-webui"
+                    local dst="/home/$primary_user/.local/share/text-generation-webui"
                     if [[ -d "$dst/.git" ]]; then
                         info "text-generation-webui already cloned"
                     else
@@ -969,8 +972,7 @@ EOF
                     ;;
                 2|comfyui|comfy)
                     info "Installing ComfyUI..."
-                    ensure_user_dirs "$primary_user"
-                    local dst="/home/$primary_user/.local/share/gz302/frontends/ComfyUI"
+                    local dst="/home/$primary_user/.local/share/comfyui"
                     if [[ -d "$dst/.git" ]]; then
                         info "ComfyUI already cloned"
                     else
@@ -1130,8 +1132,7 @@ EOF
             case "$frontend" in
                 1|text-generation-webui|textgen|text)
                     info "Installing text-generation-webui..."
-                    ensure_user_dirs "$primary_user"
-                    local dst="/home/$primary_user/.local/share/gz302/frontends/text-generation-webui"
+                    local dst="/home/$primary_user/.local/share/text-generation-webui"
                     if [[ -d "$dst/.git" ]]; then
                         info "text-generation-webui already cloned"
                     else
@@ -1142,8 +1143,7 @@ EOF
                     ;;
                 2|comfyui|comfy)
                     info "Installing ComfyUI..."
-                    ensure_user_dirs "$primary_user"
-                    local dst="/home/$primary_user/.local/share/gz302/frontends/ComfyUI"
+                    local dst="/home/$primary_user/.local/share/comfyui"
                     if [[ -d "$dst/.git" ]]; then
                         info "ComfyUI already cloned"
                     else
