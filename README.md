@@ -149,6 +149,13 @@ After selecting a backend, you can install one or more frontends:
 - Best for: Quick inference without overhead
 - Automatically available when llama.cpp backend is selected
 
+**4. Open WebUI** (Modern Ollama Interface)
+- Sleek, modern web interface specifically for Ollama
+- Best for: Clean UI, chat-focused interactions, multi-model management
+- Requires Ollama backend (automatically installed with Ollama)
+- Python 3.11 venv: `~/.gz302-open-webui-venv`
+- Run: `source ~/.gz302-open-webui-venv/bin/activate && open-webui serve`
+
 ### Strix Halo GPU Optimization
 
 **Critical Flags for llama-server (Automatically Applied):**

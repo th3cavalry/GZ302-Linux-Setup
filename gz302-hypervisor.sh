@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 Hypervisor Software Module
-# Version: 2.0.1
+# Version: 2.0.2
 #
 # This module installs hypervisor software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Full KVM/QEMU stack, VirtualBox
@@ -141,6 +141,11 @@ install_kvm_qemu() {
     case "$distro" in
         "arch")
             info "Installing QEMU/KVM packages for Arch Linux..."
+            # Remove conflicting iptables package if present
+            if pacman -Q iptables >/dev/null 2>&1; then
+                info "Removing conflicting iptables package..."
+                pacman -R --noconfirm iptables || warning "Failed to remove iptables"
+            fi
             # Core QEMU and KVM packages
             pacman -S --noconfirm --needed \
                 qemu-full \

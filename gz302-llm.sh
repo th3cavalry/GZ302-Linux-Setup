@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.0.1
+# Version: 2.1.0
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
@@ -149,6 +149,7 @@ ask_frontend_choice() {
     echo "  1) text-generation-webui - Feature-rich UI for local text LLMs (oobabooga)"
     echo "  2) ComfyUI              - Node-based UI ideal for image generation workflows"
     echo "  3) llama.cpp webui      - Lightweight built-in web interface (requires llama.cpp backend)"
+    echo "  4) Open WebUI           - Modern web interface for Ollama (requires Ollama backend)"
     echo "  (Leave empty to skip frontends)"
     read -r -p "Install frontends (e.g. '1,3' or '1 2 3' or Enter=none): " choice
     
@@ -432,6 +433,14 @@ EOF
                     info "llama.cpp webui is built-in (port 8080) when llama.cpp backend is running"
                     if [[ "$backend_choice" != "2" ]] && [[ "$backend_choice" != "3" ]]; then
                         warning "llama.cpp webui requires llama.cpp backend. Install llama.cpp backend to use this webui."
+                    fi
+                    ;;
+                4|openwebui|open-web-ui)
+                    if [[ "$backend_choice" == "1" ]] || [[ "$backend_choice" == "3" ]]; then
+                        info "Open WebUI is already installed with Ollama backend."
+                        info "To run: source /home/$primary_user/.gz302-open-webui-venv/bin/activate && open-webui serve"
+                    else
+                        warning "Open WebUI requires Ollama backend. Please select Ollama or both backends to use Open WebUI."
                     fi
                     ;;
                 *)
@@ -816,6 +825,14 @@ EOF
                         warning "llama.cpp webui requires llama.cpp backend. Install llama.cpp backend to use this webui."
                     fi
                     ;;
+                4|openwebui|open-web-ui)
+                    if [[ "$backend_choice" == "1" ]] || [[ "$backend_choice" == "3" ]]; then
+                        info "Open WebUI is already installed with Ollama backend."
+                        info "To run: source /home/$primary_user/.gz302-open-webui-venv/bin/activate && open-webui serve"
+                    else
+                        warning "Open WebUI requires Ollama backend. Please select Ollama or both backends to use Open WebUI."
+                    fi
+                    ;;
                 *)
                     warning "Unknown frontend: $frontend"
                     ;;
@@ -986,6 +1003,14 @@ EOF
                         warning "llama.cpp webui requires llama.cpp backend. Install llama.cpp backend to use this webui."
                     fi
                     ;;
+                4|openwebui|open-web-ui)
+                    if [[ "$backend_choice" == "1" ]] || [[ "$backend_choice" == "3" ]]; then
+                        info "Open WebUI is already installed with Ollama backend."
+                        info "To run: source /home/$primary_user/.gz302-open-webui-venv/bin/activate && open-webui serve"
+                    else
+                        warning "Open WebUI requires Ollama backend. Please select Ollama or both backends to use Open WebUI."
+                    fi
+                    ;;
                 *)
                     warning "Unknown frontend: $frontend"
                     ;;
@@ -1154,6 +1179,14 @@ EOF
                     info "llama.cpp webui is built-in (port 8080) when llama.cpp backend is running"
                     if [[ "$backend_choice" != "2" ]] && [[ "$backend_choice" != "3" ]]; then
                         warning "llama.cpp webui requires llama.cpp backend. Install llama.cpp backend to use this webui."
+                    fi
+                    ;;
+                4|openwebui|open-web-ui)
+                    if [[ "$backend_choice" == "1" ]] || [[ "$backend_choice" == "3" ]]; then
+                        info "Open WebUI is already installed with Ollama backend."
+                        info "To run: source /home/$primary_user/.gz302-open-webui-venv/bin/activate && open-webui serve"
+                    else
+                        warning "Open WebUI requires Ollama backend. Please select Ollama or both backends to use Open WebUI."
                     fi
                     ;;
                 *)
