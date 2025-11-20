@@ -167,14 +167,15 @@ After selecting a backend, you can install one or more frontends:
 
 These flags are automatically configured in the systemd service (`/etc/systemd/system/llama-server.service`). Without `-fa 1 --no-mmap`, performance collapses or the system crashes.
 
-**Kernel Parameters (Set by main script):**
+**Kernel Parameters (Set by LLM script for AI workloads):**
 ```bash
-amd_iommu=off              # Disables IOMMU for lower latency
-amdgpu.gttsize=131072      # Enables unified GPU/system memory (up to 128 GiB)
-ttm.pages_limit=33554432   # Allows large pinned memory allocations (128 GiB)
+amd_iommu=off              # Disables IOMMU for lower latency GPU memory access
+amdgpu.gttsize=131072      # Sets GTT size to 128MB for larger unified memory pools
 ```
 
-These are automatically configured during the core setup. To verify: `cat /proc/cmdline`
+These are automatically configured when installing the LLM/AI software module. The script detects your boot loader (GRUB, systemd-boot, etc.) and configures the appropriate configuration files. To verify: `cat /proc/cmdline`
+
+**Note:** The `ttm.pages_limit` parameter mentioned in some documentation is not a valid kernel parameter and has been removed.
 
 ### Python 3.11 & Open WebUI
 

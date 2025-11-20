@@ -2,10 +2,11 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.2.1
+# Version: 2.2.2
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
+# Configures kernel parameters optimized for LLM workloads on Strix Halo
 #
 # This script is designed to be called by gz302-main.sh
 # ==============================================================================
@@ -43,6 +44,175 @@ get_real_user() {
     else
         logname 2>/dev/null || whoami
     fi
+}
+
+# Detect the boot loader in use
+detect_bootloader() {
+    if [[ -d "/boot/loader" ]] && [[ -f "/boot/loader/loader.conf" ]]; then
+        echo "systemd-boot"
+    elif [[ -f "/boot/grub/grub.cfg" ]] || [[ -f "/boot/grub2/grub.cfg" ]]; then
+        echo "grub"
+    elif [[ -f "/boot/refind_linux.conf" ]]; then
+        echo "refind"
+    elif [[ -f "/boot/syslinux/syslinux.cfg" ]]; then
+        echo "syslinux"
+    elif [[ -f "/boot/extlinux/extlinux.conf" ]]; then
+        echo "extlinux"
+    else
+        echo "unknown"
+    fi
+}
+
+# Configure kernel parameters for GRUB
+configure_grub_kernel_params() {
+    local params="$1"
+    info "Configuring kernel parameters in GRUB..."
+
+    if [[ -f "/etc/default/grub" ]]; then
+        # Check if parameters already exist
+        if ! grep -q "$params" /etc/default/grub; then
+            # Add parameters to GRUB_CMDLINE_LINUX_DEFAULT
+            sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\(.*\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\1 $params\"/" /etc/default/grub
+            success "Added kernel parameters to GRUB configuration"
+
+            # Regenerate GRUB config
+            if [[ -f "/boot/grub/grub.cfg" ]]; then
+                grub-mkconfig -o /boot/grub/grub.cfg
+            elif command -v update-grub >/dev/null 2>&1; then
+                update-grub
+            fi
+            success "GRUB configuration regenerated"
+        else
+            info "Kernel parameters already configured in GRUB"
+        fi
+    else
+        warning "GRUB configuration file not found"
+    fi
+}
+
+# Configure kernel parameters for systemd-boot
+configure_systemd_boot_kernel_params() {
+    local params="$1"
+    info "Configuring kernel parameters in systemd-boot..."
+
+    # Find the default boot entry
+    local loader_conf="/boot/loader/loader.conf"
+    local default_entry=""
+
+    if [[ -f "$loader_conf" ]]; then
+        default_entry=$(grep "^default" "$loader_conf" | cut -d' ' -f2- | tr -d ' ')
+    fi
+
+    if [[ -z "$default_entry" ]]; then
+        default_entry="linux"
+    fi
+
+    local entry_file="/boot/loader/entries/${default_entry}.conf"
+
+    if [[ -f "$entry_file" ]]; then
+        # Check if parameters already exist
+        if ! grep -q "$params" "$entry_file"; then
+            # Add parameters to the options line
+            sed -i "/^options/ s/$/ $params/" "$entry_file"
+            success "Added kernel parameters to systemd-boot entry: $entry_file"
+        else
+            info "Kernel parameters already configured in systemd-boot"
+        fi
+    else
+        warning "systemd-boot entry file not found: $entry_file"
+    fi
+}
+
+# Configure kernel parameters for rEFInd
+configure_refind_kernel_params() {
+    local params="$1"
+    info "Configuring kernel parameters in rEFInd..."
+
+    local refind_conf="/boot/refind_linux.conf"
+
+    if [[ -f "$refind_conf" ]]; then
+        # Check if parameters already exist
+        if ! grep -q "$params" "$refind_conf"; then
+            # Add parameters to the options line
+            sed -i "/^\"Boot with standard options\"/ s/\"$/ $params\"/" "$refind_conf"
+            success "Added kernel parameters to rEFInd configuration"
+        else
+            info "Kernel parameters already configured in rEFInd"
+        fi
+    else
+        warning "rEFInd configuration file not found"
+    fi
+}
+
+# Configure kernel parameters for syslinux/extlinux
+configure_syslinux_kernel_params() {
+    local params="$1"
+    info "Configuring kernel parameters in syslinux..."
+
+    local syslinux_cfg=""
+
+    if [[ -f "/boot/syslinux/syslinux.cfg" ]]; then
+        syslinux_cfg="/boot/syslinux/syslinux.cfg"
+    elif [[ -f "/boot/extlinux/extlinux.conf" ]]; then
+        syslinux_cfg="/boot/extlinux/extlinux.conf"
+    fi
+
+    if [[ -n "$syslinux_cfg" ]]; then
+        # Check if parameters already exist
+        if ! grep -q "$params" "$syslinux_cfg"; then
+            # Add parameters to APPEND line
+            sed -i "/^APPEND/ s/$/ $params/" "$syslinux_cfg"
+            success "Added kernel parameters to syslinux configuration"
+        else
+            info "Kernel parameters already configured in syslinux"
+        fi
+    else
+        warning "syslinux configuration file not found"
+    fi
+}
+
+# Configure LLM-optimized kernel parameters
+configure_llm_kernel_params() {
+    info "Configuring kernel parameters optimized for LLM workloads on Strix Halo..."
+
+    # Parameters for LLM workloads on AMD Strix Halo:
+    # - amd_iommu=off: Disables IOMMU for lower latency GPU memory access
+    # - amdgpu.gttsize=131072: Sets GTT size to 128MB for larger unified memory pools
+    local llm_params="amd_iommu=off amdgpu.gttsize=131072"
+
+    local bootloader
+    bootloader=$(detect_bootloader)
+
+    case "$bootloader" in
+        "grub")
+            configure_grub_kernel_params "$llm_params"
+            ;;
+        "systemd-boot")
+            configure_systemd_boot_kernel_params "$llm_params"
+            ;;
+        "refind")
+            configure_refind_kernel_params "$llm_params"
+            ;;
+        "syslinux"|"extlinux")
+            configure_syslinux_kernel_params "$llm_params"
+            ;;
+        "unknown")
+            warning "Unable to detect boot loader. Kernel parameters not configured."
+            warning "Please manually add the following to your kernel command line:"
+            warning "  $llm_params"
+            ;;
+        *)
+            warning "Unsupported boot loader: $bootloader. Kernel parameters not configured."
+            ;;
+    esac
+
+    echo
+    info "LLM Kernel Parameters:"
+    info "  • amd_iommu=off - Disables IOMMU for lower latency"
+    info "  • amdgpu.gttsize=131072 - 128MB GTT for unified memory"
+    echo
+    info "A reboot is required for kernel parameter changes to take effect."
+    echo
 }
 
 # Check if Ollama is already installed
@@ -1018,6 +1188,9 @@ main() {
     echo "  GZ302 LLM/AI Software Installation"
     echo "============================================================"
     echo
+    
+    # Configure kernel parameters optimized for LLM workloads
+    configure_llm_kernel_params
     
     case "$distro" in
         "arch")
