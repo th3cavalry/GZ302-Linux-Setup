@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.2.0
+# Version: 2.2.1
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
@@ -100,9 +100,7 @@ setup_openwebui_with_uv() {
     fi
     
     if ! command -v uv >/dev/null 2>&1; then
-        warning "uv not available, falling back to pip installation"
-        # Fallback to old method
-        setup_python311_venv_for_openwebui "$user" "$distro"
+        warning "uv not available, cannot install Open WebUI. Please install uv first."
         return
     fi
     
@@ -120,68 +118,6 @@ setup_openwebui_with_uv() {
     
     success "Open WebUI installed at $openwebui_dir"
     info "To run Open WebUI: cd $openwebui_dir && source .venv/bin/activate && open-webui serve"
-}
-
-# Legacy function for backward compatibility
-setup_python311_venv_for_openwebui() {
-    local user="$1"
-    local distro="$2"
-    local venv_dir="/home/$user/.gz302-open-webui-venv"
-    
-    if [[ -d "$venv_dir" ]]; then
-        info "Python 3.11 venv for Open WebUI already exists at $venv_dir"
-        return
-    fi
-    
-    info "Setting up Python 3.11 virtual environment for Open WebUI..."
-    
-    # First, check if python3.11 is available
-    local python311_cmd=""
-    if command -v python3.11 >/dev/null 2>&1; then
-        python311_cmd="python3.11"
-    elif command -v python311 >/dev/null 2>&1; then
-        python311_cmd="python311"
-    else
-        # Try to install Python 3.11 based on distro
-        info "Python 3.11 not found. Attempting distro-specific installation..."
-        case "$distro" in
-            "arch")
-                pacman -S --noconfirm --needed python3.11 || warning "Failed to install Python 3.11 via pacman"
-                python311_cmd="python3.11"
-                ;;
-            "debian")
-                # Ubuntu 22.04+ has python3.11 in universe; 24.04+ in main
-                apt update
-                apt install -y python3.11 python3.11-venv || warning "Failed to install Python 3.11 via apt"
-                python311_cmd="python3.11"
-                ;;
-            "fedora")
-                dnf install -y python3.11 || warning "Failed to install Python 3.11 via dnf"
-                python311_cmd="python3.11"
-                ;;
-            "opensuse")
-                zypper install -y python311 || warning "Failed to install Python 3.11 via zypper"
-                python311_cmd="python3.11"
-                ;;
-        esac
-    fi
-    
-    if ! command -v "$python311_cmd" >/dev/null 2>&1; then
-        warning "Python 3.11 not available after installation attempt. Falling back to system python (Open WebUI may fail)."
-        python311_cmd="python3"
-    fi
-    
-    # Create venv with Python 3.11
-    info "Creating Python 3.11 virtual environment..."
-    sudo -u "$user" "$python311_cmd" -m venv "$venv_dir" || error "Failed to create Python 3.11 venv"
-    
-    # Upgrade pip and install Open WebUI
-    sudo -u "$user" "$venv_dir/bin/pip" install --upgrade pip
-    info "Installing Open WebUI into Python 3.11 venv..."
-    sudo -u "$user" "$venv_dir/bin/pip" install open-webui || warning "Open WebUI installation failed"
-    
-    success "Python 3.11 venv for Open WebUI created at $venv_dir"
-    info "To run Open WebUI: source $venv_dir/bin/activate && open-webui serve"
 }
 
 # Ask user which LLM backends to install
