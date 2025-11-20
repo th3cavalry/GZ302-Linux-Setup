@@ -110,10 +110,9 @@ When you run the AI module, you'll be prompted to choose an inference backend:
 
 **1. Ollama (Model Management)**
 - Unified model downloading, management, and serving
-- Requires a separate frontend UI (Open WebUI recommended)
+- Works with various frontend UIs (Open WebUI, text-generation-webui, etc.)
 - Best for: Multiple model experimentation, easy model switching
-- Python 3.11 venv automatically set up at `~/.gz302-open-webui-venv`
-- Run Open WebUI: `source ~/.gz302-open-webui-venv/bin/activate && open-webui serve`
+- API available at http://localhost:11434
 
 **2. llama.cpp (Fast Inference)**
 - Direct model inference, built-in web UI (port 8080)
@@ -149,12 +148,13 @@ After selecting a backend, you can install one or more frontends:
 - Best for: Quick inference without overhead
 - Automatically available when llama.cpp backend is selected
 
-**4. Open WebUI** (Modern Ollama Interface)
-- Sleek, modern web interface specifically for Ollama
+**4. Open WebUI** (Modern Web Interface)
+- Sleek, modern web interface for various LLM backends
 - Best for: Clean UI, chat-focused interactions, multi-model management
-- Requires Ollama backend (automatically installed with Ollama)
-- Python 3.11 venv: `~/.gz302-open-webui-venv`
-- Run: `source ~/.gz302-open-webui-venv/bin/activate && open-webui serve`
+- Can work with Ollama, llama.cpp, or other backends
+- Uses uv for Python environment management
+- Directory: `~/open-webui`
+- Run: `cd ~/open-webui && source .venv/bin/activate && open-webui serve`
 
 ### Strix Halo GPU Optimization
 
@@ -178,18 +178,22 @@ These are automatically configured during the core setup. To verify: `cat /proc/
 
 ### Python 3.11 & Open WebUI
 
-Open WebUI requires **exactly** Python 3.11 (not 3.12, not 3.13). The installer automatically detects your Python version and handles it:
+Open WebUI uses **uv** for Python environment management and requires Python 3.11. The installer automatically:
 
-- **If Python 3.11 not found:** Installer attempts distro-specific installation:
-  - **Arch:** `pacman -S python3.11`
-  - **Debian/Ubuntu:** `apt install python3.11 python3.11-venv`
-  - **Fedora:** `dnf install python3.11`
-  - **OpenSUSE:** `zypper install python311`
+- **Installs uv** if not present:
+  - **Arch:** `pacman -S uv`
+  - **Debian/Ubuntu:** `curl -LsSf https://astral.sh/uv/install.sh | sh`
+  - **Fedora:** `dnf install uv`
+  - **OpenSUSE:** `zypper install uv`
 
-- **Venv Location:** `~/.gz302-open-webui-venv`
-- **Activation:** `source ~/.gz302-open-webui-venv/bin/activate`
+- **Installs Python 3.11** if not present (distro-specific)
+- **Creates uv venv** at `~/open-webui/.venv` with Python 3.11
+- **Installs Open WebUI** via `uv pip install open-webui`
+
+- **Directory:** `~/open-webui`
+- **Activation:** `cd ~/open-webui && source .venv/bin/activate`
 - **Launch:** `open-webui serve`
-- **Access:** http://localhost:8000
+- **Access:** http://localhost:3000 (default port)
 
 ### Model Selection & VRAM Planning
 

@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.1.0
+# Version: 2.1.1
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
@@ -45,8 +45,84 @@ get_real_user() {
     fi
 }
 
-# Setup Python 3.11 virtual environment for Open WebUI (Ollama frontend)
-# This is separate from the main AI libraries venv because Open WebUI requires Python 3.11
+# Check if Ollama is already installed
+check_ollama_installed() {
+    if command -v ollama >/dev/null 2>&1; then
+        info "Ollama is already installed"
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Check if llama.cpp is already installed
+check_llamacpp_installed() {
+    if [[ -x "/usr/local/bin/llama-server" ]] && systemctl is-enabled llama-server.service >/dev/null 2>&1; then
+        info "llama.cpp is already installed"
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Setup Python 3.11 virtual environment for Open WebUI using uv
+# Open WebUI can work with various backends, not just Ollama
+setup_openwebui_with_uv() {
+    local user="$1"
+    local distro="$2"
+    local openwebui_dir="/home/$user/open-webui"
+    
+    if [[ -d "$openwebui_dir" ]] && [[ -f "$openwebui_dir/.venv/bin/open-webui" ]]; then
+        info "Open WebUI is already installed at $openwebui_dir"
+        return
+    fi
+    
+    info "Setting up Open WebUI with uv..."
+    
+    # Install uv if not present
+    if ! command -v uv >/dev/null 2>&1; then
+        info "Installing uv package manager..."
+        case "$distro" in
+            "arch")
+                pacman -S --noconfirm --needed uv || warning "Failed to install uv via pacman"
+                ;;
+            "debian")
+                # Install uv from official script
+                curl -LsSf https://astral.sh/uv/install.sh | sh || warning "Failed to install uv"
+                ;;
+            "fedora")
+                dnf install -y uv || warning "Failed to install uv via dnf"
+                ;;
+            "opensuse")
+                zypper install -y uv || warning "Failed to install uv via zypper"
+                ;;
+        esac
+    fi
+    
+    if ! command -v uv >/dev/null 2>&1; then
+        warning "uv not available, falling back to pip installation"
+        # Fallback to old method
+        setup_python311_venv_for_openwebui "$user" "$distro"
+        return
+    fi
+    
+    # Create directory for Open WebUI
+    sudo -u "$user" mkdir -p "$openwebui_dir"
+    cd "$openwebui_dir"
+    
+    # Initialize a managed environment with Python 3.11 explicitly
+    info "Creating uv virtual environment with Python 3.11..."
+    sudo -u "$user" uv venv --python 3.11 || error "Failed to create uv venv with Python 3.11"
+    
+    # Activate and install Open WebUI
+    info "Installing Open WebUI with uv..."
+    sudo -u "$user" uv pip install open-webui || warning "Open WebUI installation failed"
+    
+    success "Open WebUI installed at $openwebui_dir"
+    info "To run Open WebUI: cd $openwebui_dir && source .venv/bin/activate && open-webui serve"
+}
+
+# Legacy function for backward compatibility
 setup_python311_venv_for_openwebui() {
     local user="$1"
     local distro="$2"
@@ -149,7 +225,7 @@ ask_frontend_choice() {
     echo "  1) text-generation-webui - Feature-rich UI for local text LLMs (oobabooga)"
     echo "  2) ComfyUI              - Node-based UI ideal for image generation workflows"
     echo "  3) llama.cpp webui      - Lightweight built-in web interface (requires llama.cpp backend)"
-    echo "  4) Open WebUI           - Modern web interface for Ollama (requires Ollama backend)"
+    echo "  4) Open WebUI           - Modern web interface for various LLM backends"
     echo "  (Leave empty to skip frontends)"
     read -r -p "Install frontends (e.g. '1,3' or '1 2 3' or Enter=none): " choice
     
@@ -177,22 +253,25 @@ install_arch_llm_software() {
     
     # Install ollama if requested
     if [[ "$backend_choice" == "1" ]] || [[ "$backend_choice" == "3" ]]; then
-        info "Installing Ollama..."
-        pacman -S --noconfirm --needed ollama
-        systemctl enable --now ollama
+        if ! check_ollama_installed; then
+            info "Installing Ollama..."
+            pacman -S --noconfirm --needed ollama
+            systemctl enable --now ollama
+        fi
         
-        # Setup Python 3.11 venv for Open WebUI (Ollama frontend)
+        # Setup Open WebUI with uv (can work with various backends)
         local primary_user
         primary_user=$(get_real_user)
-        setup_python311_venv_for_openwebui "$primary_user" "arch"
+        setup_openwebui_with_uv "$primary_user" "arch"
     fi
     
     # Install llama.cpp with ROCm support if requested
     if [[ "$backend_choice" == "2" ]] || [[ "$backend_choice" == "3" ]]; then
-        info "Installing llama.cpp with ROCm support for Strix Halo..."
-        
-        # Install build dependencies
-        pacman -S --noconfirm --needed git cmake make gcc pkgconf
+        if ! check_llamacpp_installed; then
+            info "Installing llama.cpp with ROCm support for Strix Halo..."
+            
+            # Install build dependencies
+            pacman -S --noconfirm --needed git cmake make gcc pkgconf
         
         # Build and install llama.cpp with ROCm support
         info "Building llama.cpp with ROCm/HIP support for gfx1151 (Radeon 8060S)..."
@@ -250,6 +329,7 @@ EOF
         info "llama-cli and llama-server are available in /usr/local/bin"
         info "Systemd service configured with flash attention (-fa 1) and no-mmap (--no-mmap) for optimal Strix Halo performance"
         info "To start llama-server: sudo systemctl enable --now llama-server"
+        fi
     fi
     
     # Install ROCm and Python AI libraries only if llama.cpp backend is selected
@@ -436,12 +516,7 @@ EOF
                     fi
                     ;;
                 4|openwebui|open-web-ui)
-                    if [[ "$backend_choice" == "1" ]] || [[ "$backend_choice" == "3" ]]; then
-                        info "Open WebUI is already installed with Ollama backend."
-                        info "To run: source /home/$primary_user/.gz302-open-webui-venv/bin/activate && open-webui serve"
-                    else
-                        warning "Open WebUI requires Ollama backend. Please select Ollama or both backends to use Open WebUI."
-                    fi
+                    setup_openwebui_with_uv "$primary_user" "arch"
                     ;;
                 *)
                     warning "Unknown frontend: $frontend"
@@ -668,10 +743,10 @@ install_debian_llm_software() {
         curl -fsSL https://ollama.ai/install.sh | sh
         systemctl enable --now ollama
         
-        # Setup Python 3.11 venv for Open WebUI (Ollama frontend)
+        # Setup Open WebUI with uv (can work with various backends)
         local primary_user
         primary_user=$(get_real_user)
-        setup_python311_venv_for_openwebui "$primary_user" "debian"
+        setup_openwebui_with_uv "$primary_user" "debian"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -826,12 +901,7 @@ EOF
                     fi
                     ;;
                 4|openwebui|open-web-ui)
-                    if [[ "$backend_choice" == "1" ]] || [[ "$backend_choice" == "3" ]]; then
-                        info "Open WebUI is already installed with Ollama backend."
-                        info "To run: source /home/$primary_user/.gz302-open-webui-venv/bin/activate && open-webui serve"
-                    else
-                        warning "Open WebUI requires Ollama backend. Please select Ollama or both backends to use Open WebUI."
-                    fi
+                    setup_openwebui_with_uv "$primary_user" "debian"
                     ;;
                 *)
                     warning "Unknown frontend: $frontend"
@@ -858,10 +928,10 @@ install_fedora_llm_software() {
         curl -fsSL https://ollama.ai/install.sh | sh
         systemctl enable --now ollama
         
-        # Setup Python 3.11 venv for Open WebUI (Ollama frontend)
+        # Setup Open WebUI with uv (can work with various backends)
         local primary_user
         primary_user=$(get_real_user)
-        setup_python311_venv_for_openwebui "$primary_user" "fedora"
+        setup_openwebui_with_uv "$primary_user" "fedora"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -1004,12 +1074,7 @@ EOF
                     fi
                     ;;
                 4|openwebui|open-web-ui)
-                    if [[ "$backend_choice" == "1" ]] || [[ "$backend_choice" == "3" ]]; then
-                        info "Open WebUI is already installed with Ollama backend."
-                        info "To run: source /home/$primary_user/.gz302-open-webui-venv/bin/activate && open-webui serve"
-                    else
-                        warning "Open WebUI requires Ollama backend. Please select Ollama or both backends to use Open WebUI."
-                    fi
+                    setup_openwebui_with_uv "$primary_user" "fedora"
                     ;;
                 *)
                     warning "Unknown frontend: $frontend"
@@ -1036,10 +1101,10 @@ install_opensuse_llm_software() {
         curl -fsSL https://ollama.ai/install.sh | sh
         systemctl enable --now ollama
         
-        # Setup Python 3.11 venv for Open WebUI (Ollama frontend)
+        # Setup Open WebUI with uv (can work with various backends)
         local primary_user
         primary_user=$(get_real_user)
-        setup_python311_venv_for_openwebui "$primary_user" "opensuse"
+        setup_openwebui_with_uv "$primary_user" "opensuse"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -1182,12 +1247,7 @@ EOF
                     fi
                     ;;
                 4|openwebui|open-web-ui)
-                    if [[ "$backend_choice" == "1" ]] || [[ "$backend_choice" == "3" ]]; then
-                        info "Open WebUI is already installed with Ollama backend."
-                        info "To run: source /home/$primary_user/.gz302-open-webui-venv/bin/activate && open-webui serve"
-                    else
-                        warning "Open WebUI requires Ollama backend. Please select Ollama or both backends to use Open WebUI."
-                    fi
+                    setup_openwebui_with_uv "$primary_user" "opensuse"
                     ;;
                 *)
                     warning "Unknown frontend: $frontend"
