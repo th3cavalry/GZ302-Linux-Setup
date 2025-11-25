@@ -859,7 +859,9 @@ install_debian_asus_packages() {
         if add-apt-repository -y ppa:mitchellaugustin/asusctl 2>/dev/null; then
             # Try apt update - if it fails (e.g., PPA doesn't support this Ubuntu version),
             # remove the PPA to prevent blocking future apt operations
-            if ! apt update 2>&1 | tee /tmp/apt-update-output.txt | grep -q "^E:"; then
+            local apt_update_log="/tmp/apt-update-asusctl-$$.txt"
+            apt update 2>&1 | tee "$apt_update_log" || true
+            if ! grep -q "^E:" "$apt_update_log"; then
                 # apt update succeeded, try to install the package
                 if apt install -y rog-control-center 2>/dev/null; then
                     systemctl daemon-reload
@@ -872,7 +874,7 @@ install_debian_asus_packages() {
             else
                 # apt update failed - likely PPA doesn't have packages for this Ubuntu version
                 # Check if the error is related to the asusctl PPA
-                if grep -q "mitchellaugustin/asusctl" /tmp/apt-update-output.txt 2>/dev/null; then
+                if grep -q "mitchellaugustin/asusctl" "$apt_update_log" 2>/dev/null; then
                     warning "asusctl PPA does not support this Ubuntu version"
                     info "Removing broken PPA to prevent future apt errors..."
                     add-apt-repository -y --remove ppa:mitchellaugustin/asusctl 2>/dev/null || true
@@ -881,7 +883,7 @@ install_debian_asus_packages() {
                     warning "Failed to update package list"
                 fi
             fi
-            rm -f /tmp/apt-update-output.txt
+            rm -f "$apt_update_log"
         else
             warning "Failed to add asusctl PPA"
         fi
