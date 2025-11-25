@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.0.2
+# Version: 2.0.3
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -857,17 +857,31 @@ install_debian_asus_packages() {
     if command -v add-apt-repository >/dev/null 2>&1; then
         # Add Mitchell Austin's asusctl PPA
         if add-apt-repository -y ppa:mitchellaugustin/asusctl 2>/dev/null; then
-            apt update 2>/dev/null || warning "Failed to update package list"
-
-            # Try to install rog-control-center (includes asusctl)
-            if apt install -y rog-control-center 2>/dev/null; then
-                systemctl daemon-reload
-                systemctl restart asusd 2>/dev/null || warning "Failed to restart asusd"
-                success "asusctl installed from PPA"
-                ppa_success=1
+            # Try apt update - if it fails (e.g., PPA doesn't support this Ubuntu version),
+            # remove the PPA to prevent blocking future apt operations
+            if ! apt update 2>&1 | tee /tmp/apt-update-output.txt | grep -q "^E:"; then
+                # apt update succeeded, try to install the package
+                if apt install -y rog-control-center 2>/dev/null; then
+                    systemctl daemon-reload
+                    systemctl restart asusd 2>/dev/null || warning "Failed to restart asusd"
+                    success "asusctl installed from PPA"
+                    ppa_success=1
+                else
+                    warning "PPA packages not available for this Ubuntu version"
+                fi
             else
-                warning "PPA packages not available for this Ubuntu version"
+                # apt update failed - likely PPA doesn't have packages for this Ubuntu version
+                # Check if the error is related to the asusctl PPA
+                if grep -q "mitchellaugustin/asusctl" /tmp/apt-update-output.txt 2>/dev/null; then
+                    warning "asusctl PPA does not support this Ubuntu version"
+                    info "Removing broken PPA to prevent future apt errors..."
+                    add-apt-repository -y --remove ppa:mitchellaugustin/asusctl 2>/dev/null || true
+                    apt update 2>/dev/null || true
+                else
+                    warning "Failed to update package list"
+                fi
             fi
+            rm -f /tmp/apt-update-output.txt
         else
             warning "Failed to add asusctl PPA"
         fi
