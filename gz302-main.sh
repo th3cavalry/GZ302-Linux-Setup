@@ -32,7 +32,7 @@
 # - gz302-secureboot: Secure boot configuration
 #
 # Supported Distributions:
-# - Arch-based: Arch Linux (also supports CachyOS, EndeavourOS, Manjaro)
+# - Arch-based: Arch Linux, Omarchy (also supports CachyOS, EndeavourOS, Manjaro)
 # - Debian-based: Ubuntu (also supports Pop!_OS, Linux Mint)
 # - RPM-based: Fedora (also supports Nobara)
 # - OpenSUSE: Tumbleweed and Leap
@@ -192,8 +192,8 @@ detect_distribution() {
         # shellcheck disable=SC1091
         source /etc/os-release
         
-        # Detect Arch-based systems
-        if [[ "$ID" == "arch" || "$ID" == "cachyos" || "${ID_LIKE:-}" == *"arch"* ]]; then
+        # Detect Arch-based systems (including Omarchy, CachyOS, EndeavourOS, Manjaro)
+        if [[ "$ID" == "arch" || "$ID" == "omarchy" || "$ID" == "cachyos" || "${ID_LIKE:-}" == *"arch"* ]]; then
             distro="arch"
         # Detect Debian/Ubuntu-based systems
         elif [[ "$ID" == "ubuntu" || "$ID" == "debian" || "$ID" == "pop" || "$ID" == "linuxmint" || "${ID_LIKE:-}" == *"ubuntu"* || "${ID_LIKE:-}" == *"debian"* ]]; then
@@ -1945,7 +1945,7 @@ detect_displays() {
         # X11 environment
         displays=($(xrandr --listmonitors 2>/dev/null | grep -E "^ [0-9]:" | awk '{print $4}' | cut -d'/' -f1))
     elif command -v wlr-randr >/dev/null 2>&1; then
-        # Wayland environment with wlr-randr
+        # Wayland environment with wlr-randr (supports Hyprland, GNOME, KDE Plasma, etc.)
         displays=($(wlr-randr 2>/dev/null | grep "^[A-Z]" | awk '{print $1}'))
     elif [[ -d /sys/class/drm ]]; then
         # DRM fallback

@@ -11,7 +11,7 @@ Transform your device into an optimized Linux powerhouse with automated hardware
 
 ## ⚡ Quick Start
 
-**One-line installation for all supported distros (Arch, Debian/Ubuntu, Fedora, OpenSUSE):**
+**One-line installation for all supported distros (Arch, Omarchy, Debian/Ubuntu, Fedora, OpenSUSE):**
 
 ```bash
 curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-main.sh -o gz302-main.sh
@@ -44,6 +44,7 @@ This setup is modular. The core script installs essential fixes; everything else
 - **Performance:** Optimized AMD Ryzen AI MAX+ 395 scheduling
 - **Power Management:** 7 custom power profiles (10W - 90W)
 - **Display:** 7 refresh rate profiles (30Hz - 180Hz) that auto-sync with power
+  - Supports X11/Xorg (xrandr), Wayland (wlr-randr), and Hyprland
 - **Keyboard Control:** Brightness control (0-3 levels) and RGB lighting
 
 ### 📦 Optional Modules (Select during install)

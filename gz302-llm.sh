@@ -227,6 +227,68 @@ configure_llm_kernel_params() {
     echo
 }
 
+# Check if ROCm is already installed
+check_rocm_installed() {
+    if pacman -Q rocm-hip-runtime rocblas miopen-hip >/dev/null 2>&1; then
+        info "ROCm packages are already installed"
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Check if ROCm is already installed (OpenSUSE)
+check_rocm_installed_opensuse() {
+    if zypper se -i rocm-opencl rocblas miopen-hip 2>/dev/null | grep -q "installed"; then
+        info "ROCm packages are already installed"
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Check if ROCm is already installed (Fedora/RPM)
+check_rocm_installed_fedora() {
+    if rpm -q rocm-opencl rocblas miopen-hip >/dev/null 2>&1; then
+        info "ROCm packages are already installed"
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Check if ROCm is already installed (Debian)
+check_rocm_installed_debian() {
+    if dpkg -l | grep -q "rocm-opencl-runtime\|rocblas\|miopen-hip"; then
+        info "ROCm packages are already installed"
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Check if Python package is installed in a venv
+check_venv_package() {
+    local venv_path="$1"
+    local package_name="$2"
+    if [[ -f "$venv_path/bin/python" ]]; then
+        "$venv_path/bin/python" -c "import importlib; importlib.import_module('$package_name')" >/dev/null 2>&1
+        return $?
+    else
+        return 1
+    fi
+}
+
+# Check if Python package is installed in system Python (for --user installs on Debian/Fedora/OpenSUSE)
+check_system_python_package() {
+    local package_name="$1"
+    if python3 -c "import importlib; importlib.import_module('$package_name')" >/dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Check if Ollama is already installed
 check_ollama_installed() {
     if command -v ollama >/dev/null 2>&1; then
@@ -454,7 +516,9 @@ EOF
     if [[ "$backend_choice" == "2" ]] || [[ "$backend_choice" == "3" ]]; then
         # Install ROCm for AMD GPU acceleration
         info "Installing ROCm for AMD GPU acceleration..."
-        pacman -S --noconfirm --needed rocm-opencl-runtime rocm-hip-runtime rocblas miopen-hip
+        if ! check_rocm_installed; then
+            pacman -S --noconfirm --needed rocm-opencl-runtime rocm-hip-runtime rocblas miopen-hip
+        fi
         
         # MIOpen precompiled kernels (gfx1151 for Radeon 8060S)
         # Note: As of Nov 2025, precompiled kernels for gfx1151 may not be available in repositories
@@ -477,35 +541,53 @@ EOF
         local venv_dir
         venv_dir="/home/$primary_user/.local/share/gz302-llm"
         if [[ "$primary_user" != "root" ]]; then
-            # Create venv with Python 3.11 if available for better PyTorch compatibility
-            if command -v python3.11 >/dev/null 2>&1; then
-                sudo -u "$primary_user" python3.11 -m venv "$venv_dir"
+            # Check if venv already exists
+            if [[ -d "$venv_dir" ]] && [[ -f "$venv_dir/bin/python" ]]; then
+                info "Python virtual environment already exists at $venv_dir"
             else
-                sudo -u "$primary_user" python -m venv "$venv_dir"
+                # Create venv with Python 3.11 if available for better PyTorch compatibility
+                if command -v python3.11 >/dev/null 2>&1; then
+                    sudo -u "$primary_user" python3.11 -m venv "$venv_dir"
+                else
+                    sudo -u "$primary_user" python -m venv "$venv_dir"
+                fi
+                info "Created Python virtual environment at $venv_dir"
             fi
-            info "Created Python virtual environment at $venv_dir"
             sudo -u "$primary_user" "$venv_dir/bin/pip" install --upgrade pip
 
             info "Installing PyTorch (ROCm wheels) into the venv..."
-            # Try installing PyTorch; if this fails here it may succeed later via other means
-            if ! sudo -u "$primary_user" "$venv_dir/bin/pip" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7; then
-                warning "PyTorch (ROCm) initial installation attempt failed. Will verify after other installs before marking as failed."
-                warning "Common causes: no compatible wheel for system Python (e.g. Python 3.12/3.13) or platform mismatch."
+            # Check if torch is already installed
+            if ! check_venv_package "$venv_dir" "torch"; then
+                # Try installing PyTorch; if this fails here it may succeed later via other means
+                if ! sudo -u "$primary_user" "$venv_dir/bin/pip" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7; then
+                    warning "PyTorch (ROCm) initial installation attempt failed. Will verify after other installs before marking as failed."
+                    warning "Common causes: no compatible wheel for system Python (e.g. Python 3.12/3.13) or platform mismatch."
+                fi
+            else
+                info "PyTorch is already installed in venv"
             fi
 
             # Install transformers and accelerate regardless of torch outcome
-            sudo -u "$primary_user" "$venv_dir/bin/pip" install transformers accelerate || warning "Failed to install transformers/accelerate inside venv"
+            if ! check_venv_package "$venv_dir" "transformers"; then
+                sudo -u "$primary_user" "$venv_dir/bin/pip" install transformers accelerate || warning "Failed to install transformers/accelerate inside venv"
+            else
+                info "transformers and accelerate are already installed in venv"
+            fi
 
             # Install bitsandbytes for ROCm (quantization support)
             info "Installing bitsandbytes for ROCm (8-bit quantization)..."
-            # Try to install bitsandbytes with ROCm support
-            # Note: ROCm support for gfx1151 is in preview; may need custom build
-            if ! sudo -u "$primary_user" "$venv_dir/bin/pip" install bitsandbytes; then
-                warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
-                # Try ROCm-specific development wheel if available
-                sudo -u "$primary_user" "$venv_dir/bin/pip" install --no-deps --force-reinstall \
-                    'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
-                    || warning "ROCm bitsandbytes wheel installation failed. You may need to build from source for gfx1151 support."
+            if ! check_venv_package "$venv_dir" "bitsandbytes"; then
+                # Try to install bitsandbytes with ROCm support
+                # Note: ROCm support for gfx1151 is in preview; may need custom build
+                if ! sudo -u "$primary_user" "$venv_dir/bin/pip" install bitsandbytes; then
+                    warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
+                    # Try ROCm-specific development wheel if available
+                    sudo -u "$primary_user" "$venv_dir/bin/pip" install --no-deps --force-reinstall \
+                        'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
+                        || warning "ROCm bitsandbytes wheel installation failed. You may need to build from source for gfx1151 support."
+                fi
+            else
+                info "bitsandbytes is already installed in venv"
             fi
 
             # Verify torch can be imported; only create marker if import fails at the end
@@ -738,7 +820,9 @@ EOF
         # Install ROCm (if available)
         info "Installing ROCm for AMD GPU acceleration..."
         # Try to install ROCm packages if available
-        apt install -y rocm-opencl-runtime rocblas miopen-hip || warning "ROCm packages not available in default repositories. Consider adding AMD ROCm repository."
+        if ! check_rocm_installed_debian; then
+            apt install -y rocm-opencl-runtime rocblas miopen-hip || warning "ROCm packages not available in default repositories. Consider adding AMD ROCm repository."
+        fi
         
         # Install MIOpen precompiled kernels if available
         # Note: As of Nov 2025, precompiled kernels for gfx1151 may not be available
@@ -758,16 +842,31 @@ EOF
         local primary_user
         primary_user=$(get_real_user)
         if [[ "$primary_user" != "root" ]]; then
-            sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
-            sudo -u "$primary_user" pip3 install --user transformers accelerate
+            # Install PyTorch with ROCm wheels
+            if ! check_system_python_package "torch"; then
+                sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+            else
+                info "PyTorch is already installed in system Python"
+            fi
+            
+            # Install transformers and accelerate
+            if ! check_system_python_package "transformers"; then
+                sudo -u "$primary_user" pip3 install --user transformers accelerate
+            else
+                info "transformers and accelerate are already installed in system Python"
+            fi
             
             # Install bitsandbytes for ROCm
             info "Installing bitsandbytes for ROCm (8-bit quantization)..."
-            if ! sudo -u "$primary_user" pip3 install --user bitsandbytes; then
-                warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
-                sudo -u "$primary_user" pip3 install --user --no-deps --force-reinstall \
-                    'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
-                    || warning "ROCm bitsandbytes wheel installation failed."
+            if ! check_system_python_package "bitsandbytes"; then
+                if ! sudo -u "$primary_user" pip3 install --user bitsandbytes; then
+                    warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
+                    sudo -u "$primary_user" pip3 install --user --no-deps --force-reinstall \
+                        'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
+                        || warning "ROCm bitsandbytes wheel installation failed."
+                fi
+            else
+                info "bitsandbytes is already installed in system Python"
             fi
         fi
     fi
@@ -920,7 +1019,9 @@ EOF
         # Install ROCm (if available)
         info "Installing ROCm for AMD GPU acceleration..."
         # ROCm packages may be available via EPEL or custom repos
-        dnf install -y rocm-opencl rocblas miopen-hip || warning "ROCm packages not available in default repositories. Consider adding AMD ROCm repository."
+        if ! check_rocm_installed_fedora; then
+            dnf install -y rocm-opencl rocblas miopen-hip || warning "ROCm packages not available in default repositories. Consider adding AMD ROCm repository."
+        fi
         
         # Install Python and AI libraries
         info "Installing Python AI libraries..."
@@ -929,16 +1030,31 @@ EOF
         local primary_user
         primary_user=$(get_real_user)
         if [[ "$primary_user" != "root" ]]; then
-            sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
-            sudo -u "$primary_user" pip3 install --user transformers accelerate
+            # Install PyTorch with ROCm wheels
+            if ! check_system_python_package "torch"; then
+                sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+            else
+                info "PyTorch is already installed in system Python"
+            fi
+            
+            # Install transformers and accelerate
+            if ! check_system_python_package "transformers"; then
+                sudo -u "$primary_user" pip3 install --user transformers accelerate
+            else
+                info "transformers and accelerate are already installed in system Python"
+            fi
             
             # Install bitsandbytes for ROCm
             info "Installing bitsandbytes for ROCm (8-bit quantization)..."
-            if ! sudo -u "$primary_user" pip3 install --user bitsandbytes; then
-                warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
-                sudo -u "$primary_user" pip3 install --user --no-deps --force-reinstall \
-                    'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
-                    || warning "ROCm bitsandbytes wheel installation failed."
+            if ! check_system_python_package "bitsandbytes"; then
+                if ! sudo -u "$primary_user" pip3 install --user bitsandbytes; then
+                    warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
+                    sudo -u "$primary_user" pip3 install --user --no-deps --force-reinstall \
+                        'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
+                        || warning "ROCm bitsandbytes wheel installation failed."
+                fi
+            else
+                info "bitsandbytes is already installed in system Python"
             fi
         fi
     fi
@@ -1091,7 +1207,9 @@ EOF
         # Install ROCm (if available)
         info "Installing ROCm for AMD GPU acceleration..."
         # ROCm packages may be available via OBS repositories
-        zypper install -y rocm-opencl rocblas miopen-hip || warning "ROCm packages not available in default repositories. Consider adding AMD ROCm repository."
+        if ! check_rocm_installed_opensuse; then
+            zypper install -y rocm-opencl rocblas miopen-hip || warning "ROCm packages not available in default repositories. Consider adding AMD ROCm repository."
+        fi
         
         # Install Python and AI libraries
         info "Installing Python AI libraries..."
@@ -1100,16 +1218,31 @@ EOF
         local primary_user
         primary_user=$(get_real_user)
         if [[ "$primary_user" != "root" ]]; then
-            sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
-            sudo -u "$primary_user" pip3 install --user transformers accelerate
+            # Install PyTorch with ROCm wheels
+            if ! check_system_python_package "torch"; then
+                sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+            else
+                info "PyTorch is already installed in system Python"
+            fi
+            
+            # Install transformers and accelerate
+            if ! check_system_python_package "transformers"; then
+                sudo -u "$primary_user" pip3 install --user transformers accelerate
+            else
+                info "transformers and accelerate are already installed in system Python"
+            fi
             
             # Install bitsandbytes for ROCm
             info "Installing bitsandbytes for ROCm (8-bit quantization)..."
-            if ! sudo -u "$primary_user" pip3 install --user bitsandbytes; then
-                warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
-                sudo -u "$primary_user" pip3 install --user --no-deps --force-reinstall \
-                    'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
-                    || warning "ROCm bitsandbytes wheel installation failed."
+            if ! check_system_python_package "bitsandbytes"; then
+                if ! sudo -u "$primary_user" pip3 install --user bitsandbytes; then
+                    warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
+                    sudo -u "$primary_user" pip3 install --user --no-deps --force-reinstall \
+                        'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
+                        || warning "ROCm bitsandbytes wheel installation failed."
+                fi
+            else
+                info "bitsandbytes is already installed in system Python"
             fi
         fi
     fi
