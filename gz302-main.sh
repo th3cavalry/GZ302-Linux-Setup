@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.0.3
+# Version: 2.1.0
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -544,9 +544,11 @@ install_gz302_rgb_keyboard() {
     # Check if gz302-pwrcfg sudoers file exists, if so add gz302-rgb to it
     if [[ -f /etc/sudoers.d/gz302-pwrcfg ]]; then
         if ! grep -q "gz302-rgb" /etc/sudoers.d/gz302-pwrcfg; then
-            echo "Defaults use_pty" >> /etc/sudoers.d/gz302-pwrcfg
-            echo "%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb" >> /etc/sudoers.d/gz302-pwrcfg
-            echo "%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb" >> /etc/sudoers.d/gz302-pwrcfg
+            cat >> /etc/sudoers.d/gz302-pwrcfg << EOF
+Defaults use_pty
+%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
+%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
+EOF
         fi
     else
         # Create new sudoers entry
@@ -566,8 +568,8 @@ EOF
     
     # Create RGB config directory
     info "Setting up RGB persistence..."
-    mkdir -p /etc/gz302-rgb
-    chmod 755 /etc/gz302-rgb
+    mkdir -p /etc/gz302
+    chmod 755 /etc/gz302
     
     # Download and install restore script
     if ! curl -L "${GITHUB_RAW_URL}/gz302-rgb-restore.sh" -o /usr/local/bin/gz302-rgb-restore 2>/dev/null; then
@@ -1139,7 +1141,7 @@ if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
     fi
 fi
 
-TDP_CONFIG_DIR="/etc/pwrcfg"
+TDP_CONFIG_DIR="/etc/gz302/pwrcfg"
 CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
 AUTO_CONFIG_FILE="$TDP_CONFIG_DIR/auto-config"
 AC_PROFILE_FILE="$TDP_CONFIG_DIR/ac-profile"
@@ -1778,7 +1780,7 @@ MONITOR_EOF
 # Restores the previously saved power profile on system boot
 # Called by pwrcfg-auto.service during startup
 
-TDP_CONFIG_DIR="/etc/pwrcfg"
+TDP_CONFIG_DIR="/etc/gz302/pwrcfg"
 CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
 
 # Default to balanced if no profile was previously saved
@@ -1841,7 +1843,7 @@ install_refresh_management() {
 # GZ302 Refresh Rate Management Script
 # Manual refresh rate control - auto-switching handled by pwrcfg
 
-REFRESH_CONFIG_DIR="/etc/rrcfg"
+REFRESH_CONFIG_DIR="/etc/gz302/rrcfg"
 CURRENT_PROFILE_FILE="$REFRESH_CONFIG_DIR/current-profile"
 VRR_ENABLED_FILE="$REFRESH_CONFIG_DIR/vrr-enabled"
 GAME_PROFILES_FILE="$REFRESH_CONFIG_DIR/game-profiles"
@@ -2058,7 +2060,7 @@ set_refresh_rate() {
         
         # Also set global FPS limit via environment variable for compatibility
         export MANGOHUD_CONFIG="fps_limit=$frame_limit"
-        echo "export MANGOHUD_CONFIG=\"fps_limit=$frame_limit\"" > "/etc/rrcfg/mangohud-fps-limit"
+        echo "export MANGOHUD_CONFIG=\"fps_limit=$frame_limit\"" > "/etc/gz302/rrcfg/mangohud-fps-limit"
         
         # Apply VRR range if VRR is enabled
         if [[ -f "$VRR_ENABLED_FILE" ]] && [[ "$(cat "$VRR_ENABLED_FILE" 2>/dev/null)" == "true" ]]; then
@@ -3144,15 +3146,100 @@ offer_optional_modules() {
     done
 }
 
+# --- Path Migration for Backward Compatibility ---
+# Migrates old paths from pre-1.3.0 versions to FHS-compliant paths
+migrate_old_paths() {
+    local paths_migrated=0
+    
+    info "Checking for old configuration paths that need migration..."
+    
+    # Migrate old /etc/pwrcfg directory
+    if [[ -d /etc/pwrcfg ]]; then
+        # Check if directory has content
+        if [[ -n "$(ls -A /etc/pwrcfg 2>/dev/null)" ]]; then
+            info "Migrating /etc/pwrcfg → /etc/gz302/pwrcfg"
+            mkdir -p /etc/gz302/pwrcfg
+            if cp -r /etc/pwrcfg/* /etc/gz302/pwrcfg/ 2>/dev/null; then
+                chmod 755 /etc/gz302/pwrcfg
+                chmod 644 /etc/gz302/pwrcfg/* 2>/dev/null || true
+                rm -rf /etc/pwrcfg
+                success "Migrated power configuration to /etc/gz302/pwrcfg"
+                ((paths_migrated++))
+            else
+                warning "Failed to migrate /etc/pwrcfg contents"
+            fi
+        else
+            # Empty directory, just remove it
+            rm -rf /etc/pwrcfg
+        fi
+    fi
+    
+    # Migrate old /etc/rrcfg directory
+    if [[ -d /etc/rrcfg ]]; then
+        # Check if directory has content
+        if [[ -n "$(ls -A /etc/rrcfg 2>/dev/null)" ]]; then
+            info "Migrating /etc/rrcfg → /etc/gz302/rrcfg"
+            mkdir -p /etc/gz302/rrcfg
+            if cp -r /etc/rrcfg/* /etc/gz302/rrcfg/ 2>/dev/null; then
+                chmod 755 /etc/gz302/rrcfg
+                chmod 644 /etc/gz302/rrcfg/* 2>/dev/null || true
+                rm -rf /etc/rrcfg
+                success "Migrated refresh configuration to /etc/gz302/rrcfg"
+                ((paths_migrated++))
+            else
+                warning "Failed to migrate /etc/rrcfg contents"
+            fi
+        else
+            # Empty directory, just remove it
+            rm -rf /etc/rrcfg
+        fi
+    fi
+    
+    # Migrate old /etc/gz302-rgb directory
+    if [[ -d /etc/gz302-rgb ]]; then
+        # Check if directory has content
+        if [[ -n "$(ls -A /etc/gz302-rgb 2>/dev/null)" ]]; then
+            info "Migrating /etc/gz302-rgb → /etc/gz302"
+            mkdir -p /etc/gz302
+            if cp -r /etc/gz302-rgb/* /etc/gz302/ 2>/dev/null; then
+                chmod 755 /etc/gz302
+                chmod 644 /etc/gz302/* 2>/dev/null || true
+                rm -rf /etc/gz302-rgb
+                success "Migrated RGB configuration to /etc/gz302"
+                ((paths_migrated++))
+            else
+                warning "Failed to migrate /etc/gz302-rgb contents"
+            fi
+        else
+            # Empty directory, just remove it
+            rm -rf /etc/gz302-rgb
+        fi
+    fi
+    
+    # Ensure /etc/gz302 has correct permissions
+    if [[ -d /etc/gz302 ]]; then
+        mkdir -p /etc/gz302/pwrcfg /etc/gz302/rrcfg
+        chmod 755 /etc/gz302 /etc/gz302/pwrcfg /etc/gz302/rrcfg
+    fi
+    
+    if [[ $paths_migrated -gt 0 ]]; then
+        success "Successfully migrated $paths_migrated old configuration path(s)"
+        echo
+    fi
+}
+
 # --- Main Execution Logic ---
 main() {
     # Verify script is run with root privileges (required for system configuration)
     check_root
     
+    # Migrate old paths from pre-1.3.0 versions to FHS-compliant paths
+    migrate_old_paths
+    
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 1.3.2"
+    echo "  Version 2.1.0"
     echo "============================================================"
     echo
     
@@ -3236,8 +3323,8 @@ main() {
     success "============================================================"
     echo
     
-    # Install tray icon (core feature with default yes)
-    install_tray_icon_prompt "$detected_distro"
+    # Install tray icon (core feature - automatically installed)
+    install_tray_icon
     
     # Offer optional modules
     offer_optional_modules "$detected_distro"

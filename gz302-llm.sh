@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.2.4
+# Version: 2.1.0
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
@@ -539,7 +539,7 @@ EOF
         local primary_user
         primary_user=$(get_real_user)
         local venv_dir
-        venv_dir="/home/$primary_user/.local/share/gz302-llm"
+        venv_dir="/var/lib/gz302-llm"
         if [[ "$primary_user" != "root" ]]; then
             # Check if venv already exists
             if [[ -d "$venv_dir" ]] && [[ -f "$venv_dir/bin/python" ]]; then
@@ -547,13 +547,13 @@ EOF
             else
                 # Create venv with Python 3.11 if available for better PyTorch compatibility
                 if command -v python3.11 >/dev/null 2>&1; then
-                    sudo -u "$primary_user" python3.11 -m venv "$venv_dir"
+                    python3.11 -m venv "$venv_dir"
                 else
-                    sudo -u "$primary_user" python -m venv "$venv_dir"
+                    python -m venv "$venv_dir"
                 fi
                 info "Created Python virtual environment at $venv_dir"
             fi
-            sudo -u "$primary_user" "$venv_dir/bin/pip" install --upgrade pip
+            "$venv_dir/bin/pip" install --upgrade pip
 
             info "Installing PyTorch (ROCm wheels) into the venv..."
             # Check if torch is already installed
@@ -1304,6 +1304,44 @@ EOF
     success "LLM/AI software installation completed"
 }
 
+# --- Path Migration for Backward Compatibility ---
+# Migrates old LLM paths from pre-1.3.0 versions to FHS-compliant paths
+migrate_llm_paths() {
+    local old_venv_dir
+    old_venv_dir="${HOME}/.local/share/gz302-llm"
+    local new_venv_dir="/var/lib/gz302-llm"
+    
+    # Check if old venv exists but new one doesn't
+    if [[ -d "$old_venv_dir" ]] && [[ ! -d "$new_venv_dir" ]]; then
+        info "Migrating LLM venv from user home to system location..."
+        info "Source: $old_venv_dir"
+        info "Target: $new_venv_dir"
+        
+        # Create new directory with proper permissions
+        sudo mkdir -p "$new_venv_dir"
+        
+        # Copy old venv to new location
+        if sudo cp -r "$old_venv_dir"/* "$new_venv_dir/" 2>/dev/null; then
+            sudo chmod 755 "$new_venv_dir"
+            sudo chmod -R 755 "$new_venv_dir/bin" 2>/dev/null || true
+            sudo chmod -R 644 "$new_venv_dir"/* 2>/dev/null || true
+            
+            # Remove old venv
+            rm -rf "$old_venv_dir"
+            
+            # Remove old directory if parent is now empty
+            if [[ -d "${old_venv_dir%/*}" ]] && ! ls -A "${old_venv_dir%/*}" >/dev/null 2>&1; then
+                rmdir "${old_venv_dir%/*}" 2>/dev/null || true
+            fi
+            
+            success "Migrated LLM venv to $new_venv_dir"
+            echo
+        else
+            warning "Failed to migrate LLM venv, but will continue with new location"
+        fi
+    fi
+}
+
 # --- Main Execution ---
 main() {
     if [[ $EUID -ne 0 ]]; then
@@ -1321,6 +1359,9 @@ main() {
     echo "  GZ302 LLM/AI Software Installation"
     echo "============================================================"
     echo
+    
+    # Migrate old LLM paths from pre-1.3.0 versions to FHS-compliant paths
+    migrate_llm_paths
     
     # Configure kernel parameters optimized for LLM workloads
     configure_llm_kernel_params

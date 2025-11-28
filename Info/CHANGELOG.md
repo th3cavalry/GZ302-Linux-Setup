@@ -5,6 +5,26 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.4] - 2025-12-18
+
+### Added
+- **Automatic Path Migration for Backward Compatibility**: Scripts now detect and automatically migrate old paths from pre-2.0.0 versions to FHS-compliant standard paths
+  - `gz302-main.sh`: Detects `/etc/pwrcfg`, `/etc/rrcfg`, `/etc/gz302-rgb` and migrates to `/etc/gz302/{pwrcfg,rrcfg}`
+  - `gz302-llm.sh`: Detects `~/.local/share/gz302-llm` and migrates to `/var/lib/gz302-llm` (system-wide venv location)
+  - `gz302-rgb-restore.sh`: Detects `/etc/gz302-rgb/last-setting.conf` and migrates to `/etc/gz302/last-setting.conf`
+  - Migration runs automatically on script execution with no user intervention required
+  - Safe and idempotent - can be run multiple times without issues
+  - Preserves all configuration and venv contents during migration
+  - Cleans up old directories after successful migration
+
+### Changed
+- Version bumped: 2.0.3 → 2.0.4 (PATCH version for backward-compatibility migration feature)
+- All three scripts now include migration functions called early in execution flow
+
+### Fixed
+- Users running older script versions will now have their configurations automatically migrated to new FHS-compliant paths
+- No manual user intervention required for path updates
+
 ## [2.0.0] - 2025-11-18
 
 ### Changed

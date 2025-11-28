@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 RGB Restore Script
-# Version: 2.0.1
+# Version: 2.1.0
 #
 # Restores the last used RGB setting on system boot.
 # Called by systemd service: gz302-rgb-restore.service
@@ -12,11 +12,33 @@
 
 set -euo pipefail
 
-CONFIG_FILE="/etc/gz302-rgb/last-setting.conf"
+CONFIG_FILE="/etc/gz302/last-setting.conf"
 RGB_BIN="/usr/local/bin/gz302-rgb"
+
+# Migrate old RGB config path from pre-1.3.0 versions to FHS-compliant path
+migrate_rgb_config() {
+    local old_config="/etc/gz302-rgb/last-setting.conf"
+    
+    # If old config exists but new one doesn't, migrate it
+    if [[ -f "$old_config" ]] && [[ ! -f "$CONFIG_FILE" ]]; then
+        mkdir -p /etc/gz302
+        if cp "$old_config" "$CONFIG_FILE" 2>/dev/null; then
+            chmod 644 "$CONFIG_FILE"
+            rm -f "$old_config"
+            
+            # Clean up old directory if empty
+            if [[ -d /etc/gz302-rgb ]] && ! ls -A /etc/gz302-rgb >/dev/null 2>&1; then
+                rm -rf /etc/gz302-rgb
+            fi
+        fi
+    fi
+}
 
 # Wait for hardware to be ready
 sleep 2
+
+# Migrate old RGB config path if needed
+migrate_rgb_config
 
 # Check if config file exists
 if [[ ! -f "$CONFIG_FILE" ]]; then
