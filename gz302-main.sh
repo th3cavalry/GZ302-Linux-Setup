@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.2.0
+# Version: 2.2.1
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -305,21 +305,33 @@ options hid_asus fnlock_default=0
 EOF
 
     # Create systemd service to reload hid_asus module for reliable touchpad detection
+    # NOTE: This service runs at graphical.target (not multi-user.target) to avoid
+    # causing input device disconnection during KDE/GNOME/XFCE startup, which can
+    # cause the desktop to appear "frozen" or unresponsive.
     info "Creating HID module reload service for touchpad detection..."
     cat > /etc/systemd/system/reload-hid_asus.service <<'EOF'
 [Unit]
 Description=Reload hid_asus module with correct options for GZ302 Touchpad
-After=multi-user.target
+# Run after graphical target to avoid disconnecting keyboard/touchpad during desktop startup
+# This prevents the "freeze" issue on KDE and other desktop environments
+After=graphical.target display-manager.service
+Wants=graphical.target
 
 [Service]
 Type=oneshot
+# Check if module is loaded; if not, skip reload
 ExecStartPre=/bin/bash -c 'if ! lsmod | grep -q hid_asus; then exit 0; fi'
+# Add a delay to ensure the desktop session is stable before reloading
+ExecStartPre=/bin/sleep 3
 ExecStart=/usr/sbin/modprobe -r hid_asus
 ExecStart=/usr/sbin/modprobe hid_asus
 RemainAfterExit=yes
+# Restart on failure to ensure touchpad works
+Restart=on-failure
+RestartSec=5
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=graphical.target
 EOF
 
     # Enable the service
@@ -3256,7 +3268,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 2.2.0"
+    echo "  Version 2.2.1"
     echo "============================================================"
     echo
     
