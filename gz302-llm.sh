@@ -563,10 +563,11 @@ EOF
             # Check if system Python is 3.13+ (no ROCm wheel support)
             local py_minor
             py_minor=$(python3 -c 'import sys; print(sys.version_info.minor)' 2>/dev/null || echo "11")
-            if [[ "$py_minor" -ge 13 ]]; then
+            # Validate py_minor is numeric before comparison
+            if [[ "$py_minor" =~ ^[0-9]+$ ]] && [[ "$py_minor" -ge 13 ]]; then
                 warning "System Python is 3.$py_minor which has limited ROCm wheel support."
                 warning "Consider installing python3.11 or python3.12 for better compatibility."
-                warning "On Arch: pacman -S python311 or use the conda/miniforge fallback"
+                warning "The conda/miniforge fallback will be attempted automatically if pip install fails."
             fi
         fi
         
