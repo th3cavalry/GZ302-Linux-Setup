@@ -319,16 +319,11 @@ Wants=graphical.target
 
 [Service]
 Type=oneshot
-# Check if module is loaded; if not, skip reload
-ExecStartPre=/bin/bash -c 'if ! lsmod | grep -q hid_asus; then exit 0; fi'
 # Add a delay to ensure the desktop session is stable before reloading
 ExecStartPre=/bin/sleep 3
-ExecStart=/usr/sbin/modprobe -r hid_asus
-ExecStart=/usr/sbin/modprobe hid_asus
+# Reload the module only if it's currently loaded (silent success if not loaded)
+ExecStart=/bin/bash -c 'if lsmod | grep -q hid_asus; then /usr/sbin/modprobe -r hid_asus && /usr/sbin/modprobe hid_asus; else echo "hid_asus not loaded, skipping reload"; fi'
 RemainAfterExit=yes
-# Restart on failure to ensure touchpad works
-Restart=on-failure
-RestartSec=5
 
 [Install]
 WantedBy=graphical.target
