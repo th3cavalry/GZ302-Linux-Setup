@@ -20,26 +20,42 @@ AUTOSTART_DIR="$HOME/.config/autostart"
 DESKTOP_DIR="$HOME/.local/share/applications"
 mkdir -p "$AUTOSTART_DIR" "$DESKTOP_DIR"
 
-ICON_NAME="battery" # Will fall back to our internal icons at runtime
+# Use custom icon from assets if available, otherwise fallback to system icon
+ICON_PATH="$APP_DIR/assets/profile-b.svg"
+if [[ -f "$ICON_PATH" ]]; then
+  ICON_NAME="$ICON_PATH"
+else
+  ICON_NAME="battery"
+fi
 
+# Use python3 explicitly in Exec line for better compatibility across desktop environments
 DESKTOP_FILE_CONTENT="[Desktop Entry]
 Type=Application
 Name=GZ302 Power Manager
 Comment=System tray power profile manager for GZ302
-Exec=$APP_PY
+Exec=python3 $APP_PY
 Icon=$ICON_NAME
 Terminal=false
 Categories=Utility;System;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
 "
 
 # Install desktop launcher
 DESKTOP_FILE="$DESKTOP_DIR/gz302-tray.desktop"
 printf "%s" "$DESKTOP_FILE_CONTENT" > "$DESKTOP_FILE"
+chmod +x "$DESKTOP_FILE"
 
 # Install autostart entry
 AUTOSTART_FILE="$AUTOSTART_DIR/gz302-tray.desktop"
 printf "%s" "$DESKTOP_FILE_CONTENT" > "$AUTOSTART_FILE"
+chmod +x "$AUTOSTART_FILE"
 
 echo "Installed desktop launcher: $DESKTOP_FILE"
 echo "Enabled autostart entry:    $AUTOSTART_FILE"
+echo ""
 echo "You can now launch 'GZ302 Power Manager' from your app menu or it will start on login."
+echo ""
+echo "NOTE: If you use GNOME, you may need to install the 'AppIndicator' extension:"
+echo "  - GNOME: Install 'AppIndicator and KStatusNotifierItem Support' from extensions.gnome.org"
+echo "  - KDE/XFCE/LXQt: System tray support is built-in"
