@@ -2,11 +2,17 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.1.0
+# Version: 2.2.0
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
 # Configures kernel parameters optimized for LLM workloads on Strix Halo
+#
+# Updated November 2025:
+# - Use ROCm 6.x wheels (ROCm 5.7 deprecated, no Python 3.12+ support)
+# - Fixed venv permission issues
+# - Updated bitsandbytes installation (uses standard pip package now)
+# - Prefer Python 3.11/3.12 for best ROCm wheel compatibility
 #
 # This script is designed to be called by gz302-main.sh
 # ==============================================================================
@@ -533,6 +539,7 @@ EOF
         fi
         
         # Install Python and AI libraries
+        # Note: ROCm 6.x wheels require Python 3.10-3.12 (no Python 3.13 support yet)
         info "Installing Python AI libraries (using virtualenv)..."
         pacman -S --noconfirm --needed python-pip python-virtualenv
 
@@ -540,28 +547,59 @@ EOF
         primary_user=$(get_real_user)
         local venv_dir
         venv_dir="/var/lib/gz302-llm"
+        
+        # Determine best Python version for ROCm compatibility (prefer 3.11 or 3.12)
+        local python_cmd="python3"
+        if command -v python3.11 >/dev/null 2>&1; then
+            python_cmd="python3.11"
+            info "Using Python 3.11 for best ROCm wheel compatibility"
+        elif command -v python3.12 >/dev/null 2>&1; then
+            python_cmd="python3.12"
+            info "Using Python 3.12 for ROCm wheel compatibility"
+        elif command -v python3.10 >/dev/null 2>&1; then
+            python_cmd="python3.10"
+            info "Using Python 3.10 for ROCm wheel compatibility"
+        else
+            # Check if system Python is 3.13+ (no ROCm wheel support)
+            local py_minor
+            py_minor=$(python3 -c 'import sys; print(sys.version_info.minor)' 2>/dev/null || echo "11")
+            if [[ "$py_minor" -ge 13 ]]; then
+                warning "System Python is 3.$py_minor which has limited ROCm wheel support."
+                warning "Consider installing python3.11 or python3.12 for better compatibility."
+                warning "On Arch: pacman -S python311 or use the conda/miniforge fallback"
+            fi
+        fi
+        
         if [[ "$primary_user" != "root" ]]; then
             # Check if venv already exists
             if [[ -d "$venv_dir" ]] && [[ -f "$venv_dir/bin/python" ]]; then
                 info "Python virtual environment already exists at $venv_dir"
+                # Fix ownership in case of permission issues from previous runs
+                chown -R "$primary_user:$primary_user" "$venv_dir" 2>/dev/null || true
             else
-                # Create venv with Python 3.11 if available for better PyTorch compatibility
-                if command -v python3.11 >/dev/null 2>&1; then
-                    python3.11 -m venv "$venv_dir"
-                else
-                    python -m venv "$venv_dir"
-                fi
+                # Create venv directory with correct ownership
+                mkdir -p "$venv_dir"
+                chown "$primary_user:$primary_user" "$venv_dir"
+                
+                # Create venv as the target user to ensure correct permissions
+                sudo -u "$primary_user" "$python_cmd" -m venv "$venv_dir"
                 info "Created Python virtual environment at $venv_dir"
             fi
-            "$venv_dir/bin/pip" install --upgrade pip
+            
+            # Upgrade pip (run as venv owner)
+            sudo -u "$primary_user" "$venv_dir/bin/pip" install --upgrade pip
 
-            info "Installing PyTorch (ROCm wheels) into the venv..."
-            # Check if torch is already installed
+            info "Installing PyTorch (ROCm 6.2 wheels) into the venv..."
+            # ROCm 6.2 wheels support Python 3.10-3.12 and work with gfx1151 (Strix Halo)
+            # Note: If rocm6.2 fails, try rocm6.1 as fallback
             if ! check_venv_package "$venv_dir" "torch"; then
-                # Try installing PyTorch; if this fails here it may succeed later via other means
-                if ! sudo -u "$primary_user" "$venv_dir/bin/pip" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7; then
-                    warning "PyTorch (ROCm) initial installation attempt failed. Will verify after other installs before marking as failed."
-                    warning "Common causes: no compatible wheel for system Python (e.g. Python 3.12/3.13) or platform mismatch."
+                # Try ROCm 6.2 first (best compatibility with Strix Halo gfx1151)
+                if ! sudo -u "$primary_user" "$venv_dir/bin/pip" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2; then
+                    warning "PyTorch ROCm 6.2 installation failed. Trying ROCm 6.1..."
+                    if ! sudo -u "$primary_user" "$venv_dir/bin/pip" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1; then
+                        warning "PyTorch (ROCm 6.x) installation failed. Will try conda/miniforge fallback."
+                        warning "Common causes: no compatible wheel for Python version or platform mismatch."
+                    fi
                 fi
             else
                 info "PyTorch is already installed in venv"
@@ -575,16 +613,14 @@ EOF
             fi
 
             # Install bitsandbytes for ROCm (quantization support)
+            # As of November 2025, bitsandbytes has official ROCm support via standard pip
             info "Installing bitsandbytes for ROCm (8-bit quantization)..."
             if ! check_venv_package "$venv_dir" "bitsandbytes"; then
-                # Try to install bitsandbytes with ROCm support
-                # Note: ROCm support for gfx1151 is in preview; may need custom build
+                # Standard pip install now supports ROCm (as of bitsandbytes 0.44+)
                 if ! sudo -u "$primary_user" "$venv_dir/bin/pip" install bitsandbytes; then
-                    warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
-                    # Try ROCm-specific development wheel if available
-                    sudo -u "$primary_user" "$venv_dir/bin/pip" install --no-deps --force-reinstall \
-                        'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
-                        || warning "ROCm bitsandbytes wheel installation failed. You may need to build from source for gfx1151 support."
+                    warning "bitsandbytes installation failed. This is optional for quantization."
+                    warning "For gfx1151 (Strix Halo), you may need to build from source."
+                    warning "See: https://github.com/bitsandbytes-foundation/bitsandbytes"
                 fi
             else
                 info "bitsandbytes is already installed in venv"
@@ -594,6 +630,7 @@ EOF
             if sudo -u "$primary_user" "$venv_dir/bin/python" -c "import importlib; importlib.import_module('torch')" >/dev/null 2>&1; then
                 info "PyTorch import succeeded inside the venv"
                 # remove any stale failure marker
+                mkdir -p "$venv_dir/.gz302" 2>/dev/null || true
                 if [[ -f "$venv_dir/.gz302/torch_install_failed" ]]; then
                     rm -f "$venv_dir/.gz302/torch_install_failed" || true
                 fi
@@ -623,23 +660,21 @@ EOF
                 fi
 
                 if [[ -n "$conda_cmd" && -x "$conda_cmd" ]]; then
-                    info "Creating conda environment 'gz302-llm' (python 3.10) and trying PyTorch (ROCm) there"
-                    sudo -u "$primary_user" "$conda_cmd" create -y -n gz302-llm python=3.10 pip || warning "Failed to create conda env gz302-llm"
+                    # Use Python 3.11 in conda for best ROCm 6.x compatibility
+                    info "Creating conda environment 'gz302-llm' (python 3.11) and trying PyTorch (ROCm 6.2) there"
+                    sudo -u "$primary_user" "$conda_cmd" create -y -n gz302-llm python=3.11 pip || warning "Failed to create conda env gz302-llm"
 
                     # Use conda run to execute pip installs inside the env (no activation required)
-                    if ! sudo -u "$primary_user" "$conda_cmd" run -n gz302-llm pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7; then
-                        warning "PyTorch installation into conda env gz302-llm failed"
+                    # Try ROCm 6.2 first for best gfx1151 support
+                    if ! sudo -u "$primary_user" "$conda_cmd" run -n gz302-llm pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2; then
+                        warning "PyTorch ROCm 6.2 installation into conda env failed, trying ROCm 6.1..."
+                        sudo -u "$primary_user" "$conda_cmd" run -n gz302-llm pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1 || warning "PyTorch installation into conda env gz302-llm failed"
                     fi
                     sudo -u "$primary_user" "$conda_cmd" run -n gz302-llm pip install --no-cache-dir transformers accelerate || warning "Failed to install transformers/accelerate inside conda env"
                     
                     # Install bitsandbytes for ROCm in conda env
                     info "Installing bitsandbytes for ROCm in conda environment..."
-                    if ! sudo -u "$primary_user" "$conda_cmd" run -n gz302-llm pip install --no-cache-dir bitsandbytes; then
-                        warning "Standard bitsandbytes installation failed in conda. Trying ROCm-specific wheel..."
-                        sudo -u "$primary_user" "$conda_cmd" run -n gz302-llm pip install --no-deps --force-reinstall --no-cache-dir \
-                            'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
-                            || warning "ROCm bitsandbytes wheel installation failed in conda env."
-                    fi
+                    sudo -u "$primary_user" "$conda_cmd" run -n gz302-llm pip install --no-cache-dir bitsandbytes || warning "bitsandbytes installation failed in conda env (optional for quantization)"
 
                     # Verify torch import inside conda env
                     if sudo -u "$primary_user" "$conda_cmd" run -n gz302-llm python -c "import importlib; importlib.import_module('torch')" >/dev/null 2>&1; then
@@ -836,15 +871,19 @@ EOF
         fi
         
         # Install Python and AI libraries
+        # Note: ROCm 6.x wheels require Python 3.10-3.12 (no Python 3.13 support yet)
         info "Installing Python AI libraries..."
         apt install -y python3-pip python3-venv
         
         local primary_user
         primary_user=$(get_real_user)
         if [[ "$primary_user" != "root" ]]; then
-            # Install PyTorch with ROCm wheels
+            # Install PyTorch with ROCm 6.2 wheels (supports Python 3.10-3.12)
             if ! check_system_python_package "torch"; then
-                sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+                if ! sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2; then
+                    warning "PyTorch ROCm 6.2 installation failed. Trying ROCm 6.1..."
+                    sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1 || warning "PyTorch installation failed"
+                fi
             else
                 info "PyTorch is already installed in system Python"
             fi
@@ -856,15 +895,10 @@ EOF
                 info "transformers and accelerate are already installed in system Python"
             fi
             
-            # Install bitsandbytes for ROCm
+            # Install bitsandbytes for ROCm (now has official support via standard pip)
             info "Installing bitsandbytes for ROCm (8-bit quantization)..."
             if ! check_system_python_package "bitsandbytes"; then
-                if ! sudo -u "$primary_user" pip3 install --user bitsandbytes; then
-                    warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
-                    sudo -u "$primary_user" pip3 install --user --no-deps --force-reinstall \
-                        'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
-                        || warning "ROCm bitsandbytes wheel installation failed."
-                fi
+                sudo -u "$primary_user" pip3 install --user bitsandbytes || warning "bitsandbytes installation failed (optional for quantization)"
             else
                 info "bitsandbytes is already installed in system Python"
             fi
@@ -1024,15 +1058,19 @@ EOF
         fi
         
         # Install Python and AI libraries
+        # Note: ROCm 6.x wheels require Python 3.10-3.12 (no Python 3.13 support yet)
         info "Installing Python AI libraries..."
         dnf install -y python3-pip python3-virtualenv
         
         local primary_user
         primary_user=$(get_real_user)
         if [[ "$primary_user" != "root" ]]; then
-            # Install PyTorch with ROCm wheels
+            # Install PyTorch with ROCm 6.2 wheels (supports Python 3.10-3.12)
             if ! check_system_python_package "torch"; then
-                sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+                if ! sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2; then
+                    warning "PyTorch ROCm 6.2 installation failed. Trying ROCm 6.1..."
+                    sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1 || warning "PyTorch installation failed"
+                fi
             else
                 info "PyTorch is already installed in system Python"
             fi
@@ -1044,15 +1082,10 @@ EOF
                 info "transformers and accelerate are already installed in system Python"
             fi
             
-            # Install bitsandbytes for ROCm
+            # Install bitsandbytes for ROCm (now has official support via standard pip)
             info "Installing bitsandbytes for ROCm (8-bit quantization)..."
             if ! check_system_python_package "bitsandbytes"; then
-                if ! sudo -u "$primary_user" pip3 install --user bitsandbytes; then
-                    warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
-                    sudo -u "$primary_user" pip3 install --user --no-deps --force-reinstall \
-                        'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
-                        || warning "ROCm bitsandbytes wheel installation failed."
-                fi
+                sudo -u "$primary_user" pip3 install --user bitsandbytes || warning "bitsandbytes installation failed (optional for quantization)"
             else
                 info "bitsandbytes is already installed in system Python"
             fi
@@ -1212,15 +1245,19 @@ EOF
         fi
         
         # Install Python and AI libraries
+        # Note: ROCm 6.x wheels require Python 3.10-3.12 (no Python 3.13 support yet)
         info "Installing Python AI libraries..."
         zypper install -y python3-pip python3-virtualenv
         
         local primary_user
         primary_user=$(get_real_user)
         if [[ "$primary_user" != "root" ]]; then
-            # Install PyTorch with ROCm wheels
+            # Install PyTorch with ROCm 6.2 wheels (supports Python 3.10-3.12)
             if ! check_system_python_package "torch"; then
-                sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+                if ! sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2; then
+                    warning "PyTorch ROCm 6.2 installation failed. Trying ROCm 6.1..."
+                    sudo -u "$primary_user" pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1 || warning "PyTorch installation failed"
+                fi
             else
                 info "PyTorch is already installed in system Python"
             fi
@@ -1232,15 +1269,10 @@ EOF
                 info "transformers and accelerate are already installed in system Python"
             fi
             
-            # Install bitsandbytes for ROCm
+            # Install bitsandbytes for ROCm (now has official support via standard pip)
             info "Installing bitsandbytes for ROCm (8-bit quantization)..."
             if ! check_system_python_package "bitsandbytes"; then
-                if ! sudo -u "$primary_user" pip3 install --user bitsandbytes; then
-                    warning "Standard bitsandbytes installation failed. Trying ROCm-specific wheel..."
-                    sudo -u "$primary_user" pip3 install --user --no-deps --force-reinstall \
-                        'https://github.com/bitsandbytes-foundation/bitsandbytes/releases/download/continuous-release_multi-backend-refactor/bitsandbytes-0.44.1.dev0-py3-none-manylinux_2_24_x86_64.whl' \
-                        || warning "ROCm bitsandbytes wheel installation failed."
-                fi
+                sudo -u "$primary_user" pip3 install --user bitsandbytes || warning "bitsandbytes installation failed (optional for quantization)"
             else
                 info "bitsandbytes is already installed in system Python"
             fi

@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.1.0
+# Version: 2.2.0
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -3239,7 +3239,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 2.1.0"
+    echo "  Version 2.2.0"
     echo "============================================================"
     echo
     
