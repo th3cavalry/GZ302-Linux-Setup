@@ -319,9 +319,11 @@ Wants=graphical.target
 
 [Service]
 Type=oneshot
-# Add a delay to ensure the desktop session is stable before reloading
+# Add a 3-second delay to ensure the desktop session is stable before reloading
+# This allows KDE/GNOME/XFCE to complete their startup without input device interruption
 ExecStartPre=/bin/sleep 3
 # Reload the module only if it's currently loaded (silent success if not loaded)
+# Using a single command ensures atomic check-and-reload to avoid race conditions
 ExecStart=/bin/bash -c 'if lsmod | grep -q hid_asus; then /usr/sbin/modprobe -r hid_asus && /usr/sbin/modprobe hid_asus; else echo "hid_asus not loaded, skipping reload"; fi'
 RemainAfterExit=yes
 
