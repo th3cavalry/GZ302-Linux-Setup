@@ -378,16 +378,27 @@ class GZ302TrayIcon(QSystemTrayIcon):
             home = Path.home()
             autostart_dir = home / '.config' / 'autostart'
             autostart_dir.mkdir(parents=True, exist_ok=True)
-            exec_path = Path(__file__).resolve().parent / 'gz302_tray.py'
+            exec_path = Path(__file__).resolve()
+            
+            # Use custom icon from assets if available
+            assets_dir = exec_path.parent.parent / 'assets'
+            icon_path = assets_dir / 'profile-b.svg'
+            if icon_path.exists():
+                icon_name = str(icon_path)
+            else:
+                icon_name = "battery"
+            
             desktop = autostart_dir / 'gz302-tray.desktop'
             desktop.write_text(f"""[Desktop Entry]
 Type=Application
 Name=GZ302 Power Manager
 Comment=System tray power profile manager for GZ302
-Exec={exec_path}
-Icon=battery
+Exec=python3 {exec_path}
+Icon={icon_name}
 Terminal=false
 Categories=Utility;System;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
 """)
             self.showMessage("Autostart", "Autostart entry created at ~/.config/autostart/gz302-tray.desktop", QSystemTrayIcon.MessageIcon.Information, 4000)
         except Exception as e:

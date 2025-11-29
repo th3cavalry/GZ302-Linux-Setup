@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.1.0
+# Version: 2.2.0
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -2812,12 +2812,20 @@ install_tray_icon() {
         
         # Download tray icon source directory
         mkdir -p "$tray_dir/src"
-        mkdir -p "$tray_dir/assets"
         if ! curl -fsSL "${GITHUB_RAW_URL}/tray-icon/src/gz302_tray.py" -o "$tray_dir/src/gz302_tray.py" 2>/dev/null; then
             warning "Failed to download tray-icon/src/gz302_tray.py"
         else
             chmod +x "$tray_dir/src/gz302_tray.py"
         fi
+        
+        # Download assets (icons for tray)
+        mkdir -p "$tray_dir/assets"
+        local asset_files=("profile-b.svg" "profile-e.svg" "profile-f.svg" "profile-g.svg" "profile-m.svg" "profile-p.svg" "ac.svg" "battery.svg" "lightning.svg")
+        for asset in "${asset_files[@]}"; do
+            if ! curl -fsSL "${GITHUB_RAW_URL}/tray-icon/assets/${asset}" -o "$tray_dir/assets/${asset}" 2>/dev/null; then
+                warning "Failed to download tray-icon/assets/${asset}"
+            fi
+        done
         
         # Download requirements.txt
         if ! curl -fsSL "${GITHUB_RAW_URL}/tray-icon/requirements.txt" -o "$tray_dir/requirements.txt" 2>/dev/null; then
@@ -2883,6 +2891,15 @@ install_tray_icon() {
     echo "  - Run: python3 $tray_dir/src/gz302_tray.py"
     echo "  - It will start automatically on login"
     echo
+    
+    # Check desktop environment for compatibility notes
+    local current_de="${XDG_CURRENT_DESKTOP:-unknown}"
+    if [[ "$current_de" == *"GNOME"* ]]; then
+        warning "GNOME detected: You may need to install the 'AppIndicator' extension for system tray support."
+        info "Install from: https://extensions.gnome.org/extension/615/appindicator-support/"
+        info "Or: gnome-extensions install appindicatorsupport@rgcjonas.gmail.com"
+    fi
+    
     info "For more information, see: $tray_dir/README.md"
 }
 
@@ -3239,7 +3256,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 2.1.0"
+    echo "  Version 2.2.0"
     echo "============================================================"
     echo
     
