@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.2.1
+# Version: 2.2.4
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -498,54 +498,131 @@ install_gz302_rgb_keyboard() {
     info "Installing GZ302 RGB Keyboard Control..."
     
     local distro="$1"
-    local build_dir="/tmp/gz302-rgb-build"
     
-    # Check if gcc and libusb development headers are available
-    case "$distro" in
-        arch)
-            pacman -S --noconfirm --needed base-devel libusb 2>/dev/null || warning "Failed to install build dependencies"
-            ;;
-        ubuntu)
-            apt-get install -y build-essential libusb-1.0-0-dev 2>/dev/null || warning "Failed to install build dependencies"
-            ;;
-        fedora)
-            dnf install -y gcc make libusb1-devel 2>/dev/null || warning "Failed to install build dependencies"
-            ;;
-        opensuse)
-            zypper install -y gcc make libusb-1_0-devel 2>/dev/null || warning "Failed to install build dependencies"
-            ;;
-    esac
-    
-    # Create build directory
-    mkdir -p "$build_dir"
-    cd "$build_dir"
-    
-    # Download the RGB source files
-    info "Downloading GZ302 RGB control source..."
-    if ! curl -L "${GITHUB_RAW_URL}/gz302-rgb-cli.c" -o gz302-rgb-cli.c 2>/dev/null; then
-        warning "Failed to download gz302-rgb-cli.c"
-        return 1
+    # Check if asusctl is available (preferred method)
+    if command -v asusctl >/dev/null 2>&1; then
+        info "Using asusctl for RGB control..."
+        
+        # Create RGB control script using asusctl
+        cat > /usr/local/bin/gz302-rgb <<'EOF'
+#!/bin/bash
+# GZ302 RGB Control via asusctl
+
+set -euo pipefail
+
+# Check if asusctl is available
+if ! command -v asusctl >/dev/null 2>&1; then
+    echo "Error: asusctl not found" >&2
+    exit 1
+fi
+
+case "$1" in
+    static)
+        if [[ $# -ne 2 ]]; then
+            echo "Usage: $0 static RRGGBB" >&2
+            exit 1
+        fi
+        asusctl led-mode static -c "$2"
+        ;;
+    breathing)
+        if [[ $# -ne 3 ]]; then
+            echo "Usage: $0 breathing RRGGBB speed(1-3)" >&2
+            exit 1
+        fi
+        # asusctl breathing takes color and speed
+        asusctl led-mode breathing -c "$2" -s "$3"
+        ;;
+    rainbow_cycle)
+        if [[ $# -ne 2 ]]; then
+            echo "Usage: $0 rainbow_cycle speed(1-3)" >&2
+            exit 1
+        fi
+        asusctl led-mode rainbow -s "$2"
+        ;;
+    single_static)
+        if [[ $# -ne 2 ]]; then
+            echo "Usage: $0 single_static RRGGBB" >&2
+            exit 1
+        fi
+        asusctl led-mode static -c "$2"
+        ;;
+    brightness)
+        if [[ $# -ne 2 ]]; then
+            echo "Usage: $0 brightness 0-3" >&2
+            exit 1
+        fi
+        # Brightness is handled separately via sysfs
+        if [[ -f /sys/class/leds/asus::kbd_backlight/brightness ]]; then
+            echo "$2" > /sys/class/leds/asus::kbd_backlight/brightness
+        else
+            echo "Keyboard backlight not available" >&2
+            exit 1
+        fi
+        ;;
+    *)
+        echo "Usage: $0 {static|breathing|rainbow_cycle|single_static|brightness} [args]" >&2
+        exit 1
+        ;;
+esac
+
+echo "RGB command sent"
+EOF
+        
+        chmod +x /usr/local/bin/gz302-rgb
+        
+    else
+        # Fallback to libusb method
+        warning "asusctl not found, falling back to libusb method..."
+        
+        local build_dir="/tmp/gz302-rgb-build"
+        
+        # Check if gcc and libusb development headers are available
+        case "$distro" in
+            arch)
+                pacman -S --noconfirm --needed base-devel libusb 2>/dev/null || warning "Failed to install build dependencies"
+                ;;
+            ubuntu)
+                apt-get install -y build-essential libusb-1.0-0-dev 2>/dev/null || warning "Failed to install build dependencies"
+                ;;
+            fedora)
+                dnf install -y gcc make libusb1-devel 2>/dev/null || warning "Failed to install build dependencies"
+                ;;
+            opensuse)
+                zypper install -y gcc make libusb-1_0-devel 2>/dev/null || warning "Failed to install build dependencies"
+                ;;
+        esac
+        
+        # Create build directory
+        mkdir -p "$build_dir"
+        cd "$build_dir"
+        
+        # Download the RGB source files
+        info "Downloading GZ302 RGB control source..."
+        if ! curl -L "${GITHUB_RAW_URL}/gz302-rgb-cli.c" -o gz302-rgb-cli.c 2>/dev/null; then
+            warning "Failed to download gz302-rgb-cli.c"
+            return 1
+        fi
+        
+        if ! curl -L "${GITHUB_RAW_URL}/Makefile.rgb" -o Makefile -z Makefile 2>/dev/null; then
+            warning "Failed to download Makefile.rgb"
+            return 1
+        fi
+        
+        # Compile the RGB binary
+        info "Compiling GZ302 RGB control..."
+        if ! make -f Makefile 2>/dev/null; then
+            warning "Failed to compile gz302-rgb"
+            return 1
+        fi
+        
+        # Install the binary
+        if ! cp gz302-rgb /usr/local/bin/gz302-rgb 2>/dev/null; then
+            warning "Failed to install gz302-rgb binary"
+            return 1
+        fi
+        
+        chmod +x /usr/local/bin/gz302-rgb
     fi
-    
-    if ! curl -L "${GITHUB_RAW_URL}/Makefile.rgb" -o Makefile -z Makefile 2>/dev/null; then
-        warning "Failed to download Makefile.rgb"
-        return 1
-    fi
-    
-    # Compile the RGB binary
-    info "Compiling GZ302 RGB control..."
-    if ! make -f Makefile 2>/dev/null; then
-        warning "Failed to compile gz302-rgb"
-        return 1
-    fi
-    
-    # Install the binary
-    if ! cp gz302-rgb /usr/local/bin/gz302-rgb 2>/dev/null; then
-        warning "Failed to install gz302-rgb binary"
-        return 1
-    fi
-    
-    chmod +x /usr/local/bin/gz302-rgb
     
     # Configure passwordless sudo for RGB control
     info "Configuring passwordless sudo for RGB control..."
@@ -2860,20 +2937,20 @@ install_tray_icon() {
     
     case "$distro" in
         arch)
-            info "Installing PyQt6 for Arch Linux..."
-            pacman -S --noconfirm python-pyqt6 >/dev/null 2>&1 || warning "Failed to install python-pyqt6 via pacman"
+            info "Installing PyQt6 and psutil for Arch Linux..."
+            pacman -S --noconfirm python-pyqt6 python-psutil >/dev/null 2>&1 || warning "Failed to install python-pyqt6 and python-psutil via pacman"
             ;;
         debian)
-            info "Installing PyQt6 for Debian/Ubuntu..."
-            apt-get install -y python3-pyqt6 >/dev/null 2>&1 || warning "Failed to install python3-pyqt6 via apt"
+            info "Installing PyQt6 and psutil for Debian/Ubuntu..."
+            apt-get install -y python3-pyqt6 python3-psutil >/dev/null 2>&1 || warning "Failed to install python3-pyqt6 and python3-psutil via apt"
             ;;
         fedora)
-            info "Installing PyQt6 for Fedora..."
-            dnf install -y python3-pyqt6 >/dev/null 2>&1 || warning "Failed to install python3-pyqt6 via dnf"
+            info "Installing PyQt6 and psutil for Fedora..."
+            dnf install -y python3-pyqt6 python3-psutil >/dev/null 2>&1 || warning "Failed to install python3-pyqt6 and python3-psutil via dnf"
             ;;
         opensuse)
-            info "Installing PyQt6 for OpenSUSE..."
-            zypper install -y python3-qt6 python3-psutil >/dev/null 2>&1 || warning "Failed to install PyQt6 packages via zypper"
+            info "Installing PyQt6 and psutil for OpenSUSE..."
+            zypper install -y python3-qt6 python3-psutil >/dev/null 2>&1 || warning "Failed to install PyQt6 and psutil packages via zypper"
             ;;
     esac
     
@@ -3252,6 +3329,7 @@ migrate_old_paths() {
         success "Successfully migrated $paths_migrated old configuration path(s)"
         echo
     fi
+    echo "$paths_migrated"
 }
 
 # --- Main Execution Logic ---
@@ -3260,12 +3338,18 @@ main() {
     check_root
     
     # Migrate old paths from pre-1.3.0 versions to FHS-compliant paths
-    migrate_old_paths
+    local paths_migrated
+    paths_migrated=$(migrate_old_paths)
+    
+    if [[ $paths_migrated -gt 0 ]]; then
+        info "Migration completed. Please run the script again to complete the setup."
+        exit 0
+    fi
     
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 2.2.1"
+    echo "  Version 2.2.4"
     echo "============================================================"
     echo
     
