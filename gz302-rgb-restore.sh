@@ -37,6 +37,12 @@ migrate_rgb_config() {
 # Wait for hardware to be ready
 sleep 2
 
+# Enable keyboard brightness so RGB is visible after restoring
+BRIGHTNESS_PATH="/sys/class/leds/asus::kbd_backlight/brightness"
+if [[ -f "$BRIGHTNESS_PATH" ]]; then
+    echo 3 > "$BRIGHTNESS_PATH" 2>/dev/null || true
+fi
+
 # Migrate old RGB config path if needed
 migrate_rgb_config
 

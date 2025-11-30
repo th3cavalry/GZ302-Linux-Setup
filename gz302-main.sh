@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.2.6
+# Version: 2.2.8
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -498,131 +498,85 @@ install_gz302_rgb_keyboard() {
     info "Installing GZ302 RGB Keyboard Control..."
     
     local distro="$1"
+    local build_dir="/tmp/gz302-rgb-build"
     
-    # Check if asusctl is available (preferred method)
-    if command -v asusctl >/dev/null 2>&1; then
-        info "Using asusctl for RGB control..."
-        
-        # Create RGB control script using asusctl
-        cat > /usr/local/bin/gz302-rgb <<'EOF'
+    # Check if gcc and libusb development headers are available
+    case "$distro" in
+        arch)
+            pacman -S --noconfirm --needed base-devel libusb 2>/dev/null || warning "Failed to install build dependencies"
+            ;;
+        ubuntu)
+            apt-get install -y build-essential libusb-1.0-0-dev 2>/dev/null || warning "Failed to install build dependencies"
+            ;;
+        fedora)
+            dnf install -y gcc make libusb1-devel 2>/dev/null || warning "Failed to install build dependencies"
+            ;;
+        opensuse)
+            zypper install -y gcc make libusb-1_0-devel 2>/dev/null || warning "Failed to install build dependencies"
+            ;;
+    esac
+    
+    # Create build directory
+    mkdir -p "$build_dir"
+    cd "$build_dir"
+    
+    # Download the RGB source files
+    info "Downloading GZ302 RGB control source..."
+    if ! curl -L "${GITHUB_RAW_URL}/gz302-rgb-cli.c" -o gz302-rgb-cli.c 2>/dev/null; then
+        warning "Failed to download gz302-rgb-cli.c"
+        return 1
+    fi
+    
+    if ! curl -L "${GITHUB_RAW_URL}/Makefile.rgb" -o Makefile -z Makefile 2>/dev/null; then
+        warning "Failed to download Makefile.rgb"
+        return 1
+    fi
+    
+    # Compile the RGB binary
+    info "Compiling GZ302 RGB control..."
+    if ! make -f Makefile 2>/dev/null; then
+        warning "Failed to compile gz302-rgb"
+        return 1
+    fi
+    
+    # Install the binary
+    if ! cp gz302-rgb /usr/local/bin/gz302-rgb 2>/dev/null; then
+        warning "Failed to install gz302-rgb binary"
+        return 1
+    fi
+    
+    chmod +x /usr/local/bin/gz302-rgb
+    
+    # Create wrapper script that ensures brightness is enabled
+    info "Creating RGB wrapper script with auto-brightness..."
+    cat > /usr/local/bin/gz302-rgb-wrapper <<'EOFWRAP'
 #!/bin/bash
-# GZ302 RGB Control via asusctl
+# GZ302 RGB Wrapper - Ensures keyboard brightness is enabled before RGB commands
 
 set -euo pipefail
 
-# Check if asusctl is available
-if ! command -v asusctl >/dev/null 2>&1; then
-    echo "Error: asusctl not found" >&2
-    exit 1
+# For non-brightness commands, ensure keyboard is visible
+if [[ "${1:-}" != "brightness" ]] && [[ "${1:-}" != "" ]]; then
+    # Check current brightness
+    BRIGHTNESS_PATH="/sys/class/leds/asus::kbd_backlight/brightness"
+    if [[ -f "$BRIGHTNESS_PATH" ]]; then
+        CURRENT_BRIGHTNESS=$(cat "$BRIGHTNESS_PATH" 2>/dev/null || echo 0)
+        # If brightness is 0, set it to 3 (maximum) so RGB is visible
+        if [[ "$CURRENT_BRIGHTNESS" == "0" ]]; then
+            echo 3 > "$BRIGHTNESS_PATH" 2>/dev/null || true
+        fi
+    fi
 fi
 
-case "$1" in
-    static)
-        if [[ $# -ne 2 ]]; then
-            echo "Usage: $0 static RRGGBB" >&2
-            exit 1
-        fi
-        asusctl led-mode static -c "$2"
-        ;;
-    breathing)
-        if [[ $# -ne 3 ]]; then
-            echo "Usage: $0 breathing RRGGBB speed(1-3)" >&2
-            exit 1
-        fi
-        # asusctl breathing takes color and speed
-        asusctl led-mode breathing -c "$2" -s "$3"
-        ;;
-    rainbow_cycle)
-        if [[ $# -ne 2 ]]; then
-            echo "Usage: $0 rainbow_cycle speed(1-3)" >&2
-            exit 1
-        fi
-        asusctl led-mode rainbow -s "$2"
-        ;;
-    single_static)
-        if [[ $# -ne 2 ]]; then
-            echo "Usage: $0 single_static RRGGBB" >&2
-            exit 1
-        fi
-        asusctl led-mode static -c "$2"
-        ;;
-    brightness)
-        if [[ $# -ne 2 ]]; then
-            echo "Usage: $0 brightness 0-3" >&2
-            exit 1
-        fi
-        # Brightness is handled separately via sysfs
-        if [[ -f /sys/class/leds/asus::kbd_backlight/brightness ]]; then
-            echo "$2" > /sys/class/leds/asus::kbd_backlight/brightness
-        else
-            echo "Keyboard backlight not available" >&2
-            exit 1
-        fi
-        ;;
-    *)
-        echo "Usage: $0 {static|breathing|rainbow_cycle|single_static|brightness} [args]" >&2
-        exit 1
-        ;;
-esac
-
-echo "RGB command sent"
-EOF
-        
-        chmod +x /usr/local/bin/gz302-rgb
-        
-    else
-        # Fallback to libusb method
-        warning "asusctl not found, falling back to libusb method..."
-        
-        local build_dir="/tmp/gz302-rgb-build"
-        
-        # Check if gcc and libusb development headers are available
-        case "$distro" in
-            arch)
-                pacman -S --noconfirm --needed base-devel libusb 2>/dev/null || warning "Failed to install build dependencies"
-                ;;
-            ubuntu)
-                apt-get install -y build-essential libusb-1.0-0-dev 2>/dev/null || warning "Failed to install build dependencies"
-                ;;
-            fedora)
-                dnf install -y gcc make libusb1-devel 2>/dev/null || warning "Failed to install build dependencies"
-                ;;
-            opensuse)
-                zypper install -y gcc make libusb-1_0-devel 2>/dev/null || warning "Failed to install build dependencies"
-                ;;
-        esac
-        
-        # Create build directory
-        mkdir -p "$build_dir"
-        cd "$build_dir"
-        
-        # Download the RGB source files
-        info "Downloading GZ302 RGB control source..."
-        if ! curl -L "${GITHUB_RAW_URL}/gz302-rgb-cli.c" -o gz302-rgb-cli.c 2>/dev/null; then
-            warning "Failed to download gz302-rgb-cli.c"
-            return 1
-        fi
-        
-        if ! curl -L "${GITHUB_RAW_URL}/Makefile.rgb" -o Makefile -z Makefile 2>/dev/null; then
-            warning "Failed to download Makefile.rgb"
-            return 1
-        fi
-        
-        # Compile the RGB binary
-        info "Compiling GZ302 RGB control..."
-        if ! make -f Makefile 2>/dev/null; then
-            warning "Failed to compile gz302-rgb"
-            return 1
-        fi
-        
-        # Install the binary
-        if ! cp gz302-rgb /usr/local/bin/gz302-rgb 2>/dev/null; then
-            warning "Failed to install gz302-rgb binary"
-            return 1
-        fi
-        
-        chmod +x /usr/local/bin/gz302-rgb
-    fi
+# Call the actual RGB binary
+exec /usr/local/bin/gz302-rgb-bin "$@"
+EOFWRAP
+    
+    chmod +x /usr/local/bin/gz302-rgb-wrapper
+    
+    # Rename binary to gz302-rgb-bin and replace with wrapper
+    mv /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
+    ln -sf /usr/local/bin/gz302-rgb-wrapper /usr/local/bin/gz302-rgb
     
     # Configure passwordless sudo for RGB control
     info "Configuring passwordless sudo for RGB control..."
@@ -633,7 +587,11 @@ EOF
             cat >> /etc/sudoers.d/gz302-pwrcfg << EOF
 Defaults use_pty
 %wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
+%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-bin
+%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-wrapper
 %sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
+%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-bin
+%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-wrapper
 EOF
         fi
     else
@@ -644,9 +602,13 @@ Defaults use_pty
 %wheel ALL=(ALL) NOPASSWD: /usr/local/bin/pwrcfg
 %wheel ALL=(ALL) NOPASSWD: /usr/local/bin/rrcfg
 %wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
+%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-bin
+%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-wrapper
 %sudo ALL=(ALL) NOPASSWD: /usr/local/bin/pwrcfg
 %sudo ALL=(ALL) NOPASSWD: /usr/local/bin/rrcfg
 %sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
+%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-bin
+%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-wrapper
 EOF
     fi
     
@@ -3367,7 +3329,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 2.2.6"
+    echo "  Version 2.2.8"
     echo "============================================================"
     echo
     
