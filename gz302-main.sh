@@ -651,10 +651,12 @@ EOF
         local rgb_exit_code
         # Use timeout to prevent script from freezing if USB enumeration hangs
         # 5 seconds is sufficient for hardware detection and command execution
-        rgb_output=$(timeout 5 /usr/local/bin/gz302-rgb rainbow_cycle 2 2>&1) || rgb_exit_code=$?
+        rgb_output=$(timeout 5 /usr/local/bin/gz302-rgb rainbow_cycle 2 2>&1)
+        rgb_exit_code=$?
         
-        if [[ "${rgb_exit_code:-0}" -eq 124 ]]; then
-            # Timeout occurred (exit code 124 from timeout command)
+        # Exit code 124 is returned by the timeout command when a timeout occurs
+        # (see: man timeout - "If the command times out, and --preserve-status is not set, then exit with status 124")
+        if [[ "$rgb_exit_code" -eq 124 ]]; then
             warning "RGB control test timed out - hardware may not be present or USB enumeration is slow"
             success "GZ302 RGB Keyboard Control installed (test skipped due to timeout)"
         elif echo "$rgb_output" | grep -q "Sent\|Sending\|RGB"; then
