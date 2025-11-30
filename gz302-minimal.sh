@@ -135,15 +135,27 @@ apply_hardware_fixes() {
     # 1. Kernel parameters for AMD Strix Halo
     info "Configuring kernel parameters..."
     if [[ -f /etc/default/grub ]]; then
-        if ! grep -q "amd_pstate=guided" /etc/default/grub; then
-            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 amd_pstate=guided amdgpu.ppfeaturemask=0xffffffff"/' /etc/default/grub
-            
-            if [[ -f /boot/grub/grub.cfg ]]; then
-                grub-mkconfig -o /boot/grub/grub.cfg
-            elif command -v update-grub >/dev/null 2>&1; then
-                update-grub
+        # Check if both parameters are already present
+        if ! grep -q "amd_pstate=guided" /etc/default/grub || ! grep -q "amdgpu.ppfeaturemask=0xffffffff" /etc/default/grub; then
+            # Only add parameters that are missing
+            local params_to_add=""
+            if ! grep -q "amd_pstate=guided" /etc/default/grub; then
+                params_to_add="$params_to_add amd_pstate=guided"
             fi
-            success "Kernel parameters configured"
+            if ! grep -q "amdgpu.ppfeaturemask=0xffffffff" /etc/default/grub; then
+                params_to_add="$params_to_add amdgpu.ppfeaturemask=0xffffffff"
+            fi
+            
+            if [[ -n "$params_to_add" ]]; then
+                sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\(.*\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\1${params_to_add}\"/" /etc/default/grub
+                
+                if [[ -f /boot/grub/grub.cfg ]]; then
+                    grub-mkconfig -o /boot/grub/grub.cfg
+                elif command -v update-grub >/dev/null 2>&1; then
+                    update-grub
+                fi
+                success "Kernel parameters configured"
+            fi
         else
             info "Kernel parameters already configured"
         fi
@@ -170,9 +182,11 @@ EOF
     fi
     
     # 3. Disable NetworkManager WiFi power saving
+    # Note: wifi.powersave values: 0=default, 1=ignore, 2=disable, 3=enable
     mkdir -p /etc/NetworkManager/conf.d/
     cat > /etc/NetworkManager/conf.d/wifi-powersave.conf <<'EOF'
 [connection]
+# Disable WiFi power saving for stability (2 = disabled)
 wifi.powersave = 2
 EOF
     success "WiFi configured"
@@ -193,6 +207,7 @@ options hid_asus fnlock_default=0
 EOF
     
     # Create service to reload hid_asus for touchpad detection
+    # Note: Delay allows desktop environment to fully initialize before module reload
     cat > /etc/systemd/system/reload-hid_asus.service <<'EOF'
 [Unit]
 Description=Reload hid_asus module for GZ302 touchpad
@@ -201,8 +216,10 @@ Wants=graphical.target
 
 [Service]
 Type=oneshot
-ExecStartPre=/bin/sleep 3
-ExecStart=/bin/bash -c 'if lsmod | grep -q hid_asus; then /usr/sbin/modprobe -r hid_asus && /usr/sbin/modprobe hid_asus; fi'
+# Wait for desktop to stabilize before reloading input module
+ExecStartPre=/usr/bin/sleep 3
+# Reload module only if currently loaded, using absolute paths
+ExecStart=/usr/bin/bash -c 'if /usr/bin/lsmod | /usr/bin/grep -q hid_asus; then /usr/sbin/modprobe -r hid_asus && /usr/sbin/modprobe hid_asus; fi'
 RemainAfterExit=yes
 
 [Install]
