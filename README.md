@@ -11,6 +11,25 @@ Transform your device into an optimized Linux powerhouse with automated hardware
 
 ## ⚡ Quick Start
 
+### Option 1: Minimal Setup (Essential Fixes Only)
+
+For users who want **only the essential hardware fixes** to make Linux run properly:
+
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-minimal.sh -o gz302-minimal.sh
+chmod +x gz302-minimal.sh
+sudo ./gz302-minimal.sh
+```
+
+The minimal script (~270 lines) applies only:
+- Kernel version verification (6.14+ required)
+- WiFi stability fix (MediaTek MT7925)
+- AMD GPU optimization (Radeon 8060S)
+- Touchpad/keyboard detection
+- Essential kernel parameters
+
+### Option 2: Full Setup (All Features)
+
 **One-line installation for all supported distros (Arch, Omarchy, Debian/Ubuntu, Fedora, OpenSUSE):**
 
 ```bash
@@ -19,7 +38,7 @@ chmod +x gz302-main.sh
 sudo ./gz302-main.sh
 ```
 
-The script will automatically:
+The full script will automatically:
 - Detect your distro
 - Apply core hardware fixes (WiFi, Touchpad, GPU)
 - Install Power (pwrcfg) and Refresh Rate (rrcfg) tools
