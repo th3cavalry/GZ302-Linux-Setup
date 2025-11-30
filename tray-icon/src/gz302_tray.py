@@ -475,58 +475,43 @@ X-GNOME-Autostart-enabled=true
                 )
                 return
             
-            # Try primary keyboard backlight
-            backlight_path = Path("/sys/class/leds/asus::kbd_backlight/brightness")
+            # Use gz302-rgb command with sudo (NOPASSWD configured)
+            result = subprocess.run(
+                ["sudo", "gz302-rgb", "brightness", str(brightness)],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
             
-            if backlight_path.exists():
-                try:
-                    # Try writing directly first (might work without sudo on some systems)
-                    backlight_path.write_text(str(brightness))
-                    level_name = ["Off", "Level 1", "Level 2", "Level 3"][brightness]
-                    self.showMessage(
-                        "Keyboard Backlight",
-                        f"Brightness set to {level_name}",
-                        QSystemTrayIcon.MessageIcon.Information,
-                        2000
-                    )
-                except PermissionError:
-                    # Fall back to sudo with echo
-                    result = subprocess.run(
-                        ["sudo", "bash", "-c", f"echo {brightness} > {backlight_path}"],
-                        capture_output=True,
-                        text=True,
-                        timeout=5
-                    )
-                    
-                    if result.returncode == 0:
-                        level_name = ["Off", "Level 1", "Level 2", "Level 3"][brightness]
-                        self.showMessage(
-                            "Keyboard Backlight",
-                            f"Brightness set to {level_name}",
-                            QSystemTrayIcon.MessageIcon.Information,
-                            2000
-                        )
-                    else:
-                        err = (result.stderr or "").strip()
-                        self.showMessage(
-                            "Error",
-                            f"Failed to set keyboard backlight: {err or 'Permission denied'}",
-                            QSystemTrayIcon.MessageIcon.Critical,
-                            5000
-                        )
+            if result.returncode == 0:
+                level_name = ["Off", "Level 1", "Level 2", "Level 3"][brightness]
+                self.showMessage(
+                    "Keyboard Backlight",
+                    f"Brightness set to {level_name}",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2000
+                )
             else:
+                err = (result.stderr or "").strip()
                 self.showMessage(
                     "Error",
-                    "Keyboard backlight not found on this system",
+                    f"Failed to set keyboard backlight: {err}",
                     QSystemTrayIcon.MessageIcon.Warning,
                     3000
                 )
+        except subprocess.TimeoutExpired:
+            self.showMessage(
+                "Error",
+                "Keyboard backlight command timed out",
+                QSystemTrayIcon.MessageIcon.Warning,
+                3000
+            )
         except Exception as e:
             self.showMessage(
                 "Error",
-                f"Failed to set keyboard backlight: {str(e)}",
-                QSystemTrayIcon.MessageIcon.Critical,
-                5000
+                f"Unexpected error setting keyboard backlight: {str(e)}",
+                QSystemTrayIcon.MessageIcon.Warning,
+                3000
             )
 
     def check_rgb_available(self):

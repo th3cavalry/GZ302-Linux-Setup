@@ -87,9 +87,9 @@ wc -l gz302-*.sh
 
 ---
 
-**Last updated:** November 2025 (v2.2.5)
+**Last updated:** November 2025 (v2.2.6)
 
-**Current Version:** 2.2.5 (synced across all module scripts)
+**Current Version:** 2.2.6 (synced across all module scripts)
 
 ### Bug Fixes
 1. **Identify bug location**: Main script or specific module

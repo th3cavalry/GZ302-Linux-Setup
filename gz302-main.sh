@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.2.5
+# Version: 2.2.6
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -2992,8 +2992,8 @@ install_tray_icon() {
     echo
     info "The tray icon has been installed and configured. You can:"
     echo "  - Launch it from your applications menu as 'GZ302 Power Manager'"
-    echo "  - Run: python3 $tray_dir/src/gz302_tray.py"
-    echo "  - It will start automatically on login"
+    echo "  - Run: python3 /usr/local/share/gz302/tray-icon/src/gz302_tray.py"
+    echo "  - It will start automatically on login (if your desktop environment supports it)"
     echo
     
     # Check desktop environment for compatibility notes
@@ -3367,7 +3367,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 2.2.5"
+    echo "  Version 2.2.6"
     echo "============================================================"
     echo
     
