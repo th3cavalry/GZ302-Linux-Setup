@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.2.9
+# Version: 2.2.10
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -644,11 +644,20 @@ EOF
     fi
     
     # Verify RGB control works - test with rainbow animation for visual feedback
+    # Use timeout to prevent hanging if hardware enumeration gets stuck
     info "Testing RGB control with rainbow animation..."
     if [[ -x /usr/local/bin/gz302-rgb ]]; then
         local rgb_output
-        rgb_output=$(/usr/local/bin/gz302-rgb rainbow_cycle 2 2>&1)
-        if echo "$rgb_output" | grep -q "Sent\|Sending\|RGB"; then
+        local rgb_exit_code
+        # Use timeout to prevent script from freezing if USB enumeration hangs
+        # 5 seconds is sufficient for hardware detection and command execution
+        rgb_output=$(timeout 5 /usr/local/bin/gz302-rgb rainbow_cycle 2 2>&1) || rgb_exit_code=$?
+        
+        if [[ "${rgb_exit_code:-0}" -eq 124 ]]; then
+            # Timeout occurred (exit code 124 from timeout command)
+            warning "RGB control test timed out - hardware may not be present or USB enumeration is slow"
+            success "GZ302 RGB Keyboard Control installed (test skipped due to timeout)"
+        elif echo "$rgb_output" | grep -q "Sent\|Sending\|RGB"; then
             success "GZ302 RGB Keyboard Control with persistence installed successfully"
             info "Rainbow animation is now active on your keyboard (or would be on GZ302 hardware)"
         else
@@ -3351,7 +3360,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 2.2.9"
+    echo "  Version 2.2.10"
     echo "============================================================"
     echo
     
