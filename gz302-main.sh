@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.2.8
+# Version: 2.2.9
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -2883,9 +2883,11 @@ install_tray_icon() {
     
     # Copy tray icon files to system location for persistence
     local system_tray_dir="/usr/local/share/gz302/tray-icon"
+    info "Installing tray icon to system location: $system_tray_dir"
     mkdir -p "$system_tray_dir"
     if [[ -d "$tray_dir/src" ]]; then
         cp -r "$tray_dir/src" "$system_tray_dir/"
+        chmod +x "$system_tray_dir/src/gz302_tray.py"
     fi
     if [[ -d "$tray_dir/assets" ]]; then
         cp -r "$tray_dir/assets" "$system_tray_dir/"
@@ -2893,6 +2895,10 @@ install_tray_icon() {
     if [[ -f "$tray_dir/install-tray.sh" ]]; then
         cp "$tray_dir/install-tray.sh" "$system_tray_dir/"
         chmod +x "$system_tray_dir/install-tray.sh"
+    fi
+    if [[ -f "$tray_dir/install-policy.sh" ]]; then
+        cp "$tray_dir/install-policy.sh" "$system_tray_dir/"
+        chmod +x "$system_tray_dir/install-policy.sh"
     fi
     
     # Update paths to system location
@@ -2918,29 +2924,40 @@ install_tray_icon() {
     case "$distro" in
         arch)
             info "Installing PyQt6 and psutil for Arch Linux..."
-            pacman -S --noconfirm python-pyqt6 python-psutil >/dev/null 2>&1 || warning "Failed to install python-pyqt6 and python-psutil via pacman"
+            if ! pacman -S --noconfirm --needed python-pyqt6 python-psutil; then
+                warning "Failed to install python-pyqt6 and python-psutil via pacman"
+            fi
             ;;
         debian)
             info "Installing PyQt6 and psutil for Debian/Ubuntu..."
-            apt-get install -y python3-pyqt6 python3-psutil >/dev/null 2>&1 || warning "Failed to install python3-pyqt6 and python3-psutil via apt"
+            if ! apt-get install -y python3-pyqt6 python3-psutil; then
+                warning "Failed to install python3-pyqt6 and python3-psutil via apt"
+            fi
             ;;
         fedora)
             info "Installing PyQt6 and psutil for Fedora..."
-            dnf install -y python3-pyqt6 python3-psutil >/dev/null 2>&1 || warning "Failed to install python3-pyqt6 and python3-psutil via dnf"
+            if ! dnf install -y python3-pyqt6 python3-psutil; then
+                warning "Failed to install python3-pyqt6 and python3-psutil via dnf"
+            fi
             ;;
         opensuse)
             info "Installing PyQt6 and psutil for OpenSUSE..."
-            zypper install -y python3-qt6 python3-psutil >/dev/null 2>&1 || warning "Failed to install PyQt6 and psutil packages via zypper"
+            if ! zypper install -y python3-qt6 python3-psutil; then
+                warning "Failed to install PyQt6 and psutil packages via zypper"
+            fi
             ;;
     esac
     
     # Get the real user (not root)
     local real_user
     real_user=$(get_real_user)
+    local real_user_home
+    real_user_home=$(getent passwd "$real_user" | cut -d: -f6)
     
-    # Run the tray icon installation script as the real user
-    info "Configuring tray icon desktop entries and autostart..."
-    sudo -u "$real_user" bash "$install_script" || warning "Tray icon configuration encountered issues"
+    # Run the tray icon installation script as root to install system-wide files
+    # The script handles both system-wide and user-specific installations
+    info "Installing system-wide desktop entries, icons, and autostart..."
+    SUDO_USER="$real_user" bash "$install_script" || warning "Tray icon configuration encountered issues"
     
     # Configure sudoers for password-less pwrcfg
     info "Configuring password-less sudo for pwrcfg..."
@@ -2956,6 +2973,11 @@ install_tray_icon() {
     echo "  - Launch it from your applications menu as 'GZ302 Power Manager'"
     echo "  - Run: python3 /usr/local/share/gz302/tray-icon/src/gz302_tray.py"
     echo "  - It will start automatically on login (if your desktop environment supports it)"
+    echo
+    info "Installation locations:"
+    echo "  - System desktop file: /usr/share/applications/gz302-tray.desktop"
+    echo "  - User autostart: $real_user_home/.config/autostart/gz302-tray.desktop"
+    echo "  - System icon: /usr/share/icons/hicolor/scalable/apps/gz302-power-manager.svg"
     echo
     
     # Check desktop environment for compatibility notes
@@ -3329,7 +3351,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 2.2.8"
+    echo "  Version 2.2.9"
     echo "============================================================"
     echo
     
