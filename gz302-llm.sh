@@ -456,37 +456,55 @@ install_arch_llm_software() {
         if ! check_llamacpp_installed; then
             info "Installing llama.cpp with ROCm support for Strix Halo..."
             
-            # Install build dependencies
-            pacman -S --noconfirm --needed git cmake make gcc pkgconf
-        
-        # Build and install llama.cpp with ROCm support
-        info "Building llama.cpp with ROCm/HIP support for gfx1151 (Radeon 8060S)..."
-        local llama_build_dir="/tmp/llama.cpp-build-$$"
-        
-        git clone https://github.com/ggerganov/llama.cpp.git "$llama_build_dir"
-        cd "$llama_build_dir"
-        
-        # Build with ROCm support targeting gfx1151 (Strix Halo/Radeon 8060S)
-        mkdir build
-        cd build
-        cmake .. \
-            -DGGML_HIPBLAS=ON \
-            -DAMDGPU_TARGETS=gfx1151 \
-            -DCMAKE_BUILD_TYPE=Release
-        
-        local nproc_count
-        nproc_count="$(nproc)"
-        cmake --build . --config Release -j"${nproc_count}"
-        
-        # Install llama.cpp binaries to standard /usr/local prefix
-        cmake --install .
-        
-        # Create systemd service for llama-server with Strix Halo optimizations
-        # Critical for Strix Halo: -fa 1 (flash attention) and --no-mmap are REQUIRED
-        # Flash attention enables fast inference; without it, performance collapses
-        # --no-mmap prevents memory-mapping issues with Strix Halo's unified memory aperture
-        # -ngl 999 forces all layers to GPU for maximum performance
-        cat > /etc/systemd/system/llama-server.service <<'EOF'
+            # Install build dependencies and ROCm development tools BEFORE building
+            # rocm-hip-sdk provides hipcc compiler and HIP development headers
+            info "Installing build dependencies and ROCm development tools..."
+            pacman -S --noconfirm --needed \
+                git cmake make gcc pkgconf \
+                rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas
+            
+            # Verify hipcc is available after installation
+            if ! command -v hipcc >/dev/null 2>&1; then
+                warning "hipcc not found in PATH after ROCm installation"
+                warning "HIP compilation may fall back to CPU-only mode"
+            fi
+            
+            # Build and install llama.cpp with ROCm support
+            info "Building llama.cpp with ROCm/HIP support for gfx1151 (Radeon 8060S)..."
+            local llama_build_dir="/tmp/llama.cpp-build-$$"
+            
+            git clone https://github.com/ggerganov/llama.cpp.git "$llama_build_dir"
+            cd "$llama_build_dir"
+            
+            # Set ROCm environment for HIP compilation
+            # HIPCXX and HIP_PATH are required for HIP detection in llama.cpp
+            # HIP_DEVICE_LIB_PATH and CMAKE_CXX_FLAGS needed for including HIP headers
+            export HIPCXX="/opt/rocm/lib/llvm/bin/clang"
+            export HIP_PATH="/opt/rocm"
+            export HIP_DEVICE_LIB_PATH="/opt/rocm/amdgcn/bitcode"
+            
+            # Build with HIP support targeting gfx1151 (Strix Halo/Radeon 8060S)
+            mkdir build
+            cd build
+            cmake .. \
+                -DGGML_HIP=ON \
+                -DGPU_TARGETS=gfx1151 \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_FLAGS="-I/opt/rocm/include"
+            
+            local nproc_count
+            nproc_count="$(nproc)"
+            cmake --build . --config Release -j"${nproc_count}"
+            
+            # Install llama.cpp binaries to standard /usr/local prefix
+            cmake --install .
+            
+            # Create systemd service for llama-server with Strix Halo optimizations
+            # Critical for Strix Halo: -fa 1 (flash attention) and --no-mmap are REQUIRED
+            # Flash attention enables fast inference; without it, performance collapses
+            # --no-mmap prevents memory-mapping issues with Strix Halo's unified memory aperture
+            # -ngl 999 forces all layers to GPU for maximum performance
+            cat > /etc/systemd/system/llama-server.service <<'EOF'
 [Unit]
 Description=llama.cpp server (Strix Halo optimized)
 After=network.target
@@ -504,17 +522,17 @@ TimeoutStopSec=30
 [Install]
 WantedBy=multi-user.target
 EOF
-        
-        systemctl daemon-reload
-        
-        # Clean up build directory
-        cd /
-        rm -rf "$llama_build_dir"
-        
-        success "llama.cpp installed successfully with ROCm support for gfx1151"
-        info "llama-cli and llama-server are available in /usr/local/bin"
-        info "Systemd service configured with flash attention (-fa 1) and no-mmap (--no-mmap) for optimal Strix Halo performance"
-        info "To start llama-server: sudo systemctl enable --now llama-server"
+            
+            systemctl daemon-reload
+            
+            # Clean up build directory
+            cd /
+            rm -rf "$llama_build_dir"
+            
+            success "llama.cpp installed successfully with ROCm support for gfx1151"
+            info "llama-cli and llama-server are available in /usr/local/bin"
+            info "Systemd service configured with flash attention (-fa 1) and no-mmap (--no-mmap) for optimal Strix Halo performance"
+            info "To start llama-server: sudo systemctl enable --now llama-server"
         fi
     fi
     
@@ -789,9 +807,14 @@ install_debian_llm_software() {
     if [[ "$backend_choice" == "2" ]] || [[ "$backend_choice" == "3" ]]; then
         info "Installing llama.cpp with ROCm support for Strix Halo..."
         
-        # Install build dependencies
+        # Install build dependencies and ROCm development tools BEFORE building
         apt update
         apt install -y git cmake make g++ pkg-config
+        
+        # ROCm for Debian: Install from AMD ROCm repository
+        info "Installing ROCm SDK for HIP compilation..."
+        apt install -y rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas || \
+            warning "Some ROCm packages may not be available; trying with hipblas-dev"
         
         # Build and install llama.cpp with ROCm support
         info "Building llama.cpp with ROCm/HIP support for gfx1151 (Radeon 8060S)..."
@@ -800,13 +823,21 @@ install_debian_llm_software() {
         git clone https://github.com/ggerganov/llama.cpp.git "$llama_build_dir"
         cd "$llama_build_dir"
         
-        # Build with ROCm support targeting gfx1151 (Strix Halo/Radeon 8060S)
+        # Set ROCm environment for HIP compilation
+        # HIPCXX and HIP_PATH are required for HIP detection in llama.cpp
+        # HIP_DEVICE_LIB_PATH and CMAKE_CXX_FLAGS needed for including HIP headers
+        export HIPCXX="/opt/rocm/lib/llvm/bin/clang"
+        export HIP_PATH="/opt/rocm"
+        export HIP_DEVICE_LIB_PATH="/opt/rocm/amdgcn/bitcode"
+        
+        # Build with HIP support targeting gfx1151 (Strix Halo/Radeon 8060S)
         mkdir build
         cd build
         cmake .. \
-            -DGGML_HIPBLAS=ON \
-            -DAMDGPU_TARGETS=gfx1151 \
-            -DCMAKE_BUILD_TYPE=Release
+            -DGGML_HIP=ON \
+            -DGPU_TARGETS=gfx1151 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS="-I/opt/rocm/include"
         
         local nproc_count
         nproc_count="$(nproc)"
@@ -988,8 +1019,13 @@ install_fedora_llm_software() {
     if [[ "$backend_choice" == "2" ]] || [[ "$backend_choice" == "3" ]]; then
         info "Installing llama.cpp with ROCm support for Strix Halo..."
         
-        # Install build dependencies
+        # Install build dependencies and ROCm development tools BEFORE building
         dnf install -y git cmake make gcc-c++ pkgconfig
+        
+        # ROCm for Fedora: Install from AMD ROCm repository
+        info "Installing ROCm SDK for HIP compilation..."
+        dnf install -y rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas || \
+            warning "Some ROCm packages may not be available; trying with essential packages"
         
         # Build and install llama.cpp with ROCm support
         info "Building llama.cpp with ROCm/HIP support for gfx1151 (Radeon 8060S)..."
@@ -998,13 +1034,21 @@ install_fedora_llm_software() {
         git clone https://github.com/ggerganov/llama.cpp.git "$llama_build_dir"
         cd "$llama_build_dir"
         
-        # Build with ROCm support targeting gfx1151 (Strix Halo/Radeon 8060S)
+        # Set ROCm environment for HIP compilation
+        # HIPCXX and HIP_PATH are required for HIP detection in llama.cpp
+        # HIP_DEVICE_LIB_PATH and CMAKE_CXX_FLAGS needed for including HIP headers
+        export HIPCXX="/opt/rocm/lib/llvm/bin/clang"
+        export HIP_PATH="/opt/rocm"
+        export HIP_DEVICE_LIB_PATH="/opt/rocm/amdgcn/bitcode"
+        
+        # Build with HIP support targeting gfx1151 (Strix Halo/Radeon 8060S)
         mkdir build
         cd build
         cmake .. \
-            -DGGML_HIPBLAS=ON \
-            -DAMDGPU_TARGETS=gfx1151 \
-            -DCMAKE_BUILD_TYPE=Release
+            -DGGML_HIP=ON \
+            -DGPU_TARGETS=gfx1151 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS="-I/opt/rocm/include"
         
         local nproc_count
         nproc_count="$(nproc)"
@@ -1175,8 +1219,13 @@ install_opensuse_llm_software() {
     if [[ "$backend_choice" == "2" ]] || [[ "$backend_choice" == "3" ]]; then
         info "Installing llama.cpp with ROCm support for Strix Halo..."
         
-        # Install build dependencies
+        # Install build dependencies and ROCm development tools BEFORE building
         zypper install -y git cmake make gcc-c++ pkg-config
+        
+        # ROCm for OpenSUSE: Install from AMD ROCm repository (if available)
+        info "Installing ROCm SDK for HIP compilation..."
+        zypper install -y rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas || \
+            warning "Some ROCm packages may not be available; trying with essential packages"
         
         # Build and install llama.cpp with ROCm support
         info "Building llama.cpp with ROCm/HIP support for gfx1151 (Radeon 8060S)..."
@@ -1185,13 +1234,21 @@ install_opensuse_llm_software() {
         git clone https://github.com/ggerganov/llama.cpp.git "$llama_build_dir"
         cd "$llama_build_dir"
         
-        # Build with ROCm support targeting gfx1151 (Strix Halo/Radeon 8060S)
+        # Set ROCm environment for HIP compilation
+        # HIPCXX and HIP_PATH are required for HIP detection in llama.cpp
+        # HIP_DEVICE_LIB_PATH and CMAKE_CXX_FLAGS needed for including HIP headers
+        export HIPCXX="/opt/rocm/lib/llvm/bin/clang"
+        export HIP_PATH="/opt/rocm"
+        export HIP_DEVICE_LIB_PATH="/opt/rocm/amdgcn/bitcode"
+        
+        # Build with HIP support targeting gfx1151 (Strix Halo/Radeon 8060S)
         mkdir build
         cd build
         cmake .. \
-            -DGGML_HIPBLAS=ON \
-            -DAMDGPU_TARGETS=gfx1151 \
-            -DCMAKE_BUILD_TYPE=Release
+            -DGGML_HIP=ON \
+            -DGPU_TARGETS=gfx1151 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS="-I/opt/rocm/include"
         
         local nproc_count
         nproc_count="$(nproc)"

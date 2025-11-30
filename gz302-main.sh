@@ -2852,9 +2852,8 @@ install_tray_icon() {
     
     # Use the global SCRIPT_DIR that was determined at script initialization
     local tray_dir="$SCRIPT_DIR/tray-icon"
-    local install_script="$tray_dir/install-tray.sh"
     
-    # Check if tray-icon directory exists; if not, download it
+    # Check if tray-icon directory exists locally; if not, download it
     if [[ ! -d "$tray_dir" ]]; then
         info "Downloading tray icon files from GitHub..."
         mkdir -p "$tray_dir"
@@ -2890,19 +2889,27 @@ install_tray_icon() {
         if ! curl -fsSL "${GITHUB_RAW_URL}/tray-icon/requirements.txt" -o "$tray_dir/requirements.txt" 2>/dev/null; then
             warning "Failed to download tray-icon/requirements.txt"
         fi
+    else
+        info "Tray icon files found locally at: $tray_dir"
     fi
     
-    # Copy tray icon files to system location for persistence
+    # Copy tray icon files to system location for persistence and proper operation
     local system_tray_dir="/usr/local/share/gz302/tray-icon"
     info "Installing tray icon to system location: $system_tray_dir"
     mkdir -p "$system_tray_dir"
+    
+    # Copy source files
     if [[ -d "$tray_dir/src" ]]; then
         cp -r "$tray_dir/src" "$system_tray_dir/"
         chmod +x "$system_tray_dir/src/gz302_tray.py"
     fi
+    
+    # Copy assets
     if [[ -d "$tray_dir/assets" ]]; then
         cp -r "$tray_dir/assets" "$system_tray_dir/"
     fi
+    
+    # Copy installation scripts
     if [[ -f "$tray_dir/install-tray.sh" ]]; then
         cp "$tray_dir/install-tray.sh" "$system_tray_dir/"
         chmod +x "$system_tray_dir/install-tray.sh"
@@ -2912,13 +2919,12 @@ install_tray_icon() {
         chmod +x "$system_tray_dir/install-policy.sh"
     fi
     
-    # Update paths to system location
-    tray_dir="$system_tray_dir"
-    install_script="$tray_dir/install-tray.sh"
-    
-    # Check if install script exists
-    if [[ ! -f "$install_script" ]]; then
-        error "Tray icon installation script not found at $install_script"
+    # Verify critical files exist at system location
+    if [[ ! -f "$system_tray_dir/src/gz302_tray.py" ]]; then
+        error "Failed to install tray icon: $system_tray_dir/src/gz302_tray.py not found"
+    fi
+    if [[ ! -f "$system_tray_dir/install-tray.sh" ]]; then
+        error "Failed to install tray icon: $system_tray_dir/install-tray.sh not found"
     fi
     
     # Check if Python 3 is available
@@ -2965,15 +2971,16 @@ install_tray_icon() {
     local real_user_home
     real_user_home=$(getent passwd "$real_user" | cut -d: -f6)
     
-    # Run the tray icon installation script as root to install system-wide files
+    # Run the tray icon installation script from system location
     # The script handles both system-wide and user-specific installations
     info "Installing system-wide desktop entries, icons, and autostart..."
+    local install_script="$system_tray_dir/install-tray.sh"
     SUDO_USER="$real_user" bash "$install_script" || warning "Tray icon configuration encountered issues"
     
     # Configure sudoers for password-less pwrcfg
     info "Configuring password-less sudo for pwrcfg..."
-    if [[ -f "$tray_dir/install-policy.sh" ]]; then
-        bash "$tray_dir/install-policy.sh" || warning "Sudoers configuration encountered issues"
+    if [[ -f "$system_tray_dir/install-policy.sh" ]]; then
+        bash "$system_tray_dir/install-policy.sh" || warning "Sudoers configuration encountered issues"
     else
         warning "Sudoers installation script not found. You may need to configure password-less sudo manually."
     fi
@@ -2999,7 +3006,7 @@ install_tray_icon() {
         info "Or: gnome-extensions install appindicatorsupport@rgcjonas.gmail.com"
     fi
     
-    info "For more information, see: $tray_dir/README.md"
+    info "For more information, see: $system_tray_dir/README.md"
 }
 
 # --- Module Download and Execution ---

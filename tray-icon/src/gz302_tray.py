@@ -7,10 +7,30 @@ A system tray utility for managing power profiles on ASUS ROG Flow Z13 (GZ302)
 import sys
 import os
 import subprocess
+import threading
 from pathlib import Path
-from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QInputDialog
+from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QInputDialog, QWidget
 from PyQt6.QtGui import QIcon, QAction
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, pyqtSignal, QObject
+
+class CommandResult(QObject):
+    """Signal emitter for background command execution"""
+    finished = pyqtSignal(int, str, str)  # returncode, stdout, stderr
+    
+    def run_command(self, cmd, timeout=30):
+        """Run command in background and emit results"""
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout
+            )
+            self.finished.emit(result.returncode, result.stdout, result.stderr)
+        except subprocess.TimeoutExpired:
+            self.finished.emit(-1, "", "Command timed out")
+        except Exception as e:
+            self.finished.emit(-2, "", str(e))
 
 class GZ302TrayIcon(QSystemTrayIcon):
     def __init__(self, icon, parent=None):
@@ -42,6 +62,9 @@ class GZ302TrayIcon(QSystemTrayIcon):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_current_profile)
         self.timer.start(5000)  # 5 seconds
+        
+        # Set initial tooltip
+        self.setToolTip("GZ302 Power Manager")
         
         # Show the tray icon
         self.show()
@@ -563,118 +586,146 @@ X-GNOME-Autostart-enabled=true
             pass
 
     def set_rgb_color(self, hex_color):
-        """Set RGB keyboard to static color."""
-        try:
-            result = subprocess.run(
-                ["sudo", "-n", "gz302-rgb", "single_static", hex_color],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            
-            # Check for actual errors (RGB binary writes diagnostics to stderr, so we check for "Error:" messages)
-            has_error = result.returncode != 0 or "Error:" in result.stderr
-            
-            if not has_error:
-                # Save the RGB setting for boot persistence
-                self.save_rgb_setting("single_static", hex_color)
-                self.showMessage(
-                    "Keyboard RGB",
-                    f"Color set to #{hex_color}",
-                    QSystemTrayIcon.MessageIcon.Information,
-                    2000
+        """Set RGB keyboard to static color (runs in background thread)."""
+        # Show a "processing" message immediately
+        self.showMessage(
+            "Keyboard RGB",
+            f"Setting color to #{hex_color}...",
+            QSystemTrayIcon.MessageIcon.Information,
+            3000
+        )
+        
+        # Run the command in a background thread to avoid blocking UI
+        def run_rgb_command():
+            try:
+                result = subprocess.run(
+                    ["sudo", "-n", "gz302-rgb", "single_static", hex_color],
+                    capture_output=True,
+                    text=True,
+                    timeout=60  # Increased timeout to 60 seconds for RGB hardware operations
                 )
-            else:
-                err = (result.stderr or "").strip()
+                
+                # Check for actual errors (RGB binary writes diagnostics to stderr, so we check for "Error:" messages)
+                has_error = result.returncode != 0 or "Error:" in result.stderr
+                
+                if not has_error:
+                    # Save the RGB setting for boot persistence
+                    self.save_rgb_setting("single_static", hex_color)
+                    self.showMessage(
+                        "Keyboard RGB",
+                        f"✓ Color set to #{hex_color}",
+                        QSystemTrayIcon.MessageIcon.Information,
+                        2000
+                    )
+                else:
+                    err = (result.stderr or "").strip()
+                    self.showMessage(
+                        "RGB Error",
+                        f"Failed to set color: {err or 'Unknown error'}",
+                        QSystemTrayIcon.MessageIcon.Critical,
+                        5000
+                    )
+            except subprocess.TimeoutExpired:
                 self.showMessage(
-                    "Error",
-                    f"Failed to set RGB color: {err or 'Unknown error'}",
+                    "RGB Error",
+                    "Command timed out (hardware may be unresponsive)",
                     QSystemTrayIcon.MessageIcon.Critical,
                     5000
                 )
-        except subprocess.TimeoutExpired:
-            self.showMessage(
-                "Error",
-                "RGB command timed out",
-                QSystemTrayIcon.MessageIcon.Critical,
-                5000
-            )
-        except Exception as e:
-            self.showMessage(
-                "Error",
-                f"Failed to set RGB color: {str(e)}",
-                QSystemTrayIcon.MessageIcon.Critical,
-                5000
-            )
+            except Exception as e:
+                self.showMessage(
+                    "RGB Error",
+                    f"Failed: {str(e)}",
+                    QSystemTrayIcon.MessageIcon.Critical,
+                    5000
+                )
+        
+        # Run in background thread
+        thread = threading.Thread(target=run_rgb_command, daemon=True)
+        thread.start()
 
     def set_rgb_animation(self, animation_type, color1=None, color2=None, speed=2):
-        """Set RGB keyboard animation."""
-        try:
-            if animation_type == "breathing":
-                cmd = ["sudo", "-n", "gz302-rgb", "single_breathing", color1, color2, str(speed)]
-                desc = "Breathing animation"
-            elif animation_type == "colorcycle":
-                cmd = ["sudo", "-n", "gz302-rgb", "single_colorcycle", str(speed)]
-                desc = "Color cycle animation"
-            elif animation_type == "rainbow":
-                cmd = ["sudo", "-n", "gz302-rgb", "rainbow_cycle", str(speed)]
-                desc = "Rainbow animation"
-            else:
-                self.showMessage(
-                    "Error",
-                    f"Unknown animation type: {animation_type}",
-                    QSystemTrayIcon.MessageIcon.Warning,
-                    3000
-                )
-                return
-            
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=5
+        """Set RGB keyboard animation (runs in background thread)."""
+        
+        if animation_type == "breathing":
+            cmd = ["sudo", "-n", "gz302-rgb", "single_breathing", color1, color2, str(speed)]
+            desc = "Breathing animation"
+        elif animation_type == "colorcycle":
+            cmd = ["sudo", "-n", "gz302-rgb", "single_colorcycle", str(speed)]
+            desc = "Color cycle animation"
+        elif animation_type == "rainbow":
+            cmd = ["sudo", "-n", "gz302-rgb", "rainbow_cycle", str(speed)]
+            desc = "Rainbow animation"
+        else:
+            self.showMessage(
+                "Error",
+                f"Unknown animation type: {animation_type}",
+                QSystemTrayIcon.MessageIcon.Warning,
+                3000
             )
-            
-            # Check for actual errors (RGB binary writes diagnostics to stderr, so we check for "Error:" messages)
-            has_error = result.returncode != 0 or "Error:" in result.stderr
-            
-            if not has_error:
-                # Save animation setting for boot persistence
-                if animation_type == "breathing":
-                    self.save_rgb_setting("single_breathing", color1, color2, str(speed))
-                elif animation_type == "colorcycle":
-                    self.save_rgb_setting("single_colorcycle", str(speed))
-                elif animation_type == "rainbow":
-                    self.save_rgb_setting("rainbow_cycle", str(speed))
-                
-                self.showMessage(
-                    "Keyboard RGB",
-                    f"{desc} activated",
-                    QSystemTrayIcon.MessageIcon.Information,
-                    2000
+            return
+        
+        # Show processing message
+        self.showMessage(
+            "Keyboard RGB",
+            f"Activating {desc}...",
+            QSystemTrayIcon.MessageIcon.Information,
+            2000
+        )
+        
+        # Run in background thread
+        def run_animation():
+            try:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=60  # Increased timeout to 60 seconds
                 )
-            else:
-                err = (result.stderr or "").strip()
+                
+                # Check for actual errors (RGB binary writes diagnostics to stderr, so we check for "Error:" messages)
+                has_error = result.returncode != 0 or "Error:" in result.stderr
+                
+                if not has_error:
+                    # Save animation setting for boot persistence
+                    if animation_type == "breathing":
+                        self.save_rgb_setting("single_breathing", color1, color2, str(speed))
+                    elif animation_type == "colorcycle":
+                        self.save_rgb_setting("single_colorcycle", str(speed))
+                    elif animation_type == "rainbow":
+                        self.save_rgb_setting("rainbow_cycle", str(speed))
+                    
+                    self.showMessage(
+                        "Keyboard RGB",
+                        f"✓ {desc} activated",
+                        QSystemTrayIcon.MessageIcon.Information,
+                        2000
+                    )
+                else:
+                    err = (result.stderr or "").strip()
+                    self.showMessage(
+                        "RGB Error",
+                        f"Failed to set animation: {err or 'Unknown error'}",
+                        QSystemTrayIcon.MessageIcon.Critical,
+                        5000
+                    )
+            except subprocess.TimeoutExpired:
                 self.showMessage(
-                    "Error",
-                    f"Failed to set animation: {err or 'Unknown error'}",
+                    "RGB Error",
+                    "Command timed out (hardware may be unresponsive)",
                     QSystemTrayIcon.MessageIcon.Critical,
                     5000
                 )
-        except subprocess.TimeoutExpired:
-            self.showMessage(
-                "Error",
-                "RGB command timed out",
-                QSystemTrayIcon.MessageIcon.Critical,
-                5000
-            )
-        except Exception as e:
-            self.showMessage(
-                "Error",
-                f"Failed to set animation: {str(e)}",
-                QSystemTrayIcon.MessageIcon.Critical,
-                5000
-            )
+            except Exception as e:
+                self.showMessage(
+                    "RGB Error",
+                    f"Failed: {str(e)}",
+                    QSystemTrayIcon.MessageIcon.Critical,
+                    5000
+                )
+        
+        thread = threading.Thread(target=run_animation, daemon=True)
+        thread.start()
 
     def set_custom_rgb_color(self):
         """Prompt user for custom RGB color (hex format)."""
@@ -728,7 +779,11 @@ def main():
         style = app.style()
         icon = style.standardIcon(style.StandardPixmap.SP_ComputerIcon) if style else QIcon()
     
-    tray = GZ302TrayIcon(icon)
+    # Create a hidden widget as parent for the tray icon (required for Wayland compatibility)
+    widget = QWidget()
+    widget.hide()
+    
+    tray = GZ302TrayIcon(icon, widget)
     
     sys.exit(app.exec())
 

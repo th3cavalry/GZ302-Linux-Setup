@@ -8,8 +8,11 @@ set -euo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
 # Determine the canonical install location for the tray icon
-# Prefer system location if it exists, otherwise use script directory
-if [[ -f "/usr/local/share/gz302/tray-icon/src/gz302_tray.py" ]]; then
+# Priority: local script directory > system location
+# This ensures the script works both when run directly and from the main setup
+if [[ -f "$SCRIPT_DIR/src/gz302_tray.py" ]]; then
+  APP_DIR="$SCRIPT_DIR"
+elif [[ -f "/usr/local/share/gz302/tray-icon/src/gz302_tray.py" ]]; then
   APP_DIR="/usr/local/share/gz302/tray-icon"
 else
   APP_DIR="$SCRIPT_DIR"
@@ -86,7 +89,7 @@ X-GNOME-Autostart-enabled=true
 # Install desktop launcher to user directory
 DESKTOP_FILE="$DESKTOP_DIR/gz302-tray.desktop"
 printf "%s" "$DESKTOP_FILE_CONTENT" > "$DESKTOP_FILE"
-chmod +x "$DESKTOP_FILE"
+chmod 644 "$DESKTOP_FILE"
 
 # Fix ownership if running as root
 if [[ ${EUID:-$(id -u)} -eq 0 ]] && [[ -n "${SUDO_USER:-}" ]]; then
@@ -98,7 +101,7 @@ fi
 # Install autostart entry
 AUTOSTART_FILE="$AUTOSTART_DIR/gz302-tray.desktop"
 printf "%s" "$DESKTOP_FILE_CONTENT" > "$AUTOSTART_FILE"
-chmod +x "$AUTOSTART_FILE"
+chmod 644 "$AUTOSTART_FILE"
 
 # Fix ownership if running as root
 if [[ ${EUID:-$(id -u)} -eq 0 ]] && [[ -n "${SUDO_USER:-}" ]]; then
