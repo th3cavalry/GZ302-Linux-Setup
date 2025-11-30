@@ -307,7 +307,7 @@ check_ollama_installed() {
 
 # Check if llama.cpp is already installed
 check_llamacpp_installed() {
-    if [[ -x "/usr/local/bin/llama-server" ]] && systemctl is-enabled llama-server.service >/dev/null 2>&1; then
+    if [[ -x "/usr/local/bin/llama-server" ]] && [[ -x "/usr/local/bin/llama-cli" ]]; then
         info "llama.cpp is already installed"
         return 0
     else
@@ -324,6 +324,14 @@ setup_openwebui_with_uv() {
     
     if [[ -d "$openwebui_dir" ]] && [[ -f "$openwebui_dir/.venv/bin/open-webui" ]]; then
         info "Open WebUI is already installed at $openwebui_dir"
+        # Ensure autostart is enabled
+        local autostart_dir="/home/$user/.config/autostart"
+        local autostart_file="$autostart_dir/open-webui.desktop"
+        if [[ ! -f "$autostart_file" ]]; then
+            setup_openwebui_autostart "$user" "$openwebui_dir"
+        else
+            info "Open WebUI autostart is already configured"
+        fi
         return
     fi
     
@@ -366,8 +374,39 @@ setup_openwebui_with_uv() {
     info "Installing Open WebUI with uv..."
     sudo -u "$user" uv pip install open-webui || warning "Open WebUI installation failed"
     
+    # Setup autostart
+    setup_openwebui_autostart "$user" "$openwebui_dir"
+    
     success "Open WebUI installed at $openwebui_dir"
-    info "To run Open WebUI: cd $openwebui_dir && source .venv/bin/activate && open-webui serve"
+    info "Open WebUI configured to start at boot (listening on port 3000)"
+}
+
+# Setup Open WebUI autostart entry
+setup_openwebui_autostart() {
+    local user="$1"
+    local openwebui_dir="$2"
+    local autostart_dir="/home/$user/.config/autostart"
+    local autostart_file="$autostart_dir/open-webui.desktop"
+    
+    mkdir -p "$autostart_dir"
+    
+    cat > "$autostart_file" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Open WebUI
+Comment=Web UI for LLM interaction
+Exec=bash -c "cd %h/.local/share/open-webui && source .venv/bin/activate && open-webui serve"
+X-GNOME-Autostart-enabled=true
+NoDisplay=true
+EOF
+    
+    # Fix ownership if running as root
+    if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
+        chown "$user:$user" "$autostart_file" 2>/dev/null || true
+    fi
+    
+    chmod 644 "$autostart_file"
+    info "Open WebUI autostart entry created at $autostart_file"
 }
 
 # Ask user which LLM backends to install
@@ -524,6 +563,7 @@ WantedBy=multi-user.target
 EOF
             
             systemctl daemon-reload
+            systemctl enable llama-server.service
             
             # Clean up build directory
             cd /
@@ -532,7 +572,16 @@ EOF
             success "llama.cpp installed successfully with ROCm support for gfx1151"
             info "llama-cli and llama-server are available in /usr/local/bin"
             info "Systemd service configured with flash attention (-fa 1) and no-mmap (--no-mmap) for optimal Strix Halo performance"
-            info "To start llama-server: sudo systemctl enable --now llama-server"
+            info "llama-server service enabled for autostart at boot"
+        else
+            info "llama.cpp is already installed - skipping compilation"
+            # Ensure service is enabled for autoboot
+            if systemctl is-enabled llama-server.service >/dev/null 2>&1; then
+                info "llama-server service is already enabled for autostart"
+            else
+                info "Enabling llama-server service for autostart"
+                systemctl enable llama-server.service
+            fi
         fi
     fi
     
@@ -871,6 +920,7 @@ WantedBy=multi-user.target
 EOF
         
         systemctl daemon-reload
+        systemctl enable llama-server.service
         
         # Clean up build directory
         cd /
@@ -879,7 +929,16 @@ EOF
         success "llama.cpp installed successfully with ROCm support for gfx1151"
         info "llama-cli and llama-server are available in /usr/local/bin"
         info "Systemd service configured with flash attention (-fa 1) and no-mmap (--no-mmap) for optimal Strix Halo performance"
-        info "To start llama-server: sudo systemctl enable --now llama-server"
+        info "llama-server service enabled for autostart at boot"
+    else
+        info "llama.cpp is already installed - skipping compilation"
+        # Ensure service is enabled for autoboot
+        if systemctl is-enabled llama-server.service >/dev/null 2>&1; then
+            info "llama-server service is already enabled for autostart"
+        else
+            info "Enabling llama-server service for autostart"
+            systemctl enable llama-server.service
+        fi
     fi
     
     # Install ROCm and Python AI libraries only if llama.cpp backend is selected
@@ -1082,6 +1141,7 @@ WantedBy=multi-user.target
 EOF
         
         systemctl daemon-reload
+        systemctl enable llama-server.service
         
         # Clean up build directory
         cd /
@@ -1090,7 +1150,16 @@ EOF
         success "llama.cpp installed successfully with ROCm support for gfx1151"
         info "llama-cli and llama-server are available in /usr/local/bin"
         info "Systemd service configured with flash attention (-fa 1) and no-mmap (--no-mmap) for optimal Strix Halo performance"
-        info "To start llama-server: sudo systemctl enable --now llama-server"
+        info "llama-server service enabled for autostart at boot"
+    else
+        info "llama.cpp is already installed - skipping compilation"
+        # Ensure service is enabled for autoboot
+        if systemctl is-enabled llama-server.service >/dev/null 2>&1; then
+            info "llama-server service is already enabled for autostart"
+        else
+            info "Enabling llama-server service for autostart"
+            systemctl enable llama-server.service
+        fi
     fi
     
     # Install ROCm and Python AI libraries only if llama.cpp backend is selected
@@ -1282,6 +1351,7 @@ WantedBy=multi-user.target
 EOF
         
         systemctl daemon-reload
+        systemctl enable llama-server.service
         
         # Clean up build directory
         cd /
@@ -1290,7 +1360,16 @@ EOF
         success "llama.cpp installed successfully with ROCm support for gfx1151"
         info "llama-cli and llama-server are available in /usr/local/bin"
         info "Systemd service configured with flash attention (-fa 1) and no-mmap (--no-mmap) for optimal Strix Halo performance"
-        info "To start llama-server: sudo systemctl enable --now llama-server"
+        info "llama-server service enabled for autostart at boot"
+    else
+        info "llama.cpp is already installed - skipping compilation"
+        # Ensure service is enabled for autoboot
+        if systemctl is-enabled llama-server.service >/dev/null 2>&1; then
+            info "llama-server service is already enabled for autostart"
+        else
+            info "Enabling llama-server service for autostart"
+            systemctl enable llama-server.service
+        fi
     fi
     
     # Install ROCm and Python AI libraries only if llama.cpp backend is selected
