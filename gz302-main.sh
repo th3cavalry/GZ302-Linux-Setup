@@ -2924,19 +2924,27 @@ install_tray_icon() {
     case "$distro" in
         arch)
             info "Installing PyQt6 and psutil for Arch Linux..."
-            pacman -S --noconfirm --needed python-pyqt6 python-psutil 2>/dev/null || warning "Failed to install python-pyqt6 and python-psutil via pacman"
+            if ! pacman -S --noconfirm --needed python-pyqt6 python-psutil; then
+                warning "Failed to install python-pyqt6 and python-psutil via pacman"
+            fi
             ;;
         debian)
             info "Installing PyQt6 and psutil for Debian/Ubuntu..."
-            apt-get install -y python3-pyqt6 python3-psutil 2>/dev/null || warning "Failed to install python3-pyqt6 and python3-psutil via apt"
+            if ! apt-get install -y python3-pyqt6 python3-psutil; then
+                warning "Failed to install python3-pyqt6 and python3-psutil via apt"
+            fi
             ;;
         fedora)
             info "Installing PyQt6 and psutil for Fedora..."
-            dnf install -y python3-pyqt6 python3-psutil 2>/dev/null || warning "Failed to install python3-pyqt6 and python3-psutil via dnf"
+            if ! dnf install -y python3-pyqt6 python3-psutil; then
+                warning "Failed to install python3-pyqt6 and python3-psutil via dnf"
+            fi
             ;;
         opensuse)
             info "Installing PyQt6 and psutil for OpenSUSE..."
-            zypper install -y python3-qt6 python3-psutil 2>/dev/null || warning "Failed to install PyQt6 and psutil packages via zypper"
+            if ! zypper install -y python3-qt6 python3-psutil; then
+                warning "Failed to install PyQt6 and psutil packages via zypper"
+            fi
             ;;
     esac
     

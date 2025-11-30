@@ -22,8 +22,10 @@ if [[ ! -f "$APP_PY" ]]; then
   exit 1
 fi
 
-# Ensure executable bit
-chmod +x "$APP_PY" 2>/dev/null || true
+# Ensure executable bit (warn if it fails but continue)
+if ! chmod +x "$APP_PY" 2>/dev/null; then
+  echo "WARNING: Could not set executable bit on $APP_PY (may already be set)" >&2
+fi
 
 # Determine user home directory (handle sudo case)
 if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
@@ -46,20 +48,25 @@ if [[ ${EUID:-$(id -u)} -eq 0 ]] && [[ -f "$ICON_SRC" ]]; then
   # Install to hicolor icon theme (most widely supported)
   ICON_DEST="/usr/share/icons/hicolor/scalable/apps/${ICON_NAME}.svg"
   mkdir -p "$(dirname "$ICON_DEST")"
-  cp "$ICON_SRC" "$ICON_DEST" 2>/dev/null || true
+  if cp "$ICON_SRC" "$ICON_DEST" 2>/dev/null; then
+    echo "Installed system icon: $ICON_DEST"
+  else
+    echo "WARNING: Could not install system icon to $ICON_DEST" >&2
+  fi
   
   # Update icon cache
   if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
   fi
-  
-  echo "Installed system icon: $ICON_DEST"
 elif [[ -f "$ICON_SRC" ]]; then
   # Fallback to user icon directory
   USER_ICON_DIR="$USER_HOME/.local/share/icons/hicolor/scalable/apps"
   mkdir -p "$USER_ICON_DIR"
-  cp "$ICON_SRC" "$USER_ICON_DIR/${ICON_NAME}.svg" 2>/dev/null || true
-  echo "Installed user icon: $USER_ICON_DIR/${ICON_NAME}.svg"
+  if cp "$ICON_SRC" "$USER_ICON_DIR/${ICON_NAME}.svg" 2>/dev/null; then
+    echo "Installed user icon: $USER_ICON_DIR/${ICON_NAME}.svg"
+  else
+    echo "WARNING: Could not install user icon" >&2
+  fi
 fi
 
 # Use python3 explicitly in Exec line for better compatibility across desktop environments
@@ -83,7 +90,9 @@ chmod +x "$DESKTOP_FILE"
 
 # Fix ownership if running as root
 if [[ ${EUID:-$(id -u)} -eq 0 ]] && [[ -n "${SUDO_USER:-}" ]]; then
-  chown "$SUDO_USER:$SUDO_USER" "$DESKTOP_FILE" 2>/dev/null || true
+  if ! chown "$SUDO_USER:$SUDO_USER" "$DESKTOP_FILE" 2>/dev/null; then
+    echo "WARNING: Could not set ownership on $DESKTOP_FILE" >&2
+  fi
 fi
 
 # Install autostart entry
@@ -93,7 +102,9 @@ chmod +x "$AUTOSTART_FILE"
 
 # Fix ownership if running as root
 if [[ ${EUID:-$(id -u)} -eq 0 ]] && [[ -n "${SUDO_USER:-}" ]]; then
-  chown "$SUDO_USER:$SUDO_USER" "$AUTOSTART_FILE" 2>/dev/null || true
+  if ! chown "$SUDO_USER:$SUDO_USER" "$AUTOSTART_FILE" 2>/dev/null; then
+    echo "WARNING: Could not set ownership on $AUTOSTART_FILE" >&2
+  fi
 fi
 
 # Install system-wide desktop file if running as root
