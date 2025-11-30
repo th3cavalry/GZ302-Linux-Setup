@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.2.4
+# Version: 2.2.5
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -2919,6 +2919,24 @@ install_tray_icon() {
         fi
     fi
     
+    # Copy tray icon files to system location for persistence
+    local system_tray_dir="/usr/local/share/gz302/tray-icon"
+    mkdir -p "$system_tray_dir"
+    if [[ -d "$tray_dir/src" ]]; then
+        cp -r "$tray_dir/src" "$system_tray_dir/"
+    fi
+    if [[ -d "$tray_dir/assets" ]]; then
+        cp -r "$tray_dir/assets" "$system_tray_dir/"
+    fi
+    if [[ -f "$tray_dir/install-tray.sh" ]]; then
+        cp "$tray_dir/install-tray.sh" "$system_tray_dir/"
+        chmod +x "$system_tray_dir/install-tray.sh"
+    fi
+    
+    # Update paths to system location
+    tray_dir="$system_tray_dir"
+    install_script="$tray_dir/install-tray.sh"
+    
     # Check if install script exists
     if [[ ! -f "$install_script" ]]; then
         error "Tray icon installation script not found at $install_script"
@@ -3349,7 +3367,7 @@ main() {
     echo
     echo "============================================================"
     echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 2.2.4"
+    echo "  Version 2.2.5"
     echo "============================================================"
     echo
     
