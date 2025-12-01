@@ -243,7 +243,8 @@ int send_to_gz302_hidraw(uint8_t *message) {
         char hidraw_path[256];
         snprintf(hidraw_path, sizeof(hidraw_path), "/dev/hidraw%d", i);
         
-        fd = open(hidraw_path, O_RDWR);
+        /* Use O_NONBLOCK to prevent hanging on open */
+        fd = open(hidraw_path, O_RDWR | O_NONBLOCK);
         if (fd < 0) continue;
         
         /* Verify this is the GZ302 keyboard */
@@ -252,8 +253,19 @@ int send_to_gz302_hidraw(uint8_t *message) {
             fprintf(stderr, "Sending to GZ302 keyboard at %s\n", hidraw_path);
             
             ret = write(fd, message, MESSAGE_LENGTH);
+            
+            /* If write fails with EAGAIN, try a few times with small sleep */
+            if (ret < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                for (int retry = 0; retry < 5; retry++) {
+                    usleep(20000); /* 20ms wait */
+                    ret = write(fd, message, MESSAGE_LENGTH);
+                    if (ret == MESSAGE_LENGTH) break;
+                }
+            }
+
             if (ret == MESSAGE_LENGTH) {
                 /* Apply changes to this interface */
+                /* We don't check return value here as the first write succeeded */
                 write(fd, MESSAGE_SET, MESSAGE_LENGTH);
                 write(fd, MESSAGE_APPLY, MESSAGE_LENGTH);
                 success = 1;
