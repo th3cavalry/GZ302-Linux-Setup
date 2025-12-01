@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.3.5
+# Version: 2.3.6
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
@@ -223,98 +223,84 @@ check_llamacpp_installed() {
     fi
 }
 
-# Setup Python 3.11 virtual environment for Open WebUI using uv
+# Setup Open WebUI using Docker
 # Open WebUI can work with various backends, not just Ollama
-setup_openwebui_with_uv() {
+setup_openwebui_docker() {
     local user="$1"
     local distro="$2"
-    local openwebui_dir="/home/$user/.local/share/open-webui"
     
-    if [[ -d "$openwebui_dir" ]] && [[ -f "$openwebui_dir/.venv/bin/open-webui" ]]; then
-        info "Open WebUI is already installed at $openwebui_dir"
-        # Ensure autostart is enabled
-        local autostart_dir="/home/$user/.config/autostart"
-        local autostart_file="$autostart_dir/open-webui.desktop"
-        if [[ ! -f "$autostart_file" ]]; then
-            setup_openwebui_autostart "$user" "$openwebui_dir"
-        else
-            info "Open WebUI autostart is already configured"
-        fi
-        return
-    fi
+    info "Setting up Open WebUI with Docker..."
     
-    info "Setting up Open WebUI with uv..."
-    
-    # Install uv if not present
-    if ! command -v uv >/dev/null 2>&1; then
-        info "Installing uv package manager..."
+    # Install Docker if not present
+    if ! command -v docker >/dev/null 2>&1; then
+        info "Installing Docker..."
         case "$distro" in
             "arch")
-                pacman -S --noconfirm --needed uv || warning "Failed to install uv via pacman"
+                pacman -S --noconfirm --needed docker || warning "Failed to install docker via pacman"
+                systemctl enable --now docker
+                usermod -aG docker "$user"
                 ;;
             "debian")
-                # Install uv from official script
-                curl -LsSf https://astral.sh/uv/install.sh | sh || warning "Failed to install uv"
+                # Install docker from official script
+                curl -fsSL https://get.docker.com | sh || warning "Failed to install docker"
+                usermod -aG docker "$user"
                 ;;
             "fedora")
-                dnf install -y uv || warning "Failed to install uv via dnf"
+                dnf install -y docker || warning "Failed to install docker via dnf"
+                systemctl enable --now docker
+                usermod -aG docker "$user"
                 ;;
             "opensuse")
-                zypper install -y uv || warning "Failed to install uv via zypper"
+                zypper install -y docker || warning "Failed to install docker via zypper"
+                systemctl enable --now docker
+                usermod -aG docker "$user"
                 ;;
         esac
     fi
     
-    if ! command -v uv >/dev/null 2>&1; then
-        warning "uv not available, cannot install Open WebUI. Please install uv first."
+    if ! command -v docker >/dev/null 2>&1; then
+        warning "Docker not available, cannot install Open WebUI. Please install Docker first."
         return
     fi
-    
-    # Create directory for Open WebUI
-    sudo -u "$user" mkdir -p "$openwebui_dir"
-    cd "$openwebui_dir"
-    
-    # Initialize a managed environment with Python 3.11 explicitly
-    info "Creating uv virtual environment with Python 3.11..."
-    sudo -u "$user" uv venv --python 3.11 || error "Failed to create uv venv with Python 3.11"
-    
-    # Activate and install Open WebUI
-    info "Installing Open WebUI with uv..."
-    sudo -u "$user" uv pip install open-webui || warning "Open WebUI installation failed"
-    
-    # Setup autostart
-    setup_openwebui_autostart "$user" "$openwebui_dir"
-    
-    success "Open WebUI installed at $openwebui_dir"
-    info "Open WebUI configured to start at boot (listening on port 3000)"
-}
 
-# Setup Open WebUI autostart entry
-setup_openwebui_autostart() {
-    local user="$1"
-    local openwebui_dir="$2"
-    local autostart_dir="/home/$user/.config/autostart"
-    local autostart_file="$autostart_dir/open-webui.desktop"
-    
-    mkdir -p "$autostart_dir"
-    
-    cat > "$autostart_file" <<'EOF'
-[Desktop Entry]
-Type=Application
-Name=Open WebUI
-Comment=Web UI for LLM interaction
-Exec=bash -c "cd %h/.local/share/open-webui && source .venv/bin/activate && open-webui serve --port 3000"
-X-GNOME-Autostart-enabled=true
-NoDisplay=true
-EOF
-    
-    # Fix ownership if running as root
-    if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
-        chown "$user:$user" "$autostart_file" 2>/dev/null || true
+    # Ensure docker service is running
+    if ! systemctl is-active --quiet docker; then
+        systemctl start docker
     fi
     
-    chmod 644 "$autostart_file"
-    info "Open WebUI autostart entry created at $autostart_file"
+    # Pull and run Open WebUI container
+    # Maps host port 3000 to container port 8080
+    # Uses host.docker.internal to access llama-server on host:8080
+    info "Pulling and starting Open WebUI container..."
+    
+    # Stop existing container if it exists
+    if docker ps -a --format '{{.Names}}' | grep -q "^open-webui$"; then
+        info "Stopping and removing existing open-webui container..."
+        docker stop open-webui >/dev/null 2>&1 || true
+        docker rm open-webui >/dev/null 2>&1 || true
+    fi
+
+    # Run container
+    # -d: Detached mode
+    # -p 3000:8080: Map host port 3000 to container port 8080
+    # --add-host=host.docker.internal:host-gateway: Allow access to host services
+    # -v open-webui:/app/backend/data: Persist data
+    # --name open-webui: Container name
+    # --restart always: Auto-restart on boot
+    # -e OPENAI_API_BASE_URL=...: Point to llama-server on host
+    docker run -d \
+        -p 3000:8080 \
+        --add-host=host.docker.internal:host-gateway \
+        -v open-webui:/app/backend/data \
+        --name open-webui \
+        --restart always \
+        -e OPENAI_API_BASE_URL=http://host.docker.internal:8080/v1 \
+        -e OPENAI_API_KEY=sk-no-key-required \
+        ghcr.io/open-webui/open-webui:main
+    
+    success "Open WebUI installed and started via Docker"
+    info "Open WebUI is running on http://localhost:3000"
+    info "It is configured to connect to llama-server at http://localhost:8080"
 }
 
 # Ask user which LLM backends to install
@@ -395,7 +381,7 @@ install_arch_llm_software() {
         # Setup Open WebUI with uv (can work with various backends)
         local primary_user
         primary_user=$(get_real_user)
-        setup_openwebui_with_uv "$primary_user" "arch"
+        setup_openwebui_docker "$primary_user" "arch"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -727,7 +713,7 @@ EOF
                     fi
                     ;;
                 4|openwebui|open-web-ui)
-                    setup_openwebui_with_uv "$primary_user" "arch"
+                    setup_openwebui_docker "$primary_user" "arch"
                     ;;
                 *)
                     warning "Unknown frontend: $frontend"
@@ -757,7 +743,7 @@ install_debian_llm_software() {
         # Setup Open WebUI with uv (can work with various backends)
         local primary_user
         primary_user=$(get_real_user)
-        setup_openwebui_with_uv "$primary_user" "debian"
+        setup_openwebui_docker "$primary_user" "debian"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -949,7 +935,7 @@ EOF
                     fi
                     ;;
                 4|openwebui|open-web-ui)
-                    setup_openwebui_with_uv "$primary_user" "debian"
+                    setup_openwebui_docker "$primary_user" "debian"
                     ;;
                 *)
                     warning "Unknown frontend: $frontend"
@@ -979,7 +965,7 @@ install_fedora_llm_software() {
         # Setup Open WebUI with uv (can work with various backends)
         local primary_user
         primary_user=$(get_real_user)
-        setup_openwebui_with_uv "$primary_user" "fedora"
+        setup_openwebui_docker "$primary_user" "fedora"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -1159,7 +1145,7 @@ EOF
                     fi
                     ;;
                 4|openwebui|open-web-ui)
-                    setup_openwebui_with_uv "$primary_user" "fedora"
+                    setup_openwebui_docker "$primary_user" "fedora"
                     ;;
                 *)
                     warning "Unknown frontend: $frontend"
@@ -1189,7 +1175,7 @@ install_opensuse_llm_software() {
         # Setup Open WebUI with uv (can work with various backends)
         local primary_user
         primary_user=$(get_real_user)
-        setup_openwebui_with_uv "$primary_user" "opensuse"
+        setup_openwebui_docker "$primary_user" "opensuse"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -1369,7 +1355,7 @@ EOF
                     fi
                     ;;
                 4|openwebui|open-web-ui)
-                    setup_openwebui_with_uv "$primary_user" "opensuse"
+                    setup_openwebui_docker "$primary_user" "opensuse"
                     ;;
                 *)
                     warning "Unknown frontend: $frontend"
