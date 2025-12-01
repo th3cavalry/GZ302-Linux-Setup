@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.3.3
+# Version: 2.3.4
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
@@ -459,7 +459,7 @@ Documentation=https://github.com/ggerganov/llama.cpp
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 --ngl 999 -fa 1 --no-mmap
+ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 --n-gpu-layers 999 -fa 1 --no-mmap
 Restart=on-failure
 RestartSec=5
 User=nobody
@@ -816,7 +816,7 @@ Documentation=https://github.com/ggerganov/llama.cpp
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 --ngl 999 -fa 1 --no-mmap
+ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 --n-gpu-layers 999 -fa 1 --no-mmap
 Restart=on-failure
 RestartSec=5
 User=nobody
@@ -1037,7 +1037,7 @@ Documentation=https://github.com/ggerganov/llama.cpp
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 --ngl 999 -fa 1 --no-mmap
+ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 --n-gpu-layers 999 -fa 1 --no-mmap
 Restart=on-failure
 RestartSec=5
 User=nobody
@@ -1247,7 +1247,7 @@ Documentation=https://github.com/ggerganov/llama.cpp
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 --ngl 999 -fa 1 --no-mmap
+ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 --n-gpu-layers 999 -fa 1 --no-mmap
 Restart=on-failure
 RestartSec=5
 User=nobody
