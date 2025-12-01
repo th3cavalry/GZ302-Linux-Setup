@@ -4,7 +4,7 @@
 # GZ302 Keyboard RGB Control Module
 #
 # Author: th3cavalry using Copilot
-# Version: 2.1.0
+# Version: 2.3.0
 #
 # This module compiles and installs a minimal, GZ302-specific RGB keyboard CLI.
 # The GZ302EA keyboard communicates via USB (0x0b05:0x1a30) and supports:
@@ -96,6 +96,7 @@ install_rgb_arch() {
 
     info "Compiling GZ302 RGB keyboard CLI..."
     cd "$SCRIPT_DIR"
+    # shellcheck disable=SC2046
     gcc -Wall -Wextra -O2 -o gz302-rgb gz302-rgb-cli.c $(pkg-config --cflags --libs libusb-1.0)
     
     info "Installing compiled binary..."
@@ -128,6 +129,7 @@ install_rgb_fedora() {
 
     info "Compiling GZ302 RGB keyboard CLI..."
     cd "$SCRIPT_DIR"
+    # shellcheck disable=SC2046
     gcc -Wall -Wextra -O2 -o gz302-rgb gz302-rgb-cli.c $(pkg-config --cflags --libs libusb-1.0)
     
     info "Installing compiled binary..."
@@ -143,6 +145,7 @@ install_rgb_opensuse() {
 
     info "Compiling GZ302 RGB keyboard CLI..."
     cd "$SCRIPT_DIR"
+    # shellcheck disable=SC2046
     gcc -Wall -Wextra -O2 -o gz302-rgb gz302-rgb-cli.c $(pkg-config --cflags --libs libusb-1.0)
     
     info "Installing compiled binary..."
@@ -156,7 +159,7 @@ main() {
     echo
     echo "============================================================"
     echo "  GZ302 Keyboard RGB Control Module"
-    echo "  Version 1.1.0 (Custom GZ302-Optimized)"
+    echo "  Version 2.3.0 (Custom GZ302-Optimized)"
     echo "============================================================"
     echo
     

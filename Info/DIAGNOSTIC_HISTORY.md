@@ -1,3 +1,31 @@
+# 2025-11-30: Adding amdgpu.dcdebugmask=0x410 to kernel boot options prevents system freezing
+
+On the ASUS ROG Flow Z13 (GZ302), persistent freezing issues were resolved by adding the following parameter to the kernel boot options:
+
+    amdgpu.dcdebugmask=0x410
+
+This should be appended to the kernel command line (e.g., in `/etc/default/grub` or `/etc/kernel/cmdline`).
+
+Reference: User diagnostic, confirmed stable after multiple reboots.
+
+## 2025-11-30 Evening: System Freeze Incident Analysis
+
+**Time of Freeze**: ~20:03 - 20:04
+**Cause**: AMD GPU pageflip timeout errors in KWin Wayland
+**Log Evidence**: 
+- Multiple "Pageflip timed out! This is a bug in the amdgpu kernel driver" messages
+- KWin Wayland process reporting systematic pageflip failures
+- System became unresponsive requiring hard reboot
+
+**Current Kernel Parameters**: 
+```
+amdgpu.dcdebugmask=0x410 amdgpu.sg_display=0
+```
+
+**Status**: The `amdgpu.dcdebugmask=0x410` parameter was already present but this freeze still occurred. This suggests either:
+1. Additional AMD GPU parameters may be needed
+2. The issue is intermittent and not fully resolved by this parameter alone
+3. Different underlying cause (display controller vs. general GPU stability)
 ## GZ302-Linux-Setup: Troubleshooting Diagnostic History
 
 **Device:** ASUS ROG Flow Z13 (GZ302EA)

@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 Gaming Software Module
-# Version: 2.2.0
+# Version: 2.3.0
 #
 # This module installs gaming software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Steam, Lutris, MangoHUD, GameMode, Wine, and performance tools
@@ -12,38 +12,45 @@
 
 set -euo pipefail
 
-# Color codes for output
-C_BLUE='\033[0;34m'
-C_GREEN='\033[0;32m'
-C_YELLOW='\033[1;33m'
-C_RED='\033[0;31m'
-C_NC='\033[0m'
-
-info() {
-    echo -e "${C_BLUE}[INFO]${C_NC} $1"
+# --- Script directory detection ---
+resolve_script_dir() {
+    local source="${BASH_SOURCE[0]}"
+    while [[ -L "$source" ]]; do
+        local dir
+        dir=$(cd -P "$(dirname "$source")" && pwd)
+        source=$(readlink "$source")
+        [[ $source != /* ]] && source="${dir}/${source}"
+    done
+    cd -P "$(dirname "$source")" && pwd
 }
 
-success() {
-    echo -e "${C_GREEN}[SUCCESS]${C_NC} $1"
-}
+SCRIPT_DIR="${SCRIPT_DIR:-$(resolve_script_dir)}"
 
-warning() {
-    echo -e "${C_YELLOW}[WARNING]${C_NC} $1"
-}
-
-error() {
-    echo -e "${C_RED}[ERROR]${C_NC} $1"
-    exit 1
-}
-
-# Get the real user (not root when using sudo)
-get_real_user() {
-    if [[ -n "${SUDO_USER:-}" ]]; then
-        echo "$SUDO_USER"
+# --- Load Shared Utilities ---
+if [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "${SCRIPT_DIR}/gz302-utils.sh"
+else
+    echo "gz302-utils.sh not found. Downloading..."
+    GITHUB_RAW_URL="${GITHUB_RAW_URL:-https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main}"
+    if command -v curl >/dev/null 2>&1; then
+        curl -L "${GITHUB_RAW_URL}/gz302-utils.sh" -o "${SCRIPT_DIR}/gz302-utils.sh"
+    elif command -v wget >/dev/null 2>&1; then
+        wget "${GITHUB_RAW_URL}/gz302-utils.sh" -O "${SCRIPT_DIR}/gz302-utils.sh"
     else
-        logname 2>/dev/null || whoami
+        echo "Error: curl or wget not found. Cannot download gz302-utils.sh"
+        exit 1
     fi
-}
+    
+    if [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
+        chmod +x "${SCRIPT_DIR}/gz302-utils.sh"
+        # shellcheck disable=SC1091
+        source "${SCRIPT_DIR}/gz302-utils.sh"
+    else
+        echo "Error: Failed to download gz302-utils.sh"
+        exit 1
+    fi
+fi
 
 # --- Gaming Software Installation Functions ---
 install_arch_gaming_software() {

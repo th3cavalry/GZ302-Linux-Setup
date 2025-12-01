@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.2.10
+# Version: 2.3.0
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -73,41 +73,32 @@ resolve_script_dir() {
 # Set SCRIPT_DIR early so it's available to all functions, including error handlers
 SCRIPT_DIR="${SCRIPT_DIR:-$(resolve_script_dir)}"
 
-# --- Color codes for output (must be defined before error handler) ---
-C_BLUE='\033[0;34m'
-C_GREEN='\033[0;32m'
-C_YELLOW='\033[1;33m'
-C_RED='\033[0;31m'
-C_NC='\033[0m' # No Color
-
-# --- Logging and error functions ---
-error() {
-    echo -e "${C_RED}ERROR:${C_NC} $1" >&2
-    exit 1
-}
-
-info() {
-    echo -e "${C_BLUE}INFO:${C_NC} $1"
-}
-
-success() {
-    echo -e "${C_GREEN}SUCCESS:${C_NC} $1"
-}
-
-warning() {
-    echo -e "${C_YELLOW}WARNING:${C_NC} $1"
-}
+# --- Load Shared Utilities ---
+if [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "${SCRIPT_DIR}/gz302-utils.sh"
+else
+    echo "gz302-utils.sh not found. Downloading..."
+    if command -v curl >/dev/null 2>&1; then
+        curl -L "${GITHUB_RAW_URL}/gz302-utils.sh" -o "${SCRIPT_DIR}/gz302-utils.sh"
+    elif command -v wget >/dev/null 2>&1; then
+        wget "${GITHUB_RAW_URL}/gz302-utils.sh" -O "${SCRIPT_DIR}/gz302-utils.sh"
+    else
+        echo "Error: curl or wget not found. Cannot download gz302-utils.sh"
+        exit 1
+    fi
+    
+    if [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
+        chmod +x "${SCRIPT_DIR}/gz302-utils.sh"
+        # shellcheck disable=SC1091
+        source "${SCRIPT_DIR}/gz302-utils.sh"
+    else
+        echo "Error: Failed to download gz302-utils.sh"
+        exit 1
+    fi
+fi
 
 # --- Common helper functions ---
-get_real_user() {
-    if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
-        echo "${SUDO_USER}"
-    elif command -v logname >/dev/null 2>&1; then
-        logname 2>/dev/null || whoami
-    else
-        whoami
-    fi
-}
 
 check_root() {
     if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
@@ -147,36 +138,47 @@ check_kernel_version() {
     
     # Convert to comparable format (e.g., 6.14 -> 614)
     local version_num=$((major * 100 + minor))
-    local min_version=614  # 6.14 - Absolute minimum (AMD XDNA NPU support)
-    local recommended_version=617  # 6.17 - Latest stable with full optimizations
+    local min_version=612  # 6.12 - Strix Halo minimal support (RDNA 3.5 GPU, Zen 5)
+    local recommended_version=617  # 6.17+ - Full stability and WiFi improvements
+    local optimal_version=620  # 6.20+ - Latest fixes and optimizations (late 2025)
     
     info "Detected kernel version: $(uname -r)"
     
     if [[ $version_num -lt $min_version ]]; then
         echo
         echo "❌ UNSUPPORTED KERNEL VERSION ❌"
-        echo "Your kernel version ($kernel_version) is below the absolute minimum (6.14)."
+        echo "Your kernel version ($kernel_version) is below the absolute minimum (6.12)."
         echo
-        echo "Kernel 6.14+ is REQUIRED for GZ302EA because it includes:"
+        echo "Kernel 6.12+ is REQUIRED for GZ302EA because it includes:"
+        echo "  - Strix Halo (Zen 5) CPU architecture support"
+        echo "  - RDNA 3.5 GPU driver (Radeon 8060S integrated graphics)"
         echo "  - AMD XDNA NPU driver (essential for Ryzen AI MAX+ 395)"
-        echo "  - MediaTek MT7925 WiFi driver integration"
-        echo "  - AMD P-State driver with dynamic core ranking"
-        echo "  - Critical RDNA 3.5 GPU support for Radeon 8060S"
+        echo "  - MediaTek MT7925 WiFi driver (WiFi 7 support)"
+        echo "  - AMD P-State driver with Strix Halo optimizations"
         echo
-        error "Installation cancelled. Kernel 6.14+ is required.\nUpgrade options:\n  1. Use your distribution's kernel update mechanism\n  2. Install a mainline kernel from kernel.org\n  3. (Arch only) Install linux-g14 kernel: Optional/gz302-g14-kernel.sh\n  4. Check Info/kernel_changelog.md for version details\nIf you cannot upgrade, please create an issue on GitHub:\n  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
+        error "Installation cancelled. Kernel 6.12+ is required.\nUpgrade options:\n  1. Use your distribution's kernel update mechanism\n  2. Install a mainline kernel from kernel.org\n  3. (Arch only) Install linux-g14 kernel: Optional/gz302-g14-kernel.sh\n  4. Check Info/kernel_changelog.md for version details\nIf you cannot upgrade, please create an issue on GitHub:\n  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
     elif [[ $version_num -lt $recommended_version ]]; then
-        warning "Your kernel version ($kernel_version) meets minimum requirements (6.14+)"
-        info "For optimal performance, consider upgrading to kernel 6.17+ which includes:"
-        info "  - Fine-tuned AMD XDNA driver for enhanced AI performance"
-        info "  - Enhanced Radeon 8060S iGPU scheduling and stability"
-        info "  - Optimized MediaTek MT7925 WiFi with regression fixes"
-        info "  - Refined AMD P-State power management for Strix Halo"
+        warning "Your kernel version ($kernel_version) meets minimum requirements (6.12+) but lacks improvements"
+        info "For stability, consider upgrading to kernel 6.17+ which includes:"
+        info "  - MediaTek MT7925 WiFi: Full MLO support and ASPM fixes"
+        info "  - AMD GPU: Display Core (DC) stabilization fixes"
+        info "  - Power management: Refined amd_pstate=guided for Strix Halo"
         echo
+        if [[ $version_num -lt $optimal_version ]]; then
+            info "Kernel 6.20+ (late 2025) includes additional improvements:"
+            info "  - Wayland/KWin pageflip timeout fixes"
+            info "  - RDNA 3.5 shader compiler optimizations"
+            info "  - Strix Halo power efficiency enhancements"
+        fi
         info "See Info/kernel_changelog.md for detailed version comparison"
         echo
+    elif [[ $version_num -lt $optimal_version ]]; then
+        success "Kernel version ($kernel_version) is current and well-supported"
+        info "For the latest optimizations, consider upgrading to kernel 6.20+"
+        echo
     else
-        success "Kernel version ($kernel_version) meets recommended requirements (6.17+)"
-        success "You have the latest optimizations for GZ302EA hardware"
+        success "Kernel version ($kernel_version) is at the cutting edge (6.20+)"
+        success "You have all latest fixes and optimizations for GZ302EA"
         echo
     fi
     
@@ -185,34 +187,7 @@ check_kernel_version() {
 }
 
 # --- Distribution Detection ---
-detect_distribution() {
-    local distro=""
-    
-    if [[ -f /etc/os-release ]]; then
-        # shellcheck disable=SC1091
-        source /etc/os-release
-        
-        # Detect Arch-based systems (including Omarchy, CachyOS, EndeavourOS, Manjaro)
-        if [[ "$ID" == "arch" || "$ID" == "omarchy" || "$ID" == "cachyos" || "${ID_LIKE:-}" == *"arch"* ]]; then
-            distro="arch"
-        # Detect Debian/Ubuntu-based systems
-        elif [[ "$ID" == "ubuntu" || "$ID" == "debian" || "$ID" == "pop" || "$ID" == "linuxmint" || "${ID_LIKE:-}" == *"ubuntu"* || "${ID_LIKE:-}" == *"debian"* ]]; then
-            distro="ubuntu"
-        # Detect Fedora-based systems
-        elif [[ "$ID" == "fedora" || "${ID_LIKE:-}" == *"fedora"* ]]; then
-            distro="fedora"
-        # Detect OpenSUSE-based systems
-        elif [[ "$ID" == "opensuse-tumbleweed" || "$ID" == "opensuse-leap" || "$ID" == "opensuse" || "${ID_LIKE:-}" == *"suse"* ]]; then
-            distro="opensuse"
-        fi
-    fi
-    
-    if [[ -z "$distro" ]]; then
-        error "Unable to detect a supported Linux distribution."
-    fi
-    
-    echo "$distro"
-}
+# (Moved to gz302-utils.sh)
 
 # --- Hardware Fixes for All Distributions ---
 # Updated based on latest kernel support and community research (October 2025)
@@ -235,20 +210,88 @@ apply_hardware_fixes() {
     
     # Kernel parameters for AMD Ryzen AI MAX+ 395 (Strix Halo) and Radeon 8060S
     info "Adding kernel parameters for AMD Strix Halo optimization..."
+    local grub_changed=false
+    local kcmd_changed=false
     if [ -f /etc/default/grub ]; then
-        # Check if parameters already exist
-        if ! grep -q "amd_pstate=guided" /etc/default/grub; then
-            # Add AMD P-State (guided mode) and GPU parameters
-            # amd_pstate=guided is optimal for Strix Halo (confirmed by Ubuntu 25.10 benchmarks)
-            # amdgpu.ppfeaturemask=0xffffffff enables all power features for Radeon 8060S (RDNA 3.5)
-            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 amd_pstate=guided amdgpu.ppfeaturemask=0xffffffff"/' /etc/default/grub
-            
-            # Regenerate GRUB config
+        # Baseline parameters
+        ensure_grub_kernel_param "amd_pstate=guided" && grub_changed=true || true
+        ensure_grub_kernel_param "amdgpu.ppfeaturemask=0xffffffff" && grub_changed=true || true
+        # Display stability (Wayland/KWin pageflip mitigation)
+        ensure_grub_kernel_param "amdgpu.sg_display=0" && grub_changed=true || true
+        # dcdebugmask options: 0x10 (baseline DC debug), 0x12 (DC debug + optimization), 0x410 (custom variant)
+        # Use 0x10 as default; 0x410 if 0x10 doesn't resolve freezing
+        ensure_grub_kernel_param "amdgpu.dcdebugmask=0x10" && grub_changed=true || true
+        # Sleep/ACPI behavior
+        ensure_grub_kernel_param "mem_sleep_default=deep" && grub_changed=true || true
+        ensure_grub_kernel_param 'acpi_osi="Windows 2022"' && grub_changed=true || true
+
+        # Regenerate GRUB config once if anything changed
+        if [[ "$grub_changed" == true ]]; then
             if [ -f /boot/grub/grub.cfg ]; then
                 grub-mkconfig -o /boot/grub/grub.cfg
             elif command -v update-grub >/dev/null 2>&1; then
                 update-grub
             fi
+        fi
+    fi
+
+    # systemd-boot (kernel-install) environments
+    if [[ -f /etc/kernel/cmdline ]]; then
+        ensure_kcmdline_param "amd_pstate=guided" && kcmd_changed=true || true
+        ensure_kcmdline_param "amdgpu.ppfeaturemask=0xffffffff" && kcmd_changed=true || true
+        ensure_kcmdline_param "amdgpu.sg_display=0" && kcmd_changed=true || true
+        ensure_kcmdline_param "amdgpu.dcdebugmask=0x10" && kcmd_changed=true || true
+        ensure_kcmdline_param "mem_sleep_default=deep" && kcmd_changed=true || true
+        ensure_kcmdline_param 'acpi_osi="Windows 2022"' && kcmd_changed=true || true
+
+        # If cmdline changed, rebuild boot entries appropriately
+        if [[ "$kcmd_changed" == true ]]; then
+            # Detect distribution to pick rebuild tool
+            local distro_family
+            distro_family=$(detect_distribution)
+            case "$distro_family" in
+                arch)
+                    if command -v mkinitcpio >/dev/null 2>&1; then
+                        mkinitcpio -P || true
+                    elif command -v dracut >/dev/null 2>&1; then
+                        dracut --regenerate-all -f || true
+                    fi
+                    ;;
+                fedora|opensuse)
+                    if command -v dracut >/dev/null 2>&1; then
+                        dracut --regenerate-all -f || true
+                    fi
+                    ;;
+                ubuntu)
+                    if command -v update-initramfs >/dev/null 2>&1; then
+                        update-initramfs -u -k all || true
+                    elif command -v dracut >/dev/null 2>&1; then
+                        dracut --regenerate-all -f || true
+                    fi
+                    ;;
+            esac
+            # Best-effort bootctl update (updates bootloader itself; harmless if N/A)
+            if command -v bootctl >/dev/null 2>&1; then
+                bootctl update || true
+            fi
+        fi
+    fi
+
+    # systemd-boot loader entries fallback (no /etc/kernel/cmdline present)
+    if [[ ! -f /etc/kernel/cmdline && -d /boot/loader/entries ]]; then
+        local loader_changed=false
+        shopt -s nullglob
+        for entry in /boot/loader/entries/*.conf; do
+            ensure_loader_entry_param "$entry" "amd_pstate=guided" && loader_changed=true || true
+            ensure_loader_entry_param "$entry" "amdgpu.ppfeaturemask=0xffffffff" && loader_changed=true || true
+            ensure_loader_entry_param "$entry" "amdgpu.sg_display=0" && loader_changed=true || true
+            ensure_loader_entry_param "$entry" "amdgpu.dcdebugmask=0x410" && loader_changed=true || true
+            ensure_loader_entry_param "$entry" "mem_sleep_default=deep" && loader_changed=true || true
+            ensure_loader_entry_param "$entry" 'acpi_osi="Windows 2022"' && loader_changed=true || true
+        done
+        shopt -u nullglob
+        if [[ "$loader_changed" == true ]] && command -v bootctl >/dev/null 2>&1; then
+            bootctl update || true
         fi
     fi
     
@@ -287,13 +330,32 @@ wifi.powersave = 2
 EOF
 
     # AMD GPU module configuration for Radeon 8060S (integrated)
-    info "Configuring AMD Radeon 8060S GPU..."
+    info "Configuring AMD Radeon 8060S GPU (RDNA 3.5)..."
     cat > /etc/modprobe.d/amdgpu.conf <<'EOF'
 # AMD GPU configuration for Radeon 8060S (RDNA 3.5, integrated)
+# Strix Halo specific: Phoenix/Navi33 equivalent
 # Enable all power features for better performance and efficiency
 # ROCm-compatible for AI/ML workloads
+# ppfeaturemask=0xffffffff enables: PowerPlay, DPM, OverDrive, GFXOFF, etc.
 options amdgpu ppfeaturemask=0xffffffff
 EOF
+
+    # Check for GPU firmware files (validation)
+    info "Verifying AMD GPU firmware files..."
+    local gpu_fw_ok=true
+    for fw_file in gc_11_5_1_pfp.bin gc_11_5_1_me.bin dcn_3_5_1_dmcub.bin; do
+        if [[ -f "/lib/firmware/amdgpu/$fw_file" ]]; then
+            info "  ✓ $fw_file"
+        else
+            warning "  ✗ $fw_file (may be loaded from initramfs)"
+            gpu_fw_ok=false
+        fi
+    done
+    if [[ "$gpu_fw_ok" == true ]]; then
+        success "GPU firmware files verified"
+    else
+        warning "Some GPU firmware files not found; check dmesg for firmware loading status"
+    fi
 
     # ASUS HID (keyboard/touchpad) configuration
     info "Configuring ASUS keyboard and touchpad..."
@@ -302,6 +364,15 @@ EOF
 # fnlock_default=0: F1-F12 keys work as media keys by default
 # Kernel 6.15+ includes mature touchpad gesture support and improved ASUS HID integration
 options hid_asus fnlock_default=0
+EOF
+
+    # Additional HID/i2c stability quirk for certain touchpad firmware
+    # Avoid blacklisting hid_asus; instead, add i2c_hid_acpi quirk used in field fixes
+    info "Applying i2c_hid_acpi quirks for touchpad stability..."
+    cat > /etc/modprobe.d/i2c-hid-acpi-gz302.conf <<'EOF'
+# ASUS GZ302 touchpad stability
+# Some units benefit from enabling i2c_hid_acpi quirk 0x01
+options i2c_hid_acpi quirks=0x01
 EOF
 
     # Create systemd service to reload hid_asus module for reliable touchpad detection
@@ -491,6 +562,15 @@ install_sof_firmware() {
     systemctl enable --now alsa-state.service 2>/dev/null || true
     
     info "SOF audio configuration complete"
+
+    # Detect Cirrus Logic CS35L41 amplifier on supported units and apply HDA patch config
+    if [[ -r /proc/asound/cards ]] && grep -qi "cs35l41" /proc/asound/cards 2>/dev/null; then
+        info "Detected Cirrus Logic CS35L41 amplifier; applying HDA patch configuration..."
+        cat > /etc/modprobe.d/cs35l41.conf <<'EOF'
+# Cirrus Logic CS35L41 amplifier configuration for GZ302
+options snd_hda_intel patch=cs35l41-hda
+EOF
+    fi
 }
 
 # --- GZ302 RGB Keyboard Control Installation ---
@@ -1756,34 +1836,34 @@ EOF
 
     chmod +x /usr/local/bin/pwrcfg
     
-    # Optional: Configure sudoers to allow password-less 'sudo pwrcfg'
-    echo ""
-    read -p "Enable password-less pwrcfg (no sudo required) for all users? (y/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        local PWRCFG_PATH="/usr/local/bin/pwrcfg"
-        if [[ -x "$PWRCFG_PATH" ]]; then
-            local SUDOERS_TMP
-            SUDOERS_TMP=$(mktemp /tmp/gz302-pwrcfg.XXXXXX)
-            local SUDOERS_FILE="/etc/sudoers.d/gz302-pwrcfg"
-            cat > "$SUDOERS_TMP" << EOF
-# Allow all users to run pwrcfg without password
-ALL ALL=NOPASSWD: $PWRCFG_PATH
+    # Automatically configure sudoers for password-less pwrcfg/rrcfg/RGB
+    info "Configuring password-less sudo for power management and RGB control..."
+    local PWRCFG_PATH="/usr/local/bin/pwrcfg"
+    local RRCFG_PATH="/usr/local/bin/rrcfg"
+    local RGB_PATH="/usr/local/bin/gz302-rgb"
+    local SUDOERS_FILE="/etc/sudoers.d/gz302-pwrcfg"
+    local SUDOERS_TMP
+    SUDOERS_TMP=$(mktemp /tmp/gz302-pwrcfg.XXXXXX)
+    
+    cat > "$SUDOERS_TMP" << EOF
+# GZ302 Power and RGB Control - Passwordless Sudo
+Defaults use_pty
+%wheel ALL=(ALL) NOPASSWD: $PWRCFG_PATH
+%wheel ALL=(ALL) NOPASSWD: $RRCFG_PATH
+%wheel ALL=(ALL) NOPASSWD: $RGB_PATH
+%sudo ALL=(ALL) NOPASSWD: $PWRCFG_PATH
+%sudo ALL=(ALL) NOPASSWD: $RRCFG_PATH
+%sudo ALL=(ALL) NOPASSWD: $RGB_PATH
 EOF
-            if visudo -c -f "$SUDOERS_TMP" >/dev/null 2>&1; then
-                mv "$SUDOERS_TMP" "$SUDOERS_FILE"
-                chmod 440 "$SUDOERS_FILE"
-                info "Configured sudoers: you can now run 'pwrcfg <profile>' without typing sudo or a password."
-                info "Note: You may need to open a new terminal or re-login for sudoers changes to apply."
-            else
-                rm -f "$SUDOERS_TMP"
-                warning "Invalid sudoers config, skipped enabling password-less 'sudo pwrcfg'."
-            fi
-        else
-            warning "pwrcfg not found at $PWRCFG_PATH; skipping sudoers setup."
-        fi
+    
+    if visudo -c -f "$SUDOERS_TMP" >/dev/null 2>&1; then
+        mv "$SUDOERS_TMP" "$SUDOERS_FILE"
+        chmod 440 "$SUDOERS_FILE"
+        success "Sudoers configured: password-less sudo enabled for pwrcfg, rrcfg, and RGB control"
+        info "Users in 'wheel' (Arch) or 'sudo' (Ubuntu/Debian) group can now use these commands without sudo or password"
     else
-        info "Skipping sudoers configuration for 'pwrcfg'. You can enable later via tray-icon/install-policy.sh."
+        rm -f "$SUDOERS_TMP"
+        warning "Sudoers validation failed; password-less sudo not configured (you can configure manually later)"
     fi
     
     # Create systemd service for automatic TDP management (restores saved profile on boot)

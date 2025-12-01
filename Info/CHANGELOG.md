@@ -5,6 +5,53 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2025-11-30
+
+### Changed
+- **Kernel requirements updated**: Minimum kernel lowered from 6.14 to **6.12** (Strix Halo baseline support with RDNA 3.5 GPU)
+- **Kernel version messaging improved**: Clearer information about 6.12 (minimum), 6.17+ (recommended), and 6.20+ (optimal with latest fixes)
+- **Switched to amdgpu.dcdebugmask=0x10**: Changed from 0x410 to 0x10 as default DC debug parameter; 0x410 available as variant for troubleshooting
+- **Sudoers configuration automatic**: Password-less sudo for pwrcfg, rrcfg, and gz302-rgb now applied automatically without user prompt
+- **GPU firmware verification**: Added runtime checks for RDNA 3.5 firmware files (gc_11_5_1_pfp.bin, dcn_3_5_1_dmcub.bin, etc.)
+
+### Added
+- **Enhanced GPU detection**: GPU firmware validation and detailed module configuration comments for Strix Halo-specific settings
+- **Comprehensive kernel documentation**: Inline comments referencing DC fixes, pageflip timeout resolution, and Wayland stability improvements from kernel 6.12-6.20+
+- **Display Core (DC) parameter documentation**: Comments explaining dcdebugmask options (0x10 baseline, 0x12 optimization, 0x410 custom variant)
+
+### Fixed
+- **Wayland freeze mitigation**: Updated Display Core debug parameters based on latest community findings (kernel 6.17+ includes native pageflip fixes)
+- **MediaTek MT7925 WiFi**: Confirmed ASPM workaround still needed for kernels < 6.17; unnecessary for 6.17+
+
+### Technical Details
+Based on extensive research of kernel changelogs, asus-linux.org community, Reddit forums (r/linux, r/archlinux, r/linuxgaming), and GitHub issue trackers for GZ302/Strix Halo/RDNA 3.5 hardware. v2.3.0 incorporates:
+- Latest Strix Halo (Zen 5) power management insights
+- RDNA 3.5 GPU driver improvements from kernel 6.20+
+- Wayland/KWin freezing diagnostic history and resolution paths
+- Display Core (DC) stability fixes from latest linux-firmware
+- User-reported fixes and workarounds from community forums
+
+
+### Added
+- Kernel parameter helper to safely append missing options to `GRUB_CMDLINE_LINUX_DEFAULT` and regenerate GRUB once per change.
+- Systemd-boot support: automatically appends parameters to `/etc/kernel/cmdline` (when present) or directly patches `/boot/loader/entries/*.conf` `options` lines (fallback) and rebuilds boot entries (`mkinitcpio -P` on Arch, `dracut --regenerate-all -f` on Fedora/OpenSUSE, `update-initramfs -u -k all` on Ubuntu when applicable). Also runs `bootctl update`.
+- Display stability parameters extracted from field fixes:
+  - `amdgpu.sg_display=0` (Wayland/KWin pageflip mitigation)
+  - `amdgpu.dcdebugmask=0x410` (prevents intermittent freezes on GZ302)
+- Power management defaults:
+  - `mem_sleep_default=deep`
+  - `acpi_osi="Windows 2022"`
+- Touchpad stability quirk: `/etc/modprobe.d/i2c-hid-acpi-gz302.conf` with `options i2c_hid_acpi quirks=0x01` (avoids blacklisting `hid_asus`).
+- Audio: Detect Cirrus Logic CS35L41 and apply HDA patch configuration automatically.
+
+### Changed
+- Refactored kernel parameter insertion to be idempotent and additive rather than a single conditional block.
+
+### Notes
+- Changes are conservative and only apply when the respective files exist (`/etc/default/grub`), maintaining cross-distro compatibility.
+- For systemd-boot, changes apply only when `/etc/kernel/cmdline` exists; rebuild commands are selected per distribution and are best-effort.
+- These updates were extracted from targeted community fixes and adapted to the project’s multi-distro, hardware-specific architecture.
+
 ## [2.0.4] - 2025-12-18
 
 ### Added
