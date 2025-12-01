@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.3.1
+# Version: 2.3.2
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -344,7 +344,7 @@ EOF
     info "Verifying AMD GPU firmware files..."
     local gpu_fw_ok=true
     for fw_file in gc_11_5_1_pfp.bin gc_11_5_1_me.bin dcn_3_5_1_dmcub.bin; do
-        if [[ -f "/lib/firmware/amdgpu/$fw_file" ]]; then
+        if [[ -f "/lib/firmware/amdgpu/$fw_file" ]] || [[ -f "/lib/firmware/amdgpu/${fw_file}.zst" ]] || [[ -f "/lib/firmware/amdgpu/${fw_file}.xz" ]]; then
             info "  ✓ $fw_file"
         else
             warning "  ✗ $fw_file (may be loaded from initramfs)"

@@ -4,7 +4,7 @@
 # GZ302 Keyboard RGB Control Module
 #
 # Author: th3cavalry using Copilot
-# Version: 2.3.1
+# Version: 2.3.2
 #
 # This module compiles and installs a minimal, GZ302-specific RGB keyboard CLI.
 # The GZ302EA keyboard communicates via USB (0x0b05:0x1a30) and supports:
