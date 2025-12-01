@@ -4,7 +4,7 @@
 # GZ302 Keyboard RGB Control Module
 #
 # Author: th3cavalry using Copilot
-# Version: 2.3.3
+# Version: 2.3.7
 #
 # This module compiles and installs a minimal, GZ302-specific RGB keyboard CLI.
 # The GZ302EA keyboard communicates via USB (0x0b05:0x1a30) and supports:
@@ -102,6 +102,11 @@ install_rgb_arch() {
     info "Installing compiled binary..."
     install -m 755 gz302-rgb "$BINARY_PATH"
     
+    # Remove old wrapper symlinks to prevent recursion (fixes v2.3.5 bug)
+    rm -f /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
+    # Create proper symlink for backward compatibility
+    ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
+    
     success "GZ302 RGB keyboard CLI compiled and installed"
 }
 
@@ -119,6 +124,11 @@ install_rgb_debian() {
     info "Installing compiled binary..."
     install -m 755 gz302-rgb "$BINARY_PATH"
     
+    # Remove old wrapper symlinks to prevent recursion (fixes v2.3.5 bug)
+    rm -f /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
+    # Create proper symlink for backward compatibility
+    ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
+    
     success "GZ302 RGB keyboard CLI compiled and installed"
 }
 
@@ -134,6 +144,11 @@ install_rgb_fedora() {
     
     info "Installing compiled binary..."
     install -m 755 gz302-rgb "$BINARY_PATH"
+    
+    # Remove old wrapper symlinks to prevent recursion (fixes v2.3.5 bug)
+    rm -f /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
+    # Create proper symlink for backward compatibility
+    ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
     
     success "GZ302 RGB keyboard CLI compiled and installed"
 }
@@ -151,6 +166,11 @@ install_rgb_opensuse() {
     info "Installing compiled binary..."
     install -m 755 gz302-rgb "$BINARY_PATH"
     
+    # Remove old wrapper symlinks to prevent recursion (fixes v2.3.5 bug)
+    rm -f /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
+    # Create proper symlink for backward compatibility
+    ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
+    
     success "GZ302 RGB keyboard CLI compiled and installed"
 }
 
@@ -159,7 +179,7 @@ main() {
     echo
     echo "============================================================"
     echo "  GZ302 Keyboard RGB Control Module"
-    echo "  Version 2.3.0 (Custom GZ302-Optimized)"
+    echo "  Version 2.3.7 (Custom GZ302-Optimized)"
     echo "============================================================"
     echo
     
