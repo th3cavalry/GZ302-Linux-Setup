@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 System Snapshots Module
-# Version: 2.3.2
+# Version: 2.3.3
 #
 # This module sets up system snapshots for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Snapper, LVM snapshots, Btrfs
@@ -80,7 +80,13 @@ setup_snapshots() {
         esac
         
         # Create snapper configuration
-        snapper create-config /
+        if ! snapper list-configs | grep -q "root"; then
+            snapper create-config /
+            success "Snapper configuration created for root"
+        else
+            info "Snapper configuration for root already exists"
+        fi
+        
         systemctl enable --now snapper-timeline.timer
         systemctl enable --now snapper-cleanup.timer
         success "Snapper configured for Btrfs"
