@@ -459,7 +459,7 @@ Documentation=https://github.com/ggerganov/llama.cpp
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 --n-gpu-layers 999 -fa 1 --no-mmap
+ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 -m /var/lib/gz302-llm/model.gguf --n-gpu-layers 999 -fa 1 --no-mmap
 Restart=on-failure
 RestartSec=5
 User=nobody
@@ -816,7 +816,7 @@ Documentation=https://github.com/ggerganov/llama.cpp
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 --n-gpu-layers 999 -fa 1 --no-mmap
+ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 -m /var/lib/gz302-llm/model.gguf --n-gpu-layers 999 -fa 1 --no-mmap
 Restart=on-failure
 RestartSec=5
 User=nobody
@@ -1037,7 +1037,7 @@ Documentation=https://github.com/ggerganov/llama.cpp
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 --n-gpu-layers 999 -fa 1 --no-mmap
+ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 -m /var/lib/gz302-llm/model.gguf --n-gpu-layers 999 -fa 1 --no-mmap
 Restart=on-failure
 RestartSec=5
 User=nobody
@@ -1247,7 +1247,7 @@ Documentation=https://github.com/ggerganov/llama.cpp
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 --n-gpu-layers 999 -fa 1 --no-mmap
+ExecStart=/usr/local/bin/llama-server --host 0.0.0.0 --port 8080 -m /var/lib/gz302-llm/model.gguf --n-gpu-layers 999 -fa 1 --no-mmap
 Restart=on-failure
 RestartSec=5
 User=nobody
