@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.3.4
+# Version: 2.3.5
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
@@ -303,7 +303,7 @@ setup_openwebui_autostart() {
 Type=Application
 Name=Open WebUI
 Comment=Web UI for LLM interaction
-Exec=bash -c "cd %h/.local/share/open-webui && source .venv/bin/activate && open-webui serve"
+Exec=bash -c "cd %h/.local/share/open-webui && source .venv/bin/activate && open-webui serve --port 3000"
 X-GNOME-Autostart-enabled=true
 NoDisplay=true
 EOF
