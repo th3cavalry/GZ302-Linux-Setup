@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.3.7
+# Version: 2.3.8
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -1029,8 +1029,8 @@ install_debian_asus_packages() {
             warning "Failed to add asusctl PPA"
         fi
     else
-        warning "add-apt-repository not available"
-        info "Install software-properties-common first: apt install software-properties-common"
+        warning "add-apt-repository not available (expected on Debian Trixie/13+)"
+        info "Falling back to building asusctl from source"
     fi
 
     # If PPA installation failed, try building from source
@@ -3173,7 +3173,7 @@ setup_debian_based() {
     info "Updating system and installing base dependencies..."
     apt update
     apt upgrade -y
-    apt install -y curl wget git build-essential software-properties-common \
+    apt install -y curl wget git build-essential \
         apt-transport-https ca-certificates gnupg lsb-release
     
     # Apply hardware fixes
