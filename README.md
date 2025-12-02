@@ -30,7 +30,11 @@ The minimal script (~270 lines) applies only:
 
 ### Option 2: Full Setup (All Features)
 
-**One-line installation for all supported distros (Arch, Omarchy, Debian/Ubuntu, Fedora, OpenSUSE):**
+**One-line installation for all supported distros:**
+- **Arch-based:** Arch Linux, CachyOS (optimized), Omarchy, EndeavourOS, Manjaro
+- **Debian-based:** Debian (including Trixie/13), Ubuntu, Pop!_OS, Linux Mint
+- **RPM-based:** Fedora, Nobara
+- **SUSE-based:** OpenSUSE Tumbleweed, OpenSUSE Leap
 
 ```bash
 curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-main.sh -o gz302-main.sh
@@ -51,6 +55,23 @@ The full script will automatically:
 | GZ302EA-XS99 | Top Spec | 128GB | ✅ Fully Supported |
 | GZ302EA-XS64 | Mid Spec | 64GB | ✅ Fully Supported |
 | GZ302EA-XS32 | Base Spec | 32GB | ✅ Fully Supported |
+
+### 🚀 Distribution-Specific Optimizations
+
+**CachyOS (Recommended for Maximum Performance)**
+- Automatically detected with tailored recommendations
+- 5-20% performance boost from x86-64-v3/v4 optimized packages
+- BORE scheduler for better gaming and interactive performance
+- LTO/PGO compiler optimizations throughout the system
+
+**Debian Trixie (Debian 13) Support**
+- Full compatibility with latest Debian testing
+- Automatic ROCm repository setup for AI/LLM workloads
+- Build-from-source fallback for ASUS control packages
+
+**AMD P-State Guidance**
+- Script provides recommendations for `guided` vs `active` power modes
+- Guidance on power efficiency vs predictable performance trade-offs
 
 ## ✨ Features & Modules
 

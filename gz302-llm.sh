@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.3.6
+# Version: 2.3.8
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
@@ -179,6 +179,66 @@ check_rocm_installed_debian() {
     else
         return 1
     fi
+}
+
+# Setup ROCm repository for Debian/Debian Trixie
+setup_rocm_repo_debian() {
+    # Check if ROCm repository is already configured
+    if [[ -f /etc/apt/sources.list.d/rocm.list ]]; then
+        info "ROCm repository already configured"
+        return 0
+    fi
+    
+    info "Setting up AMD ROCm repository for Debian..."
+    
+    # Create keyrings directory if it doesn't exist
+    mkdir -p /etc/apt/keyrings
+    chmod 0755 /etc/apt/keyrings
+    
+    # Download and add ROCm GPG key
+    info "Adding ROCm GPG key..."
+    if ! wget -q https://repo.radeon.com/rocm/rocm.gpg.key -O - | gpg --dearmor -o /etc/apt/keyrings/rocm.gpg; then
+        warning "Failed to add ROCm GPG key"
+        return 1
+    fi
+    
+    # Detect Debian version/codename for repository setup
+    local debian_codename
+    if [[ -f /etc/os-release ]]; then
+        # shellcheck disable=SC1091
+        source /etc/os-release
+        debian_codename="${VERSION_CODENAME:-unknown}"
+    else
+        debian_codename="unknown"
+    fi
+    
+    # ROCm 6.2 is the latest stable with good Debian support
+    # For Debian Trixie, we use the repository as-is
+    info "Configuring ROCm 6.2 repository for Debian $debian_codename..."
+    
+    # Add ROCm apt repository
+    # Note: AMD provides repos for specific Debian versions, but Ubuntu repos often work for Debian
+    cat > /etc/apt/sources.list.d/rocm.list << 'EOF'
+# AMD ROCm repository
+deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.2.4 jammy main
+EOF
+    
+    # Update apt cache with new repository
+    info "Updating package cache..."
+    local apt_log
+    apt_log=$(mktemp)
+    if ! apt update 2>&1 | tee "$apt_log"; then
+        warning "apt update encountered errors with ROCm repository"
+        info "ROCm packages may not be available from AMD repos for this Debian version"
+        info "Will attempt to use packages from default Debian repositories"
+        rm -f "$apt_log"
+        # Don't fail - try to continue with Debian's own ROCm packages
+        return 0
+    fi
+    rm -f "$apt_log"
+    
+    success "ROCm repository configured successfully"
+    return 0
 }
 
 # Check if Python package is installed in a venv
@@ -839,9 +899,23 @@ EOF
     if [[ "$backend_choice" == "2" ]] || [[ "$backend_choice" == "3" ]]; then
         # Install ROCm (if available)
         info "Installing ROCm for AMD GPU acceleration..."
-        # Try to install ROCm packages if available
+        
+        # Setup ROCm repository if not already installed
         if ! check_rocm_installed_debian; then
-            apt install -y rocm-opencl-runtime rocblas miopen-hip || warning "ROCm packages not available in default repositories. Consider adding AMD ROCm repository."
+            # First, try to setup AMD's official ROCm repository
+            setup_rocm_repo_debian || warning "Failed to setup AMD ROCm repository, will try Debian default repos"
+            
+            # Try to install ROCm packages (from AMD repo if added, otherwise from Debian repos)
+            local rocm_log
+            rocm_log=$(mktemp)
+            if ! apt install -y rocm-opencl-runtime rocblas miopen-hip 2>&1 | tee "$rocm_log"; then
+                warning "ROCm packages not available from repositories"
+                if grep -qi "unable to locate package" "$rocm_log"; then
+                    info "Note: Debian Trixie may have ROCm packages in testing/unstable repos"
+                fi
+                info "Manual installation: https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/install-methods/package-manager/package-manager-debian.html"
+            fi
+            rm -f "$rocm_log"
         fi
         
         # Install MIOpen precompiled kernels if available

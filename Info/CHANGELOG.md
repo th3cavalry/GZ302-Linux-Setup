@@ -5,6 +5,46 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.8] - 2025-12-02
+
+### Added
+- **CachyOS-specific optimizations**: Automatic detection and tailored recommendations for CachyOS users
+  - Information about BORE scheduler benefits (better gaming/interactive performance)
+  - Guidance on x86-64-v3/v4 optimized packages (5-20% performance boost)
+  - LTO/PGO optimization awareness
+  - Kernel selection recommendations (linux-cachyos-bore, linux-cachyos-rt-bore, linux-cachyos-lts)
+- **Distribution-specific optimization info**: New `provide_distro_optimization_info()` function provides:
+  - AMD P-State mode recommendations (guided vs active)
+  - Performance tuning guidance for all distributions
+  - Trade-off explanations between power efficiency and predictable performance
+- **ROCm repository setup for Debian/Debian Trixie**: Automatic AMD ROCm repository configuration
+  - `setup_rocm_repo_debian()` function adds AMD's official ROCm 6.2 repository
+  - Fallback to Debian's own ROCm packages if AMD repos unavailable
+  - Better error handling and logging for repository setup
+
+### Changed
+- **Debian Trixie compatibility**: Removed `software-properties-common` dependency
+  - Package no longer available in Debian 13 (Trixie/testing)
+  - Updated warning messages to reflect Debian Trixie changes
+  - Build from source now primary method for asusctl on Debian Trixie
+- **Improved error handling**: 
+  - Use apt exit codes instead of grep for error detection
+  - Temporary log files for better diagnostics
+  - More robust shell command examples with proper error handling
+
+### Fixed
+- **Debian Trixie package installation**: Script now works on Debian 13/testing
+- **ROCm installation on Debian**: Clearer messaging and better fallback handling
+- **Code quality**: Addressed code review feedback for more robust error detection
+
+### Technical Details
+Research-backed optimizations from:
+- CachyOS wiki and documentation (performance benchmarks showing 5-20% improvement)
+- Phoronix benchmarks of CachyOS vs standard Arch on Strix Halo hardware
+- AMD P-State driver documentation and community testing
+- Debian Trixie package repository changes and ROCm availability
+- AMD ROCm official documentation for Debian installation
+
 ## [2.3.0] - 2025-11-30
 
 ### Changed
