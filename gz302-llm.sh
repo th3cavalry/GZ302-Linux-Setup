@@ -225,13 +225,17 @@ EOF
     
     # Update apt cache with new repository
     info "Updating package cache..."
-    if apt update 2>&1 | grep -q "^E:"; then
+    local apt_log
+    apt_log=$(mktemp)
+    if ! apt update 2>&1 | tee "$apt_log"; then
         warning "apt update encountered errors with ROCm repository"
         info "ROCm packages may not be available from AMD repos for this Debian version"
         info "Will attempt to use packages from default Debian repositories"
+        rm -f "$apt_log"
         # Don't fail - try to continue with Debian's own ROCm packages
         return 0
     fi
+    rm -f "$apt_log"
     
     success "ROCm repository configured successfully"
     return 0
@@ -902,11 +906,16 @@ EOF
             setup_rocm_repo_debian || warning "Failed to setup AMD ROCm repository, will try Debian default repos"
             
             # Try to install ROCm packages (from AMD repo if added, otherwise from Debian repos)
-            if ! apt install -y rocm-opencl-runtime rocblas miopen-hip 2>/dev/null; then
+            local rocm_log
+            rocm_log=$(mktemp)
+            if ! apt install -y rocm-opencl-runtime rocblas miopen-hip 2>&1 | tee "$rocm_log"; then
                 warning "ROCm packages not available from repositories"
-                info "Note: Debian Trixie may have ROCm packages in testing/unstable repos"
+                if grep -qi "unable to locate package" "$rocm_log"; then
+                    info "Note: Debian Trixie may have ROCm packages in testing/unstable repos"
+                fi
                 info "Manual installation: https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/install-methods/package-manager/package-manager-debian.html"
             fi
+            rm -f "$rocm_log"
         fi
         
         # Install MIOpen precompiled kernels if available
