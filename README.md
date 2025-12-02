@@ -145,6 +145,25 @@ gz302-rgb brightness 50     # Set brightness to 50%
 
 The AI module provides a complete local LLM inference stack optimized for Strix Halo. This section covers backend selection, frontend options, Python 3.11 setup, and kernel optimization.
 
+### CachyOS Optimized Installation (Recommended)
+
+If you're running **CachyOS**, the script automatically uses optimized packages from CachyOS repositories:
+
+```bash
+# CachyOS automatically installs these znver4-optimized packages:
+sudo pacman -S ollama-rocm           # Ollama with ROCm for AMD GPUs
+sudo pacman -S python-pytorch-opt-rocm  # PyTorch with ROCm + AVX2
+
+# Optional: Install Open WebUI from AUR
+yay -S open-webui
+```
+
+**CachyOS LLM advantages:**
+- **znver4 optimizations**: Packages compiled specifically for Zen 4/5 (like your Ryzen AI MAX+ 395)
+- **5-20% faster inference** from optimized builds vs generic x86-64
+- **ollama-rocm**: Pre-built with ROCm support for AMD Radeon 8060S
+- **No virtualenv needed**: System PyTorch package works out of the box
+
 ### Backend Options
 
 When you run the AI module, you'll be prompted to choose an inference backend:

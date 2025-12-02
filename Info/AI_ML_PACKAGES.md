@@ -148,6 +148,51 @@ pip install .
 
 ## Distribution-Specific Implementation
 
+### CachyOS (Recommended for Maximum Performance)
+
+**Why CachyOS for AI/ML workloads:**
+- Packages compiled with **znver4 optimizations** (Zen 4/5 specific)
+- **5-20% performance improvement** over generic x86-64 packages
+- **LTO/PGO optimizations** on core packages
+- **BORE scheduler** in linux-cachyos kernel for better interactive response
+
+**Optimized AI/ML Packages:**
+
+| Package | Description |
+|---------|-------------|
+| `ollama-rocm` | Ollama with ROCm support for AMD GPUs |
+| `python-pytorch-opt-rocm` | PyTorch with ROCm + AVX2 optimizations |
+| `rocm-ml-sdk` | Full ROCm ML development stack |
+| `rocm-hip-runtime` | HIP runtime (znver4 compiled) |
+| `miopen-hip` | AMD deep learning primitives |
+
+**Installation:**
+```bash
+# Install Ollama with ROCm (automatic GPU detection)
+sudo pacman -S ollama-rocm
+
+# Install optimized PyTorch
+sudo pacman -S python-pytorch-opt-rocm
+
+# Install Open WebUI (from AUR)
+yay -S open-webui  # or paru -S open-webui
+
+# Full ROCm ML stack (optional, for custom development)
+sudo pacman -S rocm-ml-sdk
+```
+
+**Verify Installation:**
+```bash
+# Start Ollama service
+sudo systemctl enable --now ollama
+ollama pull llama3.2
+
+# Verify PyTorch ROCm
+python -c 'import torch; print(f"ROCm: {torch.cuda.is_available()}, Device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"N/A\"}")'
+```
+
+**Reference:** https://wiki.cachyos.org/features/optimized_repos/
+
 ### Arch Linux
 **Advantages**:
 - Latest ROCm packages in repositories

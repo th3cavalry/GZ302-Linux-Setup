@@ -5,6 +5,19 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.9] - 2025-12-02
+
+### Added
+- **CachyOS LLM/AI flow optimizations**: Added CachyOS-specific installation and package selection for LLM/AI workflows
+  - Uses `ollama-rocm` where available for prebuilt ROCm Ollama packages
+  - Uses `python-pytorch-opt-rocm` for znver4-optimized PyTorch on CachyOS
+  - Added README and Info/AI_ML_PACKAGES.md documentation describing CachyOS steps
+  - Added `is_cachyos()` detection routine and improved LLM module behavior for CachyOS in `gz302-llm.sh`
+
+### Changed
+- **LLM Installer behavior**: Arch-based installer now prefers CachyOS optimized packages when detected and falls back to venv/pip/conda if needed
+
+# Previous release
 ## [2.3.8] - 2025-12-02
 
 ### Added

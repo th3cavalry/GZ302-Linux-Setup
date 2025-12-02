@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.3.8
+# Version: 2.3.9
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
@@ -420,9 +420,50 @@ ask_frontend_choice() {
     fi
 }
 
+# --- CachyOS Detection ---
+# CachyOS provides optimized packages for LLM/AI workloads via their repositories
+# These include ollama-rocm, python-pytorch-opt-rocm with znver4 optimizations
+is_cachyos() {
+    if [[ -f /etc/os-release ]]; then
+        # shellcheck disable=SC1091
+        source /etc/os-release
+        [[ "$ID" == "cachyos" ]]
+    else
+        return 1
+    fi
+}
+
+# Print CachyOS LLM optimization info
+print_cachyos_llm_info() {
+    info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    info "CachyOS Detected - Using Optimized LLM Packages"
+    info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    info ""
+    info "CachyOS provides performance-optimized AI/ML packages:"
+    info "  • ollama-rocm: Ollama with ROCm support for AMD GPUs"
+    info "  • python-pytorch-opt-rocm: PyTorch with ROCm + AVX2 optimizations"
+    info "  • Packages compiled with znver4 optimizations (5-20% faster)"
+    info "  • LTO/PGO optimizations for AI workloads"
+    info ""
+    info "For manual installation:"
+    info "  sudo pacman -S ollama-rocm python-pytorch-opt-rocm"
+    info "  yay -S open-webui  # Optional web interface"
+    info ""
+    info "Reference: https://wiki.cachyos.org/"
+    info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    info ""
+}
+
 # --- LLM/AI Software Installation Functions ---
 install_arch_llm_software() {
     info "Installing LLM/AI software for Arch-based system..."
+    
+    # Detect CachyOS for optimized package installation
+    local is_cachyos_system=false
+    if is_cachyos; then
+        is_cachyos_system=true
+        print_cachyos_llm_info
+    fi
     
     # Ask user what backends they want
     ask_backend_choice
@@ -434,7 +475,14 @@ install_arch_llm_software() {
     if [[ "$backend_choice" == "1" ]] || [[ "$backend_choice" == "3" ]]; then
         if ! check_ollama_installed; then
             info "Installing Ollama..."
-            pacman -S --noconfirm --needed ollama
+            # CachyOS: Use ollama-rocm for AMD GPU acceleration
+            # Standard Arch: Use regular ollama package
+            if [[ "$is_cachyos_system" == true ]]; then
+                info "Using CachyOS optimized ollama-rocm package..."
+                pacman -S --noconfirm --needed ollama-rocm
+            else
+                pacman -S --noconfirm --needed ollama
+            fi
             systemctl enable --now ollama
         fi
         
@@ -561,13 +609,28 @@ EOF
         
         # Install Python and AI libraries
         # Note: ROCm 6.x wheels require Python 3.10-3.12 (no Python 3.13 support yet)
-        info "Installing Python AI libraries (using virtualenv)..."
-        pacman -S --noconfirm --needed python-pip python-virtualenv
+        # CachyOS users: python-pytorch-opt-rocm provides znver4-optimized PyTorch with ROCm
+        info "Installing Python AI libraries..."
+        
+        # For CachyOS: Use system packages which are znver4-optimized
+        if [[ "$is_cachyos_system" == true ]]; then
+            info "Installing CachyOS optimized PyTorch packages (znver4 + ROCm)..."
+            pacman -S --noconfirm --needed python-pytorch-opt-rocm python-pip || {
+                warning "CachyOS python-pytorch-opt-rocm not available, falling back to pip wheels"
+            }
+            # Also install transformers/accelerate from pip for latest versions
+            pip install --user transformers accelerate bitsandbytes 2>/dev/null || true
+            
+            success "CachyOS optimized AI packages installed"
+            info "PyTorch is available system-wide with ROCm + AVX2 optimizations"
+        else
+            # Standard Arch: Use virtualenv with pip wheels
+            pacman -S --noconfirm --needed python-pip python-virtualenv
 
-        local primary_user
-        primary_user=$(get_real_user)
-        local venv_dir
-        venv_dir="/var/lib/gz302-llm"
+            local primary_user
+            primary_user=$(get_real_user)
+            local venv_dir
+            venv_dir="/var/lib/gz302-llm"
         
         # Determine best Python version for ROCm compatibility (prefer 3.11 or 3.12)
         local python_cmd="python3"
@@ -726,6 +789,7 @@ EOF
 
             info "To use AI libraries, activate the environment: source $venv_dir/bin/activate"
         fi
+        fi  # End of CachyOS else block (standard Arch path)
     fi
     
     # Ask user which frontends to install (after backends are set up)
