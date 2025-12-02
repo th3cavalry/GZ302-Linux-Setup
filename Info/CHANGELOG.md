@@ -5,6 +5,19 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.10] - 2025-12-02
+
+### Added
+- **Limine bootloader support** (Fixes #134): Automatic kernel parameter configuration for Limine bootloader
+  - Added `ensure_limine_kernel_param()` helper function to `gz302-utils.sh`
+  - Added Limine detection in `detect_bootloader()` function
+  - Kernel parameters (amd_pstate, amdgpu options, sleep settings) now auto-configured for Limine
+  - Automatic regeneration via `limine-mkinitcpio` or `limine-mkconfig` when changes are made
+  - Popular on CachyOS and other Arch-based distributions
+
+### Changed
+- **Version sync**: Updated gz302-utils.sh version to match main script (2.3.10)
+
 ## [2.3.9] - 2025-12-02
 
 ### Added

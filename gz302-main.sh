@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.3.9
+# Version: 2.3.10
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -292,6 +292,33 @@ apply_hardware_fixes() {
         shopt -u nullglob
         if [[ "$loader_changed" == true ]] && command -v bootctl >/dev/null 2>&1; then
             bootctl update || true
+        fi
+    fi
+
+    # Limine bootloader support (/etc/default/limine)
+    # Popular on CachyOS and other Arch-based distros
+    if [[ -f /etc/default/limine ]]; then
+        local limine_changed=false
+        info "Limine bootloader detected, configuring kernel parameters..."
+        ensure_limine_kernel_param "amd_pstate=guided" && limine_changed=true || true
+        ensure_limine_kernel_param "amdgpu.ppfeaturemask=0xffffffff" && limine_changed=true || true
+        ensure_limine_kernel_param "amdgpu.sg_display=0" && limine_changed=true || true
+        ensure_limine_kernel_param "amdgpu.dcdebugmask=0x10" && limine_changed=true || true
+        ensure_limine_kernel_param "mem_sleep_default=deep" && limine_changed=true || true
+        ensure_limine_kernel_param 'acpi_osi="Windows 2022"' && limine_changed=true || true
+
+        # Regenerate Limine entries if changes were made
+        if [[ "$limine_changed" == true ]]; then
+            if command -v limine-mkinitcpio >/dev/null 2>&1; then
+                info "Regenerating Limine boot entries..."
+                limine-mkinitcpio || true
+            elif command -v limine-mkconfig >/dev/null 2>&1; then
+                info "Regenerating Limine configuration..."
+                limine-mkconfig -o /boot/limine.conf || true
+            else
+                warning "Limine config modified but no regeneration tool found."
+                warning "Please run 'limine-mkinitcpio' or equivalent manually."
+            fi
         fi
     fi
     

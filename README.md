@@ -233,7 +233,7 @@ amd_iommu=off              # Disables IOMMU for lower latency GPU memory access
 amdgpu.gttsize=131072      # Sets GTT size to 128MB for larger unified memory pools
 ```
 
-These are automatically configured when installing the LLM/AI software module. The script detects your boot loader (GRUB, systemd-boot, etc.) and configures the appropriate configuration files. To verify: `cat /proc/cmdline`
+These are automatically configured when installing the LLM/AI software module. The script detects your boot loader (GRUB, systemd-boot, Limine, rEFInd, syslinux) and configures the appropriate configuration files. To verify: `cat /proc/cmdline`
 
 **Note:** The `ttm.pages_limit` parameter mentioned in some documentation is not a valid kernel parameter and has been removed.
 

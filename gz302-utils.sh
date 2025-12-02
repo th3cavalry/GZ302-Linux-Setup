@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 Shared Utilities Library
-# Version: 2.3.3
+# Version: 2.3.10
 #
 # This library contains shared functions for the GZ302 Linux Setup scripts.
 # It is sourced by gz302-main.sh and all optional modules.
@@ -81,6 +81,8 @@ detect_bootloader() {
         echo "systemd-boot"
     elif [[ -f "/boot/grub/grub.cfg" ]] || [[ -f "/boot/grub2/grub.cfg" ]]; then
         echo "grub"
+    elif [[ -f "/etc/default/limine" ]] || [[ -f "/boot/limine.conf" ]]; then
+        echo "limine"
     elif [[ -f "/boot/refind_linux.conf" ]]; then
         echo "refind"
     elif [[ -f "/boot/syslinux/syslinux.cfg" ]]; then
@@ -208,4 +210,42 @@ ensure_syslinux_kernel_param() {
     else
         return 2
     fi
+}
+
+# Configure kernel parameters for Limine bootloader
+# Limine uses /etc/default/limine with KERNEL_CMDLINE[default]+="params"
+# Changes require running 'limine-mkinitcpio' to regenerate entries
+# Returns 0 if a change was made, 1 if no change was needed, 2 if config not found.
+ensure_limine_kernel_param() {
+    local param="$1"
+    local limine_conf="/etc/default/limine"
+
+    if [[ ! -f "$limine_conf" ]]; then
+        return 2
+    fi
+
+    # Check if parameter already exists in any KERNEL_CMDLINE line
+    if grep -q -- "$param" "$limine_conf"; then
+        return 1
+    fi
+
+    # Escape special characters for sed
+    local escaped
+    escaped=$(printf '%s' "$param" | sed -e 's/[&/]/\\&/g')
+
+    # Check if KERNEL_CMDLINE[default] line exists
+    if grep -qE '^KERNEL_CMDLINE\[default\]' "$limine_conf"; then
+        # Append to existing KERNEL_CMDLINE[default] line
+        # Handle both += and = formats
+        if grep -qE '^KERNEL_CMDLINE\[default\]\+?="[^"]*"' "$limine_conf"; then
+            sed -i "s/^\(KERNEL_CMDLINE\[default\]\+\?=\"[^\"]*\)\"$/\1 ${escaped}\"/" "$limine_conf"
+            return 0
+        fi
+    else
+        # Add new KERNEL_CMDLINE[default] line at the end
+        echo "KERNEL_CMDLINE[default]+=\"$param\"" >> "$limine_conf"
+        return 0
+    fi
+
+    return 1
 }
