@@ -515,6 +515,96 @@ EOF
     success "Hardware fixes applied"
 }
 
+# --- Distribution-Specific Optimizations Info ---
+# Provides information about distribution-specific optimizations for Strix Halo
+provide_distro_optimization_info() {
+    local distro="$1"
+    
+    # Detect specific distribution ID for CachyOS
+    local distro_id=""
+    if [[ -f /etc/os-release ]]; then
+        # shellcheck disable=SC1091
+        source /etc/os-release
+        distro_id="$ID"
+    fi
+    
+    # CachyOS-specific optimizations
+    if [[ "$distro_id" == "cachyos" ]]; then
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info "CachyOS Detected - Performance Optimizations Available"
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info ""
+        info "CachyOS provides excellent out-of-the-box performance for Strix Halo:"
+        info ""
+        info "✓ Optimized kernel with BORE scheduler (better gaming/interactive performance)"
+        info "✓ Packages compiled with x86-64-v3/v4 optimizations (5-20% performance boost)"
+        info "✓ LTO/PGO optimizations for better binary performance"
+        info "✓ AMD P-State driver enhancements built-in"
+        info ""
+        info "Additional Optimizations Available:"
+        info "1. Consider using 'amd_pstate=active' for better battery life:"
+        info "   - Edit /etc/default/grub and change amd_pstate=guided to amd_pstate=active"
+        info "   - Run: grub-mkconfig -o /boot/grub/grub.cfg"
+        info "   - Active mode lets hardware autonomously choose optimal frequencies"
+        info ""
+        info "2. Use CachyOS kernel manager to select optimized kernel:"
+        info "   - linux-cachyos-bore (recommended for gaming/desktop)"
+        info "   - linux-cachyos-rt-bore (for real-time workloads)"
+        info "   - linux-cachyos-lts (for stability)"
+        info ""
+        info "3. Performance tuning via /sys/devices/system/cpu/amd_pstate/:"
+        info "   - echo 'performance' > /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"
+        info "   - Or use 'powersave' governor with energy_performance_preference"
+        info ""
+        info "Reference: https://wiki.cachyos.org/configuration/general_system_tweaks/"
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info ""
+    fi
+    
+    # General AMD P-State information for all Arch-based distributions
+    if [[ "$distro" == "arch" ]] && [[ "$distro_id" != "cachyos" ]]; then
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info "Arch Linux Performance Tuning for Strix Halo"
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info ""
+        info "AMD P-State Mode: Currently using 'guided' (good for consistent performance)"
+        info ""
+        info "Alternative: Switch to 'active' mode for better battery life:"
+        info "  1. Edit /etc/default/grub"
+        info "  2. Change: amd_pstate=guided → amd_pstate=active"
+        info "  3. Run: grub-mkconfig -o /boot/grub/grub.cfg"
+        info "  4. Reboot"
+        info ""
+        info "Active mode pros: Better power efficiency, hardware makes smart decisions"
+        info "Guided mode pros: More predictable performance, better for gaming/heavy loads"
+        info ""
+        info "Performance tip: Install CachyOS repositories for optimized packages:"
+        info "  - 5-20% performance improvement from x86-64-v3/v4 optimized builds"
+        info "  - https://wiki.cachyos.org/features/optimized_repos/"
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info ""
+    fi
+    
+    # Information for other distributions
+    if [[ "$distro" != "arch" ]]; then
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info "AMD P-State Driver Information"
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info ""
+        info "Current mode: 'guided' (balanced performance and power efficiency)"
+        info ""
+        info "For better battery life, consider switching to 'active' mode:"
+        info "  - Hardware autonomously manages frequencies based on workload"
+        info "  - Better power efficiency with good performance"
+        info ""
+        info "To switch modes, edit your bootloader configuration and change:"
+        info "  amd_pstate=guided → amd_pstate=active"
+        info ""
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info ""
+    fi
+}
+
 
 # --- Sound Open Firmware (SOF) Configuration ---
 install_sof_firmware() {
@@ -3149,6 +3239,9 @@ EOFYAY
     # Apply hardware fixes
     apply_hardware_fixes
     
+    # Provide distribution-specific optimization information
+    provide_distro_optimization_info "$distro"
+    
     # Install ASUS-specific packages (asusctl, power-profiles-daemon, switcheroo-control)
     install_arch_asus_packages
     
@@ -3179,6 +3272,9 @@ setup_debian_based() {
     # Apply hardware fixes
     apply_hardware_fixes
     
+    # Provide distribution-specific optimization information
+    provide_distro_optimization_info "$distro"
+    
     # Install ASUS-specific packages
     install_debian_asus_packages
     
@@ -3206,6 +3302,9 @@ setup_fedora_based() {
     
     # Apply hardware fixes
     apply_hardware_fixes
+    
+    # Provide distribution-specific optimization information
+    provide_distro_optimization_info "$distro"
     
     # Install ASUS-specific packages
     install_fedora_asus_packages
@@ -3235,6 +3334,9 @@ setup_opensuse() {
     
     # Apply hardware fixes
     apply_hardware_fixes
+    
+    # Provide distribution-specific optimization information
+    provide_distro_optimization_info "$distro"
     
     # Install ASUS-specific packages
     install_opensuse_asus_packages
