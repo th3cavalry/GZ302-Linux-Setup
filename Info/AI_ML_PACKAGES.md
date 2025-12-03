@@ -193,6 +193,145 @@ python -c 'import torch; print(f"ROCm: {torch.cuda.is_available()}, Device: {tor
 
 **Reference:** https://wiki.cachyos.org/features/optimized_repos/
 
+---
+
+## Open WebUI Installation (Recommended Frontend)
+
+Open WebUI is a modern, feature-rich web interface for LLM interaction. It supports multiple backends including Ollama, llama.cpp, OpenAI API, and more.
+
+### Docker Installation (Easiest Method)
+
+**Basic Installation (connects to existing backends):**
+```bash
+# Pull and run Open WebUI
+docker run -d \
+  -p 3000:8080 \
+  --add-host=host.docker.internal:host-gateway \
+  -v open-webui:/app/backend/data \
+  --name open-webui \
+  --restart always \
+  ghcr.io/open-webui/open-webui:main
+
+# Access at http://localhost:3000
+```
+
+**With Ollama on same machine:**
+```bash
+docker run -d \
+  -p 3000:8080 \
+  --add-host=host.docker.internal:host-gateway \
+  -v open-webui:/app/backend/data \
+  --name open-webui \
+  --restart always \
+  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
+  ghcr.io/open-webui/open-webui:main
+```
+
+**With llama.cpp server:**
+```bash
+docker run -d \
+  -p 3000:8080 \
+  --add-host=host.docker.internal:host-gateway \
+  -v open-webui:/app/backend/data \
+  --name open-webui \
+  --restart always \
+  -e OPENAI_API_BASE_URL=http://host.docker.internal:8080/v1 \
+  -e OPENAI_API_KEY=sk-no-key-required \
+  ghcr.io/open-webui/open-webui:main
+```
+
+**Bundled with Ollama (all-in-one):**
+```bash
+# CPU only
+docker run -d -p 3000:8080 \
+  -v ollama:/root/.ollama \
+  -v open-webui:/app/backend/data \
+  --name open-webui \
+  --restart always \
+  ghcr.io/open-webui/open-webui:ollama
+
+# With AMD GPU (ROCm)
+docker run -d -p 3000:8080 \
+  --device=/dev/kfd --device=/dev/dri \
+  -v ollama:/root/.ollama \
+  -v open-webui:/app/backend/data \
+  --name open-webui \
+  --restart always \
+  -e HSA_OVERRIDE_GFX_VERSION=11.0.0 \
+  ghcr.io/open-webui/open-webui:ollama
+```
+
+### Docker Compose (AMD GPU with Ollama)
+
+Create `docker-compose.yml`:
+```yaml
+services:
+  ollama:
+    image: ollama/ollama:rocm
+    container_name: ollama
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    environment:
+      - HSA_OVERRIDE_GFX_VERSION=11.0.0
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    ports:
+      - "3000:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      - open-webui:/app/backend/data
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  ollama:
+  open-webui:
+```
+
+Run with: `docker compose up -d`
+
+### Management Commands
+
+```bash
+# Update Open WebUI
+docker pull ghcr.io/open-webui/open-webui:main
+docker stop open-webui && docker rm open-webui
+# Re-run the docker run command
+
+# Auto-update with Watchtower
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+  containrrr/watchtower --run-once open-webui
+
+# View logs
+docker logs -f open-webui
+
+# Stop/Start
+docker stop open-webui
+docker start open-webui
+```
+
+### Key Features
+- **Multi-backend support**: Ollama, OpenAI API, llama.cpp, Azure, etc.
+- **Model management**: Download/delete Ollama models from UI
+- **RAG support**: Upload documents for context-aware responses
+- **User management**: Multi-user with roles and permissions
+- **Persistent data**: Conversations saved across restarts
+
+### Notes
+- First user to register becomes admin
+- Configure additional backends in Admin Settings > Connections
+- Data persists in Docker volumes (`open-webui` and `ollama`)
+
+---
+
 ### Arch Linux
 **Advantages**:
 - Latest ROCm packages in repositories

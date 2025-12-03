@@ -14,9 +14,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Kernel parameters (amd_pstate, amdgpu options, sleep settings) now auto-configured for Limine
   - Automatic regeneration via `limine-mkinitcpio` or `limine-mkconfig` when changes are made
   - Popular on CachyOS and other Arch-based distributions
+  - Added Limine support to `gz302-llm.sh` kernel parameter configuration
 
 ### Changed
-- **Version sync**: Updated gz302-utils.sh version to match main script (2.3.10)
+- **Open WebUI installation**: Now a user choice (frontend option 4), not auto-installed with Ollama
+  - Open WebUI can work independently with various backends (Ollama, llama.cpp, OpenAI API)
+  - Auto-detects available backends (Ollama on :11434, llama.cpp on :8080) when installing
+  - Users can configure additional backends in Open WebUI Settings after installation
+- **Improved `setup_openwebui_docker()`**: Smarter backend detection and configuration
+- **Documentation**: Added comprehensive Open WebUI Docker installation guide to `Info/AI_ML_PACKAGES.md`
+  - Docker run examples for different configurations
+  - Docker Compose setup with AMD GPU (ROCm) support
+  - Management commands (update, logs, Watchtower)
+- **Version sync**: Updated gz302-utils.sh and gz302-llm.sh versions to match main script (2.3.10)
+
+### Fixed
+- **Limine regex edge cases**: Improved `ensure_limine_kernel_param()` to handle various config formats
 
 ## [2.3.9] - 2025-12-02
 

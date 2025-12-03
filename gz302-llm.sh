@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.3.9
+# Version: 2.3.10
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
@@ -121,6 +121,23 @@ configure_llm_kernel_params() {
                 ensure_syslinux_kernel_param "$param" || true
             done
             success "Added kernel parameters to syslinux configuration"
+            ;;
+        "limine")
+            for param in "${params[@]}"; do
+                ensure_limine_kernel_param "$param" || true
+            done
+            # Regenerate Limine entries if changes were made
+            if command -v limine-mkinitcpio >/dev/null 2>&1; then
+                info "Regenerating Limine boot entries..."
+                limine-mkinitcpio || true
+            elif command -v limine-mkconfig >/dev/null 2>&1; then
+                info "Regenerating Limine configuration..."
+                limine-mkconfig -o /boot/limine.conf || true
+            else
+                warning "Limine config modified but no regeneration tool found."
+                warning "Please run 'limine-mkinitcpio' or equivalent manually."
+            fi
+            success "Added kernel parameters to Limine configuration"
             ;;
         "unknown")
             warning "Unable to detect boot loader. Kernel parameters not configured."
@@ -284,7 +301,8 @@ check_llamacpp_installed() {
 }
 
 # Setup Open WebUI using Docker
-# Open WebUI can work with various backends, not just Ollama
+# Open WebUI can work with various backends: Ollama, llama.cpp, OpenAI API, etc.
+# This function auto-detects which backend is available and configures accordingly
 setup_openwebui_docker() {
     local user="$1"
     local distro="$2"
@@ -320,7 +338,7 @@ setup_openwebui_docker() {
     
     if ! command -v docker >/dev/null 2>&1; then
         warning "Docker not available, cannot install Open WebUI. Please install Docker first."
-        return
+        return 1
     fi
 
     # Ensure docker service is running
@@ -328,9 +346,6 @@ setup_openwebui_docker() {
         systemctl start docker
     fi
     
-    # Pull and run Open WebUI container
-    # Maps host port 3000 to container port 8080
-    # Uses host.docker.internal to access llama-server on host:8080
     info "Pulling and starting Open WebUI container..."
     
     # Stop existing container if it exists
@@ -340,27 +355,52 @@ setup_openwebui_docker() {
         docker rm open-webui >/dev/null 2>&1 || true
     fi
 
-    # Run container
-    # -d: Detached mode
-    # -p 3000:8080: Map host port 3000 to container port 8080
-    # --add-host=host.docker.internal:host-gateway: Allow access to host services
-    # -v open-webui:/app/backend/data: Persist data
-    # --name open-webui: Container name
-    # --restart always: Auto-restart on boot
-    # -e OPENAI_API_BASE_URL=...: Point to llama-server on host
-    docker run -d \
-        -p 3000:8080 \
-        --add-host=host.docker.internal:host-gateway \
-        -v open-webui:/app/backend/data \
-        --name open-webui \
-        --restart always \
-        -e OPENAI_API_BASE_URL=http://host.docker.internal:8080/v1 \
-        -e OPENAI_API_KEY=sk-no-key-required \
-        ghcr.io/open-webui/open-webui:main
+    # Detect which backend is available and configure Open WebUI accordingly
+    local docker_args=()
+    docker_args+=(-d)
+    docker_args+=(-p 3000:8080)
+    docker_args+=(--add-host=host.docker.internal:host-gateway)
+    docker_args+=(-v open-webui:/app/backend/data)
+    docker_args+=(--name open-webui)
+    docker_args+=(--restart always)
+    
+    local backend_info=""
+    
+    # Check for Ollama (runs on port 11434 by default)
+    if command -v ollama >/dev/null 2>&1 || systemctl is-active --quiet ollama 2>/dev/null; then
+        info "Detected Ollama - configuring Open WebUI to connect to Ollama"
+        docker_args+=(-e OLLAMA_BASE_URL=http://host.docker.internal:11434)
+        backend_info="Ollama at http://localhost:11434"
+    fi
+    
+    # Check for llama.cpp server (runs on port 8080 by default)
+    if [[ -x "/usr/local/bin/llama-server" ]] || systemctl is-active --quiet llama-server 2>/dev/null; then
+        info "Detected llama.cpp - configuring Open WebUI to connect to llama-server"
+        docker_args+=(-e OPENAI_API_BASE_URL=http://host.docker.internal:8080/v1)
+        docker_args+=(-e OPENAI_API_KEY=sk-no-key-required)
+        if [[ -n "$backend_info" ]]; then
+            backend_info="$backend_info and llama.cpp at http://localhost:8080"
+        else
+            backend_info="llama.cpp at http://localhost:8080"
+        fi
+    fi
+    
+    # If no backend detected, just start Open WebUI - user can configure later
+    if [[ -z "$backend_info" ]]; then
+        info "No local LLM backend detected - Open WebUI will start without pre-configured backend"
+        info "You can configure backends (Ollama, OpenAI API, etc.) in Open WebUI settings"
+        backend_info="No backend pre-configured (configure in Settings)"
+    fi
+    
+    # Run the container
+    docker run "${docker_args[@]}" ghcr.io/open-webui/open-webui:main
     
     success "Open WebUI installed and started via Docker"
     info "Open WebUI is running on http://localhost:3000"
-    info "It is configured to connect to llama-server at http://localhost:8080"
+    info "Backend: $backend_info"
+    info ""
+    info "First user to sign up becomes admin. You can configure additional"
+    info "backends (Ollama, OpenAI, etc.) in Admin Settings > Connections."
 }
 
 # Ask user which LLM backends to install
@@ -485,11 +525,8 @@ install_arch_llm_software() {
             fi
             systemctl enable --now ollama
         fi
-        
-        # Setup Open WebUI with uv (can work with various backends)
-        local primary_user
-        primary_user=$(get_real_user)
-        setup_openwebui_docker "$primary_user" "arch"
+        # Note: Open WebUI is installed separately via frontend selection (option 4)
+        # It can work with Ollama, llama.cpp, or remote APIs
     fi
     
     # Install llama.cpp with ROCm support if requested

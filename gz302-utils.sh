@@ -229,23 +229,22 @@ ensure_limine_kernel_param() {
         return 1
     fi
 
-    # Escape special characters for sed
+    # Escape special characters for sed (& / and also escape for shell)
     local escaped
-    escaped=$(printf '%s' "$param" | sed -e 's/[&/]/\\&/g')
+    escaped=$(printf '%s' "$param" | sed -e 's/[&/\]/\\&/g')
 
-    # Check if KERNEL_CMDLINE[default] line exists
-    if grep -qE '^KERNEL_CMDLINE\[default\]' "$limine_conf"; then
-        # Append to existing KERNEL_CMDLINE[default] line
-        # Handle both += and = formats
-        if grep -qE '^KERNEL_CMDLINE\[default\]\+?="[^"]*"' "$limine_conf"; then
-            sed -i "s/^\(KERNEL_CMDLINE\[default\]\+\?=\"[^\"]*\)\"$/\1 ${escaped}\"/" "$limine_conf"
-            return 0
-        fi
+    # Check if KERNEL_CMDLINE[default] line exists with quotes
+    if grep -qE '^KERNEL_CMDLINE\[default\]\+?="[^"]*"' "$limine_conf"; then
+        # Append to existing KERNEL_CMDLINE[default] line (handles both = and +=)
+        sed -i 's/^\(KERNEL_CMDLINE\[default\]\+\?="[^"]*\)"$/\1 '"${escaped}"'"/' "$limine_conf"
+        return 0
+    elif grep -qE '^KERNEL_CMDLINE\[default\]' "$limine_conf"; then
+        # Line exists but in different format - append new line instead
+        echo "KERNEL_CMDLINE[default]+=\"$param\"" >> "$limine_conf"
+        return 0
     else
         # Add new KERNEL_CMDLINE[default] line at the end
         echo "KERNEL_CMDLINE[default]+=\"$param\"" >> "$limine_conf"
         return 0
     fi
-
-    return 1
 }
