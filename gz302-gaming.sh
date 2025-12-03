@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 Gaming Software Module
-# Version: 2.3.3
+# Version: 2.3.10
 #
 # This module installs gaming software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Steam, Lutris, MangoHUD, GameMode, Wine, and performance tools
@@ -61,6 +61,13 @@ install_arch_gaming_software() {
         info "Enabling multilib repository..."
         echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" >> /etc/pacman.conf
         pacman -Sy
+    fi
+    
+    # Remove conflicting jack2 package if present (conflicts with pipewire-jack)
+    # wine-staging depends on jack, but pipewire-jack provides it
+    if pacman -Q jack2 >/dev/null 2>&1; then
+        info "Removing jack2 (conflicts with pipewire-jack)..."
+        pacman -R --noconfirm jack2 || true
     fi
     
     # Install core gaming applications

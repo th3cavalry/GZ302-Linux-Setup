@@ -26,10 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Docker run examples for different configurations
   - Docker Compose setup with AMD GPU (ROCm) support
   - Management commands (update, logs, Watchtower)
-- **Version sync**: Updated gz302-utils.sh and gz302-llm.sh versions to match main script (2.3.10)
+- **Version sync**: Updated gz302-utils.sh, gz302-llm.sh, and gz302-gaming.sh versions to match main script (2.3.10)
 
 ### Fixed
 - **Limine regex edge cases**: Improved `ensure_limine_kernel_param()` to handle various config formats
+- **Gaming module jack2/pipewire-jack conflict** (Fixes #?): Automatically removes conflicting jack2 package
+  - wine-staging depends on jack interface, but pipewire-jack provides it
+  - Script now removes jack2 if present before installing pipewire-jack
+  - Prevents "conflicting dependencies" error during gaming module installation
 
 ## [2.3.9] - 2025-12-02
 
