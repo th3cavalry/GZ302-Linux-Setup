@@ -3249,10 +3249,10 @@ setup_arch_based() {
     # Step 1: Update system
     print_step 1 7 "Updating system and installing base dependencies..."
     if ! is_step_completed "arch_update"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         pacman -Syu --noconfirm --needed
         pacman -S --noconfirm --needed git base-devel wget curl
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "arch_update"
     fi
     completed_item "System updated"
@@ -3264,14 +3264,14 @@ setup_arch_based() {
             info "Installing yay AUR helper..."
             local primary_user
             primary_user=$(get_real_user)
-            printf "${C_DIM}"
+            printf '%s' "${C_DIM}"
             sudo -u "$primary_user" -H bash << 'EOFYAY'
 cd /tmp
 git clone https://aur.archlinux.org/yay.git
 cd yay
 makepkg -si --noconfirm
 EOFYAY
-            printf "${C_NC}"
+            printf '%s' "${C_NC}"
         fi
         complete_step "arch_aur"
     fi
@@ -3291,9 +3291,9 @@ EOFYAY
     # Step 4: Install ASUS-specific packages
     print_step 4 7 "Installing ASUS control packages..."
     if ! is_step_completed "arch_asus"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         install_arch_asus_packages
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "arch_asus"
     fi
     completed_item "ASUS packages installed"
@@ -3301,9 +3301,9 @@ EOFYAY
     # Step 5: Install SOF firmware for audio support
     print_step 5 7 "Installing audio firmware..."
     if ! is_step_completed "arch_audio"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         install_sof_firmware "arch"
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "arch_audio"
     fi
     completed_item "Audio firmware installed"
@@ -3311,9 +3311,9 @@ EOFYAY
     # Step 6: Install GZ302 RGB keyboard control
     print_step 6 7 "Setting up RGB keyboard control..."
     if ! is_step_completed "arch_rgb"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         install_gz302_rgb_keyboard "arch" || warning "RGB keyboard installation failed"
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "arch_rgb"
     fi
     completed_item "RGB keyboard configured"
@@ -3337,12 +3337,12 @@ setup_debian_based() {
     # Step 1: Update system
     print_step 1 7 "Updating system and installing base dependencies..."
     if ! is_step_completed "debian_update"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         apt update
         apt upgrade -y
         apt install -y curl wget git build-essential \
             apt-transport-https ca-certificates gnupg lsb-release
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "debian_update"
     fi
     completed_item "System updated"
@@ -3364,9 +3364,9 @@ setup_debian_based() {
     # Step 3: Install ASUS-specific packages
     print_step 3 7 "Installing ASUS control packages..."
     if ! is_step_completed "debian_asus"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         install_debian_asus_packages
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "debian_asus"
     fi
     completed_item "ASUS packages installed"
@@ -3374,9 +3374,9 @@ setup_debian_based() {
     # Step 4: Install SOF firmware for audio support
     print_step 4 7 "Installing audio firmware..."
     if ! is_step_completed "debian_audio"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         install_sof_firmware "ubuntu"
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "debian_audio"
     fi
     completed_item "Audio firmware installed"
@@ -3384,9 +3384,9 @@ setup_debian_based() {
     # Step 5: Install GZ302 RGB keyboard control
     print_step 5 7 "Setting up RGB keyboard control..."
     if ! is_step_completed "debian_rgb"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         install_gz302_rgb_keyboard "ubuntu" || warning "RGB keyboard installation failed"
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "debian_rgb"
     fi
     completed_item "RGB keyboard configured"
@@ -3416,10 +3416,10 @@ setup_fedora_based() {
     # Step 1: Update system
     print_step 1 7 "Updating system and installing base dependencies..."
     if ! is_step_completed "fedora_update"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         dnf upgrade -y
         dnf install -y curl wget git gcc make kernel-devel
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "fedora_update"
     fi
     completed_item "System updated"
@@ -3438,9 +3438,9 @@ setup_fedora_based() {
     # Step 3: Install ASUS-specific packages
     print_step 3 7 "Installing ASUS control packages..."
     if ! is_step_completed "fedora_asus"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         install_fedora_asus_packages
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "fedora_asus"
     fi
     completed_item "ASUS packages installed"
@@ -3448,9 +3448,9 @@ setup_fedora_based() {
     # Step 4: Install SOF firmware for audio support
     print_step 4 7 "Installing audio firmware..."
     if ! is_step_completed "fedora_audio"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         install_sof_firmware "fedora"
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "fedora_audio"
     fi
     completed_item "Audio firmware installed"
@@ -3458,9 +3458,9 @@ setup_fedora_based() {
     # Step 5: Install GZ302 RGB keyboard control
     print_step 5 7 "Setting up RGB keyboard control..."
     if ! is_step_completed "fedora_rgb"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         install_gz302_rgb_keyboard "fedora" || warning "RGB keyboard installation failed"
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "fedora_rgb"
     fi
     completed_item "RGB keyboard configured"
@@ -3490,11 +3490,11 @@ setup_opensuse() {
     # Step 1: Update system
     print_step 1 7 "Updating system and installing base dependencies..."
     if ! is_step_completed "opensuse_update"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         zypper refresh
         zypper update -y
         zypper install -y curl wget git gcc make kernel-devel
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "opensuse_update"
     fi
     completed_item "System updated"
@@ -3513,9 +3513,9 @@ setup_opensuse() {
     # Step 3: Install ASUS-specific packages
     print_step 3 7 "Installing ASUS control packages..."
     if ! is_step_completed "opensuse_asus"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         install_opensuse_asus_packages
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "opensuse_asus"
     fi
     completed_item "ASUS packages installed"
@@ -3523,9 +3523,9 @@ setup_opensuse() {
     # Step 4: Install SOF firmware for audio support
     print_step 4 7 "Installing audio firmware..."
     if ! is_step_completed "opensuse_audio"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         install_sof_firmware "opensuse"
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "opensuse_audio"
     fi
     completed_item "Audio firmware installed"
@@ -3533,9 +3533,9 @@ setup_opensuse() {
     # Step 5: Install GZ302 RGB keyboard control
     print_step 5 7 "Setting up RGB keyboard control..."
     if ! is_step_completed "opensuse_rgb"; then
-        printf "${C_DIM}"
+        printf '%s' "${C_DIM}"
         install_gz302_rgb_keyboard "opensuse" || warning "RGB keyboard installation failed"
-        printf "${C_NC}"
+        printf '%s' "${C_NC}"
         complete_step "opensuse_rgb"
     fi
     completed_item "RGB keyboard configured"
