@@ -1,4 +1,10 @@
 #!/bin/bash
+# shellcheck disable=SC2034,SC2059,SC2086,SC2329,SC2030,SC2031
+# SC2034: Variables are exported for use in other scripts
+# SC2059: Printf format strings use color variables intentionally
+# SC2086: Word splitting used intentionally in seq commands
+# SC2329: Functions are invoked indirectly from main script
+# SC2030/SC2031: Subshell variable modification is handled
 
 # ==============================================================================
 # GZ302 Shared Utilities Library

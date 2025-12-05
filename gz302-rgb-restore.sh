@@ -54,6 +54,7 @@ fi
 # Read config and reconstruct command
 if [[ -f "$CONFIG_FILE" ]]; then
     # Source the config file to get variables
+    # shellcheck source=/dev/null
     source "$CONFIG_FILE"
     
     # Reconstruct command arguments

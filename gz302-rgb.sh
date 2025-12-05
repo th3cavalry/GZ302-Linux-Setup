@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091  # /etc/os-release is system file
 
 # ==============================================================================
 # GZ302 Keyboard RGB Control Module

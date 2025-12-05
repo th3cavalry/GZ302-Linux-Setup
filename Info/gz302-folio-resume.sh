@@ -16,9 +16,9 @@ FOLIO_PRODUCT="1e0f"  # Example product ID (replace if known)
 for DEV in /sys/bus/usb/devices/*; do
   if grep -q "$FOLIO_VENDOR" "$DEV/idVendor" 2>/dev/null && grep -q "$FOLIO_PRODUCT" "$DEV/idProduct" 2>/dev/null; then
     echo "Unbinding folio keyboard: $DEV"
-    echo -n $(basename "$DEV") > /sys/bus/usb/drivers/usb/unbind
+    echo -n "$(basename "$DEV")" > /sys/bus/usb/drivers/usb/unbind
     sleep 1
-    echo -n $(basename "$DEV") > /sys/bus/usb/drivers/usb/bind
+    echo -n "$(basename "$DEV")" > /sys/bus/usb/drivers/usb/bind
   fi
 
 done

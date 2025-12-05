@@ -66,9 +66,10 @@ setup_secureboot() {
         completed_item "UEFI system detected"
         if command -v mokutil >/dev/null 2>&1; then
             sb_status=$(mokutil --sb-state 2>/dev/null | head -1 || echo "Unknown")
-        elif [[ -f /sys/firmware/efi/efivars/SecureBoot-* ]]; then
-            local sb_val
-            sb_val=$(od -An -t u1 /sys/firmware/efi/efivars/SecureBoot-* 2>/dev/null | awk '{print $NF}')
+        elif find /sys/firmware/efi/efivars/ -maxdepth 1 -name 'SecureBoot-*' -print -quit 2>/dev/null | grep -q .; then
+            local sb_val sb_file
+            sb_file=$(find /sys/firmware/efi/efivars/ -maxdepth 1 -name 'SecureBoot-*' -print -quit 2>/dev/null)
+            sb_val=$(od -An -t u1 "$sb_file" 2>/dev/null | awk '{print $NF}')
             [[ "$sb_val" == "1" ]] && sb_status="Enabled" || sb_status="Disabled"
         fi
         print_keyval "Current Status" "$sb_status"

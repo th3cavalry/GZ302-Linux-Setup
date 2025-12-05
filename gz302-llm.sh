@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2329  # main() is invoked at end of script
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
