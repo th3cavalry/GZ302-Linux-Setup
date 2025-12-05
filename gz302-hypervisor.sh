@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 Hypervisor Software Module
-# Version: 2.3.13
+# Version: 2.3.14
 #
 # This module installs hypervisor software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Full KVM/QEMU stack, VirtualBox
@@ -519,29 +519,36 @@ main() {
     
     print_subsection "Available Hypervisors"
     echo
-    echo "  ${C_BOLD_CYAN}1)${C_NC} KVM/QEMU (Full Stack) - ${C_GREEN}Recommended for Linux${C_NC}"
-    echo "     ${C_DIM}• Native Linux virtualization (best performance)${C_NC}"
-    echo "     ${C_DIM}• Full QEMU system emulation${C_NC}"
-    echo "     ${C_DIM}• virt-manager GUI and virsh CLI${C_NC}"
-    echo "     ${C_DIM}• UEFI/OVMF firmware support${C_NC}"
-    echo "     ${C_DIM}• Default NAT networking pre-configured${C_NC}"
+    printf "  ${C_BOLD_CYAN}1)${C_NC} KVM/QEMU (Full Stack) - ${C_GREEN}Recommended for Linux${C_NC}\n"
+    printf "     ${C_DIM}• Native Linux virtualization (best performance)${C_NC}\n"
+    printf "     ${C_DIM}• Full QEMU system emulation${C_NC}\n"
+    printf "     ${C_DIM}• virt-manager GUI and virsh CLI${C_NC}\n"
+    printf "     ${C_DIM}• UEFI/OVMF firmware support${C_NC}\n"
+    printf "     ${C_DIM}• Default NAT networking pre-configured${C_NC}\n"
     echo
-    echo "  ${C_BOLD_CYAN}2)${C_NC} VirtualBox - Alternative option"
-    echo "     ${C_DIM}• Cross-platform compatibility${C_NC}"
-    echo "     ${C_DIM}• User-friendly GUI${C_NC}"
-    echo "     ${C_DIM}• Good for development/testing${C_NC}"
+    printf "  ${C_BOLD_CYAN}2)${C_NC} VirtualBox - Alternative option\n"
+    printf "     ${C_DIM}• Cross-platform compatibility${C_NC}\n"
+    printf "     ${C_DIM}• User-friendly GUI${C_NC}\n"
+    printf "     ${C_DIM}• Good for development/testing${C_NC}\n"
     echo
-    echo "  ${C_BOLD_CYAN}3)${C_NC} Skip hypervisor installation"
+    printf "  ${C_BOLD_CYAN}3)${C_NC} Skip hypervisor installation\n"
     echo
     
     # Non-interactive fallback
-    if [[ ! -t 0 ]]; then
+    if [[ ! -t 0 ]] && [[ ! -t 1 ]]; then
         warning "Non-interactive mode detected - installing KVM/QEMU (recommended)"
         install_kvm_qemu "$distro"
         return 0
     fi
     
-    read -r -p "$(echo -e "${C_BOLD_CYAN}Choose a hypervisor to install (1-3):${C_NC} ")" choice
+    local choice=""
+    # Read from /dev/tty to ensure we get user input even when stdin is redirected
+    printf "${C_BOLD_CYAN}Choose a hypervisor to install (1-3):${C_NC} "
+    if [[ -r /dev/tty ]]; then
+        read -r choice < /dev/tty
+    else
+        read -r choice
+    fi
     
     case "$choice" in
         1)
