@@ -519,19 +519,19 @@ main() {
     
     print_subsection "Available Hypervisors"
     echo
-    printf "  ${C_BOLD_CYAN}1)${C_NC} KVM/QEMU (Full Stack) - ${C_GREEN}Recommended for Linux${C_NC}\n"
-    printf "     ${C_DIM}• Native Linux virtualization (best performance)${C_NC}\n"
-    printf "     ${C_DIM}• Full QEMU system emulation${C_NC}\n"
-    printf "     ${C_DIM}• virt-manager GUI and virsh CLI${C_NC}\n"
-    printf "     ${C_DIM}• UEFI/OVMF firmware support${C_NC}\n"
-    printf "     ${C_DIM}• Default NAT networking pre-configured${C_NC}\n"
+    printf "  %s1)%s KVM/QEMU (Full Stack) - %sRecommended for Linux%s\n" "${C_BOLD_CYAN}" "${C_NC}" "${C_GREEN}" "${C_NC}"
+    printf "     %s• Native Linux virtualization (best performance)%s\n" "${C_DIM}" "${C_NC}"
+    printf "     %s• Full QEMU system emulation%s\n" "${C_DIM}" "${C_NC}"
+    printf "     %s• virt-manager GUI and virsh CLI%s\n" "${C_DIM}" "${C_NC}"
+    printf "     %s• UEFI/OVMF firmware support%s\n" "${C_DIM}" "${C_NC}"
+    printf "     %s• Default NAT networking pre-configured%s\n" "${C_DIM}" "${C_NC}"
     echo
-    printf "  ${C_BOLD_CYAN}2)${C_NC} VirtualBox - Alternative option\n"
-    printf "     ${C_DIM}• Cross-platform compatibility${C_NC}\n"
-    printf "     ${C_DIM}• User-friendly GUI${C_NC}\n"
-    printf "     ${C_DIM}• Good for development/testing${C_NC}\n"
+    printf "  %s2)%s VirtualBox - Alternative option\n" "${C_BOLD_CYAN}" "${C_NC}"
+    printf "     %s• Cross-platform compatibility%s\n" "${C_DIM}" "${C_NC}"
+    printf "     %s• User-friendly GUI%s\n" "${C_DIM}" "${C_NC}"
+    printf "     %s• Good for development/testing%s\n" "${C_DIM}" "${C_NC}"
     echo
-    printf "  ${C_BOLD_CYAN}3)${C_NC} Skip hypervisor installation\n"
+    printf "  %s3)%s Skip hypervisor installation\n" "${C_BOLD_CYAN}" "${C_NC}"
     echo
     
     # Non-interactive fallback
@@ -543,7 +543,7 @@ main() {
     
     local choice=""
     # Read from /dev/tty to ensure we get user input even when stdin is redirected
-    printf "${C_BOLD_CYAN}Choose a hypervisor to install (1-3):${C_NC} "
+    printf "%sChoose a hypervisor to install (1-3):%s " "${C_BOLD_CYAN}" "${C_NC}"
     if [[ -r /dev/tty ]]; then
         read -r choice < /dev/tty
     else

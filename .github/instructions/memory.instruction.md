@@ -12,4 +12,9 @@ This file stores information about user preferences and context for personalized
 - Architecture: Modular bash-only implementation (version 0.2.0-RC1)
 
 ## User Preferences
-(User preferences will be added here as requested)
+
+### Shell Environment
+- **Default shell**: fish
+- **Important**: Fish does NOT support heredocs (`<< EOF` syntax)
+- **Alternative methods**: Use `printf` or `echo` with pipes for multi-line content
+- **Example**: `printf 'line1\nline2\n' | sudo tee /path/to/file`
