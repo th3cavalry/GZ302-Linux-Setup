@@ -3,7 +3,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.3.13
+# Version: 2.3.14
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
@@ -851,7 +851,7 @@ setup_openwebui_docker() {
 # Ask user which LLM backends to install
 ask_backend_choice() {
     # interactive only when running in a TTY
-    if [[ ! -t 0 ]]; then
+    if [[ ! -t 0 ]] && [[ ! -t 1 ]]; then
         info "Non-interactive mode: installing both ollama and llama.cpp"
         echo "3" > /tmp/.gz302-backend-choice
         return
@@ -862,15 +862,32 @@ ask_backend_choice() {
     echo "  1) ollama only       - Model management backend (requires Open WebUI frontend)"
     echo "  2) llama.cpp only    - Fast inference with built-in webui (port 8080, flash attention enabled)"
     echo "  3) both              - Install both backends (recommended)"
-    read -r -p "Install backends (1-3): " choice
+    
+    local choice=""
+    # Read from /dev/tty to ensure we get user input even when stdin is redirected
+    if [[ -r /dev/tty ]]; then
+        read -r -p "Install backends (1-3): " choice < /dev/tty
+    else
+        read -r -p "Install backends (1-3): " choice
+    fi
     
     case "$choice" in
-        1|2|3)
-            echo "$choice" > /tmp/.gz302-backend-choice
+        1) 
+            info "Selected: Ollama only"
+            echo "1" > /tmp/.gz302-backend-choice
+            ;;
+        2)
+            info "Selected: llama.cpp only"
+            echo "2" > /tmp/.gz302-backend-choice
+            ;;
+        3)
+            info "Selected: Both backends"
+            echo "3" > /tmp/.gz302-backend-choice
             ;;
         *)
-            warning "Invalid choice. Installing both by default."
-            echo "3" > /tmp/.gz302-backend-choice
+            warning "Invalid choice '$choice'. Please enter 1, 2, or 3."
+            # Recursively ask again instead of defaulting
+            ask_backend_choice
             ;;
     esac
 }
@@ -878,7 +895,7 @@ ask_backend_choice() {
 # Ask user which frontends to install
 ask_frontend_choice() {
     # interactive only when running in a TTY
-    if [[ ! -t 0 ]]; then
+    if [[ ! -t 0 ]] && [[ ! -t 1 ]]; then
         info "Skipping interactive frontend selection (non-interactive mode)."
         echo "" > /tmp/.gz302-frontend-choice
         return
@@ -891,7 +908,14 @@ ask_frontend_choice() {
     echo "  3) llama.cpp webui      - Lightweight built-in web interface (requires llama.cpp backend)"
     echo "  4) Open WebUI           - Modern web interface for various LLM backends"
     echo "  (Leave empty to skip frontends)"
-    read -r -p "Install frontends (e.g. '1,3' or '1 2 3' or Enter=none): " choice
+    
+    local choice=""
+    # Read from /dev/tty to ensure we get user input even when stdin is redirected
+    if [[ -r /dev/tty ]]; then
+        read -r -p "Install frontends (e.g. '1,3' or '1 2 3' or Enter=none): " choice < /dev/tty
+    else
+        read -r -p "Install frontends (e.g. '1,3' or '1 2 3' or Enter=none): " choice
+    fi
     
     # normalize and parse choice
     choice="${choice,,}"    # lowercase
@@ -899,8 +923,10 @@ ask_frontend_choice() {
     choice="${choice//,/,}"  # clean up multiple commas
     
     if [[ -z "$choice" ]]; then
+        info "No frontends selected"
         echo "" > /tmp/.gz302-frontend-choice
     else
+        info "Selected frontends: $choice"
         echo "$choice" > /tmp/.gz302-frontend-choice
     fi
 }
