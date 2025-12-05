@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 Gaming Software Module
-# Version: 2.3.13
+# Version: 2.3.14
 #
 # This module installs gaming software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Steam, Lutris, MangoHUD, GameMode, Wine, and performance tools
@@ -113,8 +113,9 @@ install_arch_gaming_software() {
     print_step 5 $total_steps "Verifying installation..."
     echo
     print_subsection "Installed Gaming Software"
-    command -v steam >/dev/null && print_keyval "Steam" "$(steam --version 2>/dev/null || echo 'installed')"
-    command -v lutris >/dev/null && print_keyval "Lutris" "$(lutris --version 2>/dev/null | head -1 || echo 'installed')"
+    # Note: Don't run GUI apps (steam, lutris) as root - they show warning popups
+    command -v steam >/dev/null && print_keyval "Steam" "installed"
+    command -v lutris >/dev/null && print_keyval "Lutris" "installed"
     command -v gamemoded >/dev/null && print_keyval "GameMode" "installed"
     command -v mangohud >/dev/null && print_keyval "MangoHUD" "installed"
     command -v wine >/dev/null && print_keyval "Wine" "$(wine --version 2>/dev/null || echo 'installed')"
@@ -163,6 +164,7 @@ install_debian_gaming_software() {
     print_step 5 $total_steps "Verifying installation..."
     echo
     print_subsection "Installed Gaming Software"
+    # Note: Don't run GUI apps (steam, lutris) as root - they show warning popups
     command -v steam >/dev/null && print_keyval "Steam" "installed"
     command -v lutris >/dev/null && print_keyval "Lutris" "installed"
     command -v gamemoded >/dev/null && print_keyval "GameMode" "installed"
@@ -211,6 +213,7 @@ install_fedora_gaming_software() {
     print_step 5 $total_steps "Verifying installation..."
     echo
     print_subsection "Installed Gaming Software"
+    # Note: Don't run GUI apps (steam, lutris) as root - they show warning popups
     command -v steam >/dev/null && print_keyval "Steam" "installed"
     command -v lutris >/dev/null && print_keyval "Lutris" "installed"
     command -v gamemoded >/dev/null && print_keyval "GameMode" "installed"
@@ -250,6 +253,7 @@ install_opensuse_gaming_software() {
     print_step 4 $total_steps "Verifying installation..."
     echo
     print_subsection "Installed Gaming Software"
+    # Note: Don't run GUI apps (steam, lutris) as root - they show warning popups
     command -v steam >/dev/null && print_keyval "Steam" "installed"
     command -v lutris >/dev/null && print_keyval "Lutris" "installed"
     command -v gamemoded >/dev/null && print_keyval "GameMode" "installed"
