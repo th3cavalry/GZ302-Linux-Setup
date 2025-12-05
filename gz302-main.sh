@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.3.13
+# Version: 2.3.14
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -3657,25 +3657,26 @@ offer_optional_modules() {
 
 # --- Path Migration for Backward Compatibility ---
 # Migrates old paths from pre-1.3.0 versions to FHS-compliant paths
+# NOTE: All info/success/warning messages go to stderr so only the count is captured
 migrate_old_paths() {
     local paths_migrated=0
     
-    info "Checking for old configuration paths that need migration..."
+    info "Checking for old configuration paths that need migration..." >&2
     
     # Migrate old /etc/pwrcfg directory
     if [[ -d /etc/pwrcfg ]]; then
         # Check if directory has content
         if [[ -n "$(ls -A /etc/pwrcfg 2>/dev/null)" ]]; then
-            info "Migrating /etc/pwrcfg → /etc/gz302/pwrcfg"
+            info "Migrating /etc/pwrcfg → /etc/gz302/pwrcfg" >&2
             mkdir -p /etc/gz302/pwrcfg
             if cp -r /etc/pwrcfg/* /etc/gz302/pwrcfg/ 2>/dev/null; then
                 chmod 755 /etc/gz302/pwrcfg
                 chmod 644 /etc/gz302/pwrcfg/* 2>/dev/null || true
                 rm -rf /etc/pwrcfg
-                success "Migrated power configuration to /etc/gz302/pwrcfg"
+                success "Migrated power configuration to /etc/gz302/pwrcfg" >&2
                 ((paths_migrated++))
             else
-                warning "Failed to migrate /etc/pwrcfg contents"
+                warning "Failed to migrate /etc/pwrcfg contents" >&2
             fi
         else
             # Empty directory, just remove it
@@ -3687,16 +3688,16 @@ migrate_old_paths() {
     if [[ -d /etc/rrcfg ]]; then
         # Check if directory has content
         if [[ -n "$(ls -A /etc/rrcfg 2>/dev/null)" ]]; then
-            info "Migrating /etc/rrcfg → /etc/gz302/rrcfg"
+            info "Migrating /etc/rrcfg → /etc/gz302/rrcfg" >&2
             mkdir -p /etc/gz302/rrcfg
             if cp -r /etc/rrcfg/* /etc/gz302/rrcfg/ 2>/dev/null; then
                 chmod 755 /etc/gz302/rrcfg
                 chmod 644 /etc/gz302/rrcfg/* 2>/dev/null || true
                 rm -rf /etc/rrcfg
-                success "Migrated refresh configuration to /etc/gz302/rrcfg"
+                success "Migrated refresh configuration to /etc/gz302/rrcfg" >&2
                 ((paths_migrated++))
             else
-                warning "Failed to migrate /etc/rrcfg contents"
+                warning "Failed to migrate /etc/rrcfg contents" >&2
             fi
         else
             # Empty directory, just remove it
@@ -3708,16 +3709,16 @@ migrate_old_paths() {
     if [[ -d /etc/gz302-rgb ]]; then
         # Check if directory has content
         if [[ -n "$(ls -A /etc/gz302-rgb 2>/dev/null)" ]]; then
-            info "Migrating /etc/gz302-rgb → /etc/gz302"
+            info "Migrating /etc/gz302-rgb → /etc/gz302" >&2
             mkdir -p /etc/gz302
             if cp -r /etc/gz302-rgb/* /etc/gz302/ 2>/dev/null; then
                 chmod 755 /etc/gz302
                 chmod 644 /etc/gz302/* 2>/dev/null || true
                 rm -rf /etc/gz302-rgb
-                success "Migrated RGB configuration to /etc/gz302"
+                success "Migrated RGB configuration to /etc/gz302" >&2
                 ((paths_migrated++))
             else
-                warning "Failed to migrate /etc/gz302-rgb contents"
+                warning "Failed to migrate /etc/gz302-rgb contents" >&2
             fi
         else
             # Empty directory, just remove it
@@ -3732,8 +3733,8 @@ migrate_old_paths() {
     fi
     
     if [[ $paths_migrated -gt 0 ]]; then
-        success "Successfully migrated $paths_migrated old configuration path(s)"
-        echo
+        success "Successfully migrated $paths_migrated old configuration path(s)" >&2
+        echo >&2
     fi
     echo "$paths_migrated"
 }
