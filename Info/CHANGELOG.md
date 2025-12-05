@@ -5,6 +5,58 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.13] - 2025-12-XX
+
+### Added
+- **Visual Output Formatting (All Scripts)**: Complete overhaul of script output for readability
+  - Section headers with box styling (`print_section()`, `print_subsection()`)
+  - Progress indicators in `[N/M]` format (`print_step()`)
+  - Aligned key:value output (`print_keyval()`)
+  - Completion indicators with checkmarks (`completed_item()`, `failed_item()`)
+  - Dimmed verbose output using `C_DIM` color codes for package installations
+  - Tips and information boxes (`print_tip()`, `print_box()`)
+
+- **Config Backup System**: Automatic backup of existing configurations before changes
+  - Creates timestamped backups in `/var/backups/gz302/`
+  - Backs up modprobe.d, systemd services, sudoers, and custom scripts
+  - Restoration instructions provided after backup
+
+- **Error Recovery System**: Enhanced recovery from partial installations
+  - Automatic detection of interrupted installations
+  - Checkpoint system tracks completed steps
+  - `--resume` flag to continue from last checkpoint
+  - Rollback support for reversible changes
+
+- **Installation Progress Bar**: Visual progress for long-running operations
+  - Animated progress indicator for package downloads
+  - Percentage complete display for multi-step operations
+  - ETA estimation for lengthy installations
+
+### Changed
+- **Scripts prettified with visual formatting**:
+  - `gz302-gaming.sh`: Gaming software installation with clear sections
+  - `gz302-llm.sh`: AI/LLM module with visual progress
+  - `gz302-hypervisor.sh`: KVM/VirtualBox setup with step-by-step output
+  - `gz302-snapshots.sh`: Btrfs/LVM snapshot configuration
+  - `gz302-secureboot.sh`: Secure boot tools with visual feedback
+  - `gz302-rgb.sh`: RGB keyboard control with animation previews
+  - `gz302-minimal.sh`: Minimal setup with clean progress
+  - `gz302-uninstall.sh`: Uninstaller with confirmation prompts
+  - `Optional/gz302-folio-fix.sh`: Folio resume fix
+  - `Optional/gz302-g14-kernel.sh`: G14 kernel installer
+
+- **README.md**: Updated version from 2.0.0 to 2.3.13, added visual formatting note
+
+### Technical Details
+Visual formatting utilities in `gz302-utils.sh` provide consistent output across all modules:
+- `print_section "Title"` - Major section headers with horizontal rules
+- `print_subsection "Title"` - Subsection headers
+- `print_step N M "Description"` - Progress steps like `[1/5] Installing packages`
+- `print_keyval "Key" "Value"` - Aligned key-value pairs
+- `completed_item "Task"` - Success checkmarks
+- `failed_item "Task"` - Failure X marks
+- `C_DIM` / `C_NC` - Dim verbose output, restore normal color
+
 ## [2.3.10] - 2025-12-02
 
 ### Added

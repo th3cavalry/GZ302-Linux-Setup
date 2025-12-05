@@ -1,2 +1,4 @@
 PyQt6>=6.0.0
 psutil>=5.9
+# Optional: For improved desktop notifications (will use Qt fallback if not available)
+notify2>=0.3.1

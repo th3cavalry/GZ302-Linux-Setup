@@ -1,0 +1,19 @@
+[Unit]
+Description=Ollama Service (Custom GZ302 gfx1151 build with rocWMMA flash attention)
+After=network-online.target
+Documentation=https://github.com/ollama/ollama
+
+[Service]
+ExecStart=/usr/bin/ollama serve
+User=th3cavalry
+Group=th3cavalry
+Restart=always
+RestartSec=3
+Environment="HSA_OVERRIDE_GFX_VERSION=11.0.0"
+Environment="HIP_VISIBLE_DEVICES=0"
+Environment="GPU_MAX_HW_QUEUES=8"
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/opt/rocm/bin"
+Environment="OLLAMA_HOST=0.0.0.0"
+
+[Install]
+WantedBy=default.target

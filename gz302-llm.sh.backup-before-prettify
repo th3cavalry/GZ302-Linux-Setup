@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.3.13
+# Version: 2.3.12
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
@@ -396,56 +396,52 @@ EOF
 build_ollama_from_source() {
     local distro="$1"
     
-    clear
-    print_box "Building Custom Ollama for GZ302 Strix Halo" "$C_BOLD_CYAN"
-    echo
+    print_section "Building Ollama from Source"
+    
     print_subsection "Build Configuration"
     print_keyval "Target GPU" "gfx1100 (RDNA3 compatible)"
     print_keyval "Hardware" "AMD Strix Halo (gfx1151)"
-    print_keyval "Flash Attention" "rocWMMA (GGML_HIP_ROCWMMA_FATTN=ON)"
-    print_keyval "hipBLASLt" "Enabled for matrix operations"
-    print_keyval "Build Time" "~5-10 minutes on GZ302"
+    print_keyval "Features" "HIP acceleration, rocWMMA flash attention"
     echo
     
     # Install build dependencies based on distro
-    print_step 1 6 "Installing build dependencies..."
-    echo -ne "${C_DIM}"
+    print_step 1 5 "Installing build dependencies..."
     case "$distro" in
         "arch"|"cachyos")
             pacman -S --noconfirm --needed \
                 git cmake make gcc pkgconf go \
                 rocm-hip-sdk rocm-hip-runtime hip-runtime-amd \
-                rocblas miopen-hip hipblas rocwmma 2>&1 | grep -v "^::" | grep -v "warning:" || true
+                rocblas miopen-hip hipblas rocwmma >/dev/null 2>&1
             ;;
         "debian")
-            apt-get update -qq
-            apt-get install -qq -y \
+            apt update >/dev/null 2>&1
+            apt install -y \
                 git cmake make build-essential pkg-config golang-go \
-                rocm-dev rocm-hip-sdk rocblas miopen-hip 2>&1 | grep -v "^Reading\|^Building\|^Get:" || true
+                rocm-dev rocm-hip-sdk rocblas miopen-hip >/dev/null 2>&1
             ;;
         "fedora")
-            dnf install -q -y \
+            dnf install -y \
                 git cmake make gcc gcc-c++ pkgconf golang \
-                rocm-dev rocm-hip-devel rocblas miopen-hip 2>&1 | grep -v "^Last metadata" || true
+                rocm-dev rocm-hip-devel rocblas miopen-hip >/dev/null 2>&1
             ;;
         "opensuse")
-            zypper install -y --quiet \
+            zypper install -y \
                 git cmake make gcc gcc-c++ pkg-config go \
-                rocm-dev rocm-hip-devel rocblas miopen-hip 2>&1 | grep -v "^Loading\|^Retrieving" || true
+                rocm-dev rocm-hip-devel rocblas miopen-hip >/dev/null 2>&1
             ;;
     esac
-    echo -ne "${C_NC}"
     completed_item "Build dependencies installed"
     
     # Clone Ollama repository
     local ollama_build_dir="/tmp/ollama-build-$$"
-    print_step 2 6 "Cloning Ollama repository..."
-    git clone --quiet --depth 1 https://github.com/ollama/ollama.git "$ollama_build_dir" 2>&1 | grep -v "^Cloning" || true
+    print_step 2 5 "Cloning Ollama repository..."
+    git clone --depth 1 https://github.com/ollama/ollama.git "$ollama_build_dir" >/dev/null 2>&1
     cd "$ollama_build_dir"
     completed_item "Repository cloned"
     
-    # Configure CMake
-    print_step 3 6 "Configuring CMake for gfx1100 + Flash Attention..."
+    # Build HIP backend with gfx1100 target
+    print_step 3 5 "Building HIP backend (this may take 5-10 minutes)..."
+    print_tip "Building with gfx1100 target for Strix Halo compatibility"
     mkdir -p build && cd build
     
     # Note: We use gfx1100 target because HIP runtime doesn't fully support
@@ -453,73 +449,49 @@ build_ollama_from_source() {
     cmake .. \
         -DAMDGPU_TARGETS="gfx1100" \
         -DGGML_HIP_ROCWMMA_FATTN=ON \
-        -DCMAKE_BUILD_TYPE=Release 2>&1 | grep -E "^-- |CMAKE_" | head -10 || true
-    
-    completed_item "CMake configured"
-    
-    # Build with progress tracking
-    print_step 4 6 "Compiling HIP backend..."
-    print_tip "This may take 5-10 minutes - grab a coffee!"
-    echo
+        -DCMAKE_BUILD_TYPE=Release >/dev/null 2>&1
     
     local nproc_count
     nproc_count="$(nproc)"
-    local last_percent=0
-    
-    cmake --build . --config Release -j"${nproc_count}" 2>&1 | while IFS= read -r line; do
-        # Show only major progress milestones
-        if [[ "$line" =~ \[\ *([0-9]+)% ]]; then
-            local percent="${BASH_REMATCH[1]}"
-            # Update every 10%
-            if (( percent >= last_percent + 10 )); then
-                last_percent=$percent
-                printf "${C_DIM}   [%3d%%] Building HIP backend...${C_NC}\r" "$percent"
-            fi
-        elif [[ "$line" =~ "Built target" ]]; then
-            local target="${line#*Built target }"
-            if [[ "$target" == "ggml-hip" ]] || [[ "$target" == "ollama" ]]; then
-                printf "${C_GREEN}   ${SYMBOL_CHECK} Built: %-50s${C_NC}\n" "$target"
-            fi
+    cmake --build . --config Release -j"${nproc_count}" 2>&1 | while read -r line; do
+        # Show only progress percentage lines, suppress verbose output
+        if [[ "$line" =~ \[.*%\] ]]; then
+            printf "\r   ${C_DIM}%s${C_NC}" "$line"
         fi
     done
-    echo
-    completed_item "HIP backend compiled with rocWMMA flash attention"
+    printf "\n"
+    completed_item "HIP backend compiled"
     
     # Build Go binary
-    print_step 5 6 "Building Ollama Go binary..."
+    print_step 4 5 "Building Ollama Go binary..."
     cd ..
-    go build . 2>&1 | grep -E "^#|^go build" || true
+    go build . 2>/dev/null
     completed_item "Go binary compiled"
     
     # Install binary and libraries
-    print_step 6 6 "Installing Ollama to system..."
+    print_step 5 5 "Installing Ollama..."
     
     # Create ollama user if it doesn't exist
     if ! id -u ollama >/dev/null 2>&1; then
-        useradd -r -s /bin/false -m -d /usr/share/ollama ollama 2>/dev/null
-        print_keyval "Created user" "ollama"
+        useradd -r -s /bin/false -m -d /usr/share/ollama ollama
     fi
     
     # Install binary
-    install -m 755 ./ollama /usr/bin/ollama
-    print_keyval "Installed binary" "/usr/bin/ollama"
+    cp ./ollama /usr/bin/ollama
+    chmod +x /usr/bin/ollama
     
     # Install libraries
     mkdir -p /usr/lib/ollama
-    cp -r build/lib/ollama/* /usr/lib/ollama/
-    local lib_size
-    lib_size=$(du -sh /usr/lib/ollama/libggml-hip.so 2>/dev/null | cut -f1)
-    print_keyval "Installed HIP lib" "/usr/lib/ollama/libggml-hip.so ($lib_size)"
+    cp build/lib/ollama/* /usr/lib/ollama/
     
     # Create models directory
     mkdir -p /usr/share/ollama/.ollama
     chown -R ollama:ollama /usr/share/ollama
-    print_keyval "Models directory" "/usr/share/ollama/.ollama"
     
-    # Create systemd service with gfx1151 optimizations
+    # Create systemd service
     cat > /etc/systemd/system/ollama.service <<'OLLAMA_SERVICE'
 [Unit]
-Description=Ollama Service (Custom GZ302 gfx1100 build with Flash Attention)
+Description=Ollama Service (Custom GZ302 build with gfx1100 target for Strix Halo)
 After=network-online.target
 Documentation=https://github.com/ollama/ollama
 
@@ -538,7 +510,6 @@ Environment="HIP_VISIBLE_DEVICES=0"
 Environment="GPU_MAX_HW_QUEUES=8"
 Environment="AMD_SERIALIZE_KERNEL=0"
 Environment="AMD_SERIALIZE_COPY=0"
-Environment="ROCBLAS_LAYER=0"
 Environment="OLLAMA_NUM_GPU=999"
 Environment="OLLAMA_GPU_OVERHEAD=512000000"
 Environment="OLLAMA_HOST=0.0.0.0:11434"
@@ -547,46 +518,33 @@ Environment="HOME=/usr/share/ollama"
 [Install]
 WantedBy=default.target
 OLLAMA_SERVICE
-    
-    print_keyval "Created service" "/etc/systemd/system/ollama.service"
-    
+
     # Reload systemd and enable service
     systemctl daemon-reload
-    systemctl enable --now ollama 2>&1 | grep -v "^Created symlink" || true
+    systemctl enable --now ollama
     
     # Clean up build directory
     cd /
     rm -rf "$ollama_build_dir"
     
     # Verify installation
-    echo
-    print_subsection "Verifying Installation"
     sleep 2
-    
     if systemctl is-active --quiet ollama; then
-        completed_item "Ollama service is running"
-        
-        # Verify Flash Attention support
-        local flash_count
-        flash_count=$(strings /usr/lib/ollama/libggml-hip.so 2>/dev/null | grep -c "flash_attn" || echo "0")
-        local wmma_count
-        wmma_count=$(strings /usr/lib/ollama/libggml-hip.so 2>/dev/null | grep -c "wmma" || echo "0")
-        
+        completed_item "Ollama service installed and running"
         echo
         print_box "${SYMBOL_CHECK} Ollama Build Complete" "$C_BOLD_GREEN"
-        print_keyval "Binary" "/usr/bin/ollama ($(du -sh /usr/bin/ollama 2>/dev/null | cut -f1))"
-        print_keyval "HIP Library" "$lib_size with ROCm support"
-        print_keyval "Flash Attention" "$flash_count symbols found"
-        print_keyval "WMMA Support" "$wmma_count symbols found"
-        print_keyval "Service" "ollama.service ${C_GREEN}(running)${C_NC}"
-        print_keyval "Optimization" "gfx1100 target + HSA_OVERRIDE_GFX_VERSION=11.0.0"
-        echo
-        print_tip "Test with: ollama run llama3.2:1b"
+        print_keyval "Binary" "/usr/bin/ollama"
+        print_keyval "Libraries" "/usr/lib/ollama/"
+        print_keyval "Service" "ollama.service (running)"
+        
+        # Show performance info
+        local lib_size
+        lib_size=$(du -sh /usr/lib/ollama/libggml-hip.so 2>/dev/null | cut -f1)
+        print_keyval "HIP library" "$lib_size"
         echo
     else
         failed_item "Ollama service failed to start"
         warning "Check logs with: journalctl -u ollama"
-        echo
     fi
 }
 
@@ -601,91 +559,73 @@ build_llamacpp_from_source() {
     print_subsection "Build Configuration"
     print_keyval "Target GPU" "gfx1100 (RDNA3 compatible)"
     print_keyval "Hardware" "AMD Strix Halo (gfx1151)"
-    print_keyval "Flash Attention" "rocWMMA (GGML_HIP_ROCWMMA_FATTN=ON)"
-    print_keyval "Build Time" "~5-10 minutes on GZ302"
+    print_keyval "Features" "HIP acceleration, rocWMMA flash attention"
     echo
     
     # Install build dependencies based on distro
-    print_step 1 5 "Installing build dependencies..."
-    echo -ne "${C_DIM}"
+    print_step 1 4 "Installing build dependencies..."
     case "$distro" in
         "arch"|"cachyos")
             pacman -S --noconfirm --needed \
                 git cmake make gcc pkgconf \
-                rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas 2>&1 | grep -v "^::" | grep -v "warning:" || true
+                rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas >/dev/null 2>&1
             ;;
         "debian")
-            apt-get update -qq
-            apt-get install -qq -y git cmake make g++ pkg-config 2>&1 | grep -v "^Reading\|^Building\|^Get:" || true
-            apt-get install -qq -y rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas 2>&1 | grep -v "^Reading\|^Building\|^Get:" || \
+            apt update >/dev/null 2>&1
+            apt install -y git cmake make g++ pkg-config >/dev/null 2>&1
+            apt install -y rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas >/dev/null 2>&1 || \
                 warning "Some ROCm packages may not be available"
             ;;
         "fedora")
-            dnf install -q -y git cmake make gcc-c++ pkgconf 2>&1 | grep -v "^Last metadata" || true
-            dnf install -q -y rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas 2>&1 | grep -v "^Last metadata" || \
+            dnf install -y git cmake make gcc-c++ pkgconf >/dev/null 2>&1
+            dnf install -y rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas >/dev/null 2>&1 || \
                 warning "Some ROCm packages may not be available"
             ;;
         "opensuse")
-            zypper install -y --quiet git cmake make gcc-c++ pkg-config 2>&1 | grep -v "^Loading\|^Retrieving" || true
-            zypper install -y --quiet rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas 2>&1 | grep -v "^Loading\|^Retrieving" || \
+            zypper install -y git cmake make gcc-c++ pkg-config >/dev/null 2>&1
+            zypper install -y rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas >/dev/null 2>&1 || \
                 warning "Some ROCm packages may not be available"
             ;;
     esac
-    echo -ne "${C_NC}"
     completed_item "Build dependencies installed"
     
     # Clone llama.cpp repository
     local llama_build_dir="/tmp/llama.cpp-build-$$"
-    print_step 2 5 "Cloning llama.cpp repository..."
-    git clone --quiet --depth 1 https://github.com/ggerganov/llama.cpp.git "$llama_build_dir" 2>&1 | grep -v "^Cloning" || true
+    print_step 2 4 "Cloning llama.cpp repository..."
+    git clone --depth 1 https://github.com/ggerganov/llama.cpp.git "$llama_build_dir" >/dev/null 2>&1
     cd "$llama_build_dir"
     completed_item "Repository cloned"
     
     # Set ROCm environment for HIP compilation
-    print_step 3 5 "Configuring ROCm environment..."
     export HIPCXX="/opt/rocm/lib/llvm/bin/clang"
     export HIP_PATH="/opt/rocm"
     export HIP_DEVICE_LIB_PATH="/opt/rocm/amdgcn/bitcode"
-    completed_item "ROCm environment configured"
     
-    # Configure and build with HIP support targeting gfx1100
-    print_step 4 5 "Compiling llama.cpp with Flash Attention..."
-    print_tip "This may take 5-10 minutes"
+    # Build with HIP support targeting gfx1100
+    print_step 3 4 "Building llama.cpp (this may take 5-10 minutes)..."
+    print_tip "Building with gfx1100 target for Strix Halo compatibility"
     mkdir build && cd build
     cmake .. \
         -DGGML_HIP=ON \
         -DGGML_HIP_ROCWMMA_FATTN=ON \
         -DGPU_TARGETS=gfx1100 \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_CXX_FLAGS="-I/opt/rocm/include" 2>&1 | grep -E "^-- |CMAKE_" | head -10 || true
-    echo
+        -DCMAKE_CXX_FLAGS="-I/opt/rocm/include" >/dev/null 2>&1
     
     local nproc_count
     nproc_count="$(nproc)"
-    local last_percent=0
-    
-    cmake --build . --config Release -j"${nproc_count}" 2>&1 | while IFS= read -r line; do
-        # Show only major progress milestones
-        if [[ "$line" =~ \[\ *([0-9]+)% ]]; then
-            local percent="${BASH_REMATCH[1]}"
-            # Update every 10%
-            if (( percent >= last_percent + 10 )); then
-                last_percent=$percent
-                printf "${C_DIM}   [%3d%%] Building llama.cpp...${C_NC}\r" "$percent"
-            fi
-        elif [[ "$line" =~ "Built target" ]]; then
-            local target="${line#*Built target }"
-            if [[ "$target" == "llama-cli" ]] || [[ "$target" == "llama-server" ]]; then
-                printf "${C_GREEN}   ${SYMBOL_CHECK} Built: %-50s${C_NC}\n" "$target"
-            fi
+    cmake --build . --config Release -j"${nproc_count}" 2>&1 | while read -r line; do
+        # Show only progress percentage lines, suppress verbose output
+        if [[ "$line" =~ \[.*%\] ]]; then
+            printf "\r   ${C_DIM}%s${C_NC}" "$line"
         fi
     done
-    echo
-    completed_item "llama.cpp compiled with gfx1100 target"
+    printf "\n"
+    completed_item "llama.cpp compiled"
     
     # Install binaries
-    print_step 5 5 "Installing llama.cpp..."
-    cmake --install . 2>&1 | grep -v "^-- " || true
+    print_step 4 4 "Installing llama.cpp..."
+    cmake --install . >/dev/null 2>&1
     
     # Determine the correct group for nobody user
     local nobody_group="nobody"

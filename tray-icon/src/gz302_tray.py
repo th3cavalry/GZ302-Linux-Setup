@@ -2,6 +2,7 @@
 """
 GZ302 Power Profile Tray Icon
 A system tray utility for managing power profiles on ASUS ROG Flow Z13 (GZ302)
+Version: 2.3.13
 """
 
 import sys
@@ -9,9 +10,17 @@ import os
 import subprocess
 import threading
 from pathlib import Path
+from datetime import datetime
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QInputDialog, QWidget
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtCore import QTimer, pyqtSignal, QObject
+
+# Optional: Try to import notify2 for better desktop notifications
+try:
+    import notify2
+    NOTIFY2_AVAILABLE = True
+except ImportError:
+    NOTIFY2_AVAILABLE = False
 
 class CommandResult(QObject):
     """Signal emitter for background command execution"""
@@ -32,23 +41,124 @@ class CommandResult(QObject):
         except Exception as e:
             self.finished.emit(-2, "", str(e))
 
+class NotificationManager:
+    """Manages desktop notifications with optional sound feedback"""
+    
+    def __init__(self, tray_icon):
+        self.tray = tray_icon
+        self.notify2_initialized = False
+        
+        # Try to initialize notify2 for richer notifications
+        if NOTIFY2_AVAILABLE:
+            try:
+                notify2.init("GZ302 Power Manager")
+                self.notify2_initialized = True
+            except Exception:
+                pass
+    
+    def notify(self, title, message, icon_type="info", duration=4000, urgency="normal"):
+        """
+        Send a desktop notification.
+        
+        Args:
+            title: Notification title
+            message: Notification body
+            icon_type: "info", "warning", "error", "success"
+            duration: Display duration in milliseconds
+            urgency: "low", "normal", "critical"
+        """
+        # Map icon types
+        qt_icons = {
+            "info": QSystemTrayIcon.MessageIcon.Information,
+            "warning": QSystemTrayIcon.MessageIcon.Warning,
+            "error": QSystemTrayIcon.MessageIcon.Critical,
+            "success": QSystemTrayIcon.MessageIcon.Information,
+        }
+        
+        # Add emoji prefix for visual feedback
+        emoji_prefix = {
+            "info": "ℹ️",
+            "warning": "⚠️",
+            "error": "❌",
+            "success": "✅",
+        }
+        
+        # Format message with emoji
+        formatted_title = f"{emoji_prefix.get(icon_type, '')} {title}"
+        
+        # Try notify2 first for richer notifications
+        if self.notify2_initialized:
+            try:
+                urgency_map = {
+                    "low": notify2.URGENCY_LOW,
+                    "normal": notify2.URGENCY_NORMAL,
+                    "critical": notify2.URGENCY_CRITICAL,
+                }
+                n = notify2.Notification(formatted_title, message)
+                n.set_urgency(urgency_map.get(urgency, notify2.URGENCY_NORMAL))
+                n.set_timeout(duration)
+                n.show()
+                return
+            except Exception:
+                pass
+        
+        # Fallback to Qt system tray notification
+        self.tray.showMessage(
+            formatted_title,
+            message,
+            qt_icons.get(icon_type, QSystemTrayIcon.MessageIcon.Information),
+            duration
+        )
+    
+    def notify_profile_change(self, profile, power_info=""):
+        """Send notification for profile change with detailed info"""
+        profile_info = {
+            "emergency": ("🔋 Emergency Mode", "10W - Maximum battery preservation"),
+            "battery": ("🔋 Battery Mode", "18W - Extended battery life"),
+            "efficient": ("⚡ Efficient Mode", "30W - Light tasks with good performance"),
+            "balanced": ("⚖️ Balanced Mode", "40W - General computing (Default)"),
+            "performance": ("🚀 Performance Mode", "55W - Heavy workloads"),
+            "gaming": ("🎮 Gaming Mode", "70W - Optimized for gaming"),
+            "maximum": ("💪 Maximum Mode", "90W - Peak performance"),
+        }
+        
+        title, desc = profile_info.get(profile, (f"Profile: {profile}", ""))
+        message = desc
+        if power_info:
+            message += f"\n{power_info}"
+        
+        self.notify(title, message, "success", 4000)
+    
+    def notify_error(self, title, message, hint=""):
+        """Send error notification with optional hint"""
+        full_message = message
+        if hint:
+            full_message += f"\n\n💡 Tip: {hint}"
+        self.notify(title, full_message, "error", 6000, "critical")
+
 class GZ302TrayIcon(QSystemTrayIcon):
     def __init__(self, icon, parent=None):
         super().__init__(icon, parent)
         
-        # Power profiles
+        # Initialize notification manager
+        self.notifier = NotificationManager(self)
+        
+        # Power profiles with descriptions
         self.profiles = [
-            ("Emergency (10W)", "emergency"),
-            ("Battery (18W)", "battery"),
-            ("Efficient (30W)", "efficient"),
-            ("Balanced (40W)", "balanced"),
-            ("Performance (55W)", "performance"),
-            ("Gaming (70W)", "gaming"),
-            ("Maximum (90W)", "maximum")
+            ("🔋 Emergency (10W)", "emergency"),
+            ("🔋 Battery (18W)", "battery"),
+            ("⚡ Efficient (30W)", "efficient"),
+            ("⚖️ Balanced (40W)", "balanced"),
+            ("🚀 Performance (55W)", "performance"),
+            ("🎮 Gaming (70W)", "gaming"),
+            ("💪 Maximum (90W)", "maximum")
         ]
         
         # Store current profile name
         self.current_profile = "balanced"
+        
+        # Track last notification time to avoid spam
+        self.last_notification_time = None
         
         # Create menu
         self.menu = QMenu()
@@ -63,8 +173,16 @@ class GZ302TrayIcon(QSystemTrayIcon):
         self.timer.timeout.connect(self.update_current_profile)
         self.timer.start(5000)  # 5 seconds
         
-        # Set initial tooltip
-        self.setToolTip("GZ302 Power Manager")
+        # Set initial tooltip with welcome message
+        self.setToolTip("GZ302 Power Manager\n🚀 Ready")
+        
+        # Show startup notification
+        self.notifier.notify(
+            "GZ302 Power Manager",
+            "System tray utility ready.\nRight-click to manage power profiles.",
+            "info",
+            3000
+        )
         
         # Show the tray icon
         self.show()
@@ -191,6 +309,14 @@ class GZ302TrayIcon(QSystemTrayIcon):
     def change_profile(self, profile):
         """Change power profile by invoking pwrcfg with sudo (password-less via sudoers)."""
         try:
+            # Show immediate feedback
+            self.notifier.notify(
+                "Changing Profile",
+                f"Switching to {profile}...",
+                "info",
+                2000
+            )
+            
             result = subprocess.run(
                 ["sudo", "/usr/local/bin/pwrcfg", profile],
                 capture_output=True,
@@ -205,17 +331,8 @@ class GZ302TrayIcon(QSystemTrayIcon):
                     if 'SPL' in line or 'Refresh' in line:
                         power_info += line.strip() + "\n"
                 
-                # Show detailed notification
-                notification_text = f"Switched to {profile} profile"
-                if power_info:
-                    notification_text += f"\n{power_info.strip()}"
-                
-                self.showMessage(
-                    "Power Profile Changed",
-                    notification_text,
-                    QSystemTrayIcon.MessageIcon.Information,
-                    4000
-                )
+                # Send profile change notification with details
+                self.notifier.notify_profile_change(profile, power_info.strip())
                 
                 # Update current profile and refresh menu immediately
                 self.current_profile = profile
@@ -225,27 +342,12 @@ class GZ302TrayIcon(QSystemTrayIcon):
                 err = (result.stderr or "").strip()
                 hint = ""
                 if "requires elevated privileges" in err or "permission" in err.lower():
-                    hint = "\nTip: Run tray-icon/install-policy.sh or enable sudoers in the main script to allow password-less pwrcfg."
-                self.showMessage(
-                    "Error",
-                    f"Failed to change profile: {err}{hint}",
-                    QSystemTrayIcon.MessageIcon.Critical,
-                    5000
-                )
+                    hint = "Run tray-icon/install-policy.sh or enable sudoers in the main script to allow password-less pwrcfg."
+                self.notifier.notify_error("Profile Change Failed", f"Could not switch to {profile}: {err}", hint)
         except subprocess.TimeoutExpired:
-            self.showMessage(
-                "Error",
-                "Command timed out",
-                QSystemTrayIcon.MessageIcon.Critical,
-                5000
-            )
+            self.notifier.notify_error("Profile Change Failed", "Command timed out after 30 seconds")
         except Exception as e:
-            self.showMessage(
-                "Error",
-                f"Failed to change profile: {str(e)}",
-                QSystemTrayIcon.MessageIcon.Critical,
-                5000
-            )
+            self.notifier.notify_error("Profile Change Failed", f"Unexpected error: {str(e)}")
     
     def show_status(self):
         """Show current power profile status"""
@@ -258,26 +360,27 @@ class GZ302TrayIcon(QSystemTrayIcon):
             )
             
             if result.returncode == 0:
-                self.showMessage(
-                    "Power Profile Status",
-                    result.stdout,
-                    QSystemTrayIcon.MessageIcon.Information,
-                    5000
+                # Get additional system info
+                power = self.get_power_status()
+                power_line = ""
+                if power.get('present'):
+                    pct = power.get('percent')
+                    plugged = power.get('plugged')
+                    if pct is not None:
+                        power_line = f"\n🔋 Battery: {pct}% {'(Charging)' if plugged else '(Discharging)'}"
+                    else:
+                        power_line = f"\n🔌 Power: {'AC Connected' if plugged else 'On Battery'}"
+                
+                self.notifier.notify(
+                    "System Status",
+                    f"{result.stdout.strip()}{power_line}",
+                    "info",
+                    6000
                 )
             else:
-                self.showMessage(
-                    "Error",
-                    "Failed to get status",
-                    QSystemTrayIcon.MessageIcon.Warning,
-                    3000
-                )
+                self.notifier.notify("Status Error", "Could not retrieve status", "warning", 3000)
         except Exception as e:
-            self.showMessage(
-                "Error",
-                f"Failed to get status: {str(e)}",
-                QSystemTrayIcon.MessageIcon.Warning,
-                3000
-            )
+            self.notifier.notify_error("Status Error", f"Failed to get status: {str(e)}")
     
     def update_current_profile(self):
         """Update tooltip with current profile and icon"""
@@ -311,23 +414,38 @@ class GZ302TrayIcon(QSystemTrayIcon):
                     self.current_profile = profile_name
                     self.create_menu()  # Rebuild menu to show checkmark on new profile
                 
-                # Append power status for tooltip only
+                # Build a rich tooltip with emoji and status
                 power = self.get_power_status()
                 power_line = ''
                 if power.get('present'):
                     pct = power.get('percent')
                     plugged = power.get('plugged')
                     if pct is not None:
-                        power_line = f"Power: {pct}% {'(AC)' if plugged else '(Battery)'}"
+                        battery_emoji = "🔋" if pct > 20 else "🪫"
+                        charge_status = "⚡" if plugged else ""
+                        power_line = f"\n{battery_emoji} {pct}% {charge_status}"
                     else:
-                        power_line = f"Power: {'AC' if plugged else 'Battery'}"
-
-                self.setToolTip(f"GZ302 Power Manager\n{status}\n{power_line}")
+                        power_line = f"\n{'🔌 AC' if plugged else '🔋 Battery'}"
+                
+                # Profile emoji map
+                profile_emoji = {
+                    "emergency": "🔋",
+                    "battery": "🔋",
+                    "efficient": "⚡",
+                    "balanced": "⚖️",
+                    "performance": "🚀",
+                    "gaming": "🎮",
+                    "maximum": "💪"
+                }
+                
+                emoji = profile_emoji.get(profile_name, "⚖️")
+                tooltip = f"GZ302 Power Manager\n{emoji} {profile_name.title()}{power_line}"
+                self.setToolTip(tooltip)
                 
                 # Update icon based on current profile letter
                 self.update_icon_for_profile(profile_name)
             else:
-                self.setToolTip("GZ302 Power Manager\nStatus: Unknown")
+                self.setToolTip("GZ302 Power Manager\n⚠️ Status: Unknown")
                 # Use balanced as fallback
                 self.update_icon_for_profile("balanced")
         except:
@@ -423,9 +541,14 @@ Categories=Utility;System;
 StartupNotify=false
 X-GNOME-Autostart-enabled=true
 """)
-            self.showMessage("Autostart", "Autostart entry created at ~/.config/autostart/gz302-tray.desktop", QSystemTrayIcon.MessageIcon.Information, 4000)
+            self.notifier.notify(
+                "Autostart Enabled",
+                "GZ302 Power Manager will start automatically on login.\n📁 ~/.config/autostart/gz302-tray.desktop",
+                "success",
+                4000
+            )
         except Exception as e:
-            self.showMessage("Autostart Error", f"Failed to create autostart: {e}", QSystemTrayIcon.MessageIcon.Warning, 4000)
+            self.notifier.notify_error("Autostart Error", f"Failed to create autostart entry: {e}")
 
     def get_current_charge_limit(self):
         """Get the current battery charge limit setting."""
@@ -461,39 +584,31 @@ X-GNOME-Autostart-enabled=true
             )
             
             if result.returncode == 0:
-                self.showMessage(
-                    "Charge Limit Changed",
-                    f"Battery charge limit set to {limit}%",
-                    QSystemTrayIcon.MessageIcon.Information,
+                emoji = "🔋" if limit == "80" else "⚡"
+                desc = "Battery longevity mode" if limit == "80" else "Full charge mode"
+                self.notifier.notify(
+                    "Charge Limit Updated",
+                    f"{emoji} {desc}\nBattery will charge to {limit}%",
+                    "success",
                     3000
                 )
                 self.update_current_profile()
                 self.create_menu()  # Rebuild menu to show checkmark on new limit
             else:
                 err = (result.stderr or "").strip()
-                self.showMessage(
-                    "Error",
-                    f"Failed to set charge limit: {err}",
-                    QSystemTrayIcon.MessageIcon.Critical,
-                    5000
-                )
+                self.notifier.notify_error("Charge Limit Error", f"Failed to set charge limit: {err}")
         except Exception as e:
-            self.showMessage(
-                "Error",
-                f"Failed to set charge limit: {str(e)}",
-                QSystemTrayIcon.MessageIcon.Critical,
-                5000
-            )
+            self.notifier.notify_error("Charge Limit Error", f"Failed to set charge limit: {str(e)}")
 
     def set_keyboard_backlight(self, brightness):
         """Set keyboard backlight brightness (0-3)."""
         try:
             # Validate brightness level
             if not isinstance(brightness, int) or brightness < 0 or brightness > 3:
-                self.showMessage(
-                    "Error",
+                self.notifier.notify(
+                    "Invalid Brightness",
                     "Keyboard brightness must be between 0 and 3",
-                    QSystemTrayIcon.MessageIcon.Warning,
+                    "warning",
                     3000
                 )
                 return
@@ -507,35 +622,20 @@ X-GNOME-Autostart-enabled=true
             )
             
             if result.returncode == 0:
-                level_name = ["Off", "Level 1", "Level 2", "Level 3"][brightness]
-                self.showMessage(
+                level_names = ["💡 Off", "💡 Dim", "💡 Medium", "💡 Bright"]
+                self.notifier.notify(
                     "Keyboard Backlight",
-                    f"Brightness set to {level_name}",
-                    QSystemTrayIcon.MessageIcon.Information,
+                    f"Brightness set to {level_names[brightness]}",
+                    "success",
                     2000
                 )
             else:
                 err = (result.stderr or "").strip()
-                self.showMessage(
-                    "Error",
-                    f"Failed to set keyboard backlight: {err}",
-                    QSystemTrayIcon.MessageIcon.Warning,
-                    3000
-                )
+                self.notifier.notify_error("Backlight Error", f"Failed to set brightness: {err}")
         except subprocess.TimeoutExpired:
-            self.showMessage(
-                "Error",
-                "Keyboard backlight command timed out",
-                QSystemTrayIcon.MessageIcon.Warning,
-                3000
-            )
+            self.notifier.notify_error("Backlight Error", "Command timed out")
         except Exception as e:
-            self.showMessage(
-                "Error",
-                f"Unexpected error setting keyboard backlight: {str(e)}",
-                QSystemTrayIcon.MessageIcon.Warning,
-                3000
-            )
+            self.notifier.notify_error("Backlight Error", f"Unexpected error: {str(e)}")
 
     def check_rgb_available(self):
         """Check if gz302-rgb binary is available."""
@@ -588,10 +688,10 @@ X-GNOME-Autostart-enabled=true
     def set_rgb_color(self, hex_color):
         """Set RGB keyboard to static color (runs in background thread)."""
         # Show a "processing" message immediately
-        self.showMessage(
+        self.notifier.notify(
             "Keyboard RGB",
-            f"Setting color to #{hex_color}...",
-            QSystemTrayIcon.MessageIcon.Information,
+            f"🌈 Setting color to #{hex_color}...",
+            "info",
             3000
         )
         
@@ -611,34 +711,19 @@ X-GNOME-Autostart-enabled=true
                 if not has_error:
                     # Save the RGB setting for boot persistence
                     self.save_rgb_setting("single_static", hex_color)
-                    self.showMessage(
+                    self.notifier.notify(
                         "Keyboard RGB",
-                        f"✓ Color set to #{hex_color}",
-                        QSystemTrayIcon.MessageIcon.Information,
+                        f"🌈 Color set to #{hex_color}",
+                        "success",
                         2000
                     )
                 else:
                     err = (result.stderr or "").strip()
-                    self.showMessage(
-                        "RGB Error",
-                        f"Failed to set color: {err or 'Unknown error'}",
-                        QSystemTrayIcon.MessageIcon.Critical,
-                        5000
-                    )
+                    self.notifier.notify_error("RGB Error", f"Failed to set color: {err or 'Unknown error'}")
             except subprocess.TimeoutExpired:
-                self.showMessage(
-                    "RGB Error",
-                    "Command timed out (hardware may be unresponsive)",
-                    QSystemTrayIcon.MessageIcon.Critical,
-                    5000
-                )
+                self.notifier.notify_error("RGB Error", "Command timed out (hardware may be unresponsive)")
             except Exception as e:
-                self.showMessage(
-                    "RGB Error",
-                    f"Failed: {str(e)}",
-                    QSystemTrayIcon.MessageIcon.Critical,
-                    5000
-                )
+                self.notifier.notify_error("RGB Error", f"Failed: {str(e)}")
         
         # Run in background thread
         thread = threading.Thread(target=run_rgb_command, daemon=True)
@@ -649,29 +734,19 @@ X-GNOME-Autostart-enabled=true
         
         if animation_type == "breathing":
             cmd = ["sudo", "-n", "gz302-rgb", "single_breathing", color1, color2, str(speed)]
-            desc = "Breathing animation"
+            desc = "🌬️ Breathing animation"
         elif animation_type == "colorcycle":
             cmd = ["sudo", "-n", "gz302-rgb", "single_colorcycle", str(speed)]
-            desc = "Color cycle animation"
+            desc = "🔄 Color cycle animation"
         elif animation_type == "rainbow":
             cmd = ["sudo", "-n", "gz302-rgb", "rainbow_cycle", str(speed)]
-            desc = "Rainbow animation"
+            desc = "🌈 Rainbow animation"
         else:
-            self.showMessage(
-                "Error",
-                f"Unknown animation type: {animation_type}",
-                QSystemTrayIcon.MessageIcon.Warning,
-                3000
-            )
+            self.notifier.notify("Animation Error", f"Unknown animation type: {animation_type}", "warning", 3000)
             return
         
         # Show processing message
-        self.showMessage(
-            "Keyboard RGB",
-            f"Activating {desc}...",
-            QSystemTrayIcon.MessageIcon.Information,
-            2000
-        )
+        self.notifier.notify("Keyboard RGB", f"Activating {desc}...", "info", 2000)
         
         # Run in background thread
         def run_animation():
@@ -695,34 +770,14 @@ X-GNOME-Autostart-enabled=true
                     elif animation_type == "rainbow":
                         self.save_rgb_setting("rainbow_cycle", str(speed))
                     
-                    self.showMessage(
-                        "Keyboard RGB",
-                        f"✓ {desc} activated",
-                        QSystemTrayIcon.MessageIcon.Information,
-                        2000
-                    )
+                    self.notifier.notify("Keyboard RGB", f"{desc} activated", "success", 2000)
                 else:
                     err = (result.stderr or "").strip()
-                    self.showMessage(
-                        "RGB Error",
-                        f"Failed to set animation: {err or 'Unknown error'}",
-                        QSystemTrayIcon.MessageIcon.Critical,
-                        5000
-                    )
+                    self.notifier.notify_error("RGB Error", f"Failed to set animation: {err or 'Unknown error'}")
             except subprocess.TimeoutExpired:
-                self.showMessage(
-                    "RGB Error",
-                    "Command timed out (hardware may be unresponsive)",
-                    QSystemTrayIcon.MessageIcon.Critical,
-                    5000
-                )
+                self.notifier.notify_error("RGB Error", "Command timed out (hardware may be unresponsive)")
             except Exception as e:
-                self.showMessage(
-                    "RGB Error",
-                    f"Failed: {str(e)}",
-                    QSystemTrayIcon.MessageIcon.Critical,
-                    5000
-                )
+                self.notifier.notify_error("RGB Error", f"Failed: {str(e)}")
         
         thread = threading.Thread(target=run_animation, daemon=True)
         thread.start()
@@ -732,7 +787,7 @@ X-GNOME-Autostart-enabled=true
         try:
             text, ok = QInputDialog.getText(
                 None,
-                "Custom RGB Color",
+                "🌈 Custom RGB Color",
                 "Enter hex color (e.g., FF0000 for red):",
                 text="FF0000"
             )
@@ -743,19 +798,14 @@ X-GNOME-Autostart-enabled=true
                 if len(hex_color) == 6 and all(c in '0123456789ABCDEF' for c in hex_color):
                     self.set_rgb_color(hex_color)
                 else:
-                    self.showMessage(
-                        "Error",
-                        "Invalid hex color. Use format: RRGGBB (e.g., FF0000)",
-                        QSystemTrayIcon.MessageIcon.Warning,
+                    self.notifier.notify(
+                        "Invalid Color",
+                        "Please use format: RRGGBB (e.g., FF0000 for red)",
+                        "warning",
                         3000
                     )
         except Exception as e:
-            self.showMessage(
-                "Error",
-                f"Failed to get custom color: {str(e)}",
-                QSystemTrayIcon.MessageIcon.Critical,
-                5000
-            )
+            self.notifier.notify_error("Color Input Error", f"Failed to get custom color: {str(e)}")
 
 
 

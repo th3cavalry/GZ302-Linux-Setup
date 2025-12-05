@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 Secure Boot Module
-# Version: 2.3.3
+# Version: 2.3.13
 #
 # This module configures Secure Boot for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Automatic kernel signing and bootloader setup
@@ -55,32 +55,76 @@ fi
 # --- Secure Boot Setup ---
 setup_secureboot() {
     local distro="$1"
-    info "Setting up Secure Boot configuration..."
+    local total_steps=3
     
-    warning "Secure Boot configuration requires UEFI system and manual BIOS setup"
-    warning "This is a basic setup - refer to your distribution's documentation for full secure boot"
+    print_section "Secure Boot Configuration"
     
+    # Step 1: Check current Secure Boot status
+    print_step 1 $total_steps "Checking Secure Boot status..."
+    local sb_status="Unknown"
+    if [[ -d /sys/firmware/efi ]]; then
+        completed_item "UEFI system detected"
+        if command -v mokutil >/dev/null 2>&1; then
+            sb_status=$(mokutil --sb-state 2>/dev/null | head -1 || echo "Unknown")
+        elif [[ -f /sys/firmware/efi/efivars/SecureBoot-* ]]; then
+            local sb_val
+            sb_val=$(od -An -t u1 /sys/firmware/efi/efivars/SecureBoot-* 2>/dev/null | awk '{print $NF}')
+            [[ "$sb_val" == "1" ]] && sb_status="Enabled" || sb_status="Disabled"
+        fi
+        print_keyval "Current Status" "$sb_status"
+    else
+        warning "Legacy BIOS mode - Secure Boot requires UEFI"
+        return 1
+    fi
+    
+    # Step 2: Install tools
+    print_step 2 $total_steps "Installing Secure Boot tools..."
+    local tool_name=""
+    echo -ne "${C_DIM}"
     case "$distro" in
         "arch")
-            pacman -S --noconfirm --needed sbctl
-            info "Use 'sbctl' to manage Secure Boot keys"
+            pacman -S --noconfirm --needed sbctl 2>&1 | grep -v "^::" || true
+            tool_name="sbctl"
             ;;
         "ubuntu")
-            apt install -y mokutil
-            info "Use 'mokutil' to manage Secure Boot keys"
+            apt install -y mokutil 2>&1 | grep -E "^(Setting up|is already)" | head -3 || true
+            tool_name="mokutil"
             ;;
         "fedora")
-            dnf install -y mokutil
-            info "Use 'mokutil' to manage Secure Boot keys"
+            dnf install -y mokutil 2>&1 | grep -E "^(Installing|Complete)" | head -3 || true
+            tool_name="mokutil"
             ;;
         "opensuse")
-            zypper install -y mokutil
-            info "Use 'mokutil' to manage Secure Boot keys"
+            zypper install -y mokutil 2>&1 | grep -E "^(Installing|done)" | head -3 || true
+            tool_name="mokutil"
             ;;
     esac
+    echo -ne "${C_NC}"
+    completed_item "${tool_name} installed"
     
-    success "Secure Boot tools installed"
-    warning "Remember to enable Secure Boot in BIOS after configuring keys"
+    # Step 3: Show configuration info
+    print_step 3 $total_steps "Displaying configuration guidance..."
+    
+    print_subsection "Secure Boot Configuration"
+    print_keyval "Boot Mode" "UEFI"
+    print_keyval "Current State" "$sb_status"
+    print_keyval "Management Tool" "$tool_name"
+    
+    print_box "Secure Boot Tools Installed"
+    
+    echo
+    warning "Important: Secure Boot requires additional manual steps:"
+    echo
+    echo "  ${C_DIM}1. Generate and enroll custom keys (if using sbctl)${C_NC}"
+    echo "  ${C_DIM}2. Sign kernel and bootloader${C_NC}"
+    echo "  ${C_DIM}3. Enable Secure Boot in BIOS${C_NC}"
+    echo
+    
+    if [[ "$distro" == "arch" ]]; then
+        print_tip "Arch: Run 'sbctl status' then 'sbctl create-keys' and 'sbctl enroll-keys'"
+    else
+        print_tip "Check Secure Boot state: mokutil --sb-state"
+    fi
 }
 
 # --- Main Execution ---
@@ -95,17 +139,11 @@ main() {
         error "Distribution not specified. This script should be called by gz302-main.sh"
     fi
     
-    echo
-    echo "============================================================"
-    echo "  GZ302 Secure Boot Setup"
-    echo "============================================================"
-    echo
+    print_box "GZ302 Secure Boot Setup"
     
     setup_secureboot "$distro"
     
-    echo
-    success "Secure Boot module complete!"
-    echo
+    print_box "Secure Boot Module Complete"
 }
 
 main "$@"

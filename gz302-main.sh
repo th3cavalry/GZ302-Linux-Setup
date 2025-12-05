@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.3.10
+# Version: 2.3.13
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -3244,140 +3244,316 @@ download_and_execute_module() {
 # --- Distribution-Specific Setup Functions ---
 setup_arch_based() {
     local distro="$1"
-    info "Setting up Arch-based system..."
+    print_subsection "Arch-based System Setup"
     
-    # Update system and install base dependencies
-    info "Updating system and installing base dependencies..."
-    pacman -Syu --noconfirm --needed
-    pacman -S --noconfirm --needed git base-devel wget curl
+    # Step 1: Update system
+    print_step 1 7 "Updating system and installing base dependencies..."
+    if ! is_step_completed "arch_update"; then
+        printf "${C_DIM}"
+        pacman -Syu --noconfirm --needed
+        pacman -S --noconfirm --needed git base-devel wget curl
+        printf "${C_NC}"
+        complete_step "arch_update"
+    fi
+    completed_item "System updated"
     
-    # Install AUR helper if not present (for Arch-based systems)
-    if [[ "$distro" == "arch" ]] && ! command -v yay >/dev/null 2>&1; then
-        info "Installing yay AUR helper..."
-        local primary_user
-        primary_user=$(get_real_user)
-        sudo -u "$primary_user" -H bash << 'EOFYAY'
+    # Step 2: Install AUR helper
+    print_step 2 7 "Setting up AUR helper..."
+    if ! is_step_completed "arch_aur"; then
+        if [[ "$distro" == "arch" ]] && ! command -v yay >/dev/null 2>&1; then
+            info "Installing yay AUR helper..."
+            local primary_user
+            primary_user=$(get_real_user)
+            printf "${C_DIM}"
+            sudo -u "$primary_user" -H bash << 'EOFYAY'
 cd /tmp
 git clone https://aur.archlinux.org/yay.git
 cd yay
 makepkg -si --noconfirm
 EOFYAY
+            printf "${C_NC}"
+        fi
+        complete_step "arch_aur"
     fi
+    completed_item "AUR helper ready"
     
-    # Apply hardware fixes
-    apply_hardware_fixes
+    # Step 3: Apply hardware fixes
+    print_step 3 7 "Applying hardware fixes..."
+    if ! is_step_completed "arch_hardware"; then
+        apply_hardware_fixes
+        complete_step "arch_hardware"
+    fi
+    completed_item "Hardware fixes applied"
     
     # Provide distribution-specific optimization information
     provide_distro_optimization_info "$distro"
     
-    # Install ASUS-specific packages (asusctl, power-profiles-daemon, switcheroo-control)
-    install_arch_asus_packages
+    # Step 4: Install ASUS-specific packages
+    print_step 4 7 "Installing ASUS control packages..."
+    if ! is_step_completed "arch_asus"; then
+        printf "${C_DIM}"
+        install_arch_asus_packages
+        printf "${C_NC}"
+        complete_step "arch_asus"
+    fi
+    completed_item "ASUS packages installed"
     
-    # Install SOF firmware for audio support
-    install_sof_firmware "arch"
+    # Step 5: Install SOF firmware for audio support
+    print_step 5 7 "Installing audio firmware..."
+    if ! is_step_completed "arch_audio"; then
+        printf "${C_DIM}"
+        install_sof_firmware "arch"
+        printf "${C_NC}"
+        complete_step "arch_audio"
+    fi
+    completed_item "Audio firmware installed"
     
-    # Install GZ302 RGB keyboard control
-    install_gz302_rgb_keyboard "arch" || warning "RGB keyboard installation failed"
+    # Step 6: Install GZ302 RGB keyboard control
+    print_step 6 7 "Setting up RGB keyboard control..."
+    if ! is_step_completed "arch_rgb"; then
+        printf "${C_DIM}"
+        install_gz302_rgb_keyboard "arch" || warning "RGB keyboard installation failed"
+        printf "${C_NC}"
+        complete_step "arch_rgb"
+    fi
+    completed_item "RGB keyboard configured"
     
-    # Setup TDP management and refresh rate (always install)
-    setup_tdp_management "arch"
-    install_refresh_management
+    # Step 7: Setup TDP and refresh management
+    print_step 7 7 "Setting up power and display management..."
+    if ! is_step_completed "arch_tdp"; then
+        setup_tdp_management "arch"
+        install_refresh_management
+        complete_step "arch_tdp"
+    fi
+    completed_item "Power and display management ready"
     
     enable_arch_services
 }
 
 setup_debian_based() {
     local distro="$1"
-    info "Setting up Debian-based system..."
+    print_subsection "Debian-based System Setup"
     
-    # Update system and install base dependencies
-    info "Updating system and installing base dependencies..."
-    apt update
-    apt upgrade -y
-    apt install -y curl wget git build-essential \
-        apt-transport-https ca-certificates gnupg lsb-release
+    # Step 1: Update system
+    print_step 1 7 "Updating system and installing base dependencies..."
+    if ! is_step_completed "debian_update"; then
+        printf "${C_DIM}"
+        apt update
+        apt upgrade -y
+        apt install -y curl wget git build-essential \
+            apt-transport-https ca-certificates gnupg lsb-release
+        printf "${C_NC}"
+        complete_step "debian_update"
+    fi
+    completed_item "System updated"
     
-    # Apply hardware fixes
-    apply_hardware_fixes
+    # Step 2: Apply hardware fixes
+    print_step 2 7 "Applying hardware fixes..."
+    if ! is_step_completed "debian_hardware"; then
+        apply_hardware_fixes
+        complete_step "debian_hardware"
+    fi
+    completed_item "Hardware fixes applied"
     
     # Provide distribution-specific optimization information
     provide_distro_optimization_info "$distro"
     
-    # Install ASUS-specific packages
-    install_debian_asus_packages
+    # Provide distribution-specific optimization information
+    provide_distro_optimization_info "$distro"
     
-    # Install SOF firmware for audio support
-    install_sof_firmware "ubuntu"
+    # Step 3: Install ASUS-specific packages
+    print_step 3 7 "Installing ASUS control packages..."
+    if ! is_step_completed "debian_asus"; then
+        printf "${C_DIM}"
+        install_debian_asus_packages
+        printf "${C_NC}"
+        complete_step "debian_asus"
+    fi
+    completed_item "ASUS packages installed"
     
-    # Install GZ302 RGB keyboard control
-    install_gz302_rgb_keyboard "ubuntu" || warning "RGB keyboard installation failed"
+    # Step 4: Install SOF firmware for audio support
+    print_step 4 7 "Installing audio firmware..."
+    if ! is_step_completed "debian_audio"; then
+        printf "${C_DIM}"
+        install_sof_firmware "ubuntu"
+        printf "${C_NC}"
+        complete_step "debian_audio"
+    fi
+    completed_item "Audio firmware installed"
     
-    # Setup TDP management and refresh rate (always install)
-    setup_tdp_management "debian"
-    install_refresh_management
+    # Step 5: Install GZ302 RGB keyboard control
+    print_step 5 7 "Setting up RGB keyboard control..."
+    if ! is_step_completed "debian_rgb"; then
+        printf "${C_DIM}"
+        install_gz302_rgb_keyboard "ubuntu" || warning "RGB keyboard installation failed"
+        printf "${C_NC}"
+        complete_step "debian_rgb"
+    fi
+    completed_item "RGB keyboard configured"
+    
+    # Step 6-7: Setup TDP management and refresh rate
+    print_step 6 7 "Setting up power management..."
+    if ! is_step_completed "debian_tdp"; then
+        setup_tdp_management "debian"
+        complete_step "debian_tdp"
+    fi
+    completed_item "Power management ready"
+    
+    print_step 7 7 "Setting up display management..."
+    if ! is_step_completed "debian_refresh"; then
+        install_refresh_management
+        complete_step "debian_refresh"
+    fi
+    completed_item "Display management ready"
     
     enable_debian_services
 }
 
 setup_fedora_based() {
     local distro="$1"
-    info "Setting up Fedora-based system..."
+    print_subsection "Fedora-based System Setup"
     
-    # Update system and install base dependencies
-    info "Updating system and installing base dependencies..."
-    dnf upgrade -y
-    dnf install -y curl wget git gcc make kernel-devel
+    # Step 1: Update system
+    print_step 1 7 "Updating system and installing base dependencies..."
+    if ! is_step_completed "fedora_update"; then
+        printf "${C_DIM}"
+        dnf upgrade -y
+        dnf install -y curl wget git gcc make kernel-devel
+        printf "${C_NC}"
+        complete_step "fedora_update"
+    fi
+    completed_item "System updated"
     
-    # Apply hardware fixes
-    apply_hardware_fixes
+    # Step 2: Apply hardware fixes
+    print_step 2 7 "Applying hardware fixes..."
+    if ! is_step_completed "fedora_hardware"; then
+        apply_hardware_fixes
+        complete_step "fedora_hardware"
+    fi
+    completed_item "Hardware fixes applied"
     
     # Provide distribution-specific optimization information
     provide_distro_optimization_info "$distro"
     
-    # Install ASUS-specific packages
-    install_fedora_asus_packages
+    # Step 3: Install ASUS-specific packages
+    print_step 3 7 "Installing ASUS control packages..."
+    if ! is_step_completed "fedora_asus"; then
+        printf "${C_DIM}"
+        install_fedora_asus_packages
+        printf "${C_NC}"
+        complete_step "fedora_asus"
+    fi
+    completed_item "ASUS packages installed"
     
-    # Install SOF firmware for audio support
-    install_sof_firmware "fedora"
+    # Step 4: Install SOF firmware for audio support
+    print_step 4 7 "Installing audio firmware..."
+    if ! is_step_completed "fedora_audio"; then
+        printf "${C_DIM}"
+        install_sof_firmware "fedora"
+        printf "${C_NC}"
+        complete_step "fedora_audio"
+    fi
+    completed_item "Audio firmware installed"
     
-    # Install GZ302 RGB keyboard control
-    install_gz302_rgb_keyboard "fedora" || warning "RGB keyboard installation failed"
+    # Step 5: Install GZ302 RGB keyboard control
+    print_step 5 7 "Setting up RGB keyboard control..."
+    if ! is_step_completed "fedora_rgb"; then
+        printf "${C_DIM}"
+        install_gz302_rgb_keyboard "fedora" || warning "RGB keyboard installation failed"
+        printf "${C_NC}"
+        complete_step "fedora_rgb"
+    fi
+    completed_item "RGB keyboard configured"
     
-    # Setup TDP management and refresh rate (always install)
-    setup_tdp_management "fedora"
-    install_refresh_management
+    # Step 6-7: Setup TDP management and refresh rate
+    print_step 6 7 "Setting up power management..."
+    if ! is_step_completed "fedora_tdp"; then
+        setup_tdp_management "fedora"
+        complete_step "fedora_tdp"
+    fi
+    completed_item "Power management ready"
+    
+    print_step 7 7 "Setting up display management..."
+    if ! is_step_completed "fedora_refresh"; then
+        install_refresh_management
+        complete_step "fedora_refresh"
+    fi
+    completed_item "Display management ready"
     
     enable_fedora_services
 }
 
 setup_opensuse() {
     local distro="$1"
-    info "Setting up OpenSUSE..."
+    print_subsection "OpenSUSE System Setup"
     
-    # Update system and install base dependencies
-    info "Updating system and installing base dependencies..."
-    zypper refresh
-    zypper update -y
-    zypper install -y curl wget git gcc make kernel-devel
+    # Step 1: Update system
+    print_step 1 7 "Updating system and installing base dependencies..."
+    if ! is_step_completed "opensuse_update"; then
+        printf "${C_DIM}"
+        zypper refresh
+        zypper update -y
+        zypper install -y curl wget git gcc make kernel-devel
+        printf "${C_NC}"
+        complete_step "opensuse_update"
+    fi
+    completed_item "System updated"
     
-    # Apply hardware fixes
-    apply_hardware_fixes
+    # Step 2: Apply hardware fixes
+    print_step 2 7 "Applying hardware fixes..."
+    if ! is_step_completed "opensuse_hardware"; then
+        apply_hardware_fixes
+        complete_step "opensuse_hardware"
+    fi
+    completed_item "Hardware fixes applied"
     
     # Provide distribution-specific optimization information
     provide_distro_optimization_info "$distro"
     
-    # Install ASUS-specific packages
-    install_opensuse_asus_packages
+    # Step 3: Install ASUS-specific packages
+    print_step 3 7 "Installing ASUS control packages..."
+    if ! is_step_completed "opensuse_asus"; then
+        printf "${C_DIM}"
+        install_opensuse_asus_packages
+        printf "${C_NC}"
+        complete_step "opensuse_asus"
+    fi
+    completed_item "ASUS packages installed"
     
-    # Install SOF firmware for audio support
-    install_sof_firmware "opensuse"
+    # Step 4: Install SOF firmware for audio support
+    print_step 4 7 "Installing audio firmware..."
+    if ! is_step_completed "opensuse_audio"; then
+        printf "${C_DIM}"
+        install_sof_firmware "opensuse"
+        printf "${C_NC}"
+        complete_step "opensuse_audio"
+    fi
+    completed_item "Audio firmware installed"
     
-    # Install GZ302 RGB keyboard control
-    install_gz302_rgb_keyboard "opensuse" || warning "RGB keyboard installation failed"
+    # Step 5: Install GZ302 RGB keyboard control
+    print_step 5 7 "Setting up RGB keyboard control..."
+    if ! is_step_completed "opensuse_rgb"; then
+        printf "${C_DIM}"
+        install_gz302_rgb_keyboard "opensuse" || warning "RGB keyboard installation failed"
+        printf "${C_NC}"
+        complete_step "opensuse_rgb"
+    fi
+    completed_item "RGB keyboard configured"
     
-    # Setup TDP management and refresh rate (always install)
-    setup_tdp_management "opensuse"
-    install_refresh_management
+    # Step 6-7: Setup TDP management and refresh rate
+    print_step 6 7 "Setting up power management..."
+    if ! is_step_completed "opensuse_tdp"; then
+        setup_tdp_management "opensuse"
+        complete_step "opensuse_tdp"
+    fi
+    completed_item "Power management ready"
+    
+    print_step 7 7 "Setting up display management..."
+    if ! is_step_completed "opensuse_refresh"; then
+        install_refresh_management
+        complete_step "opensuse_refresh"
+    fi
+    completed_item "Display management ready"
     
     enable_opensuse_services
 }
@@ -3576,37 +3752,51 @@ main() {
         exit 0
     fi
     
-    echo
-    echo "============================================================"
-    echo "  ASUS ROG Flow Z13 (GZ302) Setup Script"
-    echo "  Version 2.2.10"
-    echo "============================================================"
-    echo
+    # Display beautiful banner
+    print_banner
+    print_section "GZ302 Linux Setup v2.3.13"
     
-    # Check kernel version early (before network check)
-    info "Checking kernel version..."
-    # Perform kernel version validation early (exits on failure)
-    check_kernel_version >/dev/null
-    echo
-    
-    # Check network connectivity
-    info "Checking network connectivity..."
-    if ! check_network; then
-        warning "Network connectivity check failed."
-        warning "Some features may not work without internet access."
-        warning "Please ensure you have an active internet connection."
-        echo
-        read -r -p "Do you want to continue anyway? (y/N): " continue_choice
-        if [[ ! "$continue_choice" =~ ^[Yy]$ ]]; then
-            error "Setup cancelled. Please connect to the internet and try again."
+    # Check for resume from previous installation
+    if check_resume "main"; then
+        if prompt_resume "main"; then
+            local completed_steps
+            completed_steps=$(get_completed_steps)
+            info "Resuming from checkpoint. Completed steps: $(echo "$completed_steps" | tr ',' ' ')"
         fi
-        warning "Continuing without network validation..."
     else
-        success "Network connectivity confirmed"
+        init_checkpoint "main"
     fi
-    echo
     
-    info "Detecting your Linux distribution..."
+    # Step 1: Kernel version check
+    print_step 1 5 "Checking kernel version..."
+    if ! is_step_completed "kernel_check"; then
+        check_kernel_version >/dev/null
+        complete_step "kernel_check"
+    fi
+    success "Kernel version validated"
+    
+    # Step 2: Network connectivity check
+    print_step 2 5 "Checking network connectivity..."
+    if ! is_step_completed "network_check"; then
+        if ! check_network; then
+            warning "Network connectivity check failed"
+            warning "Some features may not work without internet access"
+            echo
+            read -r -p "Do you want to continue anyway? (y/N): " continue_choice
+            if [[ ! "$continue_choice" =~ ^[Yy]$ ]]; then
+                error "Setup cancelled. Please connect to the internet and try again."
+            fi
+            warning "Continuing without network validation..."
+        else
+            success "Network connectivity confirmed"
+        fi
+        complete_step "network_check"
+    else
+        success "Network connectivity (cached)"
+    fi
+    
+    # Step 3: Distribution detection
+    print_step 3 5 "Detecting Linux distribution..."
     
     # Get original distribution name for display
     local original_distro=""
@@ -3620,17 +3810,35 @@ main() {
     detected_distro=$(detect_distribution)
     
     if [[ "$original_distro" != "$detected_distro" ]]; then
-        success "Detected distribution: $original_distro (using $detected_distro base)"
+        success "Detected: $original_distro (using $detected_distro base)"
     else
-        success "Detected distribution: $detected_distro"
+        success "Detected: $detected_distro"
     fi
+    
+    # Step 4: Config backup
+    print_step 4 5 "Creating configuration backup..."
+    if ! is_step_completed "config_backup"; then
+        create_config_backup "pre-install-$(date +%Y%m%d)" >/dev/null
+        complete_step "config_backup"
+    fi
+    success "Configuration backup created"
+    
+    # Step 5: System ready
+    print_step 5 5 "System ready for configuration"
+    echo
+    print_subsection "System Information"
+    print_keyval "Distribution" "${original_distro:-$detected_distro}"
+    print_keyval "Kernel" "$(uname -r)"
+    print_keyval "Architecture" "$(uname -m)"
+    print_keyval "Target Hardware" "ASUS ROG Flow Z13 (GZ302)"
     echo
     
-    info "Starting setup process for $detected_distro-based systems..."
-    info "This will apply GZ302-specific hardware fixes and install TDP/refresh rate management."
+    print_tip "This script will configure hardware drivers, power management, and display settings"
     echo
     
     # Route to appropriate setup function based on base distribution
+    print_section "Installing Core Components"
+    
     case "$detected_distro" in
         "arch")
             setup_arch_based "$detected_distro"
@@ -3650,17 +3858,15 @@ main() {
     esac
     
     echo
-    success "============================================================"
-    success "GZ302 Core Setup Complete for $detected_distro-based systems!"
-    success ""
-    success "Applied GZ302-specific hardware fixes:"
-    success "- Wi-Fi stability (MediaTek MT7925e)"
-    success "- Touchpad detection and functionality"
-    success "- Audio support (SOF firmware)"
-    success "- GPU and thermal optimizations"
-    success "- Power management: Use 'pwrcfg' command"
-    success "- Refresh rate control: Use 'rrcfg' command"
-    success "============================================================"
+    print_section "Setup Complete"
+    
+    print_subsection "Applied Hardware Fixes"
+    completed_item "Wi-Fi stability (MediaTek MT7925e)"
+    completed_item "Touchpad detection and functionality"
+    completed_item "Audio support (SOF firmware)"
+    completed_item "GPU and thermal optimizations"
+    completed_item "Power management (pwrcfg command)"
+    completed_item "Refresh rate control (rrcfg command)"
     echo
     
     # Install tray icon (core feature - automatically installed)
@@ -3669,19 +3875,23 @@ main() {
     # Offer optional modules
     offer_optional_modules "$detected_distro"
     
+    # Clear checkpoint on successful completion
+    clear_checkpoint
+    
     echo
+    print_box "${SYMBOL_ROCKET} SETUP COMPLETE! ${SYMBOL_ROCKET}" "$C_BOLD_GREEN"
+    
+    success "Your ROG Flow Z13 (GZ302) is now optimized!"
     echo
-    echo "🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉"
-    success "SCRIPT COMPLETED SUCCESSFULLY!"
-    success "Core setup is COMPLETE!"
-    success "It is highly recommended to REBOOT your system now."
-    success ""
-    success "Available power profiles: emergency, battery, efficient, balanced, performance, gaming, maximum"
-    success "Check power status with: pwrcfg status"
-    success "Check refresh rate with: rrcfg status"
-    success ""
-    success "Your ROG Flow Z13 (GZ302) is now optimized for $detected_distro!"
-    echo "🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉"
+    print_subsection "Quick Reference"
+    print_keyval "Power profiles" "emergency, battery, efficient, balanced, performance, gaming, maximum"
+    print_keyval "Check power" "pwrcfg status"
+    print_keyval "Check refresh" "rrcfg status"
+    print_keyval "Tray icon" "System tray for quick profile switching"
+    echo
+    
+    warning "A REBOOT is recommended to apply all changes"
+    print_tip "Run 'pwrcfg gaming' for maximum performance mode"
     echo
 }
 

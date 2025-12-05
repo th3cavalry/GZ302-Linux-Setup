@@ -1,0 +1,85 @@
+name: Shell Script Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - '**.sh'
+      - '.github/workflows/validate.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.sh'
+  workflow_dispatch:
+
+jobs:
+  syntax-check:
+    name: Bash Syntax Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate bash syntax
+        run: |
+          echo "Validating bash syntax..."
+          errors=0
+          
+          for script in $(find . -name "*.sh" -type f); do
+            echo "  Checking: $script"
+            if ! bash -n "$script" 2>&1; then
+              echo "  Syntax error in: $script"
+              errors=$((errors + 1))
+            fi
+          done
+          
+          if [ $errors -gt 0 ]; then
+            echo "Found $errors script(s) with syntax errors"
+            exit 1
+          else
+            echo "All scripts passed syntax validation"
+          fi
+
+  shellcheck:
+    name: ShellCheck Linting
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          severity: warning
+
+  version-check:
+    name: Version Consistency Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check version consistency
+        run: |
+          echo "Checking version consistency..."
+          main_version=$(grep "^# Version:" gz302-main.sh | head -1 | sed 's/# Version: //')
+          echo "Main script version: $main_version"
+          errors=0
+          for script in gz302-gaming.sh gz302-llm.sh gz302-hypervisor.sh gz302-snapshots.sh gz302-secureboot.sh gz302-utils.sh gz302-rgb.sh gz302-minimal.sh; do
+            if [ -f "$script" ]; then
+              version=$(grep "^# Version:" "$script" | head -1 | sed 's/# Version: //')
+              if [ "$version" != "$main_version" ]; then
+                echo "Version mismatch: $script has $version (expected $main_version)"
+                errors=$((errors + 1))
+              fi
+            fi
+          done
+          if [ $errors -gt 0 ]; then
+            echo "Found $errors version mismatch(es)"
+            exit 1
+          else
+            echo "All versions match: $main_version"
+          fi

@@ -1,7 +1,7 @@
-# GZ302 AI/ML Package Support - November 2025
+# GZ302 AI/ML Package Support - January 2025
 
-**Date**: November 7, 2025  
-**Version**: 0.3.0  
+**Date**: January 2025  
+**Version**: 0.4.0  
 **Focus**: ROCm, PyTorch, MIOpen, and bitsandbytes support for AMD Radeon 8060S (gfx1151)
 
 ---
@@ -10,12 +10,215 @@
 
 This document details the current state of AI/ML package support for the ASUS ROG Flow Z13 (GZ302EA) with AMD Radeon 8060S integrated graphics (gfx1151 architecture). The GZ302 setup script now includes comprehensive AI/ML support through the `gz302-llm.sh` module, which installs:
 
-- **Ollama**: Local LLM server
+- **Ollama**: Local LLM server with gfx1151 optimizations
+- **llama.cpp**: Lightweight inference engine with ROCm/HIP support
 - **ROCm**: AMD GPU acceleration framework
 - **PyTorch**: Deep learning framework with ROCm backend
 - **MIOpen**: AMD's deep learning primitives library
 - **bitsandbytes**: 8-bit quantization for efficient LLM inference
 - **Transformers & Accelerate**: Hugging Face ecosystem tools
+
+---
+
+## gfx1151 (Strix Halo) Optimizations
+
+### Environment Variables for Maximum Performance
+
+The `gz302-llm.sh` module automatically configures these optimizations via systemd service overrides:
+
+**For Ollama** (`/etc/systemd/system/ollama.service.d/gz302-strix-halo.conf`):
+```ini
+# HSA_OVERRIDE_GFX_VERSION: Treat gfx1151 as gfx1100 (RDNA3) for driver compatibility
+# This enables mature, well-optimized RDNA3 code paths
+Environment="HSA_OVERRIDE_GFX_VERSION=11.0.0"
+
+# Ensure only Radeon 8060S is visible to HIP runtime
+Environment="HIP_VISIBLE_DEVICES=0"
+
+# Increase hardware queues for better parallelism
+Environment="GPU_MAX_HW_QUEUES=8"
+
+# Enable async kernel execution for performance
+Environment="AMD_SERIALIZE_KERNEL=0"
+Environment="AMD_SERIALIZE_COPY=0"
+
+# hipBLASLt: High-performance BLAS library
+Environment="HIPBLASLT_LOG_LEVEL=0"
+
+# Full GPU offload with memory overhead for stability
+Environment="OLLAMA_NUM_GPU=999"
+Environment="OLLAMA_GPU_OVERHEAD=512000000"
+```
+
+**For llama.cpp** (embedded in systemd service):
+```ini
+# Same HSA override for RDNA3 compatibility
+Environment="HSA_OVERRIDE_GFX_VERSION=11.0.0"
+Environment="HIP_VISIBLE_DEVICES=0"
+Environment="GPU_MAX_HW_QUEUES=8"
+Environment="AMD_SERIALIZE_KERNEL=0"
+Environment="AMD_SERIALIZE_COPY=0"
+```
+
+### Build Optimizations
+
+**llama.cpp with rocWMMA Flash Attention**:
+```bash
+cmake .. \
+    -DGGML_HIP=ON \
+    -DGGML_HIP_ROCWMMA_FATTN=ON \  # Enable rocWMMA flash attention for RDNA3+
+    -DGPU_TARGETS=gfx1151 \
+    -DCMAKE_BUILD_TYPE=Release
+```
+
+The `-DGGML_HIP_ROCWMMA_FATTN=ON` flag enables flash attention using AMD's rocWMMA library, providing significant performance improvements for attention computation on RDNA3+ architectures.
+
+### Runtime Flags
+
+**llama-server critical flags for Strix Halo**:
+```bash
+llama-server --host 0.0.0.0 --port 8080 \
+    -m /path/to/model.gguf \
+    --n-gpu-layers 999 \  # Force all layers to GPU
+    -fa 1 \               # Enable flash attention
+    --no-mmap             # Disable mmap for unified memory compatibility
+```
+
+- `-fa 1` (flash attention): **REQUIRED** - Without this, performance collapses significantly
+- `--no-mmap`: Prevents memory-mapping issues with Strix Halo's unified memory aperture
+- `--n-gpu-layers 999`: Forces all model layers to GPU for maximum performance
+
+### Why HSA_OVERRIDE_GFX_VERSION=11.0.0?
+
+The AMD Radeon 8060S uses the gfx1151 architecture (Strix Halo / RDNA 3.5). However:
+
+1. **Driver Maturity**: gfx1100 (RDNA 3) has more mature driver support and better-tested code paths
+2. **Compatibility**: Many ROCm libraries check for specific architectures and may not recognize gfx1151
+3. **Performance**: The gfx1100 code paths are highly optimized and work well on gfx1151
+
+By setting `HSA_OVERRIDE_GFX_VERSION=11.0.0`, the ROCm runtime treats the GPU as gfx1100, enabling access to these mature optimizations.
+
+---
+
+## Building Ollama from Source for Strix Halo
+
+### Why Build from Source?
+
+Pre-built Ollama binaries may not include optimized HIP support for RDNA 3+ architectures. Building from source allows:
+
+1. **Native HIP/ROCm Integration**: Direct GPU acceleration
+2. **rocWMMA Flash Attention**: Significant performance boost for attention layers
+3. **Custom Target Architecture**: Build specifically for your GPU
+
+### Prerequisites
+
+**CachyOS/Arch Linux**:
+```bash
+sudo pacman -S rocm-hip-sdk rocm-hip-runtime hip-runtime-amd rocblas miopen-hip rocwmma git cmake go
+```
+
+**Ubuntu/Debian**:
+```bash
+# Add AMD ROCm repository first
+sudo apt install rocm-dev rocm-hip-sdk rocblas miopen-hip git cmake golang-go
+```
+
+### Build Instructions
+
+**CRITICAL**: Build with `gfx1100` target, NOT `gfx1151`. The HIP runtime doesn't fully support gfx1151 code objects yet. Combined with `HSA_OVERRIDE_GFX_VERSION=11.0.0`, the gfx1100 build runs perfectly on Strix Halo.
+
+```bash
+# Clone Ollama
+git clone https://github.com/ollama/ollama.git
+cd ollama
+
+# Build with gfx1100 target (works with HSA_OVERRIDE_GFX_VERSION=11.0.0)
+mkdir -p build && cd build
+cmake .. \
+    -DAMDGPU_TARGETS="gfx1100" \
+    -DGGML_HIP_ROCWMMA_FATTN=ON \
+    -DCMAKE_BUILD_TYPE=Release
+
+cmake --build . --config Release -j$(nproc)
+
+# Build Go binary
+cd ..
+go build .
+
+# Install (as root)
+sudo cp ./ollama /usr/bin/ollama
+sudo mkdir -p /usr/lib/ollama
+sudo cp build/lib/ollama/* /usr/lib/ollama/
+```
+
+### Systemd Service Configuration
+
+Create `/etc/systemd/system/ollama.service`:
+```ini
+[Unit]
+Description=Ollama Service (Custom GZ302 build with gfx1100 target)
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ollama serve
+Restart=always
+RestartSec=3
+User=ollama
+Group=ollama
+
+# GZ302 Strix Halo gfx1151 Optimizations
+Environment="HSA_OVERRIDE_GFX_VERSION=11.0.0"
+Environment="HIP_VISIBLE_DEVICES=0"
+Environment="GPU_MAX_HW_QUEUES=8"
+Environment="AMD_SERIALIZE_KERNEL=0"
+Environment="AMD_SERIALIZE_COPY=0"
+Environment="OLLAMA_NUM_GPU=999"
+Environment="OLLAMA_GPU_OVERHEAD=512000000"
+Environment="OLLAMA_DEBUG=0"
+
+[Install]
+WantedBy=default.target
+```
+
+### Create Ollama User and Enable Service
+
+```bash
+# Create user and group
+sudo useradd -r -s /bin/false -m -d /usr/share/ollama ollama
+
+# Create models directory
+sudo mkdir -p /usr/share/ollama/.ollama
+sudo chown -R ollama:ollama /usr/share/ollama
+
+# Enable and start service
+sudo systemctl daemon-reload
+sudo systemctl enable --now ollama
+```
+
+### Verification
+
+```bash
+# Check service status
+systemctl status ollama
+
+# Test with a model (runs on GPU)
+ollama pull llama3.2:1b
+ollama run llama3.2:1b "Hello, what GPU are you using?" --verbose
+
+# Expected output includes:
+# - "eval rate: 100+ tokens/s" (GPU accelerated)
+# - "load_tensors: ROCm0" (model loaded on GPU)
+```
+
+### Performance Results (Tested on GZ302EA-XS99)
+
+**llama3.2:1b model**:
+- **Prompt processing**: ~1800 tokens/s
+- **Token generation**: ~125 tokens/s
+- **Model load**: <1 second (cached)
+
+This performance is significantly faster than CPU-only inference and demonstrates proper GPU utilization.
 
 ---
 

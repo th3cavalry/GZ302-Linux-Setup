@@ -9,9 +9,10 @@ This repository provides modular Linux setup scripts for the ASUS ROG Flow Z13 (
 ## Big Picture Architecture
 
 - **Core script:** `gz302-main.sh` (hardware fixes, power/display management, distribution detection)
+- **Shared utilities:** `gz302-utils.sh` (visual formatting, config backup, error recovery, checkpoint system)
 - **Optional modules:** `gz302-gaming.sh`, `gz302-llm.sh`, `gz302-hypervisor.sh`, `gz302-snapshots.sh`, `gz302-secureboot.sh` (downloaded on demand)
-- **GUI utility:** `tray-icon/` (system tray for power profile switching)
-- **Legacy:** `Old/` (archived monolithic scripts, Python conversion docs)
+- **GUI utility:** `tray-icon/` (system tray for power profile switching with desktop notifications)
+- **CI/CD:** `.github/workflows/validate.yml` (automated syntax check, shellcheck, version consistency)
 - **Documentation:** `README.md`, `CONTRIBUTING.md`, `Info/` (kernel, changelog, research)
 
 
@@ -22,28 +23,58 @@ This repository provides modular Linux setup scripts for the ASUS ROG Flow Z13 (
     - Lint: `shellcheck gz302-main.sh` (zero warnings required)
     - Version: Line 7 in `gz302-main.sh` (`# Version: X.Y.Z`)
     - Download test: Validate GitHub raw URLs for modules
+    - CI: GitHub Actions runs syntax check, shellcheck, and version consistency on every PR
 - **Distribution support:** All scripts must work for Arch, Debian/Ubuntu, Fedora, OpenSUSE (use detection logic in `gz302-main.sh`)
 - **Module install:** Only download modules when requested; never bundle optional code in core script
 - **Power/display management:** Use `pwrcfg` and `rrcfg` commands for profile switching; passwordless sudo is configured via `tray-icon/install-policy.sh`
 - **Package management:** Use distro-specific commands (`pacman`, `yay`, `apt`, `dnf`, `zypper`) and helper functions (see script examples)
 
 
-
 ## Project-Specific Conventions
 
 - **Bash scripts:** Always start with `set -euo pipefail`. Quote all variables and command substitutions. Use `local` for function scope. Output via `info`, `success`, `warning`, `error` helpers.
+- **Visual formatting:** Use `print_section`, `print_subsection`, `print_step`, `print_keyval`, `completed_item` from gz302-utils.sh for consistent output
 - **Function naming:** Use descriptive, underscore-separated names (e.g., `install_arch_packages_with_yay`).
 - **Testing:** All scripts must pass `bash -n` and `shellcheck` with zero warnings before commit. Test on all supported distros (VMs/containers OK).
 - **Versioning:**
     - Always increment the version in `gz302-main.sh` (line 7) when making any change (PATCH for bugfixes, MINOR for features, MAJOR for breaking changes).
     - Update the version in this file's header and in commit messages as well.
     - Example: `sed -i 's/Version: 1.2.1/Version: 1.2.2/' gz302-main.sh`
-    - **All module scripts must match the main script version (currently 1.2.1)**
+    - **All module scripts must match the main script version (currently 2.3.13)**
 - **Documentation:** Update `README.md` and this file for any user-facing change. Follow markdown style and keep technical accuracy.
 - Always check git status before and after operations
 
 
+## New Features (v2.3.13)
+
+### Config Backup System
+- **Location:** `/var/backups/gz302/` with timestamped subdirectories
+- **Function:** `create_config_backup()` in gz302-utils.sh
+- **Backs up:** modprobe.d configs, systemd services, sudoers entries, custom scripts
+- **Usage:** Automatically called during installation, or `list_backups` to view
+
+### Checkpoint/Resume System
+- **Location:** `/var/lib/gz302/checkpoint`
+- **Functions:** `init_checkpoint()`, `complete_step()`, `is_step_completed()`, `check_resume()`, `prompt_resume()`
+- **Purpose:** Resume interrupted installations from last completed step
+- **Usage:** Automatically prompts on script restart if previous run was incomplete
+
+### Visual Formatting Utilities
+- `print_section "Title"` - Major section headers with decoration
+- `print_subsection "Title"` - Subsection headers
+- `print_step N "Description"` - Numbered step indicators
+- `print_keyval "Key" "Value"` - Aligned key-value display
+- `completed_item "Description"` - Green checkmark completion indicator
+- `C_DIM` - Dimmed output for verbose package installation
+
+### GitHub Actions CI
+- **Workflow:** `.github/workflows/validate.yml`
+- **Jobs:** Syntax check, ShellCheck linting, version consistency across modules
+- **Triggers:** Push and pull request on main branch
+
+
 ## Integration Points & External Dependencies
+
 
 - **ASUS packages:** asusctl, power-profiles-daemon, switcheroo-control (installed per distro)
 - **Kernel requirements:** 6.14+ (minimum), 6.17+ (recommended) for AMD XDNA NPU, Strix Halo, Wi-Fi stability
@@ -87,9 +118,9 @@ wc -l gz302-*.sh
 
 ---
 
-**Last updated:** December 2025 (v2.3.10)
+**Last updated:** December 2025 (v2.3.13)
 
-**Current Version:** 2.3.10 (synced across all module scripts)
+**Current Version:** 2.3.13 (synced across all module scripts)
 
 ### Bug Fixes
 1. **Identify bug location**: Main script or specific module

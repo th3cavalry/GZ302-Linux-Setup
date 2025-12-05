@@ -4,7 +4,7 @@
 # Uninstall Script for ASUS ROG Flow Z13 (GZ302) Setup
 #
 # Author: th3cavalry using Copilot
-# Version: 1.1.1
+# Version: 2.3.13
 #
 # This script detects and removes components installed by gz302-main.sh
 # and optional scripts (gz302-folio-fix.sh, gz302-g14-kernel.sh).
@@ -21,7 +21,13 @@ C_BLUE='\033[0;34m'
 C_GREEN='\033[0;32m'
 C_YELLOW='\033[1;33m'
 C_RED='\033[0;31m'
+C_BOLD_CYAN='\033[1;36m'
+C_DIM='\033[2m'
 C_NC='\033[0m'
+
+# --- Symbols ---
+SYMBOL_CHECK='✓'
+SYMBOL_CROSS='✗'
 
 # --- Logging functions ---
 error() {
@@ -39,6 +45,44 @@ success() {
 
 warning() {
     echo -e "${C_YELLOW}WARNING:${C_NC} $1"
+}
+
+# --- Visual formatting functions ---
+print_box() {
+    local text="$1"
+    local padding=4
+    local text_len=${#text}
+    local total_width=$((text_len + padding * 2))
+    
+    echo
+    echo -e "${C_GREEN}╔$(printf '═%.0s' $(seq 1 $total_width))╗${C_NC}"
+    echo -e "${C_GREEN}║${C_NC}$(printf ' %.0s' $(seq 1 $padding))${text}$(printf ' %.0s' $(seq 1 $padding))${C_GREEN}║${C_NC}"
+    echo -e "${C_GREEN}╚$(printf '═%.0s' $(seq 1 $total_width))╝${C_NC}"
+    echo
+}
+
+print_section() {
+    echo
+    echo -e "${C_BOLD_CYAN}━━━ $1 ━━━${C_NC}"
+}
+
+print_step() {
+    local step="$1"
+    local total="$2"
+    local desc="$3"
+    echo -e "${C_BOLD_CYAN}[$step/$total]${C_NC} $desc"
+}
+
+print_keyval() {
+    printf "  ${C_DIM}%-25s${C_NC} %s\n" "$1:" "$2"
+}
+
+completed_item() {
+    echo -e "  ${C_GREEN}${SYMBOL_CHECK}${C_NC} $1"
+}
+
+failed_item() {
+    echo -e "  ${C_RED}${SYMBOL_CROSS}${C_NC} $1"
 }
 
 check_root() {
@@ -121,11 +165,11 @@ detect_g14_kernel() {
 
 # --- Uninstall functions ---
 uninstall_hardware_fixes() {
-    info "Removing hardware configuration files..."
+    print_section "Removing Hardware Configuration"
     
-    rm -f /etc/modprobe.d/mt7925.conf
-    rm -f /etc/modprobe.d/amdgpu.conf
-    rm -f /etc/modprobe.d/hid-asus.conf
+    rm -f /etc/modprobe.d/mt7925.conf && completed_item "WiFi config removed" || true
+    rm -f /etc/modprobe.d/amdgpu.conf && completed_item "GPU config removed" || true
+    rm -f /etc/modprobe.d/hid-asus.conf && completed_item "HID config removed" || true
     
     # Remove HID reload service
     if systemctl is-enabled reload-hid_asus.service >/dev/null 2>&1; then
@@ -133,19 +177,19 @@ uninstall_hardware_fixes() {
     fi
     systemctl stop reload-hid_asus.service 2>/dev/null || true
     rm -f /etc/systemd/system/reload-hid_asus.service
+    completed_item "HID reload service removed"
     
     # Remove keyboard backlight restore script
     rm -f /usr/lib/systemd/system-sleep/gz302-kbd-backlight
     rm -rf /var/lib/gz302
     
-    systemctl daemon-reload
+    systemctl daemon-reload >/dev/null 2>&1
     
-    success "Hardware configuration files removed"
     warning "Reboot required to fully remove kernel module configurations"
 }
 
 uninstall_tdp_management() {
-    info "Removing TDP/Power management..."
+    print_section "Removing TDP/Power Management"
     
     # Stop and disable services
     if systemctl is-active pwrcfg-monitor.service >/dev/null 2>&1; then
@@ -157,33 +201,30 @@ uninstall_tdp_management() {
     if systemctl is-enabled pwrcfg-auto.service >/dev/null 2>&1; then
         systemctl disable pwrcfg-auto.service 2>/dev/null || true
     fi
+    completed_item "Services stopped and disabled"
     
     # Remove files
-    rm -f /usr/local/bin/pwrcfg
-    rm -f /usr/local/bin/pwrcfg-monitor
+    rm -f /usr/local/bin/pwrcfg && completed_item "pwrcfg command removed" || true
+    rm -f /usr/local/bin/pwrcfg-monitor && completed_item "pwrcfg-monitor removed" || true
     rm -f /etc/systemd/system/pwrcfg-auto.service
     rm -f /etc/systemd/system/pwrcfg-monitor.service
-    rm -rf /etc/gz302-tdp
+    rm -rf /etc/gz302-tdp && completed_item "TDP config directory removed" || true
     
     # Remove sudoers rule if present
     rm -f /etc/sudoers.d/pwrcfg
     
-    systemctl daemon-reload
-    
-    success "TDP/Power management removed"
+    systemctl daemon-reload >/dev/null 2>&1
 }
 
 uninstall_refresh_management() {
-    info "Removing refresh rate management..."
+    print_section "Removing Refresh Rate Management"
     
-    rm -f /usr/local/bin/rrcfg
-    rm -rf /etc/gz302-refresh
-    
-    success "Refresh rate management removed"
+    rm -f /usr/local/bin/rrcfg && completed_item "rrcfg command removed" || true
+    rm -rf /etc/gz302-refresh && completed_item "Refresh config removed" || true
 }
 
 uninstall_folio_fix() {
-    info "Removing folio resume fix..."
+    print_section "Removing Folio Resume Fix"
     
     # Stop and disable service
     if systemctl is-enabled reload-hid_asus-resume.service >/dev/null 2>&1; then
@@ -195,9 +236,9 @@ uninstall_folio_fix() {
     rm -f /usr/local/bin/gz302-folio-resume.sh
     rm -f /etc/systemd/system/reload-hid_asus-resume.service
     
-    systemctl daemon-reload
+    systemctl daemon-reload >/dev/null 2>&1
     
-    success "Folio resume fix removed"
+    completed_item "Folio resume fix removed"
 }
 
 uninstall_g14_kernel() {
@@ -258,15 +299,9 @@ uninstall_g14_kernel() {
 main() {
     check_root
     
-    echo
-    echo "============================================================"
-    echo "  GZ302 Setup Uninstaller"
-    echo "  Version 1.1.1"
-    echo "============================================================"
-    echo
+    print_box "GZ302 Setup Uninstaller"
     
-    info "Scanning for installed components..."
-    echo
+    print_section "Scanning for Installed Components"
     
     # Detect what's installed
     local components=()
@@ -275,45 +310,52 @@ main() {
     if detect_hardware_fixes; then
         components+=("Hardware fixes (kernel modules, modprobe configs)")
         component_funcs+=("uninstall_hardware_fixes")
+        completed_item "Hardware fixes detected"
     fi
     
     if detect_tdp_management; then
         components+=("TDP/Power management (pwrcfg, services)")
         component_funcs+=("uninstall_tdp_management")
+        completed_item "TDP management detected"
     fi
     
     if detect_refresh_management; then
         components+=("Refresh rate management (rrcfg)")
         component_funcs+=("uninstall_refresh_management")
+        completed_item "Refresh management detected"
     fi
     
     if detect_folio_fix; then
         components+=("Folio resume fix (Optional)")
         component_funcs+=("uninstall_folio_fix")
+        completed_item "Folio fix detected"
     fi
     
     if detect_g14_kernel; then
         components+=("Linux-G14 kernel (Optional, Arch only)")
         component_funcs+=("uninstall_g14_kernel")
+        completed_item "G14 kernel detected"
     fi
     
     # Check if anything is installed
     if [[ ${#components[@]} -eq 0 ]]; then
+        echo
         info "No GZ302 setup components detected on this system."
         info "Nothing to uninstall."
         exit 0
     fi
     
     # Display detected components
-    echo "Detected components:"
+    print_section "Detected Components"
     for i in "${!components[@]}"; do
-        echo "  $((i+1)). ${components[$i]}"
+        echo -e "  ${C_BOLD_CYAN}$((i+1))${C_NC}) ${components[$i]}"
     done
     echo
     
     # Get user selection
-    echo "Select components to uninstall (comma-separated numbers, e.g., 1,2,3):"
-    read -r -p "Enter selection (or 'all' to remove everything): " selection
+    echo -e "${C_BOLD_CYAN}Select components to uninstall:${C_NC}"
+    echo -e "  ${C_DIM}Enter comma-separated numbers (e.g., 1,2,3) or 'all'${C_NC}"
+    read -r -p "> " selection
     
     # Parse selection
     local to_uninstall=()
@@ -337,35 +379,33 @@ main() {
         exit 0
     fi
     
-    echo
-    echo "The following will be removed:"
+    print_section "Components to Remove"
     for func in "${to_uninstall[@]}"; do
         for i in "${!component_funcs[@]}"; do
             if [[ "${component_funcs[$i]}" == "$func" ]]; then
-                echo "  - ${components[$i]}"
+                echo -e "  ${C_RED}•${C_NC} ${components[$i]}"
             fi
         done
     done
     echo
     
-    read -r -p "Continue with uninstallation? (y/N): " confirm
+    read -r -p "$(echo -e "${C_YELLOW}Continue with uninstallation? (y/N):${C_NC} ")" confirm
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
         info "Uninstallation cancelled"
         exit 0
     fi
     
     # Perform uninstallation
-    echo
     for func in "${to_uninstall[@]}"; do
         $func
-        echo
     done
     
-    success "Uninstallation complete!"
+    # Summary
+    print_box "Uninstallation Complete"
+    
+    print_keyval "Components removed" "${#to_uninstall[@]}"
     echo
-    info "Summary:"
-    info "  - ${#to_uninstall[@]} component(s) removed"
-    info "  - Some changes may require a reboot to take full effect"
+    warning "Some changes may require a reboot to take full effect"
     echo
 }
 
