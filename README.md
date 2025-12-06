@@ -3,7 +3,8 @@
 **The ultimate modular Linux suite for the ASUS ROG Flow Z13 (GZ302).**
 Transform your device into an optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional gaming/AI modules.
 
-> **🚀 Version 2.3.13 (Dec 2025)**
+> **🚀 Version 2.3.15 (Dec 2025)**
+> **New GUI Option:** "Linux Armoury" - A full-featured GTK4 control center (optional).
 > **Visual Output Improvements:** All scripts now feature structured, easy-to-read output with section headers, progress indicators, and dimmed verbose output.
 > **KDE & HandHeld Daemon Sync:** Power profiles automatically sync with KDE system tray and HHD.
 > **Kernel Requirement:** Linux 6.14+ required (6.17+ recommended) for AMD XDNA NPU and Strix Halo optimizations.
@@ -101,9 +102,17 @@ This setup is modular. The core script installs essential fixes; everything else
 
 ## 🎛️ Control Center: Usage Guide
 
-### 1. System Tray Icon (GUI)
+### 1. Linux Armoury (Comprehensive GUI)
 
-The easiest way to manage your device.
+A modern, full-featured GTK4 control center designed specifically for the GZ302.
+- **Features:** Visual power profile management, refresh rate control, fan curves, and system monitoring.
+- **Integration:** Uses standard `asusctl` backend for maximum compatibility.
+- **Note:** If you select this during installation, the custom `pwrcfg` and `rrcfg` tools will **not** be installed to avoid conflicts.
+- **Usage:** Launch "Linux Armoury" from your application menu.
+
+### 2. System Tray Icon (Legacy GUI)
+
+The easiest way to manage your device if you prefer a simple tray indicator.
 
 - **Right-click** the tray icon to switch profiles
 - **Visuals:** Checkmarks indicate active profiles; Tooltips show battery % and power draw
@@ -114,9 +123,11 @@ The easiest way to manage your device.
 cd tray-icon && sudo ./install-tray.sh
 ```
 
-### 2. Command Line Tools
+### 3. Command Line Tools
 
 You can control everything via terminal. If you enabled "password-less sudo" during setup, you do not need to type sudo.
+
+**Note:** These tools are only available if you did **not** install Linux Armoury.
 
 **Power Management (pwrcfg)**
 ```bash
@@ -385,4 +396,4 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ---
 
-**Last Updated:** December 2025 (v2.3.13)
+**Last Updated:** December 2025 (v2.3.15)
