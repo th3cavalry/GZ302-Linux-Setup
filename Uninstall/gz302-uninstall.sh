@@ -4,7 +4,7 @@
 # Uninstall Script for ASUS ROG Flow Z13 (GZ302) Setup
 #
 # Author: th3cavalry using Copilot
-# Version: 2.3.13
+# Version: 2.3.14
 #
 # This script detects and removes components installed by gz302-main.sh
 # and optional scripts (gz302-folio-fix.sh, gz302-g14-kernel.sh).

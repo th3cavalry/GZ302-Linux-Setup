@@ -2038,7 +2038,6 @@ uninstall_llm_software() {
             
         *)
             error "Unsupported distribution: $distro"
-            return 1
             ;;
     esac
     

@@ -1,12 +1,10 @@
 #!/bin/bash
 
 # ==============================================================================
-# Linux-G14 Kernel Installer for ASUS ROG Flow Z13 (GZ302)
+# GZ302 G14 Kernel Installation Script
+# Version: 2.3.14
 #
-# Author: th3cavalry using Copilot
-# Version: 2.3.13
-#
-# This script installs the linux-g14 custom kernel for ASUS ROG devices.
+# Installs the linux-g14 kernel from Arch Linux g14 repository.
 # The linux-g14 kernel is community-maintained and includes ASUS-specific
 # optimizations including RGB LED control, suspend/resume hooks, and power
 # management tunables.

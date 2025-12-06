@@ -4,7 +4,7 @@
 # Folio Resume Fix for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.3.13
+# Version: 2.3.14
 #
 # This script installs a workaround for Issue #83 where the folio keyboard/
 # touchpad stops working after suspend/resume and requires reconnecting.
