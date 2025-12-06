@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.3.14
+# Version: 2.3.15
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -1331,6 +1331,11 @@ install_ryzenadj_opensuse() {
 setup_tdp_management() {
     local distro_family="$1"
     
+    if [[ "${INSTALL_LINUX_ARMOURY:-false}" == "true" ]]; then
+        info "Linux Armoury installed - skipping native TDP management (pwrcfg)"
+        return 0
+    fi
+    
     info "Setting up TDP management for GZ302..."
     
     # Install ryzenadj based on distribution
@@ -2092,6 +2097,11 @@ RESTORE_EOF
 
 # Refresh Rate Management Installation
 install_refresh_management() {
+    if [[ "${INSTALL_LINUX_ARMOURY:-false}" == "true" ]]; then
+        info "Linux Armoury installed - skipping native refresh rate management (rrcfg)"
+        return 0
+    fi
+
     info "Installing virtual refresh rate management system..."
     
     # Create refresh rate management script
@@ -3207,6 +3217,38 @@ install_tray_icon() {
     info "For more information, see: $system_tray_dir/README.md"
 }
 
+# --- Linux Armoury Installation ---
+install_linux_armoury() {
+    info "Installing Linux Armoury..."
+    
+    local repo_url="https://github.com/th3cavalry/Linux-Armoury.git"
+    local install_dir="/tmp/Linux-Armoury"
+    
+    # Remove existing directory if it exists
+    if [[ -d "$install_dir" ]]; then
+        rm -rf "$install_dir"
+    fi
+    
+    info "Cloning Linux Armoury repository..."
+    if ! git clone "$repo_url" "$install_dir"; then
+        warning "Failed to clone Linux Armoury repository"
+        return 1
+    fi
+    
+    cd "$install_dir"
+    chmod +x install.sh
+    
+    info "Running Linux Armoury installer..."
+    # Run the installer
+    if ./install.sh; then
+        success "Linux Armoury installed successfully"
+        return 0
+    else
+        warning "Linux Armoury installation failed"
+        return 1
+    fi
+}
+
 # --- Module Download and Execution ---
 download_and_execute_module() {
     local module_name="$1"
@@ -3837,6 +3879,21 @@ main() {
     print_tip "This script will configure hardware drivers, power management, and display settings"
     echo
     
+    # Ask about Linux Armoury
+    export INSTALL_LINUX_ARMOURY="false"
+    echo
+    print_section "Linux Armoury (GUI Control Center)"
+    info "Linux Armoury is a modern GUI control center for GZ302 that replaces the legacy tray icon."
+    info "It handles power profiles, refresh rates, and system monitoring automatically."
+    echo
+    read -p "Would you like to install Linux Armoury? (Y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        if install_linux_armoury; then
+            export INSTALL_LINUX_ARMOURY="true"
+        fi
+    fi
+
     # Route to appropriate setup function based on base distribution
     print_section "Installing Core Components"
     
@@ -3871,7 +3928,11 @@ main() {
     echo
     
     # Install tray icon (core feature - automatically installed)
-    install_tray_icon
+    if [[ "$INSTALL_LINUX_ARMOURY" != "true" ]]; then
+        install_tray_icon
+    else
+        info "Skipping legacy tray icon (Linux Armoury installed)"
+    fi
     
     # Offer optional modules
     offer_optional_modules "$detected_distro"

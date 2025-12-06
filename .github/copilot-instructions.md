@@ -120,7 +120,7 @@ wc -l gz302-*.sh
 
 **Last updated:** December 2025 (v2.3.13)
 
-**Current Version:** 2.3.13 (synced across all module scripts)
+**Current Version:** 2.3.15 (synced across all module scripts)
 
 ### Bug Fixes
 1. **Identify bug location**: Main script or specific module
