@@ -185,24 +185,26 @@ cleanup_obsolete_fixes() {
     echo
     
     # Check and remove obsolete WiFi ASPM workaround
-    if [[ -f /etc/modprobe.d/mt7925.conf ]] && grep -q "disable_aspm=1" /etc/modprobe.d/mt7925.conf 2>/dev/null; then
-        warning "Found obsolete WiFi ASPM workaround (harmful on kernel 6.17+)"
-        echo -e "  ${C_DIM}This workaround is no longer needed and degrades battery life${C_NC}"
-        
-        cat > /etc/modprobe.d/mt7925.conf <<'EOF'
+    if [[ -f /etc/modprobe.d/mt7925.conf ]]; then
+        if grep -q "disable_aspm=1" /etc/modprobe.d/mt7925.conf 2>/dev/null; then
+            warning "Found obsolete WiFi ASPM workaround (harmful on kernel 6.17+)"
+            echo -e "  ${C_DIM}This workaround is no longer needed and degrades battery life${C_NC}"
+            
+            cat > /etc/modprobe.d/mt7925.conf <<'EOF'
 # MediaTek MT7925 Wi-Fi configuration for GZ302
 # Kernel 6.17+ has native ASPM support - workarounds removed
 EOF
-        completed_item "Removed WiFi ASPM workaround"
-        items_cleaned=$((items_cleaned + 1))
-        
-        # Reload WiFi module
-        if lsmod | grep -q mt7925e; then
-            info "Reloading WiFi module to apply changes..."
-            modprobe -r mt7925e 2>/dev/null || true
-            sleep 1
-            modprobe mt7925e 2>/dev/null || true
-            completed_item "WiFi module reloaded"
+            completed_item "Removed WiFi ASPM workaround"
+            items_cleaned=$((items_cleaned + 1))
+            
+            # Reload WiFi module
+            if lsmod | grep -q mt7925e; then
+                info "Reloading WiFi module to apply changes..."
+                modprobe -r mt7925e 2>/dev/null || true
+                sleep 1
+                modprobe mt7925e 2>/dev/null || true
+                completed_item "WiFi module reloaded"
+            fi
         fi
     fi
     
@@ -219,21 +221,23 @@ EOF
     fi
     
     # Check and remove obsolete input forcing
-    if [[ -f /etc/modprobe.d/hid-asus.conf ]] && grep -q "enable_touchpad=1" /etc/modprobe.d/hid-asus.conf 2>/dev/null; then
-        warning "Found obsolete touchpad forcing option (not needed on kernel 6.17+)"
-        echo -e "  ${C_DIM}Kernel now handles touchpad enumeration natively${C_NC}"
-        
-        sed -i '/enable_touchpad=1/d' /etc/modprobe.d/hid-asus.conf
-        completed_item "Removed touchpad forcing option"
-        items_cleaned=$((items_cleaned + 1))
-        
-        # Reload HID module if loaded
-        if lsmod | grep -q hid_asus; then
-            info "Reloading HID module to apply changes..."
-            modprobe -r hid_asus 2>/dev/null || true
-            sleep 1
-            modprobe hid_asus 2>/dev/null || true
-            completed_item "HID module reloaded"
+    if [[ -f /etc/modprobe.d/hid-asus.conf ]]; then
+        if grep -q "enable_touchpad=1" /etc/modprobe.d/hid-asus.conf 2>/dev/null; then
+            warning "Found obsolete touchpad forcing option (not needed on kernel 6.17+)"
+            echo -e "  ${C_DIM}Kernel now handles touchpad enumeration natively${C_NC}"
+            
+            sed -i '/enable_touchpad=1/d' /etc/modprobe.d/hid-asus.conf
+            completed_item "Removed touchpad forcing option"
+            items_cleaned=$((items_cleaned + 1))
+            
+            # Reload HID module if loaded
+            if lsmod | grep -q hid_asus; then
+                info "Reloading HID module to apply changes..."
+                modprobe -r hid_asus 2>/dev/null || true
+                sleep 1
+                modprobe hid_asus 2>/dev/null || true
+                completed_item "HID module reloaded"
+            fi
         fi
     fi
     
@@ -324,7 +328,7 @@ EOF
 # Kernel 6.17+ has native ASPM support - no workarounds needed
 EOF
         completed_item "Native WiFi support configured (kernel 6.17+)"
-        info "Ensure linux-firmware is up to date (Sept 2025+ required)"
+        info "Ensure linux-firmware package is up to date for best WiFi performance"
     fi
     
     # Disable NetworkManager WiFi power saving (still beneficial on all kernels)
