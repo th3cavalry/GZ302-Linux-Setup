@@ -3,7 +3,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.3.15
+# Version: 2.3.16
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers

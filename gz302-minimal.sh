@@ -4,18 +4,22 @@
 # Minimal Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 2.3.15
+# Version: 2.3.16
 #
 # This script applies ONLY the essential hardware fixes needed to run Linux
 # properly on the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.
 #
+# KERNEL-AWARE: Automatically detects kernel version and applies only necessary
+# fixes. For kernel 6.17+, most hardware workarounds are obsolete as native
+# support is available. Re-running on kernel 6.17+ will clean up obsolete fixes.
+#
 # For full features (TDP control, RGB, gaming, AI modules), use gz302-main.sh
 #
-# Essential fixes applied:
+# Essential fixes applied (kernel-dependent):
 # - Kernel version verification (6.14+ required)
-# - WiFi stability (MediaTek MT7925)
+# - WiFi stability (MediaTek MT7925) - only needed for kernel < 6.17
 # - AMD GPU optimization
-# - Touchpad/keyboard detection
+# - Touchpad/keyboard detection - only needed for kernel < 6.17
 # - Power management kernel parameters
 #
 # Supported Distributions:
@@ -170,12 +174,106 @@ detect_distribution() {
     echo "$distro"
 }
 
+# --- Cleanup Obsolete Fixes ---
+cleanup_obsolete_fixes() {
+    local kernel_version_num="$1"
+    local items_cleaned=0
+    
+    print_section "Cleaning Up Obsolete Fixes"
+    
+    info "Kernel 6.17+ detected - checking for obsolete workarounds..."
+    echo
+    
+    # Check and remove obsolete WiFi ASPM workaround
+    if [[ -f /etc/modprobe.d/mt7925.conf ]] && grep -q "disable_aspm=1" /etc/modprobe.d/mt7925.conf 2>/dev/null; then
+        warning "Found obsolete WiFi ASPM workaround (harmful on kernel 6.17+)"
+        echo -e "  ${C_DIM}This workaround is no longer needed and degrades battery life${C_NC}"
+        
+        cat > /etc/modprobe.d/mt7925.conf <<'EOF'
+# MediaTek MT7925 Wi-Fi configuration for GZ302
+# Kernel 6.17+ has native ASPM support - workarounds removed
+EOF
+        completed_item "Removed WiFi ASPM workaround"
+        items_cleaned=$((items_cleaned + 1))
+        
+        # Reload WiFi module
+        if lsmod | grep -q mt7925e; then
+            info "Reloading WiFi module to apply changes..."
+            modprobe -r mt7925e 2>/dev/null || true
+            sleep 1
+            modprobe mt7925e 2>/dev/null || true
+            completed_item "WiFi module reloaded"
+        fi
+    fi
+    
+    # Check and remove obsolete tablet mode daemon
+    if systemctl is-enabled gz302-tablet.service >/dev/null 2>&1 || [[ -f /etc/systemd/system/gz302-tablet.service ]]; then
+        warning "Found obsolete tablet mode daemon (conflicts with kernel 6.17+)"
+        echo -e "  ${C_DIM}Kernel now handles tablet mode natively via asus-wmi driver${C_NC}"
+        
+        systemctl disable --now gz302-tablet.service 2>/dev/null || true
+        rm -f /etc/systemd/system/gz302-tablet.service
+        systemctl daemon-reload
+        completed_item "Removed tablet mode daemon"
+        items_cleaned=$((items_cleaned + 1))
+    fi
+    
+    # Check and remove obsolete input forcing
+    if [[ -f /etc/modprobe.d/hid-asus.conf ]] && grep -q "enable_touchpad=1" /etc/modprobe.d/hid-asus.conf 2>/dev/null; then
+        warning "Found obsolete touchpad forcing option (not needed on kernel 6.17+)"
+        echo -e "  ${C_DIM}Kernel now handles touchpad enumeration natively${C_NC}"
+        
+        sed -i '/enable_touchpad=1/d' /etc/modprobe.d/hid-asus.conf
+        completed_item "Removed touchpad forcing option"
+        items_cleaned=$((items_cleaned + 1))
+        
+        # Reload HID module if loaded
+        if lsmod | grep -q hid_asus; then
+            info "Reloading HID module to apply changes..."
+            modprobe -r hid_asus 2>/dev/null || true
+            sleep 1
+            modprobe hid_asus 2>/dev/null || true
+            completed_item "HID module reloaded"
+        fi
+    fi
+    
+    # Check for obsolete reload-hid_asus service (touchpad race condition fix)
+    if systemctl is-enabled reload-hid_asus.service >/dev/null 2>&1 || [[ -f /etc/systemd/system/reload-hid_asus.service ]]; then
+        warning "Found obsolete touchpad reload service (not needed on kernel 6.17+)"
+        echo -e "  ${C_DIM}Native enumeration is now reliable${C_NC}"
+        
+        systemctl disable --now reload-hid_asus.service 2>/dev/null || true
+        rm -f /etc/systemd/system/reload-hid_asus.service
+        systemctl daemon-reload
+        completed_item "Removed touchpad reload service"
+        items_cleaned=$((items_cleaned + 1))
+    fi
+    
+    # Summary
+    echo
+    if [[ $items_cleaned -gt 0 ]]; then
+        success "Cleaned up $items_cleaned obsolete fix(es)"
+        echo
+        echo -e "  ${C_GREEN}✓${C_NC} Your system now uses native kernel 6.17+ support"
+        echo -e "  ${C_GREEN}✓${C_NC} Battery life should improve (WiFi ASPM enabled)"
+        echo -e "  ${C_GREEN}✓${C_NC} Tablet mode works automatically with desktop environments"
+    else
+        info "No obsolete fixes found - system is clean"
+    fi
+}
+
 # --- Apply Essential Hardware Fixes ---
 apply_hardware_fixes() {
     local kernel_version_num="$1"
     local total_steps=5
     
     print_section "Essential Hardware Fixes"
+    
+    # Kernel 6.17+ requires fewer fixes
+    if [[ $kernel_version_num -ge 617 ]]; then
+        info "Kernel 6.17+ detected - applying minimal fixes (most hardware now native)"
+        echo
+    fi
     
     # 1. Kernel parameters for AMD Strix Halo
     print_step 1 $total_steps "Configuring kernel parameters..."
@@ -210,22 +308,26 @@ apply_hardware_fixes() {
     
     # 2. WiFi fix for MediaTek MT7925
     print_step 2 $total_steps "Configuring MediaTek MT7925 WiFi..."
-    if [[ $kernel_version_num -lt 616 ]]; then
+    if [[ $kernel_version_num -lt 617 ]]; then
+        # Older kernels need ASPM workaround
         cat > /etc/modprobe.d/mt7925.conf <<'EOF'
 # MediaTek MT7925 Wi-Fi fix for GZ302
-# Disable ASPM for stability (required for kernels < 6.16)
+# Disable ASPM for stability (required for kernels < 6.17)
 options mt7925e disable_aspm=1
 EOF
-        completed_item "WiFi ASPM workaround applied (kernel < 6.16)"
+        completed_item "WiFi ASPM workaround applied (kernel < 6.17)"
+        warning "This workaround will be removed when you upgrade to kernel 6.17+"
     else
+        # Kernel 6.17+ has native WiFi support
         cat > /etc/modprobe.d/mt7925.conf <<'EOF'
 # MediaTek MT7925 Wi-Fi configuration for GZ302
-# Kernel 6.16+ has native support - no workarounds needed
+# Kernel 6.17+ has native ASPM support - no workarounds needed
 EOF
-        completed_item "Native WiFi support configured (kernel 6.16+)"
+        completed_item "Native WiFi support configured (kernel 6.17+)"
+        info "Ensure linux-firmware is up to date (Sept 2025+ required)"
     fi
     
-    # Disable NetworkManager WiFi power saving
+    # Disable NetworkManager WiFi power saving (still beneficial on all kernels)
     mkdir -p /etc/NetworkManager/conf.d/
     cat > /etc/NetworkManager/conf.d/wifi-powersave.conf <<'EOF'
 [connection]
@@ -242,14 +344,15 @@ options amdgpu ppfeaturemask=0xffffffff
 EOF
     completed_item "GPU feature mask configured"
     
-    # 4. ASUS HID (keyboard/touchpad) fix
+    # 4. ASUS HID (keyboard/touchpad) fix - only for kernel < 6.17
     print_step 4 $total_steps "Configuring ASUS keyboard and touchpad..."
-    cat > /etc/modprobe.d/hid-asus.conf <<'EOF'
+    if [[ $kernel_version_num -lt 617 ]]; then
+        cat > /etc/modprobe.d/hid-asus.conf <<'EOF'
 # ASUS HID configuration for GZ302
 options hid_asus fnlock_default=0
 EOF
-    
-    cat > /etc/systemd/system/reload-hid_asus.service <<'EOF'
+        
+        cat > /etc/systemd/system/reload-hid_asus.service <<'EOF'
 [Unit]
 Description=Reload hid_asus module for GZ302 touchpad
 After=graphical.target display-manager.service
@@ -264,10 +367,19 @@ RemainAfterExit=yes
 [Install]
 WantedBy=graphical.target
 EOF
-    
-    systemctl daemon-reload >/dev/null 2>&1
-    systemctl enable reload-hid_asus.service >/dev/null 2>&1
-    completed_item "Touchpad/keyboard service enabled"
+        
+        systemctl daemon-reload >/dev/null 2>&1
+        systemctl enable reload-hid_asus.service >/dev/null 2>&1
+        completed_item "Touchpad/keyboard service enabled (kernel < 6.17)"
+    else
+        # Kernel 6.17+ only needs basic config
+        cat > /etc/modprobe.d/hid-asus.conf <<'EOF'
+# ASUS HID configuration for GZ302
+# Kernel 6.17+ handles touchpad enumeration natively
+options hid_asus fnlock_default=0
+EOF
+        completed_item "Native touchpad support configured (kernel 6.17+)"
+    fi
     
     # 5. Reload udev rules
     print_step 5 $total_steps "Reloading system configuration..."
@@ -282,6 +394,8 @@ main() {
     
     info "This script applies only essential hardware fixes."
     echo -e "  ${C_DIM}For full features, use: sudo ./gz302-main.sh${C_NC}"
+    echo
+    info "Kernel-aware: Automatically detects and applies only necessary fixes"
     
     # Check root
     check_root
@@ -298,23 +412,51 @@ main() {
     print_keyval "Distribution" "$distro"
     completed_item "Distribution detected"
     
+    # Clean up obsolete fixes if kernel 6.17+
+    if [[ $kernel_ver -ge 617 ]]; then
+        cleanup_obsolete_fixes "$kernel_ver"
+    fi
+    
     # Apply fixes
     apply_hardware_fixes "$kernel_ver"
     
     # Summary
     print_section "Applied Fixes Summary"
     completed_item "Kernel parameters (amd_pstate, amdgpu)"
-    completed_item "WiFi stability (MediaTek MT7925)"
+    
+    if [[ $kernel_ver -ge 617 ]]; then
+        echo -e "  ${C_GREEN}${SYMBOL_CHECK}${C_NC} WiFi using native kernel 6.17+ support"
+        echo -e "  ${C_GREEN}${SYMBOL_CHECK}${C_NC} Touchpad/keyboard using native support"
+        echo -e "  ${C_GREEN}${SYMBOL_CHECK}${C_NC} Tablet mode using asus-wmi driver"
+    else
+        completed_item "WiFi stability workaround (MediaTek MT7925)"
+        completed_item "Touchpad/keyboard detection"
+        warning "Upgrade to kernel 6.17+ for native hardware support"
+    fi
+    
     completed_item "GPU optimization (Radeon 8060S)"
-    completed_item "Touchpad/keyboard detection"
     
     print_box "Minimal Setup Complete"
+    
+    if [[ $kernel_ver -ge 617 ]]; then
+        echo
+        echo -e "  ${C_GREEN}✓${C_NC} ${C_BOLD_CYAN}Kernel 6.17+ Detected${C_NC}"
+        echo -e "  ${C_DIM}Your hardware is now supported natively by the Linux kernel${C_NC}"
+        echo -e "  ${C_DIM}This script applied only essential optimizations${C_NC}"
+        echo
+    fi
     
     warning "REBOOT REQUIRED for changes to take effect"
     echo
     echo -e "  ${C_DIM}For additional features (TDP control, RGB, gaming, AI), run:${C_NC}"
     echo -e "  ${C_BOLD_CYAN}sudo ./gz302-main.sh${C_NC}"
     echo
+    
+    if [[ $kernel_ver -ge 617 ]]; then
+        echo -e "  ${C_DIM}Learn more about kernel 6.17+ improvements:${C_NC}"
+        echo -e "  ${C_BLUE}https://github.com/th3cavalry/GZ302-Linux-Setup/blob/main/Info/KERNEL_COMPATIBILITY.md${C_NC}"
+        echo
+    fi
 }
 
 main "$@"
