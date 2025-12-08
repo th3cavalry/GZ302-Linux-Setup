@@ -359,4 +359,3 @@ echo "  - Library documentation: gz302-lib/README.md"
 echo "  - Strategic plan: Info/STRATEGIC_REFACTORING_PLAN.md"
 echo "  - Individual library help: source <lib> && <lib>_help"
 echo
-EOF

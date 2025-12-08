@@ -30,10 +30,11 @@
 wifi_detect_hardware() {
     local pci_id="14c3:0616"  # MediaTek MT7925e PCI ID
     
-    if lspci -nn 2>/dev/null | grep -q "$pci_id"; then
-        # Get detailed device info
-        local device_info
-        device_info=$(lspci -nn | grep "$pci_id")
+    # Get device info once to avoid duplicate lspci calls
+    local device_info
+    device_info=$(lspci -nn 2>/dev/null | grep "$pci_id")
+    
+    if [[ -n "$device_info" ]]; then
         echo "$device_info"
         return 0
     else
@@ -68,18 +69,20 @@ wifi_get_firmware_version() {
 # Check if current kernel requires ASPM workaround
 # Returns: 0 if workaround needed, 1 if not needed
 wifi_requires_aspm_workaround() {
-    local kernel_version
-    kernel_version=$(uname -r | cut -d. -f1,2)
-    local major minor
-    major=$(echo "$kernel_version" | cut -d. -f1)
-    minor=$(echo "$kernel_version" | cut -d. -f2)
-    local version_num=$((major * 100 + minor))
-    
-    # Workaround needed for kernels < 6.17
-    if [[ $version_num -lt 617 ]]; then
-        return 0  # Workaround needed
+    # Use kernel-compat library if available, otherwise fallback to local logic
+    if declare -f kernel_get_version_num >/dev/null 2>&1; then
+        local version_num
+        version_num=$(kernel_get_version_num)
+        [[ $version_num -lt 617 ]]
     else
-        return 1  # Native support, no workaround
+        # Fallback: local implementation
+        local kernel_version
+        kernel_version=$(uname -r | cut -d. -f1,2)
+        local major minor
+        major=$(echo "$kernel_version" | cut -d. -f1)
+        minor=$(echo "$kernel_version" | cut -d. -f2)
+        local version_num=$((major * 100 + minor))
+        [[ $version_num -lt 617 ]]
     fi
 }
 
