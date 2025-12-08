@@ -481,6 +481,6 @@ radeontop
 
 ---
 
-**Version:** 1.0.0 (December 8, 2025)  
+**Version:** 3.0.0 (December 8, 2025)  
 **Maintainer:** th3cavalry  
 **License:** MIT

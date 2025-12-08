@@ -406,4 +406,4 @@ speaker-test -t wav -c 2
 - Distribution kernel versions significantly change
 - New hardware workarounds are discovered/deprecated
 
-**Version:** 1.0.0 (December 8, 2025)
+**Version:** 3.0.0 (December 8, 2025)

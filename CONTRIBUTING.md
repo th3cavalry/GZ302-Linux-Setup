@@ -4,10 +4,15 @@ Thank you for your interest in contributing to the GZ302 Linux Setup project! Th
 
 ## 🎯 Project Goals
 
+**Repository Philosophy (v3.0.0+):** The GZ302 Toolkit has evolved from a "hardware enablement" tool into a "performance optimization and convenience toolkit" for modern Linux kernels.
+
 - **Hardware-specific**: Focused on ASUS ROG Flow Z13 (GZ302EA-XS99) with AMD Ryzen AI MAX+ 395
+- **Kernel-aware**: Automatically adapts to kernel versions (6.14-6.18+), applying only necessary fixes
+- **Optimization focus**: Prioritizes performance tuning over hardware workarounds (for kernel 6.17+)
 - **Equal distribution support**: Arch, Debian/Ubuntu, Fedora, and OpenSUSE receive identical treatment
-- **Modular design**: Core hardware fixes separated from optional software modules
+- **Modular design**: Core optimizations separated from optional software modules
 - **Quality focus**: Clean, maintainable bash scripts with proper error handling
+- **Obsolescence handling**: Actively removes outdated workarounds that harm performance on modern kernels
 
 ## 🛠️ Development Setup
 
@@ -50,6 +55,18 @@ sudo zypper install ShellCheck
    
    # Avoid
    local var=$(command)  # Can mask return values
+   ```
+6. **Kernel-aware logic**: When adding hardware fixes, check if they're needed for all kernels:
+   ```bash
+   # Good - kernel-aware
+   if [[ $kernel_version_num -lt 617 ]]; then
+       apply_workaround
+   else
+       info "Native support available, skipping workaround"
+   fi
+   
+   # Avoid - applying fixes unconditionally
+   apply_workaround  # May harm performance on newer kernels
    ```
 
 ### Function Conventions
@@ -142,6 +159,8 @@ When creating or modifying modules (`gz302-*.sh`):
 3. **Support all distributions**: Implement for Arch, Debian, Fedora, OpenSUSE
 4. **Add proper error handling**: Use `set -euo pipefail`
 5. **Document usage**: Add comments explaining what the module does
+6. **Consider kernel requirements**: Document minimum kernel version if applicable
+7. **Distinguish fixes from optimizations**: Clearly label hardware workarounds vs performance tuning
 
 ### Module Template
 
@@ -229,6 +248,24 @@ For new features:
 2. **Describe the use case**: Why is this feature needed?
 3. **Hardware relevance**: Is it specific to GZ302 hardware?
 4. **Distribution support**: Can it work on all 4 distributions?
+5. **Kernel compatibility**: Does it require specific kernel versions?
+6. **Type of feature**: Is it a hardware fix, optimization, or convenience tool?
+
+### Feature Categories
+
+**Hardware Fixes** (workarounds for broken hardware):
+- Only add if hardware genuinely doesn't work without it
+- Document kernel version where native support arrives
+- Include obsolescence plan
+
+**Optimizations** (performance tuning):
+- Always safe to apply, even if benefits are small
+- Examples: GTT size for AI workloads, power profiles
+
+**Convenience Tools** (quality of life):
+- Wrappers around existing tools (asusctl, etc.)
+- GUI utilities, system tray integrations
+- The core of the "toolkit" philosophy
 
 ## 📚 Documentation
 

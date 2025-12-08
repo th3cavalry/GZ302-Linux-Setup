@@ -3,7 +3,7 @@
 **Performance optimization and convenience toolkit for the ASUS ROG Flow Z13 (GZ302).**
 Transform your device into an optimized Linux powerhouse with kernel-aware hardware fixes, intelligent power management, and optional gaming/AI modules.
 
-> **🚀 Version 2.3.16 (Dec 2025)**
+> **🚀 Version 3.0.0 (Dec 2025)**
 > **Kernel-Aware Fixes:** Automatically detects kernel version (6.14-6.18+) and applies only necessary fixes
 > **Obsolescence Cleanup:** Removes outdated workarounds when running on kernel 6.17+ with native support
 > **Repository Transition:** Evolved from "hardware enablement" to "optimization toolkit" for modern kernels
@@ -431,4 +431,4 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ---
 
-**Last Updated:** December 2025 (v2.3.16)
+**Last Updated:** December 2025 (v3.0.0)
