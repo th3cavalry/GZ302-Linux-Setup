@@ -1,13 +1,14 @@
-# GZ302 Linux Setup
+# GZ302 Toolkit
 
-**The ultimate modular Linux suite for the ASUS ROG Flow Z13 (GZ302).**
-Transform your device into an optimized Linux powerhouse with automated hardware fixes, intelligent power management, and optional gaming/AI modules.
+**Performance optimization and convenience toolkit for the ASUS ROG Flow Z13 (GZ302).**
+Transform your device into an optimized Linux powerhouse with kernel-aware hardware fixes, intelligent power management, and optional gaming/AI modules.
 
-> **🚀 Version 2.3.15 (Dec 2025)**
-> **New GUI Option:** "Linux Armoury" - A full-featured GTK4 control center (optional).
-> **Visual Output Improvements:** All scripts now feature structured, easy-to-read output with section headers, progress indicators, and dimmed verbose output.
-> **KDE & HandHeld Daemon Sync:** Power profiles automatically sync with KDE system tray and HHD.
-> **Kernel Requirement:** Linux 6.14+ required (6.17+ recommended) for AMD XDNA NPU and Strix Halo optimizations.
+> **🚀 Version 3.0.0 (Dec 2025)**
+> **Kernel-Aware Fixes:** Automatically detects kernel version (6.14-6.18+) and applies only necessary fixes
+> **Obsolescence Cleanup:** Removes outdated workarounds when running on kernel 6.17+ with native support
+> **Repository Transition:** Evolved from "hardware enablement" to "optimization toolkit" for modern kernels
+> **New GUI Option:** "Linux Armoury" - A full-featured GTK4 control center (optional)
+> **Kernel Requirement:** Linux 6.14+ required (6.17+ recommended) for full native hardware support
 
 ---
 
@@ -23,12 +24,17 @@ chmod +x gz302-minimal.sh
 sudo ./gz302-minimal.sh
 ```
 
-The minimal script (~270 lines) applies only:
-- Kernel version verification (6.14+ required)
-- WiFi stability fix (MediaTek MT7925)
+**Kernel-Aware Intelligence:**
+- **Kernel < 6.17:** Applies WiFi workarounds, touchpad fixes, and tablet mode support
+- **Kernel >= 6.17:** Minimal fixes only (most hardware now native) + cleans up obsolete workarounds
+- **All Kernels:** Essential AMD Strix Halo optimizations and kernel parameters
+
+The minimal script applies only what your kernel version needs:
+- Kernel version detection and verification (6.14+ required)
+- WiFi stability fix (MediaTek MT7925) - *only if kernel < 6.17*
 - AMD GPU optimization (Radeon 8060S)
-- Touchpad/keyboard detection
-- Essential kernel parameters
+- Touchpad/keyboard detection - *only if kernel < 6.17*
+- Essential kernel parameters (amd_pstate, amdgpu)
 
 ### Option 2: Full Setup (All Features)
 
@@ -46,9 +52,38 @@ sudo ./gz302-main.sh
 
 The full script will automatically:
 - Detect your distro
-- Apply core hardware fixes (WiFi, Touchpad, GPU)
+- Detect your kernel version
+- Apply only necessary hardware fixes (kernel-aware)
 - Install Power (pwrcfg) and Refresh Rate (rrcfg) tools
 - Ask if you want to install optional modules (Gaming, AI, RGB, etc.)
+- Clean up obsolete workarounds if running kernel 6.17+
+
+## 🔄 Repository Evolution: From Hardware Enablement to Optimization Toolkit
+
+**Early 2025 (Kernel 6.14-6.16):** This repository was **essential** - the GZ302 was largely unusable on Linux without extensive workarounds for WiFi, touchpad, tablet mode, and graphics stability.
+
+**Late 2025 (Kernel 6.17+):** The Linux kernel now provides **native GZ302 support**. Most hardware "fixes" are obsolete and can actually harm performance if applied. This repository has evolved into an **optimization and convenience toolkit**.
+
+### What This Means For You
+
+| Your Kernel | Repository Role | What You Need |
+|-------------|-----------------|---------------|
+| **< 6.14** | ❌ Unsupported | Upgrade kernel first |
+| **6.14-6.16** | ✅ Essential | Full hardware workarounds required |
+| **6.17-6.18** | ⚠️ Optimization | Minimal fixes + convenience tools |
+| **6.19+** | 🎨 Toolkit | Convenience & performance tuning only |
+
+**Key Changes in Kernel 6.17+:**
+- ✅ Native WiFi support (MT7925) - no ASPM workarounds needed
+- ✅ Native tablet mode (asus-wmi) - automatic rotation in GNOME/KDE
+- ✅ Native touchpad enumeration - reliable detection on boot
+- ⚠️ Audio still needs quirks (CS35L41 subsystem ID not upstream yet)
+
+**The scripts automatically detect your kernel version and adapt accordingly.**
+
+📚 **Detailed Analysis:** See [Info/OBSOLESCENCE.md](Info/OBSOLESCENCE.md) and [Info/KERNEL_COMPATIBILITY.md](Info/KERNEL_COMPATIBILITY.md)
+
+---
 
 ## 💻 Supported Hardware
 
@@ -396,4 +431,4 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ---
 
-**Last Updated:** December 2025 (v2.3.15)
+**Last Updated:** December 2025 (v3.0.0)

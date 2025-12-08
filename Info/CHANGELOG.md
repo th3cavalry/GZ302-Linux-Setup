@@ -5,6 +5,100 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2025-12-08
+
+### 🎉 Major Release: Repository Repositioning
+
+**BREAKING CHANGE:** The GZ302 project has transitioned from a "hardware enablement tool" to an "optimization and convenience toolkit" for modern Linux kernels (6.17+).
+
+### Added
+
+- **Kernel-Aware Installation**: Scripts now detect kernel version (6.14-6.18+) and apply only necessary fixes
+  - Conditional WiFi workarounds (only for kernel < 6.17)
+  - Conditional touchpad fixes (only for kernel < 6.17)
+  - Conditional tablet mode daemon (only for kernel < 6.17)
+  - Smart messaging based on kernel capabilities
+
+- **Automatic Obsolescence Cleanup**: New `cleanup_obsolete_fixes()` function removes harmful outdated workarounds
+  - Removes WiFi ASPM workarounds on kernel 6.17+ (improves battery life)
+  - Removes tablet mode daemons that conflict with native asus-wmi driver
+  - Removes touchpad forcing options no longer needed
+  - Removes obsolete systemd services
+  - Reloads affected kernel modules automatically
+
+- **Comprehensive Documentation**:
+  - `Info/OBSOLESCENCE.md`: Detailed analysis of obsolete vs. valid components
+  - `Info/KERNEL_COMPATIBILITY.md`: Quick reference guide for kernel versions
+  - Updated README.md with "Repository Evolution" section
+  - Updated CONTRIBUTING.md with toolkit philosophy
+
+### Changed
+
+- **Repository Name Philosophy**: "GZ302 Linux Setup" → "GZ302 Toolkit"
+  - Reflects shift from necessity (fixing broken hardware) to convenience (optimizing working hardware)
+  - Hardware fixes now conditionally applied based on kernel version
+  - Focus on performance tuning and user experience
+
+- **gz302-minimal.sh** (Major Overhaul):
+  - Kernel version detection determines what fixes to apply
+  - Automatic cleanup on kernel 6.17+ before applying new config
+  - WiFi ASPM workaround only applied for kernel < 6.17
+  - Touchpad/keyboard fixes only applied for kernel < 6.17
+  - Enhanced messaging for different kernel versions
+  - Links to documentation for kernel 6.17+ users
+
+- **README.md**:
+  - Added "Repository Evolution" section explaining transition
+  - Kernel compatibility table (6.14-6.18+)
+  - Clear explanation of what's needed per kernel version
+  - Links to detailed obsolescence documentation
+
+- **CONTRIBUTING.md**:
+  - Updated project goals with toolkit philosophy
+  - Added kernel-aware code guidelines
+  - Distinguished feature categories (fixes vs. optimizations vs. convenience)
+  - Obsolescence planning guidance
+
+- **Version Numbering**: All scripts updated to 3.0.0 for consistency
+
+### Deprecated
+
+- **WiFi ASPM Workarounds** (kernel 6.17+): Native mt7925e driver now handles power management correctly
+- **Tablet Mode Daemon** (kernel 6.17+): asus-wmi driver natively broadcasts SW_TABLET_MODE events
+- **Touchpad Forcing Options** (kernel 6.17+): Native enumeration is now reliable
+- **GPU Stability Fixes** (kernel 6.16+): Stable by default, only needed for AI/LLM workloads
+
+### Technical Details
+
+**Kernel Support Matrix**:
+- **Kernel < 6.14**: Not supported (upgrade required)
+- **Kernel 6.14-6.16**: Full hardware workarounds applied (WiFi, touchpad, tablet mode)
+- **Kernel 6.17-6.18**: Minimal fixes only (most hardware native) + automatic cleanup
+- **Kernel 6.19+**: Optimization and convenience toolkit only
+
+**Components Still Required**:
+- Audio quirks (CS35L41 subsystem ID still missing from upstream)
+- Kernel parameters (amd_pstate=guided, amdgpu.ppfeaturemask)
+- Userspace tools (pwrcfg, rrcfg, RGB control)
+- AI/LLM optimizations (GTT size, IOMMU settings)
+
+**Migration Path**:
+Users on kernel 6.17+ who previously installed this repository should re-run `gz302-minimal.sh` to clean up obsolete workarounds that may harm performance.
+
+### Breaking Changes
+
+1. **Behavioral Change**: Scripts no longer unconditionally apply all fixes
+2. **Automatic Cleanup**: Re-running scripts on kernel 6.17+ removes previously installed workarounds
+3. **Philosophy Shift**: Repository positioning changed from "enablement" to "toolkit"
+
+### Notes
+
+This major version bump reflects the maturity of Linux kernel support for the GZ302. The upstream kernel (6.17+) now provides native support for nearly all hardware, rendering most of our original workarounds obsolete. The repository's continued value lies in optimization, convenience tools, and distribution parity.
+
+**Acknowledgment**: Analysis based on comprehensive kernel research (6.14-6.18) and community feedback.
+
+---
+
 ## [2.3.13] - 2025-12-XX
 
 ### Added

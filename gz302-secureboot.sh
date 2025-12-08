@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 Secure Boot Module
-# Version: 2.3.15
+# Version: 3.0.0
 #
 # This module configures Secure Boot for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Automatic kernel signing and bootloader setup
