@@ -6,8 +6,14 @@
 # Version: 3.0.0
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
-# Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
+# Includes: Ollama, ROCm 7.1.1, PyTorch, MIOpen, bitsandbytes, Transformers
 # Configures kernel parameters optimized for LLM workloads on Strix Halo
+#
+# Updated December 2025:
+# - ROCm 7.1.1 production release support (latest stable)
+# - ROCm 7.9.0 technology preview noted
+# - Radeon 8060S (gfx1150/RDNA 3.5) optimized configuration
+# - See Info/ROCM_7.1.1_SUPPORT.md for detailed ROCm setup
 #
 # Updated January 2025:
 # - Added gfx1151 (Strix Halo) optimizations for Ollama via systemd override
@@ -17,7 +23,7 @@
 # - Environment variables for GPU tuning (HIP_VISIBLE_DEVICES, GPU_MAX_HW_QUEUES)
 #
 # Updated November 2025:
-# - Use ROCm 6.x wheels (ROCm 5.7 deprecated, no Python 3.12+ support)
+# - Use ROCm 6.x/7.x wheels (ROCm 5.7 deprecated, no Python 3.12+ support)
 # - Fixed venv permission issues
 # - Updated bitsandbytes installation (uses standard pip package now)
 # - Prefer Python 3.11/3.12 for best ROCm wheel compatibility

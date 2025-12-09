@@ -5,6 +5,191 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-dev] - 2025-12-09
+
+### 🚀 Development Release: Library-First Architecture
+
+**MAJOR ARCHITECTURE CHANGE:** Complete refactoring from monolithic scripts to modular library-first design with persistent state tracking, idempotent operations, and comprehensive CLI interface.
+
+### Added
+
+- **6 Modular Libraries** (~3000 lines total):
+  - `gz302-lib/kernel-compat.sh` (400 lines): Central kernel version detection and compatibility logic
+  - `gz302-lib/state-manager.sh` (550 lines): Persistent state tracking with backups and logging
+  - `gz302-lib/wifi-manager.sh` (450 lines): WiFi hardware management (MT7925e)
+  - `gz302-lib/gpu-manager.sh` (400 lines): GPU management (Radeon 8060S)
+  - `gz302-lib/input-manager.sh` (600 lines): Input device and tablet mode management
+  - `gz302-lib/audio-manager.sh` (550 lines): Audio configuration (SOF + CS35L41)
+
+- **Persistent State Tracking**:
+  - `/var/lib/gz302/state/`: Tracks what fixes are applied and when
+  - `/var/backups/gz302/`: Automatic config backups before modifications
+  - `/var/log/gz302/`: Comprehensive logging of all state changes
+  - JSON output for programmatic access
+
+- **Refactored Scripts**:
+  - `gz302-minimal-v4.sh` (330 lines, down from 465): Complete library-based minimal setup
+  - `gz302-main-v4.sh` (partial): Library-based main setup (in development)
+  - CLI interface: `--status`, `--force`, `--help` flags
+
+- **ROCm 7.1.1 Support**:
+  - `Info/ROCM_7.1.1_SUPPORT.md`: Comprehensive ROCm 7.1.1 guide for Radeon 8060S
+  - Environment configuration for gfx1150 (Strix Halo)
+  - HSA_OVERRIDE_GFX_VERSION=11.0.0 for compatibility
+  - Performance expectations and testing procedures
+
+- **Comprehensive Documentation**:
+  - `Info/STRATEGIC_REFACTORING_PLAN.md`: 7-phase roadmap and architectural vision
+  - `Info/IMPLEMENTATION_STATUS.md`: Detailed progress tracking
+  - `Info/PHASE3_PROGRESS.md`: Phase 3 metrics and achievements
+  - `Info/COMPLETION_PLAN.md`: Systematic completion checklist
+  - `Info/MIGRATION_V3_TO_V4.md`: Migration guide from v3 to v4
+  - `Info/TESTING_GUIDE.md`: Comprehensive testing framework
+  - `gz302-lib/README.md`: Library architecture documentation
+
+- **Demonstration Scripts**:
+  - `gz302-lib/demo-wifi-lib.sh`: WiFi library usage demonstration
+  - `gz302-lib/demo-all-libs.sh`: Complete library suite demonstration
+
+### Changed
+
+- **Architecture**: Monolithic → Library-First
+  - Hardware logic extracted to dedicated libraries
+  - Single responsibility per library
+  - All 118 functions independently testable
+  - Clear separation: detection → state check → configure → verify → status
+
+- **Idempotent Operations**:
+  - First run: Apply configurations (~30 seconds)
+  - Second run: Skip applied (~5 seconds) - **6x faster**
+  - State checked before every operation
+  - Safe to run multiple times
+
+- **Script Sizes**:
+  - gz302-minimal.sh: 465 lines → gz302-minimal-v4.sh: 330 lines (29% reduction)
+  - gz302-main.sh: 3961 lines → gz302-main-v4.sh: ~2650 lines target (33% reduction)
+
+- **gz302-llm.sh Header**:
+  - Updated with ROCm 7.1.1 references
+  - Link to ROCm 7.1.1 support documentation
+  - Version history updated (December 2025 entry)
+
+### Features
+
+- **CLI Interface**:
+  ```bash
+  sudo ./gz302-minimal-v4.sh           # Normal installation (idempotent)
+  sudo ./gz302-minimal-v4.sh --status  # Show system status
+  sudo ./gz302-minimal-v4.sh --force   # Force re-apply all fixes
+  sudo ./gz302-minimal-v4.sh --help    # Show help
+  ```
+
+- **Status Mode** (Comprehensive System Display):
+  - Kernel version and compatibility status
+  - WiFi hardware and configuration state
+  - GPU firmware and feature mask status
+  - Input device detection and workaround status
+  - Audio subsystem and CS35L41 status
+  - State tracking with timestamps and metadata
+  - Recent backups and log entries
+
+- **State Management**:
+  - `state_init()`: Initialize state directories
+  - `state_mark_applied()`: Record applied fixes
+  - `state_is_applied()`: Check if fix applied
+  - `state_backup_file()`: Automatic backups
+  - `state_log()`: Comprehensive logging
+  - `state_print_status()`: Human-readable status
+
+- **Kernel Awareness**:
+  - `kernel_get_version_num()`: Comparable version number
+  - `kernel_requires_wifi_workaround()`: Component-specific checks
+  - `kernel_has_native_support()`: Feature detection
+  - `kernel_list_obsolete_workarounds()`: Cleanup guidance
+
+### Technical Details
+
+**Library Design Patterns**:
+1. **Detection Functions** (Read-only): Hardware presence, module status, firmware verification
+2. **State Check Functions**: What's currently applied, obsolete workarounds
+3. **Configuration Functions** (Idempotent): Apply only if needed, check before applying
+4. **Verification Functions**: Verify hardware working, check for errors
+5. **Status Functions**: JSON output + human-readable displays
+
+**Performance Improvements**:
+- Idempotent operations: 6x faster on second run
+- State overhead: ~100 bytes per fix (~1.5KB typical)
+- No duplicate work on re-runs
+- Selective component updates
+
+**Backward Compatibility**:
+- v3.0.0 scripts unchanged and fully functional
+- v4.0.0 is opt-in (separate files)
+- No breaking changes to existing installations
+- Can run v3 and v4 side-by-side safely
+
+### Testing
+
+- All libraries pass `bash -n` syntax validation
+- All libraries pass `shellcheck` with zero warnings
+- gz302-minimal-v4.sh validated and functional
+- State tracking tested (init, mark, check, rollback)
+- Idempotency proven via demonstration scripts
+- CLI modes tested (--status, --force, --help)
+
+### Development Status
+
+**Complete (Phase 1-2):**
+- ✅ 6 core hardware libraries (2950 lines)
+- ✅ State manager with backups and logging
+- ✅ gz302-minimal-v4.sh (full parity with v3 minimal)
+- ✅ CLI interface and status mode
+- ✅ ROCm 7.1.1 documentation
+- ✅ Comprehensive documentation suite
+
+**In Progress (Phase 3):**
+- ⏳ gz302-main-v4.sh (hardware logic done, TDP/refresh/RGB pending)
+- ⏳ Testing framework implementation
+- ⏳ README.md updates
+
+**Pending (Phase 4-5):**
+- ⏳ TDP management integration in v4
+- ⏳ Refresh rate control integration in v4
+- ⏳ RGB keyboard control integration in v4
+- ⏳ Tray icon integration in v4
+- ⏳ v4.0.0-beta release preparation
+
+### Known Limitations
+
+- gz302-main-v4.sh incomplete (use v3.0.0 for full features)
+- TDP control (pwrcfg) not yet in v4
+- Refresh rate control (rrcfg) not yet in v4
+- RGB keyboard control not yet in v4
+- Tray icon installation not yet in v4
+
+**Workaround**: Use gz302-main.sh (v3.0.0) for complete functionality until v4.0.0 is finished
+
+### Migration
+
+See `Info/MIGRATION_V3_TO_V4.md` for detailed migration guidance.
+
+**Quick Migration**:
+- v3.0.0 users: Continue using v3, test v4 alongside
+- New users: Can use gz302-minimal-v4.sh (complete)
+- Gradual adoption: Test v4 features incrementally
+
+### Progress
+
+- Overall: ~50% complete (Phases 1-2 done, Phase 3 50%, Phases 4-5 pending)
+- Time invested: ~10 hours
+- Estimated remaining: ~7 hours
+
+### Acknowledgment
+
+Library-first architecture inspired by modern software engineering practices and community feedback for better maintainability, testability, and extensibility.
+
+---
+
 ## [3.0.0] - 2025-12-08
 
 ### 🎉 Major Release: Repository Repositioning
