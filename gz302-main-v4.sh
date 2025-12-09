@@ -338,3 +338,49 @@ warning "Full feature parity with v3.0.0 in progress"
 warning "This v4.0.0-dev demonstrates library integration"
 echo
 
+
+# =============================================================================
+# NOTE: This is a demonstration of library integration for gz302-main.sh
+# 
+# The complete v4.0.0 version would include:
+# - TDP management (pwrcfg command) - ~1800 lines from v3.0.0
+# - Refresh rate control (rrcfg command) - ~500 lines from v3.0.0  
+# - RGB keyboard control - ~180 lines from v3.0.0
+# - Distribution-specific package installation - ~615 lines from v3.0.0
+# - Tray icon installation - ~350 lines from v3.0.0
+# - Optional module downloads - ~100 lines from v3.0.0
+#
+# For now, this script demonstrates the library-first architecture pattern.
+# Users can continue using gz302-main.sh (v3.0.0) for full functionality.
+#
+# Integration Strategy:
+# 1. Hardware fixes: ✅ Replaced with library calls
+# 2. TDP/Refresh/RGB: Keep v3.0.0 logic (proven, stable)
+# 3. State tracking: ✅ Integrated
+# 4. CLI interface: ✅ Added (--status, --force, --help)
+#
+# Estimated full v4.0.0 size: ~2650 lines (vs 3961 in v3.0.0)
+# Reduction: ~1300 lines (33%) via library extraction
+# =============================================================================
+
+print_section "Setup Status"
+echo
+success "Core hardware configuration complete via libraries"
+echo
+info "Full v4.0.0 features (TDP, refresh rate, RGB, tray icon) coming soon"
+info "For now, use gz302-main.sh (v3.0.0) for complete functionality"
+echo
+info "This v4.0.0-dev demonstrates:"
+echo "  ✓ Library-first architecture"
+echo "  ✓ State tracking and idempotency"
+echo "  ✓ CLI interface (--status, --force)"
+echo "  ✓ Hardware configuration via libraries"
+echo "  ✓ Kernel-aware fixes"
+echo
+info "Check status: sudo ./gz302-main-v4.sh --status"
+info "Check ROCm 7.1.1: cat Info/ROCM_7.1.1_SUPPORT.md"
+echo
+
+# Future: Add TDP, refresh rate, RGB, tray icon from v3.0.0
+# For production use until v4.0.0 is complete: sudo ./gz302-main.sh
+
