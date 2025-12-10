@@ -494,7 +494,7 @@ build_ollama_from_source() {
                 printf "${C_GREEN}   ${SYMBOL_CHECK} Built: %-50s${C_NC}\n" "$target"
             fi
         fi
-    done
+    done || true
     local build_exit
     build_exit=${PIPESTATUS[0]:-0}
     if [[ $build_exit -ne 0 ]]; then
@@ -692,8 +692,12 @@ build_llamacpp_from_source() {
     local nproc_count
     nproc_count="$(nproc)"
     local last_percent=0
+
+    # Run the build and capture output so we can show helpful errors if it fails
+    local build_log
+    build_log=$(mktemp /tmp/llamacpp_build_log.XXXXXX)
     
-    cmake --build . --config Release -j"${nproc_count}" 2>&1 | while IFS= read -r line; do
+    cmake --build . --config Release -j"${nproc_count}" 2>&1 | tee "$build_log" | while IFS= read -r line; do
         # Show only major progress milestones
         if [[ "$line" =~ \[\ *([0-9]+)% ]]; then
             local percent="${BASH_REMATCH[1]}"
@@ -708,7 +712,13 @@ build_llamacpp_from_source() {
                 printf "${C_GREEN}   ${SYMBOL_CHECK} Built: %-50s${C_NC}\n" "$target"
             fi
         fi
-    done
+    done || true
+
+    local build_exit
+    build_exit=${PIPESTATUS[0]:-0}
+    if [[ $build_exit -ne 0 ]]; then
+        error "llama.cpp build failed (exit=$build_exit). Check the log: $build_log"
+    fi
     echo
     completed_item "llama.cpp compiled with gfx1100 target"
     
