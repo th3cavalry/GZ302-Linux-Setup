@@ -594,6 +594,24 @@ EOF
     return 1  # New checkpoint created
 }
 
+# Ask a yes/no prompt, with support for global ASSUME_YES (non-interactive)
+# Usage: ask_yes_no "Prompt text" "default"    # default: Y or N
+ask_yes_no() {
+    local prompt="$1"
+    local default="${2:-N}"
+    # If ASSUME_YES is set (true), automatically return yes
+    if [[ "${ASSUME_YES:-false}" == "true" ]]; then
+        return 0
+    fi
+    local response
+    read -r -p "$prompt" response
+    response=${response:-$default}
+    if [[ "$response" =~ ^[Yy] ]]; then
+        return 0
+    fi
+    return 1
+}
+
 # Mark a step as completed
 # Usage: complete_step "step-name"
 complete_step() {
@@ -700,14 +718,12 @@ prompt_resume() {
     info "Completed steps: $step_count"
     echo
     
-    read -r -p "Resume from last checkpoint? [Y/n] " response
-    response=${response:-Y}
-    
-    if [[ "$response" =~ ^[Yy] ]]; then
-        return 0  # User wants to resume
+    # Use helper to ask prompt but honor ASSUME_YES
+    if ask_yes_no "Resume from last checkpoint? [Y/n] " Y; then
+        return 0
     else
         clear_checkpoint
-        return 1  # User wants to start fresh
+        return 1
     fi
 }
 

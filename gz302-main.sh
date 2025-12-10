@@ -1,8 +1,6 @@
 #!/bin/bash
 
 # ==============================================================================
-# Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
-#
 # Author: th3cavalry using Copilot
 # Version: 3.0.1
 #
@@ -53,6 +51,28 @@
 
 # --- Script Configuration and Safety ---
 set -euo pipefail # Exit on error, undefined variable, or pipe failure
+
+# Global CLI flags
+ASSUME_YES="${ASSUME_YES:-false}"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -y|--assume-yes)
+            ASSUME_YES=true
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            # Other flags: break out and allow existing arg handling
+            break
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
 
 # GitHub repository base URL for downloading modules
 GITHUB_RAW_URL="https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main"
@@ -989,7 +1009,9 @@ build_asusctl_from_source() {
     echo
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo
-    if [[ -t 0 ]]; then
+    if [[ "${ASSUME_YES:-false}" == "true" ]]; then
+        response="Y"
+    elif [[ -t 0 ]]; then
         read -r -p "Would you like to build asusctl from source? (y/N): " response
     else
         warning "Non-interactive environment detected - skipping asusctl build"
@@ -3689,9 +3711,7 @@ install_tray_icon_prompt() {
     echo "  • Right-click menu for instant profile switching"
     echo "  • Essential for convenient keyboard brightness management"
     echo
-    read -p "Install GZ302 Power Manager? (Y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+    if ask_yes_no "Install GZ302 Power Manager? (Y/n): " Y; then
         install_tray_icon
     else
         info "Skipping GZ302 Power Manager installation"
@@ -3737,7 +3757,12 @@ offer_optional_modules() {
     echo "6. Skip optional modules"
     echo
     
-    read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 6 to skip): " module_choice
+    if [[ "${ASSUME_YES:-false}" == "true" ]]; then
+        module_choice="6"
+        info "ASSUME_YES: Defaulting to skip optional modules"
+    else
+        read -r -p "Which modules would you like to install? (comma-separated numbers, e.g., 1,2 or 6 to skip): " module_choice
+    fi
     
     # Parse the choices
     IFS=',' read -ra CHOICES <<< "$module_choice"
@@ -3897,8 +3922,7 @@ main() {
             warning "Network connectivity check failed"
             warning "Some features may not work without internet access"
             echo
-            read -r -p "Do you want to continue anyway? (y/N): " continue_choice
-            if [[ ! "$continue_choice" =~ ^[Yy]$ ]]; then
+            if ! ask_yes_no "Do you want to continue anyway? (y/N): " N; then
                 error "Setup cancelled. Please connect to the internet and try again."
             fi
             warning "Continuing without network validation..."
