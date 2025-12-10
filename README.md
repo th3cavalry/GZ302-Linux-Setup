@@ -50,6 +50,20 @@ chmod +x gz302-main.sh
 sudo ./gz302-main.sh
 ```
 
+### Non-interactive / CI-friendly
+
+To run the installer in non-interactive mode (auto-accept prompts where safe), pass the `-y` or `--assume-yes` flag:
+
+```bash
+sudo ./gz302-main.sh -y
+```
+
+In non-interactive mode the script will:
+- Auto-resume if a previous checkpoint is present
+- Auto-confirm safe prompts (network continuation, resume, default options)
+- Skip potentially risky interactive choices (optional modules will be skipped by default)
+
+
 The full script will automatically:
 - Detect your distro
 - Detect your kernel version
@@ -128,7 +142,7 @@ This setup is modular. The core script installs essential fixes; everything else
 
 | Module | Description |
 |---|---|
-| 🎮 Gaming | Steam, Lutris, MangoHUD, GameMode, Wine |
+| 🎮 Gaming | Steam, Lutris, MangoHUD, GameMode, Wine, Discord |
 | 🤖 AI / LLM | Ollama, ROCm, PyTorch, bitsandbytes, Transformers |
 | 🌈 RGB | Advanced keyboard lighting control (Static, Breathing, Rainbow) |
 | 💻 Hypervisor | KVM/QEMU stack (recommended) or VirtualBox |
