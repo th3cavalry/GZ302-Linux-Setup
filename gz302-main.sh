@@ -4,7 +4,7 @@
 # Linux Setup Script for ASUS ROG Flow Z13 (GZ302)
 #
 # Author: th3cavalry using Copilot
-# Version: 3.0.0
+# Version: 3.0.1
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -3187,8 +3187,12 @@ install_tray_icon() {
     # For Ubuntu 25.10 and newer, run the installer as the real user to avoid permission issues
     local distro_version=""
     if [[ -f /etc/os-release ]]; then
+        # shellcheck disable=SC1091
         source /etc/os-release
-        distro_version="$VERSION_ID"
+        # Be defensive: VERSION_ID may not be defined in some environments
+        # (set -euo pipefail causes an unbound variable error), so use a
+        # default empty value instead of referencing it directly.
+        distro_version="${VERSION_ID:-}"
     fi
 
     if [[ "$distro" == "ubuntu" && "$distro_version" == "25.10" ]]; then
