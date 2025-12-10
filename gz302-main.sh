@@ -3264,10 +3264,44 @@ install_linux_armoury() {
     else
         warning "Passwordless sudo not configured for user $real_user"
         warning "Linux Armoury installer requires passwordless sudo to work properly"
-        info "Configure passwordless sudo for user $real_user:"
-        info "  sudo visudo"
-        info "  Add: $real_user ALL=(ALL) NOPASSWD: ALL"
-        warning "Skipping Linux Armoury installation due to missing passwordless sudo"
+        echo
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  Passwordless Sudo Configuration Required"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo
+        echo "To enable Linux Armoury installation, configure passwordless sudo:"
+        echo
+        echo "  1. Open sudoers editor:"
+        echo "     sudo visudo"
+        echo
+        echo "  2. Add this line at the END of the file (before #includedir):"
+        echo
+        if [[ -f /etc/os-release ]]; then
+            source /etc/os-release
+            if [[ "$ID" == "arch" ]] || [[ "$ID" == "manjaro" ]] || [[ "$ID" == "cachyos" ]]; then
+                echo "     %wheel ALL=(ALL) NOPASSWD: ALL"
+            else
+                echo "     %sudo ALL=(ALL) NOPASSWD: ALL"
+            fi
+        else
+            echo "     %wheel ALL=(ALL) NOPASSWD: ALL   # Arch/Fedora"
+            echo "     # OR"
+            echo "     %sudo ALL=(ALL) NOPASSWD: ALL    # Debian/Ubuntu"
+        fi
+        echo
+        echo "  3. Save and exit (Ctrl+X, Y, Enter in nano; :wq in vi)"
+        echo
+        echo "  4. Test the configuration:"
+        echo "     sudo -n true && echo 'Passwordless sudo works!'"
+        echo
+        echo "  5. Re-run the installation script:"
+        echo "     sudo ./gz302-main.sh"
+        echo
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo
+        info "For detailed setup guide, see: plans/passwordless-sudo-setup.md"
+        warning "Skipping Linux Armoury installation - continuing with legacy tray icon"
+        echo
         return 1
     fi
 
@@ -3278,6 +3312,7 @@ install_linux_armoury() {
         return 0
     else
         warning "Linux Armoury installation failed"
+        warning "Continuing with legacy tray icon setup instead"
         return 1
     fi
 }
@@ -3912,21 +3947,6 @@ main() {
     print_tip "This script will configure hardware drivers, power management, and display settings"
     echo
     
-    # Ask about Linux Armoury
-    export INSTALL_LINUX_ARMOURY="false"
-    echo
-    print_section "Linux Armoury (GUI Control Center)"
-    info "Linux Armoury is a modern GUI control center for GZ302 that replaces the legacy tray icon."
-    info "It handles power profiles, refresh rates, and system monitoring automatically."
-    echo
-    read -p "Would you like to install Linux Armoury? (Y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-        if install_linux_armoury; then
-            export INSTALL_LINUX_ARMOURY="true"
-        fi
-    fi
-
     # Route to appropriate setup function based on base distribution
     print_section "Installing Core Components"
     
@@ -3961,11 +3981,7 @@ main() {
     echo
     
     # Install tray icon (core feature - automatically installed)
-    if [[ "$INSTALL_LINUX_ARMOURY" != "true" ]]; then
-        install_tray_icon
-    else
-        info "Skipping legacy tray icon (Linux Armoury installed)"
-    fi
+    install_tray_icon
     
     # Offer optional modules
     offer_optional_modules "$detected_distro"
