@@ -419,10 +419,13 @@ build_ollama_from_source() {
     echo -ne "${C_DIM}"
     case "$distro" in
         "arch"|"cachyos")
+            # Long-running pacman operation — trap SIGINT to fail gracefully
+            trap 'error "Package installation aborted by user; some packages may be partially installed. Rerun module to resume."' SIGINT SIGTERM
             pacman -S --noconfirm --needed \
                 git cmake make gcc pkgconf go \
                 rocm-hip-sdk rocm-hip-runtime hip-runtime-amd \
                 rocblas miopen-hip hipblas rocwmma 2>&1 | grep -v "^::" | grep -v "warning:" || true
+            trap - SIGINT SIGTERM
             ;;
         "debian")
             apt-get update -qq
@@ -473,7 +476,10 @@ build_ollama_from_source() {
     nproc_count="$(nproc)"
     local last_percent=0
     
-    cmake --build . --config Release -j"${nproc_count}" 2>&1 | while IFS= read -r line; do
+    # Run the build and capture output so we can show helpful errors if it fails
+    local build_log
+    build_log=$(mktemp /tmp/ollama_build_log.XXXXXX)
+    cmake --build . --config Release -j"${nproc_count}" 2>&1 | tee "$build_log" | while IFS= read -r line; do
         # Show only major progress milestones
         if [[ "$line" =~ \[\ *([0-9]+)% ]]; then
             local percent="${BASH_REMATCH[1]}"
@@ -489,13 +495,22 @@ build_ollama_from_source() {
             fi
         fi
     done
+    local build_exit
+    build_exit=${PIPESTATUS[0]:-0}
+    if [[ $build_exit -ne 0 ]]; then
+        error "Ollama HIP backend build failed (cmake build exit=$build_exit). Check the log: $build_log"
+    fi
     echo
     completed_item "HIP backend compiled with rocWMMA flash attention"
     
     # Build Go binary
     print_step 5 6 "Building Ollama Go binary..."
     cd ..
-    go build . 2>&1 | grep -E "^#|^go build" || true
+    # Run go build and capture output, fail if build fails
+    build_log_go=$(mktemp /tmp/ollama_go_build.XXXXXX)
+    if ! go build . 2>&1 | tee "$build_log_go" | grep -E "^#|^go build" || true; then
+        error "Go build failed for Ollama. See $build_log_go for details"
+    fi
     completed_item "Go binary compiled"
     
     # Install binary and libraries
@@ -508,11 +523,18 @@ build_ollama_from_source() {
     fi
     
     # Install binary
+    # Ensure the binary was created; if not, abort with a helpful error
+    if [[ ! -x ./ollama ]]; then
+        error "Ollama binary not found after build; build likely failed. Check build logs: $build_log, $build_log_go"
+    fi
     install -m 755 ./ollama /usr/bin/ollama
     print_keyval "Installed binary" "/usr/bin/ollama"
     
     # Install libraries
     mkdir -p /usr/lib/ollama
+    if [[ ! -d build/lib/ollama ]]; then
+        error "Ollama libraries not found; the HIP backend may not have built successfully. Check logs: $build_log"
+    fi
     cp -r build/lib/ollama/* /usr/lib/ollama/
     local lib_size
     lib_size=$(du -sh /usr/lib/ollama/libggml-hip.so 2>/dev/null | cut -f1)
@@ -1031,7 +1053,9 @@ install_arch_llm_software() {
         # Install ROCm for AMD GPU acceleration
         info "Installing ROCm for AMD GPU acceleration..."
         if ! check_rocm_installed; then
+            trap 'error "Package installation aborted by user; partial ROCm install may exist. Rerun module to resume."' SIGINT SIGTERM
             pacman -S --noconfirm --needed rocm-opencl-runtime rocm-hip-runtime rocblas miopen-hip
+            trap - SIGINT SIGTERM
         fi
         
         # MIOpen precompiled kernels (gfx1151 for Radeon 8060S)
@@ -1040,7 +1064,9 @@ install_arch_llm_software() {
         info "Checking for MIOpen precompiled kernels for gfx1151 (Radeon 8060S)..."
         if pacman -Ss miopen-hip 2>/dev/null | grep -q gfx1151; then
             info "Found gfx1151 kernel packages, installing..."
+            trap 'error "Package installation aborted by user; partial MIOpen install may exist. Rerun module to resume."' SIGINT SIGTERM
             pacman -S --noconfirm --needed miopen-hip-gfx1151kdb || warning "MIOpen gfx1151 kernel package installation failed, will JIT compile on first use"
+            trap - SIGINT SIGTERM
         else
             info "MIOpen precompiled kernels for gfx1151 not available in repositories (expected as of Nov 2025)."
             info "MIOpen will JIT compile optimized kernels on first use (may take 5-15 minutes)."
