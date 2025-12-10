@@ -75,6 +75,7 @@ install_arch_gaming_software() {
     fi
     
     # Step 2: Core gaming applications
+    info "Installing large gaming packages (Steam, Lutris, Vulkan). This may take several minutes depending on your network and mirrors. Avoid interrupting the process." 
     print_step 2 $total_steps "Installing Steam, Lutris, GameMode..."
     echo -ne "${C_DIM}"
     pacman -S --noconfirm --needed steam lutris gamemode lib32-gamemode discord \
@@ -187,6 +188,7 @@ install_debian_gaming_software() {
     completed_item "Repositories configured"
     
     # Step 2: Core gaming apps
+    info "Installing large gaming packages (Steam, Lutris, Vulkan). This may take several minutes depending on your network and mirrors. Avoid interrupting the process." 
     print_step 2 $total_steps "Installing Steam, Lutris, GameMode..."
     echo -ne "${C_DIM}"
     apt-get install -qq -y steam lutris gamemode discord 2>&1 | grep -v "^Reading\|^Building\|^Get:" || true
@@ -257,6 +259,7 @@ install_fedora_gaming_software() {
     completed_item "RPM Fusion enabled"
     
     # Step 2: Core gaming apps
+    info "Installing large gaming packages (Steam, Lutris, Vulkan). This may take several minutes depending on your network and mirrors. Avoid interrupting the process." 
     print_step 2 $total_steps "Installing Steam, Lutris, GameMode..."
     echo -ne "${C_DIM}"
     dnf install -q -y steam lutris gamemode discord 2>&1 | grep -v "^Last metadata" || true
@@ -315,6 +318,7 @@ install_opensuse_gaming_software() {
     completed_item "Packman repository added"
     
     # Step 2: Core gaming apps
+    info "Installing large gaming packages (Steam, Lutris, Vulkan). This may take several minutes depending on your network and mirrors. Avoid interrupting the process." 
     print_step 2 $total_steps "Installing Steam, Lutris, GameMode..."
     echo -ne "${C_DIM}"
     zypper install -y --quiet steam lutris gamemode discord 2>&1 | grep -v "^Loading\|^Retrieving" || true
