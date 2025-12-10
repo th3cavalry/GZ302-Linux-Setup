@@ -152,22 +152,42 @@ install_kvm_qemu() {
         "arch")
             # Step 2: Install packages
             print_step 2 $total_steps "Installing QEMU/KVM packages..."
+            print_tip "This installs ~1.5GB of data. It may take a few minutes."
             echo -ne "${C_DIM}"
-            pacman -S --noconfirm --needed \
-                qemu-full \
-                libvirt \
-                virt-manager \
-                virt-viewer \
-                edk2-ovmf \
-                dnsmasq \
-                bridge-utils \
-                openbsd-netcat \
-                dmidecode \
-                qemu-img \
-                qemu-system-x86 \
-                vde2 \
-                2>&1 | grep -v "^::" | grep -v "looking for conflicting" | grep -v "checking available" || true
+            
+            # Capture pacman exit code robustly while filtering output
+            local install_exit_file
+            install_exit_file=$(mktemp)
+            
+            (
+                set +e
+                pacman -S --noconfirm --needed \
+                    qemu-full \
+                    libvirt \
+                    virt-manager \
+                    virt-viewer \
+                    edk2-ovmf \
+                    dnsmasq \
+                    bridge-utils \
+                    openbsd-netcat \
+                    dmidecode \
+                    qemu-img \
+                    qemu-system-x86 \
+                    vde2 \
+                    2>&1
+                echo $? > "$install_exit_file"
+            ) | grep -v "^::" | grep -v "looking for conflicting" | grep -v "checking available" || true
+            
+            local install_exit
+            install_exit=$(cat "$install_exit_file" 2>/dev/null || echo "1")
+            rm -f "$install_exit_file"
+            
             echo -ne "${C_NC}"
+            
+            if [[ "$install_exit" -ne 0 ]]; then
+                error "Package installation failed (exit code $install_exit). Check internet connection or pacman locks."
+            fi
+            
             completed_item "Core QEMU/KVM packages installed"
             
             # Try nftables
