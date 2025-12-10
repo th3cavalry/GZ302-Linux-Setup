@@ -483,8 +483,8 @@ build_ollama_from_source() {
         # Show only major progress milestones
         if [[ "$line" =~ \[\ *([0-9]+)% ]]; then
             local percent="${BASH_REMATCH[1]}"
-            # Update every 10%
-            if (( percent >= last_percent + 10 )); then
+            # Update every 5%
+            if (( percent >= last_percent + 5 )); then
                 last_percent=$percent
                 printf "${C_DIM}   [%3d%%] Building HIP backend...${C_NC}\r" "$percent"
             fi
@@ -701,8 +701,8 @@ build_llamacpp_from_source() {
         # Show only major progress milestones
         if [[ "$line" =~ \[\ *([0-9]+)% ]]; then
             local percent="${BASH_REMATCH[1]}"
-            # Update every 10%
-            if (( percent >= last_percent + 10 )); then
+            # Update every 5%
+            if (( percent >= last_percent + 5 )); then
                 last_percent=$percent
                 printf "${C_DIM}   [%3d%%] Building llama.cpp...${C_NC}\r" "$percent"
             fi

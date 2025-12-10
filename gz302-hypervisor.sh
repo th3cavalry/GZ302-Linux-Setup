@@ -153,40 +153,45 @@ install_kvm_qemu() {
             # Step 2: Install packages
             print_step 2 $total_steps "Installing QEMU/KVM packages..."
             print_tip "This installs ~1.5GB of data. It may take a few minutes."
-            echo -ne "${C_DIM}"
             
-            # Capture pacman exit code robustly while filtering output
-            local install_exit_file
-            install_exit_file=$(mktemp)
+            local install_log
+            install_log=$(mktemp)
             
-            (
-                set +e
-                pacman -S --noconfirm --needed \
-                    qemu-full \
-                    libvirt \
-                    virt-manager \
-                    virt-viewer \
-                    edk2-ovmf \
-                    dnsmasq \
-                    bridge-utils \
-                    openbsd-netcat \
-                    dmidecode \
-                    qemu-img \
-                    qemu-system-x86 \
-                    vde2 \
-                    2>&1
-                echo $? > "$install_exit_file"
-            ) | grep -v "^::" | grep -v "looking for conflicting" | grep -v "checking available" || true
+            start_spinner "Downloading and installing packages..."
             
-            local install_exit
-            install_exit=$(cat "$install_exit_file" 2>/dev/null || echo "1")
-            rm -f "$install_exit_file"
+            set +e
+            pacman -S --noconfirm --needed \
+                qemu-full \
+                libvirt \
+                virt-manager \
+                virt-viewer \
+                edk2-ovmf \
+                dnsmasq \
+                bridge-utils \
+                openbsd-netcat \
+                dmidecode \
+                qemu-img \
+                qemu-system-x86 \
+                vde2 \
+                > "$install_log" 2>&1
+            local install_exit=$?
+            set -e
             
-            echo -ne "${C_NC}"
+            if [[ "$install_exit" -eq 0 ]]; then
+                stop_spinner "success"
+            else
+                stop_spinner "error"
+            fi
             
             if [[ "$install_exit" -ne 0 ]]; then
-                error "Package installation failed (exit code $install_exit). Check internet connection or pacman locks."
+                echo
+                # Show the last few lines of the log to help diagnose
+                tail -n 20 "$install_log"
+                echo
+                rm -f "$install_log"
+                error "Package installation failed (exit code $install_exit). See output above."
             fi
+            rm -f "$install_log"
             
             completed_item "Core QEMU/KVM packages installed"
             
