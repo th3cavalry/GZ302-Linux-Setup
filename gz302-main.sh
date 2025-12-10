@@ -3263,7 +3263,12 @@ install_linux_armoury() {
         info "Passwordless sudo detected for user $real_user"
     else
         warning "Passwordless sudo not configured for user $real_user"
-        warning "Linux Armoury installer may fail due to sudo password requirements"
+        warning "Linux Armoury installer requires passwordless sudo to work properly"
+        info "Configure passwordless sudo for user $real_user:"
+        info "  sudo visudo"
+        info "  Add: $real_user ALL=(ALL) NOPASSWD: ALL"
+        warning "Skipping Linux Armoury installation due to missing passwordless sudo"
+        return 1
     fi
 
     # Run the installer as the real user
@@ -3273,11 +3278,6 @@ install_linux_armoury() {
         return 0
     else
         warning "Linux Armoury installation failed"
-        if [[ "$has_passwordless_sudo" == false ]]; then
-            info "Try configuring passwordless sudo for user $real_user:"
-            info "  sudo visudo"
-            info "  Add: $real_user ALL=(ALL) NOPASSWD: ALL"
-        fi
         return 1
     fi
 }
