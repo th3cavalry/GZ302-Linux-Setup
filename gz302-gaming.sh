@@ -77,7 +77,7 @@ install_arch_gaming_software() {
     # Step 2: Core gaming applications
     print_step 2 $total_steps "Installing Steam, Lutris, GameMode..."
     echo -ne "${C_DIM}"
-    pacman -S --noconfirm --needed steam lutris gamemode lib32-gamemode \
+    pacman -S --noconfirm --needed steam lutris gamemode lib32-gamemode discord \
         vulkan-radeon lib32-vulkan-radeon \
         gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav 2>&1 | grep -v "^::" | grep -v "warning:" | grep -v "^$" || true
     echo -ne "${C_NC}"
@@ -103,10 +103,21 @@ install_arch_gaming_software() {
     if command -v yay &> /dev/null && [[ "$primary_user" != "root" ]]; then
         echo -ne "${C_DIM}"
         sudo -u "$primary_user" -H yay -S --noconfirm --needed protonup-qt 2>&1 | grep -v "^::" | grep -v "warning:" || true
+        # Optional: discord-canary (AUR)
+        sudo -u "$primary_user" -H yay -S --noconfirm --needed discord-canary 2>&1 | grep -v "^::" | grep -v "warning:" || true
         echo -ne "${C_NC}"
         completed_item "ProtonUp-Qt installed"
     else
         warning "yay not found or running as root - skipping AUR packages"
+    fi
+
+    # If discord not installed via pacman, fallback to Flatpak
+    if ! command -v discord >/dev/null 2>&1 && ! flatpak list --system | grep -q "com.discordapp.Discord" 2>/dev/null; then
+        if install_discord_flatpak "arch"; then
+            completed_item "Discord installed via Flatpak"
+        else
+            warning "Discord is not available via pacman or flatpak using system install"
+        fi
     fi
     
     # Step 5: Summary
@@ -119,7 +130,48 @@ install_arch_gaming_software() {
     command -v gamemoded >/dev/null && print_keyval "GameMode" "installed"
     command -v mangohud >/dev/null && print_keyval "MangoHUD" "installed"
     command -v wine >/dev/null && print_keyval "Wine" "$(wine --version 2>/dev/null || echo 'installed')"
+    if command -v discord >/dev/null; then
+        print_keyval "Discord" "installed"
+    elif flatpak list --system | grep -q "com.discordapp.Discord" 2>/dev/null; then
+        print_keyval "Discord" "installed (flatpak)"
+    fi
+    if command -v discord >/dev/null; then
+        print_keyval "Discord" "installed"
+    elif flatpak list --system | grep -q "com.discordapp.Discord" 2>/dev/null; then
+        print_keyval "Discord" "installed (flatpak)"
+    fi
+    if command -v discord >/dev/null; then
+        print_keyval "Discord" "installed"
+    elif flatpak list --system | grep -q "com.discordapp.Discord" 2>/dev/null; then
+        print_keyval "Discord" "installed (flatpak)"
+    fi
+    # (Discord status printed above if available or via flatpak)
     echo
+}
+
+# Install Discord via Flatpak (system-wide) if package manager does not provide it
+install_discord_flatpak() {
+    local distro="$1"
+    info "Attempting to install Discord via Flatpak (system-wide)..."
+    if ! command -v flatpak >/dev/null 2>&1; then
+        info "Flatpak not found - installing flatpak via package manager..."
+        case "$distro" in
+            "arch"|"cachyos") pacman -S --noconfirm --needed flatpak || true ;; 
+            "ubuntu"|"debian") apt-get install -qq -y flatpak || true ;; 
+            "fedora") dnf install -q -y flatpak || true ;; 
+            "opensuse") zypper install -y --quiet flatpak || true ;; 
+            *) info "Unknown distro; try manual flatpak install"; return 1 ;; 
+        esac
+    fi
+    # Add Flathub remote if not present
+    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || true
+    # Try system-wide install
+    if flatpak install --system -y flathub com.discordapp.Discord >/dev/null 2>&1; then
+        success "Installed Discord via Flatpak (system-wide)"
+        return 0
+    fi
+    warning "Flatpak install for Discord failed; user-level install might be required"
+    return 1
 }
 
 install_debian_gaming_software() {
@@ -137,7 +189,7 @@ install_debian_gaming_software() {
     # Step 2: Core gaming apps
     print_step 2 $total_steps "Installing Steam, Lutris, GameMode..."
     echo -ne "${C_DIM}"
-    apt-get install -qq -y steam lutris gamemode 2>&1 | grep -v "^Reading\|^Building\|^Get:" || true
+    apt-get install -qq -y steam lutris gamemode discord 2>&1 | grep -v "^Reading\|^Building\|^Get:" || true
     echo -ne "${C_NC}"
     completed_item "Core gaming apps installed"
     
@@ -159,6 +211,16 @@ install_debian_gaming_software() {
         gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav 2>&1 | grep -v "^Reading\|^Building\|^Get:" || true
     echo -ne "${C_NC}"
     completed_item "Codecs and drivers installed"
+
+    # If Discord not installed from apt, fallback to Flatpak install (system)
+    if ! command -v discord >/dev/null 2>&1 && ! flatpak list --system | grep -q "com.discordapp.Discord" 2>/dev/null; then
+        if install_discord_flatpak "debian"; then
+            completed_item "Discord installed via Flatpak"
+        else
+            warning "Discord not found/installed. You can install via the official package or 
+            flatpak: flatpak install --user flathub com.discordapp.Discord"
+        fi
+    fi
     
     # Step 5: Summary
     print_step 5 $total_steps "Verifying installation..."
@@ -170,6 +232,14 @@ install_debian_gaming_software() {
     command -v gamemoded >/dev/null && print_keyval "GameMode" "installed"
     command -v mangohud >/dev/null && print_keyval "MangoHUD" "installed"
     command -v wine >/dev/null && print_keyval "Wine" "$(wine --version 2>/dev/null || echo 'installed')"
+    # If 'discord' binary isn't present, check flatpak installation
+    if ! command -v discord >/dev/null 2>&1; then
+        if flatpak list --system | grep -q "com.discordapp.Discord" 2>/dev/null; then
+            print_keyval "Discord" "installed (flatpak)"
+        fi
+    else
+        print_keyval "Discord" "installed"
+    fi
     echo
 }
 
@@ -189,7 +259,7 @@ install_fedora_gaming_software() {
     # Step 2: Core gaming apps
     print_step 2 $total_steps "Installing Steam, Lutris, GameMode..."
     echo -ne "${C_DIM}"
-    dnf install -q -y steam lutris gamemode 2>&1 | grep -v "^Last metadata" || true
+    dnf install -q -y steam lutris gamemode discord 2>&1 | grep -v "^Last metadata" || true
     echo -ne "${C_NC}"
     completed_item "Core gaming apps installed"
     
@@ -208,6 +278,15 @@ install_fedora_gaming_software() {
         gstreamer1-plugins-ugly gstreamer1-libav 2>&1 | grep -v "^Last metadata" || true
     echo -ne "${C_NC}"
     completed_item "Codecs installed"
+
+    # If Discord not installed, fallback to Flatpak (system-wide)
+    if ! command -v discord >/dev/null 2>&1 && ! flatpak list --system | grep -q "com.discordapp.Discord" 2>/dev/null; then
+        if install_discord_flatpak "fedora"; then
+            completed_item "Discord installed via Flatpak"
+        else
+            warning "Discord not found/installed. You can install it via Flatpak or download the RPM from Discord's website"
+        fi
+    fi
     
     # Step 5: Summary
     print_step 5 $total_steps "Verifying installation..."
@@ -238,7 +317,7 @@ install_opensuse_gaming_software() {
     # Step 2: Core gaming apps
     print_step 2 $total_steps "Installing Steam, Lutris, GameMode..."
     echo -ne "${C_DIM}"
-    zypper install -y --quiet steam lutris gamemode 2>&1 | grep -v "^Loading\|^Retrieving" || true
+    zypper install -y --quiet steam lutris gamemode discord 2>&1 | grep -v "^Loading\|^Retrieving" || true
     echo -ne "${C_NC}"
     completed_item "Core gaming apps installed"
     
