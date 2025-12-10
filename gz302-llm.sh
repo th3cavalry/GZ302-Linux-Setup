@@ -506,11 +506,29 @@ build_ollama_from_source() {
     # Build Go binary
     print_step 5 6 "Building Ollama Go binary..."
     cd ..
-    # Run go build and capture output, fail if build fails
+    
+    local build_log_go
     build_log_go=$(mktemp /tmp/ollama_go_build.XXXXXX)
-    if ! go build . 2>&1 | tee "$build_log_go" | grep -E "^#|^go build" || true; then
-        error "Go build failed for Ollama. See $build_log_go for details"
+    
+    start_spinner "Compiling Go binary..."
+    
+    # Run go build, capturing output and exit code
+    set +e
+    go build . > "$build_log_go" 2>&1
+    local go_exit=$?
+    set -e
+    
+    stop_spinner
+    
+    if [[ "$go_exit" -ne 0 ]]; then
+        echo
+        # Show the last few lines of the log to help diagnose
+        tail -n 20 "$build_log_go"
+        echo
+        error "Go build failed for Ollama (exit code $go_exit). See output above or full log: $build_log_go"
     fi
+    rm -f "$build_log_go"
+    
     completed_item "Go binary compiled"
     
     # Install binary and libraries
