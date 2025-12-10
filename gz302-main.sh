@@ -3359,10 +3359,18 @@ download_and_execute_module() {
     info "Downloading ${module_name} module..."
     if curl -fsSL "$module_url" -o "$temp_script" 2>/dev/null; then
         chmod +x "$temp_script"
+        
+        # Copy local utils to temp dir so the module uses our fixed version
+        # instead of downloading a potentially stale one from GitHub
+        if [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
+            cp "${SCRIPT_DIR}/gz302-utils.sh" "/tmp/gz302-utils.sh"
+        fi
+        
         info "Executing ${module_name} module..."
         bash "$temp_script" "$distro"
         local exec_result=$?
         rm -f "$temp_script"
+        rm -f "/tmp/gz302-utils.sh"
         
         if [[ $exec_result -eq 0 ]]; then
             success "${module_name} module completed"

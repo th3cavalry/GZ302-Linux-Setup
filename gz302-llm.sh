@@ -458,9 +458,14 @@ build_ollama_from_source() {
     print_step 3 6 "Configuring CMake for gfx1100 + Flash Attention..."
     mkdir -p build && cd build
     
+    # Export HSA override for the build process itself to ensure tools behave correctly
+    export HSA_OVERRIDE_GFX_VERSION=11.0.0
+    
     # Note: We use gfx1100 target because HIP runtime doesn't fully support
     # gfx1151 code objects yet. With HSA_OVERRIDE_GFX_VERSION=11.0.0, this works perfectly.
+    # We also add -DGGML_HIP=ON to explicitly enable HIP backend
     cmake .. \
+        -DGGML_HIP=ON \
         -DAMDGPU_TARGETS="gfx1100" \
         -DGGML_HIP_ROCWMMA_FATTN=ON \
         -DCMAKE_BUILD_TYPE=Release 2>&1 | grep -E "^-- |CMAKE_" | head -10 || true
@@ -550,13 +555,50 @@ build_ollama_from_source() {
     
     # Install libraries
     mkdir -p /usr/lib/ollama
-    if [[ ! -d build/lib/ollama ]]; then
-        error "Ollama libraries not found; the HIP backend may not have built successfully. Check logs: $build_log"
+    
+    # Locate built libraries - structure can vary between Ollama versions
+    local lib_src_dir=""
+    if [[ -d build/lib/ollama ]]; then
+        lib_src_dir="build/lib/ollama"
+    elif [[ -d build/lib ]]; then
+        # Check if libs are directly in build/lib or in subdirs
+        if ls build/lib/libggml-hip.so >/dev/null 2>&1; then
+            lib_src_dir="build/lib"
+        elif ls build/lib/*/libggml-hip.so >/dev/null 2>&1; then
+            # Find the first subdir containing the lib
+            lib_src_dir=$(find build/lib -name "libggml-hip.so" -exec dirname {} \; | head -n 1)
+        fi
+    elif [[ -f build/libggml-hip.so ]]; then
+        lib_src_dir="build"
     fi
-    cp -r build/lib/ollama/* /usr/lib/ollama/
+    
+    if [[ -z "$lib_src_dir" ]]; then
+        warning "Ollama HIP libraries not found in expected locations."
+        warning "Build log: $build_log"
+        warning "Attempting to locate any built shared objects..."
+        find build -name "*.so"
+        error "HIP backend build failed to produce libraries."
+    fi
+    
+    info "Found libraries in: $lib_src_dir"
+    cp -r "$lib_src_dir"/* /usr/lib/ollama/ 2>/dev/null || true
+    
+    # Ensure libggml-hip.so is in the root of /usr/lib/ollama
+    if [[ ! -f /usr/lib/ollama/libggml-hip.so ]]; then
+        local found_lib
+        found_lib=$(find /usr/lib/ollama -name "libggml-hip.so" | head -n 1)
+        if [[ -n "$found_lib" ]]; then
+            cp "$found_lib" /usr/lib/ollama/
+        fi
+    fi
+    
     local lib_size
-    lib_size=$(du -sh /usr/lib/ollama/libggml-hip.so 2>/dev/null | cut -f1)
-    print_keyval "Installed HIP lib" "/usr/lib/ollama/libggml-hip.so ($lib_size)"
+    if [[ -f /usr/lib/ollama/libggml-hip.so ]]; then
+        lib_size=$(du -sh /usr/lib/ollama/libggml-hip.so 2>/dev/null | cut -f1)
+        print_keyval "Installed HIP lib" "/usr/lib/ollama/libggml-hip.so ($lib_size)"
+    else
+        warning "libggml-hip.so missing from install directory"
+    fi
     
     # Create models directory
     mkdir -p /usr/share/ollama/.ollama

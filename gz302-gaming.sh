@@ -103,11 +103,13 @@ install_arch_gaming_software() {
     primary_user=$(get_real_user)
     if command -v yay &> /dev/null && [[ "$primary_user" != "root" ]]; then
         echo -ne "${C_DIM}"
-        sudo -u "$primary_user" -H yay -S --noconfirm --needed protonup-qt 2>&1 | grep -v "^::" | grep -v "warning:" || true
-        # Optional: discord-canary (AUR)
-        sudo -u "$primary_user" -H yay -S --noconfirm --needed discord-canary 2>&1 | grep -v "^::" | grep -v "warning:" || true
+        # Combine AUR packages into a single transaction to minimize password prompts
+        # Refresh sudo credentials for the user first
+        sudo -u "$primary_user" sudo -v 2>/dev/null || true
+        
+        sudo -u "$primary_user" -H yay -S --noconfirm --needed protonup-qt discord-canary 2>&1 | grep -v "^::" | grep -v "warning:" || true
         echo -ne "${C_NC}"
-        completed_item "ProtonUp-Qt installed"
+        completed_item "AUR packages (ProtonUp-Qt, Discord) installed"
     else
         warning "yay not found or running as root - skipping AUR packages"
     fi

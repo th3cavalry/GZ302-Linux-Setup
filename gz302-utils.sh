@@ -16,33 +16,33 @@
 
 # --- Color codes and formatting for beautiful output ---
 # Text colors (foreground)
-C_BLACK='\033[0;30m'
-C_RED='\033[0;31m'
-C_GREEN='\033[0;32m'
-C_YELLOW='\033[0;33m'
-C_BLUE='\033[0;34m'
-C_MAGENTA='\033[0;35m'
-C_CYAN='\033[0;36m'
-C_WHITE='\033[0;37m'
+C_BLACK=$'\033[0;30m'
+C_RED=$'\033[0;31m'
+C_GREEN=$'\033[0;32m'
+C_YELLOW=$'\033[0;33m'
+C_BLUE=$'\033[0;34m'
+C_MAGENTA=$'\033[0;35m'
+C_CYAN=$'\033[0;36m'
+C_WHITE=$'\033[0;37m'
 
 # Bold/bright colors
-C_BOLD='\033[1m'
-C_BOLD_RED='\033[1;31m'
-C_BOLD_GREEN='\033[1;32m'
-C_BOLD_YELLOW='\033[1;33m'
-C_BOLD_BLUE='\033[1;34m'
-C_BOLD_CYAN='\033[1;36m'
-C_BOLD_WHITE='\033[1;37m'
+C_BOLD=$'\033[1m'
+C_BOLD_RED=$'\033[1;31m'
+C_BOLD_GREEN=$'\033[1;32m'
+C_BOLD_YELLOW=$'\033[1;33m'
+C_BOLD_BLUE=$'\033[1;34m'
+C_BOLD_CYAN=$'\033[1;36m'
+C_BOLD_WHITE=$'\033[1;37m'
 
 # Text formatting
-C_DIM='\033[2m'
-C_ITALIC='\033[3m'
-C_UNDERLINE='\033[4m'
-C_BLINK='\033[5m'
-C_REVERSE='\033[7m'
+C_DIM=$'\033[2m'
+C_ITALIC=$'\033[3m'
+C_UNDERLINE=$'\033[4m'
+C_BLINK=$'\033[5m'
+C_REVERSE=$'\033[7m'
 
 # Reset
-C_NC='\033[0m' # No Color
+C_NC=$'\033[0m' # No Color
 
 # Unicode symbols for beautiful output
 SYMBOL_CHECK="✓"
@@ -591,7 +591,7 @@ STARTED=$(date +%s)
 LAST_UPDATE=$(date +%s)
 COMPLETED_STEPS=
 EOF
-    return 1  # New checkpoint created
+    return 0  # New checkpoint created
 }
 
 # Ask a yes/no prompt, with support for global ASSUME_YES (non-interactive)
