@@ -98,13 +98,13 @@ detect_distribution() {
         # shellcheck disable=SC1091
         source /etc/os-release
         
-        if [[ "$ID" == "arch" || "$ID_LIKE" == *"arch"* ]]; then
+        if [[ "${ID:-}" == "arch" || "${ID_LIKE:-}" == *"arch"* ]]; then
             distro="arch"
-        elif [[ "$ID" == "ubuntu" || "$ID" == "debian" || "$ID" == "pop" || "$ID" == "linuxmint" || "$ID_LIKE" == *"ubuntu"* || "$ID_LIKE" == *"debian"* ]]; then
+        elif [[ "${ID:-}" == "ubuntu" || "${ID:-}" == "debian" || "${ID:-}" == "pop" || "${ID:-}" == "linuxmint" || "${ID_LIKE:-}" == *"ubuntu" || "${ID_LIKE:-}" == *"debian" ]]; then
             distro="ubuntu"
-        elif [[ "$ID" == "fedora" || "$ID_LIKE" == *"fedora"* ]]; then
+        elif [[ "${ID:-}" == "fedora" || "${ID_LIKE:-}" == *"fedora"* ]]; then
             distro="fedora"
-        elif [[ "$ID" == "opensuse-tumbleweed" || "$ID" == "opensuse-leap" || "$ID" == "opensuse" || "$ID_LIKE" == *"suse"* ]]; then
+        elif [[ "${ID:-}" == "opensuse-tumbleweed" || "${ID:-}" == "opensuse-leap" || "${ID:-}" == "opensuse" || "${ID_LIKE:-}" == *"suse"* ]]; then
             distro="opensuse"
         fi
     fi

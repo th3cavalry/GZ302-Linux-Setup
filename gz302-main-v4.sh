@@ -161,7 +161,7 @@ detect_distribution() {
     if [[ -f /etc/os-release ]]; then
         # shellcheck disable=SC1091
         source /etc/os-release
-        case "$ID" in
+        case "${ID:-}" in
             arch|cachyos|endeavouros|manjaro)
                 echo "arch"
                 ;;
@@ -175,7 +175,7 @@ detect_distribution() {
                 echo "opensuse"
                 ;;
             *)
-                warning "Unsupported distribution: $ID"
+                warning "Unsupported distribution: ${ID:-unknown}"
                 echo "unknown"
                 ;;
         esac

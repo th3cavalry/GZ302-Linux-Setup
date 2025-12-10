@@ -944,7 +944,7 @@ is_cachyos() {
     if [[ -f /etc/os-release ]]; then
         # shellcheck disable=SC1091
         source /etc/os-release
-        [[ "$ID" == "cachyos" ]]
+        [[ "${ID:-}" == "cachyos" ]]
     else
         return 1
     fi

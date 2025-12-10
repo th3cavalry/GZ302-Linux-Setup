@@ -93,10 +93,10 @@ detect_distribution() {
     
     if [[ -f /etc/os-release ]]; then
         # shellcheck disable=SC1091
-        source /etc/os-release
+            source /etc/os-release
         
         # Detect Arch-based systems (including CachyOS)
-        if [[ "$ID" == "arch" || "$ID" == "cachyos" || "${ID_LIKE:-}" == *"arch"* ]]; then
+            if [[ "${ID:-}" == "arch" || "${ID:-}" == "cachyos" || "${ID_LIKE:-}" == *"arch"* ]]; then
             distro="arch"
         fi
     fi

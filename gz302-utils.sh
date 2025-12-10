@@ -306,16 +306,16 @@ detect_distribution() {
         source /etc/os-release
         
         # Detect Arch-based systems (including Omarchy, CachyOS, EndeavourOS, Manjaro)
-        if [[ "$ID" == "arch" || "$ID" == "omarchy" || "$ID" == "cachyos" || "${ID_LIKE:-}" == *"arch"* ]]; then
+        if [[ "${ID:-}" == "arch" || "${ID:-}" == "omarchy" || "${ID:-}" == "cachyos" || "${ID_LIKE:-}" == *"arch"* ]]; then
             distro="arch"
         # Detect Debian/Ubuntu-based systems
-        elif [[ "$ID" == "ubuntu" || "$ID" == "debian" || "$ID" == "pop" || "$ID" == "linuxmint" || "${ID_LIKE:-}" == *"ubuntu"* || "${ID_LIKE:-}" == *"debian"* ]]; then
+        elif [[ "${ID:-}" == "ubuntu" || "${ID:-}" == "debian" || "${ID:-}" == "pop" || "${ID:-}" == "linuxmint" || "${ID_LIKE:-}" == *"ubuntu"* || "${ID_LIKE:-}" == *"debian"* ]]; then
             distro="ubuntu"
         # Detect Fedora-based systems
-        elif [[ "$ID" == "fedora" || "${ID_LIKE:-}" == *"fedora"* ]]; then
+        elif [[ "${ID:-}" == "fedora" || "${ID_LIKE:-}" == *"fedora"* ]]; then
             distro="fedora"
         # Detect OpenSUSE-based systems
-        elif [[ "$ID" == "opensuse-tumbleweed" || "$ID" == "opensuse-leap" || "$ID" == "opensuse" || "${ID_LIKE:-}" == *"suse"* ]]; then
+        elif [[ "${ID:-}" == "opensuse-tumbleweed" || "${ID:-}" == "opensuse-leap" || "${ID:-}" == "opensuse" || "${ID_LIKE:-}" == *"suse"* ]]; then
             distro="opensuse"
         fi
     fi

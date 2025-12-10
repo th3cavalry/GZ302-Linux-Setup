@@ -552,7 +552,7 @@ provide_distro_optimization_info() {
     if [[ -f /etc/os-release ]]; then
         # shellcheck disable=SC1091
         source /etc/os-release
-        distro_id="$ID"
+        distro_id="${ID:-}"
     fi
     
     # CachyOS-specific optimizations
@@ -3282,7 +3282,7 @@ install_linux_armoury() {
         echo
         if [[ -f /etc/os-release ]]; then
             source /etc/os-release
-            if [[ "$ID" == "arch" ]] || [[ "$ID" == "manjaro" ]] || [[ "$ID" == "cachyos" ]]; then
+            if [[ "${ID:-}" == "arch" ]] || [[ "${ID:-}" == "manjaro" ]] || [[ "${ID:-}" == "cachyos" ]]; then
                 echo "     %wheel ALL=(ALL) NOPASSWD: ALL"
             else
                 echo "     %sudo ALL=(ALL) NOPASSWD: ALL"
@@ -3918,7 +3918,7 @@ main() {
     if [[ -f /etc/os-release ]]; then
         # shellcheck disable=SC1091
         source /etc/os-release
-        original_distro="$ID"
+        original_distro="${ID:-}"
     fi
     
     local detected_distro
