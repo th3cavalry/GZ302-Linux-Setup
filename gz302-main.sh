@@ -3183,7 +3183,20 @@ install_tray_icon() {
     # The script handles both system-wide and user-specific installations
     info "Installing system-wide desktop entries, icons, and autostart..."
     local install_script="$system_tray_dir/install-tray.sh"
-    SUDO_USER="$real_user" bash "$install_script" || warning "Tray icon configuration encountered issues"
+
+    # For Ubuntu 25.10 and newer, run the installer as the real user to avoid permission issues
+    local distro_version=""
+    if [[ -f /etc/os-release ]]; then
+        source /etc/os-release
+        distro_version="$VERSION_ID"
+    fi
+
+    if [[ "$distro" == "ubuntu" && "$distro_version" == "25.10" ]]; then
+        info "Ubuntu 25.10 detected - running tray icon installer as user..."
+        su - "$real_user" -c "bash '$install_script'" || warning "Tray icon configuration encountered issues"
+    else
+        SUDO_USER="$real_user" bash "$install_script" || warning "Tray icon configuration encountered issues"
+    fi
     
     # Configure sudoers for password-less pwrcfg
     info "Configuring password-less sudo for pwrcfg..."
@@ -3220,27 +3233,31 @@ install_tray_icon() {
 # --- Linux Armoury Installation ---
 install_linux_armoury() {
     info "Installing Linux Armoury..."
-    
+
     local repo_url="https://github.com/th3cavalry/Linux-Armoury.git"
     local install_dir="/tmp/Linux-Armoury"
-    
+
     # Remove existing directory if it exists
     if [[ -d "$install_dir" ]]; then
         rm -rf "$install_dir"
     fi
-    
+
     info "Cloning Linux Armoury repository..."
     if ! git clone "$repo_url" "$install_dir"; then
         warning "Failed to clone Linux Armoury repository"
         return 1
     fi
-    
+
     cd "$install_dir"
     chmod +x install.sh
-    
+
     info "Running Linux Armoury installer..."
-    # Run the installer
-    if ./install.sh; then
+    # Get the real user and run installer as regular user (not root)
+    local real_user
+    real_user=$(get_real_user)
+
+    # Run the installer as the real user
+    if su - "$real_user" -c "cd '$install_dir' && ./install.sh"; then
         success "Linux Armoury installed successfully"
         return 0
     else
