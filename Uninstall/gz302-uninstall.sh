@@ -36,15 +36,15 @@ error() {
 }
 
 info() {
-    echo -e "${C_BLUE}INFO:${C_NC} $1"
+    echo -e "${C_BLUE}INFO:${C_NC} $1" >&2
 }
 
 success() {
-    echo -e "${C_GREEN}SUCCESS:${C_NC} $1"
+    echo -e "${C_GREEN}SUCCESS:${C_NC} $1" >&2
 }
 
 warning() {
-    echo -e "${C_YELLOW}WARNING:${C_NC} $1"
+    echo -e "${C_YELLOW}WARNING:${C_NC} $1" >&2
 }
 
 # --- Visual formatting functions ---

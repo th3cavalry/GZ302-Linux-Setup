@@ -48,9 +48,9 @@ else
     
     # Fallback logging functions
     error() { echo -e "${C_RED}ERROR:${C_NC} $1" >&2; exit 1; }
-    info() { echo -e "${C_BLUE}INFO:${C_NC} $1"; }
-    success() { echo -e "${C_GREEN}SUCCESS:${C_NC} $1"; }
-    warning() { echo -e "${C_YELLOW}WARNING:${C_NC} $1"; }
+    info() { echo -e "${C_BLUE}INFO:${C_NC} $1" >&2; }
+    success() { echo -e "${C_GREEN}SUCCESS:${C_NC} $1" >&2; }
+    warning() { echo -e "${C_YELLOW}WARNING:${C_NC} $1" >&2; }
     
     # Fallback visual functions
     print_section() { echo -e "\n${C_BOLD_CYAN}━━━ $1 ━━━${C_NC}"; }

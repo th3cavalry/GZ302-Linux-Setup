@@ -105,27 +105,28 @@ print_step() {
 
 # Enhanced error message with prominent formatting
 error() {
-    echo
-    printf "${C_BOLD_RED}╭─ ${SYMBOL_ERROR} ERROR ────────────────────────────────────────────╮${C_NC}\n"
-    printf "${C_BOLD_RED}│${C_NC} ${C_RED}%s${C_NC}\n" "$1"
-    printf "${C_BOLD_RED}╰───────────────────────────────────────────────────────────╯${C_NC}\n"
-    echo
+    echo >&2
+    printf "${C_BOLD_RED}╭─ ${SYMBOL_ERROR} ERROR ────────────────────────────────────────────╮${C_NC}\n" >&2
+    printf "${C_BOLD_RED}│${C_NC} ${C_RED}%s${C_NC}\n" "$1" >&2
+    printf "${C_BOLD_RED}╰───────────────────────────────────────────────────────────╯${C_NC}\n" >&2
+    echo >&2
     exit 1
 }
 
 # Enhanced info message
 info() {
-    printf "${C_CYAN}${SYMBOL_INFO}${C_NC}  ${C_WHITE}%s${C_NC}\n" "$1"
+    # Write info messages to stderr so callers can capture stdout cleanly
+    printf "${C_CYAN}${SYMBOL_INFO}${C_NC}  ${C_WHITE}%s${C_NC}\n" "$1" >&2
 }
 
 # Enhanced success message
 success() {
-    printf "${C_BOLD_GREEN}${SYMBOL_CHECK}${C_NC}  ${C_GREEN}%s${C_NC}\n" "$1"
+    printf "${C_BOLD_GREEN}${SYMBOL_CHECK}${C_NC}  ${C_GREEN}%s${C_NC}\n" "$1" >&2
 }
 
 # Enhanced warning message
 warning() {
-    printf "${C_BOLD_YELLOW}${SYMBOL_WARNING}${C_NC}  ${C_YELLOW}%s${C_NC}\n" "$1"
+    printf "${C_BOLD_YELLOW}${SYMBOL_WARNING}${C_NC}  ${C_YELLOW}%s${C_NC}\n" "$1" >&2
 }
 
 # Print a progress item (indented bullet point)
