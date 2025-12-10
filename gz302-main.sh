@@ -3256,12 +3256,28 @@ install_linux_armoury() {
     local real_user
     real_user=$(get_real_user)
 
+    # Check if the user has passwordless sudo configured
+    local has_passwordless_sudo=false
+    if sudo -u "$real_user" -n true 2>/dev/null; then
+        has_passwordless_sudo=true
+        info "Passwordless sudo detected for user $real_user"
+    else
+        warning "Passwordless sudo not configured for user $real_user"
+        warning "Linux Armoury installer may fail due to sudo password requirements"
+    fi
+
     # Run the installer as the real user
-    if su - "$real_user" -c "cd '$install_dir' && ./install.sh"; then
+    # Set SUDO_USER to help the installer with user context
+    if SUDO_USER="$real_user" su - "$real_user" -c "cd '$install_dir' && ./install.sh"; then
         success "Linux Armoury installed successfully"
         return 0
     else
         warning "Linux Armoury installation failed"
+        if [[ "$has_passwordless_sudo" == false ]]; then
+            info "Try configuring passwordless sudo for user $real_user:"
+            info "  sudo visudo"
+            info "  Add: $real_user ALL=(ALL) NOPASSWD: ALL"
+        fi
         return 1
     fi
 }
