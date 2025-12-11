@@ -935,7 +935,15 @@ setup_openwebui_docker() {
         backend_info="No backend pre-configured (configure in Settings)"
     fi
     
+    # Explicitly pull the image first to show progress and separate download from startup
+    info "Downloading Open WebUI docker image (~2GB)..."
+    print_tip "This may take a few minutes depending on your connection speed."
+    if ! docker pull ghcr.io/open-webui/open-webui:main; then
+        warning "Failed to pull Open WebUI image. Docker run may fail if image is missing."
+    fi
+
     # Run the container
+    info "Starting Open WebUI container..."
     docker run "${docker_args[@]}" ghcr.io/open-webui/open-webui:main
     
     success "Open WebUI installed and started via Docker"
@@ -990,44 +998,6 @@ ask_backend_choice() {
     esac
 }
 
-# Ask user which frontends to install
-ask_frontend_choice() {
-    # interactive only when running in a TTY
-    if [[ ! -t 0 ]] && [[ ! -t 1 ]]; then
-        info "Skipping interactive frontend selection (non-interactive mode)."
-        echo "" > /tmp/.gz302-frontend-choice
-        return
-    fi
-    
-    echo
-    echo "Optional LLM frontends (choose one or more, or skip):"
-    echo "  1) text-generation-webui - Feature-rich UI for local text LLMs (oobabooga)"
-    echo "  2) ComfyUI              - Node-based UI ideal for image generation workflows"
-    echo "  3) llama.cpp webui      - Lightweight built-in web interface (requires llama.cpp backend)"
-    echo "  4) Open WebUI           - Modern web interface for various LLM backends"
-    echo "  (Leave empty to skip frontends)"
-    
-    local choice=""
-    # Read from /dev/tty to ensure we get user input even when stdin is redirected
-    if [[ -r /dev/tty ]]; then
-        read -r -p "Install frontends (e.g. '1,3' or '1 2 3' or Enter=none): " choice < /dev/tty
-    else
-        read -r -p "Install frontends (e.g. '1,3' or '1 2 3' or Enter=none): " choice
-    fi
-    
-    # normalize and parse choice
-    choice="${choice,,}"    # lowercase
-    choice="${choice// /,}"  # replace spaces with commas
-    choice="${choice//,/,}"  # clean up multiple commas
-    
-    if [[ -z "$choice" ]]; then
-        info "No frontends selected"
-        echo "" > /tmp/.gz302-frontend-choice
-    else
-        info "Selected frontends: $choice"
-        echo "$choice" > /tmp/.gz302-frontend-choice
-    fi
-}
 
 # --- CachyOS Detection ---
 # CachyOS provides optimized packages for LLM/AI workloads via their repositories
@@ -1091,10 +1061,6 @@ install_arch_llm_software() {
                 build_ollama_from_source "arch"
             fi
         fi
-        # Install Open WebUI automatically when Ollama backend is selected
-        local primary_user
-        primary_user=$(get_real_user)
-        setup_openwebui_docker "$primary_user" "arch"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -1327,58 +1293,13 @@ install_arch_llm_software() {
         fi  # End of CachyOS else block (standard Arch path)
     fi
     
-    # Ask user which frontends to install (after backends are set up)
-    ask_frontend_choice
-    local frontend_choice
-    frontend_choice=$(cat /tmp/.gz302-frontend-choice)
-    rm -f /tmp/.gz302-frontend-choice
-    
-    # If user selected frontends, install them
-    if [[ -n "$frontend_choice" ]]; then
+    # Install Open WebUI automatically if any backend was selected
+    if [[ -n "$backend_choice" ]]; then
         local primary_user
         primary_user=$(get_real_user)
-        
-        # Parse the comma-separated frontend choices
-        IFS=',' read -r -a frontend_items <<< "$frontend_choice"
-        for frontend in "${frontend_items[@]}"; do
-            frontend="${frontend// /}"  # remove spaces
-            case "$frontend" in
-                1|text-generation-webui|textgen|text)
-                    info "Installing text-generation-webui..."
-                    local dst="/home/$primary_user/.local/share/text-generation-webui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "text-generation-webui already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/oobabooga/text-generation-webui "$dst" || warning "Failed to clone text-generation-webui"
-                        info "Cloned text-generation-webui to $dst"
-                        info "To finish install: cd $dst && python -m venv venv && source venv/bin/activate && pip install -r requirements/portable/requirements.txt"
-                    fi
-                    ;;
-                2|comfyui|comfy)
-                    info "Installing ComfyUI..."
-                    local dst="/home/$primary_user/.local/share/comfyui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "ComfyUI already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/comfyanonymous/ComfyUI "$dst" || warning "Failed to clone ComfyUI"
-                        info "Cloned ComfyUI to $dst"
-                        info "See $dst/README.md for install instructions (venv or comfy-cli)"
-                    fi
-                    ;;
-                3|llamacpp|llama-cpp|webui|"llama.cpp webui"|llamaccppwebui)
-                    info "llama.cpp webui is built-in (port 8080) when llama.cpp backend is running"
-                    if [[ "$backend_choice" != "2" ]] && [[ "$backend_choice" != "3" ]]; then
-                        warning "llama.cpp webui requires llama.cpp backend. Install llama.cpp backend to use this webui."
-                    fi
-                    ;;
-                4|openwebui|open-web-ui)
-                    setup_openwebui_docker "$primary_user" "arch"
-                    ;;
-                *)
-                    warning "Unknown frontend: $frontend"
-                    ;;
-            esac
-        done
+        # Note: setup_openwebui_docker auto-detects running backends (ollama/llama.cpp)
+        # and configures connections automatically.
+        setup_openwebui_docker "$primary_user" "arch"
     fi
     
     success "LLM/AI software installation completed"
@@ -1399,11 +1320,6 @@ install_debian_llm_software() {
             # Build Ollama from source with HIP support for optimal Strix Halo performance
             build_ollama_from_source "debian"
         fi
-        
-        # Setup Open WebUI automatically when Ollama backend is selected
-        local primary_user
-        primary_user=$(get_real_user)
-        setup_openwebui_docker "$primary_user" "debian"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -1492,58 +1408,11 @@ install_debian_llm_software() {
         fi
     fi
     
-    # Ask user which frontends to install (after backends are set up)
-    ask_frontend_choice
-    local frontend_choice
-    frontend_choice=$(cat /tmp/.gz302-frontend-choice)
-    rm -f /tmp/.gz302-frontend-choice
-    
-    # If user selected frontends, install them
-    if [[ -n "$frontend_choice" ]]; then
+    # Install Open WebUI automatically if any backend was selected
+    if [[ -n "$backend_choice" ]]; then
         local primary_user
         primary_user=$(get_real_user)
-        
-        # Parse the comma-separated frontend choices
-        IFS=',' read -r -a frontend_items <<< "$frontend_choice"
-        for frontend in "${frontend_items[@]}"; do
-            frontend="${frontend// /}"  # remove spaces
-            case "$frontend" in
-                1|text-generation-webui|textgen|text)
-                    info "Installing text-generation-webui..."
-                    local dst="/home/$primary_user/.local/share/text-generation-webui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "text-generation-webui already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/oobabooga/text-generation-webui "$dst" || warning "Failed to clone text-generation-webui"
-                        info "Cloned text-generation-webui to $dst"
-                        info "To finish install: cd $dst && python -m venv venv && source venv/bin/activate && pip install -r requirements/portable/requirements.txt"
-                    fi
-                    ;;
-                2|comfyui|comfy)
-                    info "Installing ComfyUI..."
-                    local dst="/home/$primary_user/.local/share/comfyui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "ComfyUI already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/comfyanonymous/ComfyUI "$dst" || warning "Failed to clone ComfyUI"
-                        info "Cloned ComfyUI to $dst"
-                        info "See $dst/README.md for install instructions (venv or comfy-cli)"
-                    fi
-                    ;;
-                3|llamacpp|llama-cpp|webui|"llama.cpp webui"|llamaccppwebui)
-                    info "llama.cpp webui is built-in (port 8080) when llama.cpp backend is running"
-                    if [[ "$backend_choice" != "2" ]] && [[ "$backend_choice" != "3" ]]; then
-                        warning "llama.cpp webui requires llama.cpp backend. Install llama.cpp backend to use this webui."
-                    fi
-                    ;;
-                4|openwebui|open-web-ui)
-                    setup_openwebui_docker "$primary_user" "debian"
-                    ;;
-                *)
-                    warning "Unknown frontend: $frontend"
-                    ;;
-            esac
-        done
+        setup_openwebui_docker "$primary_user" "debian"
     fi
     
     success "LLM/AI software installation completed"
@@ -1564,11 +1433,6 @@ install_fedora_llm_software() {
             # Build Ollama from source with HIP support for optimal Strix Halo performance
             build_ollama_from_source "fedora"
         fi
-        
-        # Setup Open WebUI automatically when Ollama backend is selected
-        local primary_user
-        primary_user=$(get_real_user)
-        setup_openwebui_docker "$primary_user" "fedora"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -1632,58 +1496,11 @@ install_fedora_llm_software() {
         fi
     fi
     
-    # Ask user which frontends to install (after backends are set up) - Fedora
-    ask_frontend_choice
-    local frontend_choice
-    frontend_choice=$(cat /tmp/.gz302-frontend-choice)
-    rm -f /tmp/.gz302-frontend-choice
-    
-    # If user selected frontends, install them
-    if [[ -n "$frontend_choice" ]]; then
+    # Install Open WebUI automatically if any backend was selected
+    if [[ -n "$backend_choice" ]]; then
         local primary_user
         primary_user=$(get_real_user)
-        
-        # Parse the comma-separated frontend choices
-        IFS=',' read -r -a frontend_items <<< "$frontend_choice"
-        for frontend in "${frontend_items[@]}"; do
-            frontend="${frontend// /}"  # remove spaces
-            case "$frontend" in
-                1|text-generation-webui|textgen|text)
-                    info "Installing text-generation-webui..."
-                    local dst="/home/$primary_user/.local/share/text-generation-webui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "text-generation-webui already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/oobabooga/text-generation-webui "$dst" || warning "Failed to clone text-generation-webui"
-                        info "Cloned text-generation-webui to $dst"
-                        info "To finish install: cd $dst && python -m venv venv && source venv/bin/activate && pip install -r requirements/portable/requirements.txt"
-                    fi
-                    ;;
-                2|comfyui|comfy)
-                    info "Installing ComfyUI..."
-                    local dst="/home/$primary_user/.local/share/comfyui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "ComfyUI already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/comfyanonymous/ComfyUI "$dst" || warning "Failed to clone ComfyUI"
-                        info "Cloned ComfyUI to $dst"
-                        info "See $dst/README.md for install instructions (venv or comfy-cli)"
-                    fi
-                    ;;
-                3|llamacpp|llama-cpp|webui|"llama.cpp webui"|llamaccppwebui)
-                    info "llama.cpp webui is built-in (port 8080) when llama.cpp backend is running"
-                    if [[ "$backend_choice" != "2" ]] && [[ "$backend_choice" != "3" ]]; then
-                        warning "llama.cpp webui requires llama.cpp backend. Install llama.cpp backend to use this webui."
-                    fi
-                    ;;
-                4|openwebui|open-web-ui)
-                    setup_openwebui_docker "$primary_user" "fedora"
-                    ;;
-                *)
-                    warning "Unknown frontend: $frontend"
-                    ;;
-            esac
-        done
+        setup_openwebui_docker "$primary_user" "fedora"
     fi
     
     success "LLM/AI software installation completed"
@@ -1705,10 +1522,6 @@ install_opensuse_llm_software() {
             build_ollama_from_source "opensuse"
         fi
         
-        # Setup Open WebUI automatically when Ollama backend is selected
-        local primary_user
-        primary_user=$(get_real_user)
-        setup_openwebui_docker "$primary_user" "opensuse"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -1772,58 +1585,11 @@ install_opensuse_llm_software() {
         fi
     fi
     
-    # Ask user which frontends to install (after backends are set up) - OpenSUSE
-    ask_frontend_choice
-    local frontend_choice
-    frontend_choice=$(cat /tmp/.gz302-frontend-choice)
-    rm -f /tmp/.gz302-frontend-choice
-    
-    # If user selected frontends, install them
-    if [[ -n "$frontend_choice" ]]; then
+    # Install Open WebUI automatically if any backend was selected
+    if [[ -n "$backend_choice" ]]; then
         local primary_user
         primary_user=$(get_real_user)
-        
-        # Parse the comma-separated frontend choices
-        IFS=',' read -r -a frontend_items <<< "$frontend_choice"
-        for frontend in "${frontend_items[@]}"; do
-            frontend="${frontend// /}"  # remove spaces
-            case "$frontend" in
-                1|text-generation-webui|textgen|text)
-                    info "Installing text-generation-webui..."
-                    local dst="/home/$primary_user/.local/share/text-generation-webui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "text-generation-webui already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/oobabooga/text-generation-webui "$dst" || warning "Failed to clone text-generation-webui"
-                        info "Cloned text-generation-webui to $dst"
-                        info "To finish install: cd $dst && python -m venv venv && source venv/bin/activate && pip install -r requirements/portable/requirements.txt"
-                    fi
-                    ;;
-                2|comfyui|comfy)
-                    info "Installing ComfyUI..."
-                    local dst="/home/$primary_user/.local/share/comfyui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "ComfyUI already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/comfyanonymous/ComfyUI "$dst" || warning "Failed to clone ComfyUI"
-                        info "Cloned ComfyUI to $dst"
-                        info "See $dst/README.md for install instructions (venv or comfy-cli)"
-                    fi
-                    ;;
-                3|llamacpp|llama-cpp|webui|"llama.cpp webui"|llamaccppwebui)
-                    info "llama.cpp webui is built-in (port 8080) when llama.cpp backend is running"
-                    if [[ "$backend_choice" != "2" ]] && [[ "$backend_choice" != "3" ]]; then
-                        warning "llama.cpp webui requires llama.cpp backend. Install llama.cpp backend to use this webui."
-                    fi
-                    ;;
-                4|openwebui|open-web-ui)
-                    setup_openwebui_docker "$primary_user" "opensuse"
-                    ;;
-                *)
-                    warning "Unknown frontend: $frontend"
-                    ;;
-            esac
-        done
+        setup_openwebui_docker "$primary_user" "opensuse"
     fi
     
     success "LLM/AI software installation completed"
@@ -2216,4 +1982,3 @@ main() {
 }
 
 main "$@"
-

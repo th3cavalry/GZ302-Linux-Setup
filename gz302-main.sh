@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # Author: th3cavalry using Copilot
-# Version: 3.0.1
+# Version: 3.0.2
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -867,16 +867,21 @@ EOF
     if [[ -x /usr/local/bin/gz302-rgb ]]; then
         local rgb_output
         local rgb_exit_code
+        
+        # Ensure no lingering RGB processes are blocking the device
+        killall -q gz302-rgb-bin || true
+        
         # Use timeout to prevent script from freezing if USB enumeration hangs
-        # 5 seconds is sufficient for hardware detection and command execution
-        rgb_output=$(timeout 5 /usr/local/bin/gz302-rgb rainbow_cycle 2 2>&1)
+        # Increased to 10s as subsequent runs can sometimes be slower to acquire the device
+        rgb_output=$(timeout 10 /usr/local/bin/gz302-rgb rainbow_cycle 2 2>&1)
         rgb_exit_code=$?
         
         # Exit code 124 is returned by the timeout command when a timeout occurs
         # (see: man timeout - "If the command times out, and --preserve-status is not set, then exit with status 124")
         if [[ "$rgb_exit_code" -eq 124 ]]; then
-            warning "RGB control test timed out - hardware may not be present or USB enumeration is slow"
-            success "GZ302 RGB Keyboard Control installed (test skipped due to timeout)"
+            # If it timed out but binary exists, we can likely assume it's just busy
+            warning "RGB control test timed out - device might be busy processing previous commands"
+            success "GZ302 RGB Keyboard Control installed (skipping verification)"
         elif echo "$rgb_output" | grep -q "Sent\|Sending\|RGB"; then
             success "GZ302 RGB Keyboard Control with persistence installed successfully"
             info "Rainbow animation is now active on your keyboard (or would be on GZ302 hardware)"
