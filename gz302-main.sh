@@ -1358,10 +1358,6 @@ install_ryzenadj_opensuse() {
 setup_tdp_management() {
     local distro_family="$1"
     
-    if [[ "${INSTALL_LINUX_ARMOURY:-false}" == "true" ]]; then
-        info "Linux Armoury installed - skipping native TDP management (pwrcfg)"
-        return 0
-    fi
     
     info "Setting up TDP management for GZ302..."
     
@@ -2124,10 +2120,6 @@ RESTORE_EOF
 
 # Refresh Rate Management Installation
 install_refresh_management() {
-    if [[ "${INSTALL_LINUX_ARMOURY:-false}" == "true" ]]; then
-        info "Linux Armoury installed - skipping native refresh rate management (rrcfg)"
-        return 0
-    fi
 
     info "Installing virtual refresh rate management system..."
     
@@ -3261,92 +3253,6 @@ install_tray_icon() {
     info "For more information, see: $system_tray_dir/README.md"
 }
 
-# --- Linux Armoury Installation ---
-install_linux_armoury() {
-    info "Installing Linux Armoury..."
-
-    local repo_url="https://github.com/th3cavalry/Linux-Armoury.git"
-    local install_dir="/tmp/Linux-Armoury"
-
-    # Remove existing directory if it exists
-    if [[ -d "$install_dir" ]]; then
-        rm -rf "$install_dir"
-    fi
-
-    info "Cloning Linux Armoury repository..."
-    if ! git clone "$repo_url" "$install_dir"; then
-        warning "Failed to clone Linux Armoury repository"
-        return 1
-    fi
-
-    cd "$install_dir"
-    chmod +x install.sh
-
-    info "Running Linux Armoury installer..."
-    # Get the real user and run installer as regular user (not root)
-    local real_user
-    real_user=$(get_real_user)
-
-    # Check if the user has passwordless sudo configured
-    local has_passwordless_sudo=false
-    if sudo -u "$real_user" -n true 2>/dev/null; then
-        has_passwordless_sudo=true
-        info "Passwordless sudo detected for user $real_user"
-    else
-        warning "Passwordless sudo not configured for user $real_user"
-        warning "Linux Armoury installer requires passwordless sudo to work properly"
-        echo
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  Passwordless Sudo Configuration Required"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo
-        echo "To enable Linux Armoury installation, configure passwordless sudo:"
-        echo
-        echo "  1. Open sudoers editor:"
-        echo "     sudo visudo"
-        echo
-        echo "  2. Add this line at the END of the file (before #includedir):"
-        echo
-        if [[ -f /etc/os-release ]]; then
-            source /etc/os-release
-            if [[ "${ID:-}" == "arch" ]] || [[ "${ID:-}" == "manjaro" ]] || [[ "${ID:-}" == "cachyos" ]]; then
-                echo "     %wheel ALL=(ALL) NOPASSWD: ALL"
-            else
-                echo "     %sudo ALL=(ALL) NOPASSWD: ALL"
-            fi
-        else
-            echo "     %wheel ALL=(ALL) NOPASSWD: ALL   # Arch/Fedora"
-            echo "     # OR"
-            echo "     %sudo ALL=(ALL) NOPASSWD: ALL    # Debian/Ubuntu"
-        fi
-        echo
-        echo "  3. Save and exit (Ctrl+X, Y, Enter in nano; :wq in vi)"
-        echo
-        echo "  4. Test the configuration:"
-        echo "     sudo -n true && echo 'Passwordless sudo works!'"
-        echo
-        echo "  5. Re-run the installation script:"
-        echo "     sudo ./gz302-main.sh"
-        echo
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo
-        info "For detailed setup guide, see: plans/passwordless-sudo-setup.md"
-        warning "Skipping Linux Armoury installation - continuing with legacy tray icon"
-        echo
-        return 1
-    fi
-
-    # Run the installer as the real user
-    # Set SUDO_USER to help the installer with user context
-    if SUDO_USER="$real_user" su - "$real_user" -c "cd '$install_dir' && ./install.sh"; then
-        success "Linux Armoury installed successfully"
-        return 0
-    else
-        warning "Linux Armoury installation failed"
-        warning "Continuing with legacy tray icon setup instead"
-        return 1
-    fi
-}
 
 # --- Module Download and Execution ---
 download_and_execute_module() {
@@ -3707,30 +3613,6 @@ setup_opensuse() {
     enable_opensuse_services
 }
 
-# --- Tray Icon Installation (Core Feature) ---
-install_tray_icon_prompt() {
-    local distro="$1"
-    
-    echo
-    echo "============================================================"
-    echo "  GZ302 Power Manager (System Tray Icon)"
-    echo "============================================================"
-    echo
-    info "The GZ302 Power Manager is a system tray utility that provides:"
-    echo "  • Quick access to all 7 power profiles (Emergency to Maximum)"
-    echo "  • Keyboard brightness control (0-3 levels)"
-    echo "  • Battery charge limit control (80% or 100%)"
-    echo "  • Real-time power profile status and battery indicators"
-    echo "  • Right-click menu for instant profile switching"
-    echo "  • Essential for convenient keyboard brightness management"
-    echo
-    if ask_yes_no "Install GZ302 Power Manager? (Y/n): " Y; then
-        install_tray_icon
-    else
-        info "Skipping GZ302 Power Manager installation"
-    fi
-    echo
-}
 
 # --- Optional Module Installation ---
 offer_optional_modules() {
@@ -4022,6 +3904,7 @@ main() {
     echo
     
     # Install tray icon (core feature - automatically installed)
+    info "Installing GZ302 Power Manager (Tray Icon)..."
     install_tray_icon
     
     # Offer optional modules
