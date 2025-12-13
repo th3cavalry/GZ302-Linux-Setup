@@ -116,8 +116,9 @@ install_rgb_arch() {
     
     # Step 3: Install
     print_step 3 $total_steps "Installing binary..."
+    # Clean up old wrapper/symlink mess if present
+    rm -f "$BINARY_PATH" /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
     install -m 755 gz302-rgb "$BINARY_PATH"
-    rm -f /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
     ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
     completed_item "Binary installed to $BINARY_PATH"
 }
@@ -145,8 +146,9 @@ install_rgb_debian() {
     
     # Step 3: Install
     print_step 3 $total_steps "Installing binary..."
+    # Clean up old wrapper/symlink mess if present
+    rm -f "$BINARY_PATH" /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
     install -m 755 gz302-rgb "$BINARY_PATH"
-    rm -f /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
     ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
     completed_item "Binary installed to $BINARY_PATH"
 }
@@ -173,8 +175,9 @@ install_rgb_fedora() {
     
     # Step 3: Install
     print_step 3 $total_steps "Installing binary..."
+    # Clean up old wrapper/symlink mess if present
+    rm -f "$BINARY_PATH" /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
     install -m 755 gz302-rgb "$BINARY_PATH"
-    rm -f /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
     ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
     completed_item "Binary installed to $BINARY_PATH"
 }
@@ -201,8 +204,9 @@ install_rgb_opensuse() {
     
     # Step 3: Install
     print_step 3 $total_steps "Installing binary..."
+    # Clean up old wrapper/symlink mess if present
+    rm -f "$BINARY_PATH" /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
     install -m 755 gz302-rgb "$BINARY_PATH"
-    rm -f /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
     ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
     completed_item "Binary installed to $BINARY_PATH"
 }

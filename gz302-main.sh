@@ -758,6 +758,9 @@ install_gz302_rgb_keyboard() {
     fi
     
     # Install the binary
+    # Remove existing files/symlinks first to prevent recursion loops or overwriting targets
+    rm -f /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper
+
     if ! cp gz302-rgb /usr/local/bin/gz302-rgb 2>/dev/null; then
         warning "Failed to install gz302-rgb binary"
         return 1

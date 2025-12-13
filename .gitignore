@@ -66,3 +66,4 @@ MANIFEST
 # Build artifacts (if any)
 build/
 dist/
+gz302-rgb
