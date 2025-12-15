@@ -5,6 +5,24 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.3] - 2025-12-15
+
+### Fixed
+
+- **Power Limits Persistence**: Power limits now survive system events (sleep/wake, AC plug/unplug)
+  - Added `verify_tdp_settings()` function to check if actual TDP settings match desired profile using `ryzenadj -i`
+  - Added `verify_and_reapply()` function to automatically re-apply settings when hardware resets to ASUS defaults
+  - Enhanced `auto_switch_profile()` to always verify and re-apply power limits after checking power source changes
+  - Increased monitoring frequency from 10 seconds to 5 seconds for faster response to system events
+  - Added `pwrcfg-resume.service` systemd hook for immediate power limit restoration after suspend/resume
+  - Added new `pwrcfg verify` command for manual verification of power limit application
+
+### Notes
+
+- This fix requires `ryzenadj` with `ryzen_smu-dkms-git` (or similar kernel module) for hardware verification support
+- The monitoring service now actively checks and re-applies power limits every 5 seconds, ensuring settings persist
+- On systems without ryzen_smu support, the monitoring falls back to reapplying settings on power source changes only
+
 ## [4.0.0-dev] - 2025-12-09
 
 ### 🚀 Development Release: Library-First Architecture
