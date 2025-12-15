@@ -381,6 +381,8 @@ See: https://github.com/kyuz0/amd-strix-halo-toolboxes#4--memory-planning--vram-
 | Gaming | 70W | Optimized for gaming (AC Required) |
 | Maximum | 90W | Absolute peak performance (AC Only) |
 
+**Power Limits Persistence:** The system automatically monitors and re-applies power limits every 5 seconds, ensuring settings survive system events (sleep/wake, AC plug/unplug). Use `pwrcfg verify` to manually check if hardware matches your selected profile. This feature requires `ryzenadj` with `ryzen_smu-dkms-git` for hardware verification.
+
 ### Kernel Requirements
 
 - **Minimum:** Linux 6.14+ (Required for NPU & WiFi)

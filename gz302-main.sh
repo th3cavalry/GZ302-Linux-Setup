@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # Author: th3cavalry using Copilot
-# Version: 3.0.2
+# Version: 3.0.3
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -1465,7 +1465,7 @@ REFRESH_RATES[maximum]="180"
 mkdir -p "$TDP_CONFIG_DIR"
 
 show_usage() {
-    echo "Usage: pwrcfg [PROFILE|status|list|auto|config|charge-limit]"
+    echo "Usage: pwrcfg [PROFILE|status|list|auto|config|verify|charge-limit]"
     echo ""
     echo "Power Profiles (SPL/sPPT/fPPT):"
     echo "  emergency     - 10/12/12W  @ 30Hz  - Emergency battery extension"
@@ -1481,6 +1481,7 @@ show_usage() {
     echo "  list                - List available profiles with details"
     echo "  auto                - Enable/disable automatic profile switching"
     echo "  config              - Configure automatic profile preferences"
+    echo "  verify              - Verify that power limits match the current profile"
     echo "  charge-limit [80|100] - Set battery charge limit (80% or 100%)"
     echo ""
     echo "Notes:"
@@ -1490,6 +1491,7 @@ show_usage() {
     echo "  - sPPT: Slow Power Boost (short-term, ~2 minutes)"
     echo "  - fPPT: Fast Power Boost (very short-term, few seconds)"
     echo "  - charge-limit: Helps extend battery lifespan by limiting max charge"
+    echo "  - verify: Checks if hardware matches profile (requires ryzenadj + ryzen_smu-dkms-git)"
 }
 
 get_battery_status() {
@@ -1912,6 +1914,86 @@ configure_auto_switching() {
     fi
 }
 
+verify_tdp_settings() {
+    # Verify if current TDP settings match the desired profile
+    # Returns 0 if settings match, 1 if they don't match or can't be verified
+    
+    if ! command -v ryzenadj >/dev/null 2>&1; then
+        # Can't verify without ryzenadj
+        return 1
+    fi
+    
+    local current_profile=""
+    if [ -f "$CURRENT_PROFILE_FILE" ]; then
+        current_profile=$(cat "$CURRENT_PROFILE_FILE" 2>/dev/null | tr -d ' \n')
+    fi
+    
+    if [ -z "$current_profile" ] || [ -z "${POWER_PROFILES[$current_profile]:-}" ]; then
+        # No valid profile set
+        return 1
+    fi
+    
+    # Get expected values from profile
+    local power_spec="${POWER_PROFILES[$current_profile]}"
+    local expected_spl=$(echo "$power_spec" | cut -d':' -f1)
+    local expected_sppt=$(echo "$power_spec" | cut -d':' -f2)
+    local expected_fppt=$(echo "$power_spec" | cut -d':' -f3)
+    
+    # Get current values from ryzenadj (requires ryzen_smu-dkms-git or similar)
+    local ryzenadj_info
+    if ! ryzenadj_info=$(ryzenadj -i 2>/dev/null); then
+        # Can't read current settings
+        return 1
+    fi
+    
+    # Parse current STAPM LIMIT (SPL), PPT LIMIT SLOW (sPPT), PPT LIMIT FAST (fPPT)
+    # Example output format: "STAPM LIMIT: 35000 | 35.0 W"
+    local current_spl=$(echo "$ryzenadj_info" | grep -i "STAPM LIMIT" | grep -o "[0-9]\+" | head -1)
+    local current_sppt=$(echo "$ryzenadj_info" | grep -i "PPT LIMIT SLOW" | grep -o "[0-9]\+" | head -1)
+    local current_fppt=$(echo "$ryzenadj_info" | grep -i "PPT LIMIT FAST" | grep -o "[0-9]\+" | head -1)
+    
+    # Check if we got valid readings
+    if [ -z "$current_spl" ] || [ -z "$current_sppt" ] || [ -z "$current_fppt" ]; then
+        # Couldn't parse settings
+        return 1
+    fi
+    
+    # Allow small tolerance (±500mW) for floating point rounding
+    local tolerance=500
+    
+    if [ $((current_spl - expected_spl)) -gt $tolerance ] || [ $((expected_spl - current_spl)) -gt $tolerance ] || \
+       [ $((current_sppt - expected_sppt)) -gt $tolerance ] || [ $((expected_sppt - current_sppt)) -gt $tolerance ] || \
+       [ $((current_fppt - expected_fppt)) -gt $tolerance ] || [ $((expected_fppt - current_fppt)) -gt $tolerance ]; then
+        # Settings don't match
+        return 1
+    fi
+    
+    # Settings match
+    return 0
+}
+
+verify_and_reapply() {
+    # Verify current TDP settings and re-apply if they don't match
+    # This is used by the monitor to maintain settings after system events
+    
+    local current_profile=""
+    if [ -f "$CURRENT_PROFILE_FILE" ]; then
+        current_profile=$(cat "$CURRENT_PROFILE_FILE" 2>/dev/null | tr -d ' \n')
+    fi
+    
+    if [ -z "$current_profile" ] || [ -z "${POWER_PROFILES[$current_profile]:-}" ]; then
+        # No valid profile set, nothing to verify
+        return 0
+    fi
+    
+    # Check if settings match
+    if ! verify_tdp_settings 2>/dev/null; then
+        # Settings don't match or couldn't be verified, re-apply
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Power limits reset detected, re-applying profile: $current_profile"
+        set_tdp_profile "$current_profile" >/dev/null 2>&1
+    fi
+}
+
 auto_switch_profile() {
     # Check if auto switching is enabled
     if [ -f "$AUTO_CONFIG_FILE" ] && [ "$(cat "$AUTO_CONFIG_FILE" 2>/dev/null)" = "true" ]; then
@@ -1946,6 +2028,9 @@ auto_switch_profile() {
             esac
         fi
     fi
+    
+    # Always verify and re-apply if needed (handles sleep/wake, AC events, etc.)
+    verify_and_reapply
 }
 
 # Main script logic
@@ -1964,6 +2049,21 @@ case "${1:-}" in
         ;;
     config)
         configure_auto_switching
+        ;;
+    verify)
+        if verify_tdp_settings; then
+            echo "✓ Power limits are correctly applied and match the current profile"
+            exit 0
+        else
+            echo "✗ Power limits do not match the current profile or cannot be verified"
+            echo "  This may indicate:"
+            echo "  - System event reset the limits (sleep/wake, AC plug/unplug)"
+            echo "  - ryzenadj or ryzen_smu-dkms-git is not installed"
+            echo "  - Secure boot is preventing hardware access"
+            echo ""
+            echo "  Run 'pwrcfg <profile>' to re-apply power limits"
+            exit 1
+        fi
         ;;
     charge-limit)
         if [ -z "${2:-}" ]; then
@@ -2047,15 +2147,31 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+    # Create systemd sleep hook to restore TDP settings after suspend/resume
+    cat > /etc/systemd/system/pwrcfg-resume.service <<EOF
+[Unit]
+Description=GZ302 TDP Resume Handler
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pwrcfg-restore
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+EOF
+
     # Create power monitoring script
     cat > /usr/local/bin/pwrcfg-monitor <<'MONITOR_EOF'
 #!/bin/bash
 # GZ302 TDP Power Source Monitor
-# Monitors power source changes and automatically switches TDP profiles
+# Monitors power source changes and automatically maintains TDP profiles
+# This script ensures power limits persist after system events (sleep/wake, AC changes)
 
 while true; do
+    # Check for power source changes and verify/re-apply settings
     /usr/local/bin/pwrcfg auto
-    sleep 10  # Check every 10 seconds
+    sleep 5  # Check every 5 seconds (more responsive to system events)
 done
 MONITOR_EOF
 
@@ -2101,6 +2217,7 @@ RESTORE_EOF
     systemctl daemon-reload
     
     systemctl enable pwrcfg-auto.service
+    systemctl enable pwrcfg-resume.service
     
     echo ""
     info "TDP management installation complete!"
