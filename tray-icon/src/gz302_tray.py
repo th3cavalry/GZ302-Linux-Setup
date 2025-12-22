@@ -314,6 +314,22 @@ class GZ302TrayIcon(QSystemTrayIcon):
                 custom_action = QAction("Custom Color...", self)
                 custom_action.triggered.connect(self.set_custom_rgb_color)
                 rgb_menu.addAction(custom_action)
+            
+            self.menu.addSeparator()
+            
+            # Rear Window RGB
+            window_menu = self.menu.addMenu("Rear Window RGB")
+            if window_menu is not None:
+                 for level in range(4):
+                    if level == 0:
+                        label = f"Off"
+                    else:
+                        label = f"Level {level}"
+                    action = QAction(label, self)
+                    action.triggered.connect(
+                        lambda checked, l=level: self.set_window_backlight(l)
+                    )
+                    window_menu.addAction(action)
 
             self.menu.addSeparator()
 
@@ -660,6 +676,57 @@ X-GNOME-Autostart-enabled=true
             self.notifier.notify_error(
                 "Charge Limit Error", f"Failed to set charge limit: {str(e)}"
             )
+
+    def set_window_backlight(self, brightness):
+        """Set rear window backlight brightness (0-3)."""
+        try:
+             # Validate brightness level
+            if not isinstance(brightness, int) or brightness < 0 or brightness > 3:
+                self.notifier.notify(
+                    "Invalid Brightness",
+                    "Window brightness must be between 0 and 3",
+                    "warning",
+                    3000,
+                )
+                return
+            
+            # Use gz302-rgb-window.py command with sudo
+            # Note: Assuming script is installed to /usr/local/bin/gz302-rgb-window.py or similar
+            # For now, we'll try to execute it directly if in current path or rely on PATH
+            
+            cmd = ["sudo", "gz302-rgb-window.py", "--lightbar", str(brightness)]
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+
+            if result.returncode == 0:
+                level_names = ["💡 Off", "💡 Dim", "💡 Medium", "💡 Bright"]
+                self.notifier.notify(
+                    "Rear Window Backlight",
+                    f"Brightness set to {level_names[brightness]}",
+                    "success",
+                    2000,
+                )
+            else:
+                err = (result.stderr or "").strip()
+                # If command not found, provide a helpful error
+                if "command not found" in err.lower() or result.returncode == 127:
+                     self.notifier.notify_error(
+                        "Backlight Error", "Helper script gz302-rgb-window.py not found in PATH"
+                    )
+                else:
+                    self.notifier.notify_error(
+                        "Backlight Error", f"Failed to set brightness: {err}"
+                    )
+
+        except subprocess.TimeoutExpired:
+             self.notifier.notify_error("Backlight Error", "Command timed out")
+        except Exception as e:
+            self.notifier.notify_error("Backlight Error", f"Unexpected error: {str(e)}")
 
     def set_keyboard_backlight(self, brightness):
         """Set keyboard backlight brightness (0-3)."""
