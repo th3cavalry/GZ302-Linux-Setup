@@ -3814,6 +3814,14 @@ offer_optional_modules() {
 # NOTE: All info/success/warning messages go to stderr so only the count is captured
 migrate_old_paths() {
     local paths_migrated=0
+    local sentinel="/etc/gz302/.migrations_v1_done"
+
+    # If we've already migrated and the sentinel exists, skip migration (idempotent)
+    if [[ -f "$sentinel" ]]; then
+        info "Previously completed migrations detected, skipping." >&2
+        echo 0
+        return
+    fi
     
     info "Checking for old configuration paths that need migration..." >&2
     
@@ -3889,6 +3897,9 @@ migrate_old_paths() {
     if [[ $paths_migrated -gt 0 ]]; then
         success "Successfully migrated $paths_migrated old configuration path(s)" >&2
         echo >&2
+        # Create a sentinel so we don't repeatedly prompt the user after a single migration
+        mkdir -p /etc/gz302
+        touch /etc/gz302/.migrations_v1_done
     fi
     echo "$paths_migrated"
 }

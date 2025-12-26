@@ -43,8 +43,8 @@
 #define MESSAGE_LENGTH 17
 #define GZ302_VENDOR_ID 0x0b05
 #define GZ302_PRODUCT_ID 0x1a30
-#define RGB_CONFIG_DIR "/etc/gz302-rgb"
-#define RGB_CONFIG_FILE "/etc/gz302-rgb/last-setting.conf"
+#define RGB_CONFIG_DIR "/etc/gz302"
+#define RGB_CONFIG_FILE "/etc/gz302/rgb-keyboard.conf"
 
 /* USB protocol constants for GZ302 keyboard */
 const uint8_t SPEED_BYTE_VALUES[] = {0xe1, 0xeb, 0xf5};
@@ -145,25 +145,45 @@ int parse_int(const char *arg, int min, int max, int *result) {
 void save_rgb_setting(int argc, char **argv) {
     FILE *config_file;
     
-    /* Try to create config directory if it doesn't exist */
+    /* Ensure config directory exists */
     mkdir(RGB_CONFIG_DIR, 0755);
     
+    /* Build KEYBOARD_COMMAND string (quoted) for new config format */
+    char cmdbuf[1024];
+    size_t pos = 0;
+
+    /* Empty command buffer */
+    cmdbuf[0] = '\0';
+
+    for (int i = 1; i < argc && pos + 64 < sizeof(cmdbuf); i++) {
+        if (i > 1) {
+            cmdbuf[pos++] = ' ';
+        }
+        pos += snprintf(cmdbuf + pos, sizeof(cmdbuf) - pos, "%s", argv[i]);
+    }
+    cmdbuf[pos] = '\0';
+
     /* Open config file for writing */
     config_file = fopen(RGB_CONFIG_FILE, "w");
     if (!config_file) {
         fprintf(stderr, "Warning: Could not save RGB setting to %s\n", RGB_CONFIG_FILE);
         return;
     }
-    
-    /* Write command and all arguments to config file */
-    fprintf(config_file, "COMMAND=%s\n", argv[1]);
-    for (int i = 2; i < argc; i++) {
-        fprintf(config_file, "ARG%d=%s\n", i - 1, argv[i]);
+
+    /* Write new KEYBOARD_COMMAND line (quoted) and legacy fallback */
+    fprintf(config_file, "# Saved by gz302-rgb\n");
+    fprintf(config_file, "KEYBOARD_COMMAND=\"%s\"\n", cmdbuf);
+    /* Also write legacy fields for backward compatibility */
+    if (argc >= 2) {
+        fprintf(config_file, "COMMAND=\"%s\"\n", argv[1]);
+        for (int i = 2; i < argc; i++) {
+            fprintf(config_file, "ARG%d=\"%s\"\n", i - 1, argv[i]);
+        }
+        fprintf(config_file, "ARGC=%d\n", argc);
     }
-    fprintf(config_file, "ARGC=%d\n", argc);
-    
+
     fclose(config_file);
-    fprintf(stderr, "RGB setting saved for boot restoration\n");
+    fprintf(stderr, "RGB setting saved to %s for boot restoration\n", RGB_CONFIG_FILE);
 }
 
 /* Find and open GZ302 keyboard */
