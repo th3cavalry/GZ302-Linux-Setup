@@ -457,13 +457,27 @@ EOF
     systemd-hwdb update 2>/dev/null || true
     udevadm control --reload 2>/dev/null || true
 
-    # GZ302 Keyboard RGB udev rule for non-root access
-    info "Configuring udev rules for keyboard RGB control..."
-    cat > /etc/udev/rules.d/99-gz302-keyboard.rules <<'EOF'
-# GZ302 Keyboard RGB Control - Allow unprivileged USB access
-# ASUS ROG Flow Z13 keyboard (USB 0b05:1a30)
+    # GZ302 RGB udev rules for non-root access to HID raw devices
+    info "Configuring udev rules for keyboard and lightbar RGB control..."
+    cat > /etc/udev/rules.d/99-gz302-rgb.rules <<'EOF'
+# GZ302 RGB Control - Allow unprivileged HID raw access for RGB control
+# ASUS ROG Flow Z13 (2025) GZ302EA
+
+# Keyboard RGB (USB 0b05:1a30) - for keyboard color control
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1a30", MODE="0666"
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1a30", MODE="0666"
+
+# Lightbar/N-KEY Device (USB 0b05:18c6) - for rear window RGB control
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18c6", MODE="0666"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18c6", MODE="0666"
+
+# Trigger RGB restore service when lightbar connects (boot or wake from suspend)
+ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18c6", TAG+="systemd", ENV{SYSTEMD_WANTS}="gz302-rgb-restore.service"
 EOF
+
+    # Remove old keyboard-only rules if present
+    rm -f /etc/udev/rules.d/99-gz302-keyboard.rules 2>/dev/null || true
+    
     udevadm control --reload 2>/dev/null || true
     udevadm trigger 2>/dev/null || true
     
@@ -2110,6 +2124,8 @@ Defaults use_pty
 %sudo ALL=(ALL) NOPASSWD: $PWRCFG_PATH
 %sudo ALL=(ALL) NOPASSWD: $RRCFG_PATH
 %sudo ALL=(ALL) NOPASSWD: $RGB_PATH
+# Allow tray icon to control keyboard/window backlight brightness
+ALL ALL=(ALL) NOPASSWD: /usr/bin/tee /sys/class/leds/*/brightness
 EOF
     
     if visudo -c -f "$SUDOERS_TMP" >/dev/null 2>&1; then
@@ -3201,11 +3217,49 @@ enable_opensuse_services() {
 
 # --- Tray Icon Installation ---
 install_tray_icon() {
-    info "Starting GZ302 Power Manager (Tray Icon) installation..."
+    info "Starting GZ302 Control Center (Tray Icon) installation..."
     echo
     
     # Use the global SCRIPT_DIR that was determined at script initialization
     local tray_dir="$SCRIPT_DIR/tray-icon"
+    local system_tray_dir="/usr/local/share/gz302/tray-icon"
+    
+    # Get version from source file
+    local new_version=""
+    if [[ -f "$tray_dir/src/gz302_tray.py" ]]; then
+        new_version=$(grep -m1 "^Version:" "$tray_dir/src/gz302_tray.py" 2>/dev/null | sed 's/Version: *//' || echo "")
+    fi
+    
+    # Get installed version if it exists
+    local installed_version=""
+    if [[ -f "$system_tray_dir/src/gz302_tray.py" ]]; then
+        installed_version=$(grep -m1 "^Version:" "$system_tray_dir/src/gz302_tray.py" 2>/dev/null | sed 's/Version: *//' || echo "")
+    fi
+    
+    # Check if update is needed
+    local needs_update=true
+    if [[ -n "$installed_version" && -n "$new_version" && "$installed_version" == "$new_version" ]]; then
+        info "Tray icon version $installed_version is already installed"
+        needs_update=false
+    elif [[ -n "$installed_version" && -n "$new_version" ]]; then
+        info "Updating tray icon from version $installed_version to $new_version"
+    elif [[ -n "$new_version" ]]; then
+        info "Installing tray icon version $new_version"
+    fi
+    
+    # Kill any running tray processes before updating (to ensure clean update)
+    if [[ "$needs_update" == true ]]; then
+        info "Stopping any running tray processes..."
+        pkill -f "gz302_tray.py" 2>/dev/null || true
+        pkill -f "gz302_tray" 2>/dev/null || true
+        sleep 1
+        
+        # Remove old installation to ensure clean update
+        if [[ -d "$system_tray_dir" ]]; then
+            info "Removing old tray installation..."
+            rm -rf "$system_tray_dir"
+        fi
+    fi
     
     # Check if tray-icon directory exists locally; if not, download it
     if [[ ! -d "$tray_dir" ]]; then
@@ -3248,7 +3302,6 @@ install_tray_icon() {
     fi
     
     # Copy tray icon files to system location for persistence and proper operation
-    local system_tray_dir="/usr/local/share/gz302/tray-icon"
     info "Installing tray icon to system location: $system_tray_dir"
     mkdir -p "$system_tray_dir"
     
@@ -3356,10 +3409,10 @@ install_tray_icon() {
         warning "Sudoers installation script not found. You may need to configure password-less sudo manually."
     fi
     
-    success "GZ302 Power Manager (Tray Icon) installation complete!"
+    success "GZ302 Control Center (Tray Icon) installation complete!"
     echo
     info "The tray icon has been installed and configured. You can:"
-    echo "  - Launch it from your applications menu as 'GZ302 Power Manager'"
+    echo "  - Launch it from your applications menu as 'GZ302 Control Center'"
     echo "  - Run: python3 /usr/local/share/gz302/tray-icon/src/gz302_tray.py"
     echo "  - It will start automatically on login (if your desktop environment supports it)"
     echo
@@ -3368,6 +3421,15 @@ install_tray_icon() {
     echo "  - User autostart: $real_user_home/.config/autostart/gz302-tray.desktop"
     echo "  - System icon: /usr/share/icons/hicolor/scalable/apps/gz302-power-manager.svg"
     echo
+    
+    # Start the tray icon for the user if we killed it during update
+    if [[ "$needs_update" == true ]]; then
+        info "Starting updated tray icon..."
+        if [[ -n "$real_user" && "$real_user" != "root" ]]; then
+            # Start as the real user, not root
+            su - "$real_user" -c "nohup python3 '$system_tray_dir/src/gz302_tray.py' >/dev/null 2>&1 &" || true
+        fi
+    fi
     
     # Check desktop environment for compatibility notes
     local current_de="${XDG_CURRENT_DESKTOP:-unknown}"

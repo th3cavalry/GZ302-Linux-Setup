@@ -720,8 +720,31 @@ X-GNOME-Autostart-enabled=true
                 "Charge Limit Error", f"Failed to set charge limit: {str(e)}"
             )
 
+    def _find_lightbar_hidraw(self):
+        """Find the lightbar HID raw device by physical path signature."""
+        import glob
+        lightbar_sig = "usb-0000:c6:00.0-5/input0"  # N-KEY Device = lightbar
+        
+        for path in glob.glob("/sys/class/hidraw/hidraw*"):
+            uevent_path = os.path.join(path, "device/uevent")
+            try:
+                with open(uevent_path, "r") as f:
+                    for line in f:
+                        if line.startswith("HID_PHYS=") and lightbar_sig in line:
+                            return f"/dev/{os.path.basename(path)}"
+            except Exception:
+                pass
+        return None
+
+    def _send_hid_packet(self, device_path, packet_bytes):
+        """Send a 64-byte HID packet to the device."""
+        if len(packet_bytes) < 64:
+            packet_bytes = packet_bytes + bytes([0] * (64 - len(packet_bytes)))
+        with open(device_path, 'wb') as f:
+            f.write(packet_bytes)
+
     def set_window_backlight(self, brightness):
-        """Set rear window backlight brightness (0-3)."""
+        """Set rear window lightbar brightness (0=off, 1-3=on with color)."""
         try:
             # Validate brightness level
             if not isinstance(brightness, int) or brightness < 0 or brightness > 3:
@@ -733,59 +756,49 @@ X-GNOME-Autostart-enabled=true
                 )
                 return
             
-            # Find the lightbar device (USB port -5, separate from keyboard on port -4)
-            # The lightbar is asus::kbd_backlight_1, keyboard is asus::kbd_backlight
-            lightbar_path = None
-            lightbar_sig = "usb-0000:c6:00.0-5/"  # USB port for rear window
-            
-            for led_path in Path("/sys/class/leds").glob("*kbd_backlight*"):
-                uevent_path = led_path / "device" / "uevent"
-                if uevent_path.exists():
-                    try:
-                        uevent = uevent_path.read_text()
-                        if lightbar_sig in uevent:
-                            lightbar_path = led_path / "brightness"
-                            break
-                    except Exception:
-                        pass
-            
-            if not lightbar_path:
+            # Find the lightbar HID raw device
+            device_path = self._find_lightbar_hidraw()
+            if not device_path:
                 self.notifier.notify_error(
                     "Lightbar Not Found",
-                    "Rear window lightbar device not detected"
+                    "Rear window lightbar device not detected. Check USB connection."
                 )
                 return
             
-            # Try direct write (works if udev rules grant permissions)
-            lightbar_written = False
             try:
-                lightbar_path.write_text(str(brightness))
-                lightbar_written = True
+                if brightness == 0:
+                    # Turn off lightbar
+                    packet = bytes([0x5d, 0xbd, 0x01, 0xaa, 0x00, 0x00, 0xff, 0xff])
+                    self._send_hid_packet(device_path, packet)
+                else:
+                    # Turn on lightbar first
+                    on_packet = bytes([0x5d, 0xbd, 0x01, 0xae, 0x05, 0x22, 0xff, 0xff])
+                    self._send_hid_packet(device_path, on_packet)
+                    
+                    # Set color based on brightness (white with varying intensity)
+                    # brightness 1 = dim, 2 = medium, 3 = bright
+                    intensity = [0, 85, 170, 255][brightness]
+                    color_packet = bytes([
+                        0x5d, 0xb3, 0x00, 0x00,
+                        intensity, intensity, intensity,  # R, G, B
+                        0xeb, 0x00, 0x00,
+                        0xff, 0xff, 0xff
+                    ])
+                    import time
+                    time.sleep(0.1)  # Small delay between packets
+                    self._send_hid_packet(device_path, color_packet)
+                    
             except PermissionError:
-                pass  # Fall back to sudo
-            
-            # Fall back to sudo if direct write failed
-            if not lightbar_written:
-                cmd = ["sudo", "-n", "tee", str(lightbar_path)]
-                result = subprocess.run(
-                    cmd,
-                    input=str(brightness),
-                    capture_output=True,
-                    text=True,
-                    timeout=5,
+                self.notifier.notify_error(
+                    "Permission Denied",
+                    "Run the main setup script to install udev rules for RGB control."
                 )
-                if result.returncode != 0:
-                    err = (result.stderr or "").strip()
-                    if "password is required" in err.lower() or "sudo" in err.lower():
-                        self.notifier.notify_error(
-                            "Backlight Error",
-                            "Passwordless sudo not configured. Run the main setup script."
-                        )
-                    else:
-                        self.notifier.notify_error(
-                            "Backlight Error", f"Failed to set brightness: {err}"
-                        )
-                    return
+                return
+            except Exception as e:
+                self.notifier.notify_error(
+                    "Lightbar Error", f"Failed to control lightbar: {str(e)}"
+                )
+                return
 
             # Save window brightness setting for restore on boot
             self._save_window_brightness(brightness)
