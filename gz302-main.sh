@@ -815,6 +815,11 @@ Defaults use_pty
 %sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-wrapper
 EOF
         fi
+        # Add brightness control for tray icon if not present
+        if ! grep -q "tee /sys/class/leds" /etc/sudoers.d/gz302-pwrcfg; then
+            echo "# Allow tray icon to control keyboard/window backlight brightness" >> /etc/sudoers.d/gz302-pwrcfg
+            echo "ALL ALL=(ALL) NOPASSWD: /usr/bin/tee /sys/class/leds/*/brightness" >> /etc/sudoers.d/gz302-pwrcfg
+        fi
     else
         # Create new sudoers entry
         cat > /etc/sudoers.d/gz302-pwrcfg <<EOF
@@ -830,6 +835,8 @@ Defaults use_pty
 %sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
 %sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-bin
 %sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-wrapper
+# Allow tray icon to control keyboard/window backlight brightness
+ALL ALL=(ALL) NOPASSWD: /usr/bin/tee /sys/class/leds/*/brightness
 EOF
     fi
     

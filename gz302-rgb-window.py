@@ -9,8 +9,10 @@ import time
 # Targeting specific HID interfaces via HID_PHYS
 
 # Signatures to look for in the "HID_PHYS=" line of uevent
-KEYBOARD_SIG = "usb-0000:c6:00.0-4/input1"
-LIGHTBAR_SIG = "usb-0000:c6:00.0-5/input0"
+# USB port -4 is keyboard, -5 is rear window lightbar
+# Note: input0 vs input1 may vary by kernel version
+KEYBOARD_SIG = "usb-0000:c6:00.0-4/"
+LIGHTBAR_SIG = "usb-0000:c6:00.0-5/"
 
 def get_hid_phys(path):
     # Returns the physical path string from uevent
@@ -24,12 +26,12 @@ def get_hid_phys(path):
     return None
 
 def find_led_devices():
-    # Scans /sys/class/leds/*::kbd_backlight/
+    # Scans /sys/class/leds/*kbd_backlight* for all backlight devices
     # Returns dict: {'keyboard': path, 'lightbar': path}
     devices = {}
     
-    # Common pattern for ASUS ROG RGB devices
-    candidates = glob.glob("/sys/class/leds/*::kbd_backlight")
+    # Look for any backlight devices (includes kbd_backlight and kbd_backlight_1)
+    candidates = glob.glob("/sys/class/leds/*kbd_backlight*")
     
     for path in candidates:
         phys = get_hid_phys(path)

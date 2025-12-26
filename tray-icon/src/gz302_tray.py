@@ -733,38 +733,53 @@ X-GNOME-Autostart-enabled=true
                 )
                 return
             
-            # Try direct sysfs write first (if udev rules configured permissions)
-            # This avoids sudo entirely when permissions are correct
-            lightbar_written = False
-            for led_path in Path("/sys/class/leds").glob("*::kbd_backlight"):
-                brightness_file = led_path / "brightness"
-                if brightness_file.exists():
-                    try:
-                        brightness_file.write_text(str(brightness))
-                        lightbar_written = True
-                    except PermissionError:
-                        pass  # Fall back to gz302-rgb-window command
+            # Find the lightbar device (USB port -5, separate from keyboard on port -4)
+            # The lightbar is asus::kbd_backlight_1, keyboard is asus::kbd_backlight
+            lightbar_path = None
+            lightbar_sig = "usb-0000:c6:00.0-5/"  # USB port for rear window
             
-            # Fall back to gz302-rgb-window command (uses sudo -n for password-less)
+            for led_path in Path("/sys/class/leds").glob("*kbd_backlight*"):
+                uevent_path = led_path / "device" / "uevent"
+                if uevent_path.exists():
+                    try:
+                        uevent = uevent_path.read_text()
+                        if lightbar_sig in uevent:
+                            lightbar_path = led_path / "brightness"
+                            break
+                    except Exception:
+                        pass
+            
+            if not lightbar_path:
+                self.notifier.notify_error(
+                    "Lightbar Not Found",
+                    "Rear window lightbar device not detected"
+                )
+                return
+            
+            # Try direct write (works if udev rules grant permissions)
+            lightbar_written = False
+            try:
+                lightbar_path.write_text(str(brightness))
+                lightbar_written = True
+            except PermissionError:
+                pass  # Fall back to sudo
+            
+            # Fall back to sudo if direct write failed
             if not lightbar_written:
-                cmd = ["sudo", "-n", "/usr/local/bin/gz302-rgb-window", "--lightbar", str(brightness)]
+                cmd = ["sudo", "-n", "tee", str(lightbar_path)]
                 result = subprocess.run(
                     cmd,
+                    input=str(brightness),
                     capture_output=True,
                     text=True,
                     timeout=5,
                 )
                 if result.returncode != 0:
                     err = (result.stderr or "").strip()
-                    if "command not found" in err.lower() or result.returncode == 127:
-                        self.notifier.notify_error(
-                            "Backlight Error", 
-                            "Run 'sudo gz302-rgb-install.sh' to install RGB control"
-                        )
-                    elif "password is required" in err.lower():
+                    if "password is required" in err.lower() or "sudo" in err.lower():
                         self.notifier.notify_error(
                             "Backlight Error",
-                            "Run 'sudo gz302-rgb-install.sh' to configure permissions"
+                            "Passwordless sudo not configured. Run the main setup script."
                         )
                     else:
                         self.notifier.notify_error(
