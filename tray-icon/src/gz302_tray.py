@@ -14,6 +14,8 @@ from datetime import datetime
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+import signal
+from pathlib import Path
 from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtWidgets import (QApplication, QInputDialog, QMenu,
                              QSystemTrayIcon, QWidget)
@@ -93,6 +95,11 @@ class NotificationManager:
         # Try notify2 first for richer notifications
         if self.notify2_initialized:
             try:
+                # Re-init notify2 with current app name in case it changed
+                try:
+                    notify2.init(self.tray.app_name)
+                except Exception:
+                    pass
                 urgency_map = {
                     "low": notify2.URGENCY_LOW,
                     "normal": notify2.URGENCY_NORMAL,
@@ -134,19 +141,25 @@ class NotificationManager:
         if power_info:
             message += f"\n{power_info}"
 
-        self.notify(title, message, "success", 4000)
+        # Prepend application name for clarity
+        self.notify(f"{self.tray.app_name}: {title}", message, "success", 4000)
 
     def notify_error(self, title, message, hint=""):
         """Send error notification with optional hint"""
         full_message = message
         if hint:
             full_message += f"\n\n💡 Tip: {hint}"
-        self.notify(title, full_message, "error", 6000, "critical")
+        self.notify(f"{self.tray.app_name}: {title}", full_message, "error", 6000, "critical")
 
 
 class GZ302TrayIcon(QSystemTrayIcon):
     def __init__(self, icon, parent=None):
         super().__init__(icon, parent)
+
+        # Load config (APP_NAME, etc.) so we can update UI dynamically
+        self.config_file = Path('/etc/gz302/tray.conf')
+        self.app_name = "GZ302 Control Center"
+        self.load_tray_config()
 
         # Initialize notification manager
         self.notifier = NotificationManager(self)
@@ -174,6 +187,16 @@ class GZ302TrayIcon(QSystemTrayIcon):
         # Track whether keyboard RGB binary is available
         self.rgb_available = self.check_rgb_available()
 
+        # Register signal handler so installer can request a UI reload (SIGUSR1)
+        try:
+            signal.signal(signal.SIGUSR1, lambda s, f: QTimer.singleShot(0, self.reload_from_signal))
+            signal.signal(signal.SIGHUP, lambda s, f: QTimer.singleShot(0, self.reload_from_signal))
+        except Exception:
+            pass
+
+        # Track whether keyboard RGB binary is available
+        self.rgb_available = self.check_rgb_available()
+
         # Create menu
         self.menu = QMenu()
         self.create_menu()
@@ -192,7 +215,7 @@ class GZ302TrayIcon(QSystemTrayIcon):
 
         # Show startup notification
         self.notifier.notify(
-            "GZ302 Control Center",
+            self.app_name,
             "System tray utility ready.\nRight-click to manage power, RGB, and settings.",
             "info",
             3000,
@@ -850,6 +873,45 @@ X-GNOME-Autostart-enabled=true
             return False
         except Exception:
             return False
+
+    def load_tray_config(self):
+        """Load tray configuration from /etc/gz302/tray.conf (optional)."""
+        try:
+            if self.config_file.exists():
+                for line in self.config_file.read_text().splitlines():
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    if '=' in line:
+                        k, v = line.split('=', 1)
+                        k = k.strip()
+                        v = v.strip().strip('"').strip("'")
+                        if k == 'APP_NAME':
+                            self.app_name = v
+        except Exception:
+            pass
+
+    def reload_from_signal(self):
+        """Reload visible UI elements in response to an external signal."""
+        try:
+            # Re-read config
+            self.load_tray_config()
+            # Re-init notify2 with new name
+            try:
+                if NOTIFY2_AVAILABLE:
+                    import notify2
+                    notify2.init(self.app_name)
+            except Exception:
+                pass
+
+            # Rebuild the menu and tooltip
+            self.create_menu()
+            self.update_current_profile()
+
+            # Inform user the tray reloaded
+            self.notifier.notify(self.app_name, "Control Center updated", "info", 2000)
+        except Exception:
+            pass
 
     def save_rgb_setting(self, command, *args):
         """Save RGB setting to config file for boot persistence."""

@@ -73,9 +73,23 @@ elif [[ -f "$ICON_SRC" ]]; then
 fi
 
 # Use python3 explicitly in Exec line for better compatibility across desktop environments
+# Respect APP_NAME setting from /etc/gz302/tray.conf if present
+APP_NAME_DEFAULT="GZ302 Control Center"
+APP_NAME="$APP_NAME_DEFAULT"
+if [[ -f /etc/gz302/tray.conf ]]; then
+  # shellcheck disable=SC1091
+  while IFS='=' read -r k v; do
+    k=$(echo "$k" | tr -d ' "')
+    v=$(echo "$v" | sed -e 's/^ *//g' -e 's/ *$//g' -e 's/^"//' -e 's/"$//')
+    if [[ "$k" == "APP_NAME" && -n "$v" ]]; then
+      APP_NAME="$v"
+    fi
+  done < /etc/gz302/tray.conf
+fi
+
 DESKTOP_FILE_CONTENT="[Desktop Entry]
 Type=Application
-Name=GZ302 Power Manager
+Name=$APP_NAME
 Comment=System tray power profile manager for ASUS ROG Flow Z13 (GZ302)
 Exec=python3 $APP_PY
 Icon=$ICON_NAME
@@ -133,7 +147,38 @@ fi
 echo "Installed desktop launcher: $DESKTOP_FILE"
 echo "Enabled autostart entry:    $AUTOSTART_FILE"
 echo ""
-echo "You can now launch 'GZ302 Power Manager' from your app menu or it will start on login."
+
+echo "Registering APP_NAME to /etc/gz302/tray.conf and notifying running tray (if any)..."
+# Ensure config dir exists
+mkdir -p /etc/gz302
+if [[ ! -f /etc/gz302/tray.conf ]] || ! grep -q "APP_NAME" /etc/gz302/tray.conf 2>/dev/null; then
+  echo "APP_NAME=\"$APP_NAME\"" > /etc/gz302/tray.conf
+  chmod 644 /etc/gz302/tray.conf
+fi
+
+# Notify running tray processes using SIGUSR1 so they reload UI strings
+pids=""
+for name in "gz302_tray.py" "gz302_tray" "gz302-tray"; do
+  p=$(pgrep -f "$name" 2>/dev/null || true)
+  if [[ -n "$p" ]]; then
+    pids="$pids $p"
+  fi
+done
+
+if [[ -n "$pids" ]]; then
+  for pid in $pids; do
+    if kill -0 "$pid" >/dev/null 2>&1; then
+      kill -USR1 "$pid" 2>/dev/null || true
+      echo "Sent SIGUSR1 to tray process: $pid"
+    fi
+  done
+  echo "Tray processes notified; they will reload their UI shortly."
+else
+  echo "No running tray process detected. Start it via the app menu or logging out/in." 
+fi
+
+echo ""
+echo "You can now launch '$APP_NAME' from your app menu or it will start on login."
 echo ""
 echo "NOTE: If you use GNOME, you may need to install the 'AppIndicator' extension:"
 echo "  - GNOME: Install 'AppIndicator and KStatusNotifierItem Support' from extensions.gnome.org"
