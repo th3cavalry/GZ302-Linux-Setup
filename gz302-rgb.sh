@@ -109,16 +109,16 @@ install_rgb_arch() {
     print_step 2 $total_steps "Compiling GZ302 RGB keyboard CLI..."
     cd "$SCRIPT_DIR"
     echo -ne "${C_DIM}"
-    # shellcheck disable=SC2046
-    gcc -Wall -Wextra -O2 -o gz302-rgb gz302-rgb-cli.c $(pkg-config --cflags --libs libusb-1.0) 2>&1 || true
+    make -f Makefile.rgb clean 2>/dev/null || true
+    make -f Makefile.rgb 2>&1 || true
     echo -ne "${C_NC}"
-    completed_item "Binary compiled successfully"
+    completed_item "Binary compiled successfully (via Makefile.rgb)"
     
     # Step 3: Install
     print_step 3 $total_steps "Installing binary..."
     # Clean up old wrapper/symlink mess if present
     rm -f "$BINARY_PATH" /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
-    install -m 755 gz302-rgb "$BINARY_PATH"
+    make -f Makefile.rgb install PREFIX="/usr/local"
     ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
     completed_item "Binary installed to $BINARY_PATH"
 }
@@ -168,16 +168,16 @@ install_rgb_fedora() {
     print_step 2 $total_steps "Compiling GZ302 RGB keyboard CLI..."
     cd "$SCRIPT_DIR"
     echo -ne "${C_DIM}"
-    # shellcheck disable=SC2046
-    gcc -Wall -Wextra -O2 -o gz302-rgb gz302-rgb-cli.c $(pkg-config --cflags --libs libusb-1.0) 2>&1 || true
+    make -f Makefile.rgb clean 2>/dev/null || true
+    make -f Makefile.rgb 2>&1 || true
     echo -ne "${C_NC}"
-    completed_item "Binary compiled successfully"
+    completed_item "Binary compiled successfully (via Makefile.rgb)"
     
     # Step 3: Install
     print_step 3 $total_steps "Installing binary..."
     # Clean up old wrapper/symlink mess if present
     rm -f "$BINARY_PATH" /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
-    install -m 755 gz302-rgb "$BINARY_PATH"
+    make -f Makefile.rgb install PREFIX="/usr/local"
     ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
     completed_item "Binary installed to $BINARY_PATH"
 }
@@ -197,16 +197,16 @@ install_rgb_opensuse() {
     print_step 2 $total_steps "Compiling GZ302 RGB keyboard CLI..."
     cd "$SCRIPT_DIR"
     echo -ne "${C_DIM}"
-    # shellcheck disable=SC2046
-    gcc -Wall -Wextra -O2 -o gz302-rgb gz302-rgb-cli.c $(pkg-config --cflags --libs libusb-1.0) 2>&1 || true
+    make -f Makefile.rgb clean 2>/dev/null || true
+    make -f Makefile.rgb 2>&1 || true
     echo -ne "${C_NC}"
-    completed_item "Binary compiled successfully"
+    completed_item "Binary compiled successfully (via Makefile.rgb)"
     
     # Step 3: Install
     print_step 3 $total_steps "Installing binary..."
     # Clean up old wrapper/symlink mess if present
     rm -f "$BINARY_PATH" /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
-    install -m 755 gz302-rgb "$BINARY_PATH"
+    make -f Makefile.rgb install PREFIX="/usr/local"
     ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
     completed_item "Binary installed to $BINARY_PATH"
 }

@@ -171,6 +171,9 @@ class GZ302TrayIcon(QSystemTrayIcon):
         # Track last notification time to avoid spam
         self.last_notification_time = None
 
+        # Track whether keyboard RGB binary is available
+        self.rgb_available = self.check_rgb_available()
+
         # Create menu
         self.menu = QMenu()
         self.create_menu()
@@ -264,7 +267,7 @@ class GZ302TrayIcon(QSystemTrayIcon):
         self.menu.addSeparator()
 
         # Keyboard RGB Colors
-        if self.check_rgb_available():
+        if self.rgb_available:
             rgb_menu = self.menu.addMenu("Keyboard RGB")
             if rgb_menu is not None:
                 # Static colors submenu
@@ -833,10 +836,18 @@ X-GNOME-Autostart-enabled=true
     def check_rgb_available(self):
         """Check if gz302-rgb binary is available."""
         try:
-            result = subprocess.run(
-                ["which", "gz302-rgb"], capture_output=True, timeout=2
-            )
-            return result.returncode == 0
+            result = subprocess.run([
+                "which",
+                "gz302-rgb",
+            ], capture_output=True, timeout=2)
+            if result.returncode == 0:
+                return True
+            # Fallback: check common install location
+            from pathlib import Path
+
+            if Path("/usr/local/bin/gz302-rgb").exists() and Path("/usr/local/bin/gz302-rgb").is_file():
+                return True
+            return False
         except Exception:
             return False
 

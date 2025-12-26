@@ -11,13 +11,24 @@ TARGET = gz302-rgb
 SOURCE = gz302-rgb-cli.c
 OBJECT = $(SOURCE:.c=.o)
 
+PREFIX ?= /usr/local
+DESTDIR ?=
+VERSION ?= 3.0.3
+
 $(TARGET): $(OBJECT)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBUSB_LIBS)
 
 $(OBJECT): $(SOURCE)
 	$(CC) $(CFLAGS) $(LIBUSB_CFLAGS) -c -o $@ $<
 
-clean:
-	rm -f $(OBJECT) $(TARGET)
+install: $(TARGET)
+	install -d $(DESTDIR)$(PREFIX)/bin || true
+	install -m 755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/$(TARGET)
 
-.PHONY: clean
+dist: $(TARGET)
+	tar -czf $(TARGET)-$(VERSION)-linux.tar.gz $(TARGET) README.md LICENSE
+
+clean:
+	rm -f $(OBJECT) $(TARGET) $(TARGET)-$(VERSION)-linux.tar.gz
+
+.PHONY: clean install dist

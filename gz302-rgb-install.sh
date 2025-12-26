@@ -288,13 +288,13 @@ install_keyboard_rgb_arch() {
     
     cd "$SCRIPT_DIR"
     echo -ne "${C_DIM}"
-    # shellcheck disable=SC2046
-    gcc -Wall -Wextra -O2 -o gz302-rgb gz302-rgb-cli.c $(pkg-config --cflags --libs libusb-1.0) 2>&1 || true
+    make -f Makefile.rgb clean 2>/dev/null || true
+    make -f Makefile.rgb 2>&1 || true
     echo -ne "${C_NC}"
-    completed_item "Binary compiled"
-    
-    rm -f "$KEYBOARD_RGB_PATH" /usr/local/bin/gz302-rgb-bin 2>/dev/null || true
-    install -m 755 gz302-rgb "$KEYBOARD_RGB_PATH"
+    completed_item "Binary compiled (via Makefile.rgb)"
+
+    # Use Makefile install to respect PREFIX
+    make -f Makefile.rgb install PREFIX="/usr/local"
     completed_item "Keyboard RGB installed to $KEYBOARD_RGB_PATH"
 }
 
@@ -312,10 +312,9 @@ install_keyboard_rgb_debian() {
     echo -ne "${C_DIM}"
     make -f Makefile.rgb 2>&1 || true
     echo -ne "${C_NC}"
-    completed_item "Binary compiled"
-    
-    rm -f "$KEYBOARD_RGB_PATH" /usr/local/bin/gz302-rgb-bin 2>/dev/null || true
-    install -m 755 gz302-rgb "$KEYBOARD_RGB_PATH"
+    completed_item "Binary compiled (via Makefile.rgb)"
+
+    make -f Makefile.rgb install PREFIX="/usr/local"
     completed_item "Keyboard RGB installed to $KEYBOARD_RGB_PATH"
 }
 
@@ -329,13 +328,12 @@ install_keyboard_rgb_fedora() {
     
     cd "$SCRIPT_DIR"
     echo -ne "${C_DIM}"
-    # shellcheck disable=SC2046
-    gcc -Wall -Wextra -O2 -o gz302-rgb gz302-rgb-cli.c $(pkg-config --cflags --libs libusb-1.0) 2>&1 || true
+    make -f Makefile.rgb clean 2>/dev/null || true
+    make -f Makefile.rgb 2>&1 || true
     echo -ne "${C_NC}"
-    completed_item "Binary compiled"
-    
-    rm -f "$KEYBOARD_RGB_PATH" /usr/local/bin/gz302-rgb-bin 2>/dev/null || true
-    install -m 755 gz302-rgb "$KEYBOARD_RGB_PATH"
+    completed_item "Binary compiled (via Makefile.rgb)"
+
+    make -f Makefile.rgb install PREFIX="/usr/local"
     completed_item "Keyboard RGB installed to $KEYBOARD_RGB_PATH"
 }
 
@@ -349,13 +347,12 @@ install_keyboard_rgb_opensuse() {
     
     cd "$SCRIPT_DIR"
     echo -ne "${C_DIM}"
-    # shellcheck disable=SC2046
-    gcc -Wall -Wextra -O2 -o gz302-rgb gz302-rgb-cli.c $(pkg-config --cflags --libs libusb-1.0) 2>&1 || true
+    make -f Makefile.rgb clean 2>/dev/null || true
+    make -f Makefile.rgb 2>&1 || true
     echo -ne "${C_NC}"
-    completed_item "Binary compiled"
-    
-    rm -f "$KEYBOARD_RGB_PATH" /usr/local/bin/gz302-rgb-bin 2>/dev/null || true
-    install -m 755 gz302-rgb "$KEYBOARD_RGB_PATH"
+    completed_item "Binary compiled (via Makefile.rgb)"
+
+    make -f Makefile.rgb install PREFIX="/usr/local"
     completed_item "Keyboard RGB installed to $KEYBOARD_RGB_PATH"
 }
 
