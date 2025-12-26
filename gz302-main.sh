@@ -160,7 +160,7 @@ check_kernel_version() {
     local version_num=$((major * 100 + minor))
     local min_version=612  # 6.12 - Strix Halo minimal support (RDNA 3.5 GPU, Zen 5)
     local recommended_version=617  # 6.17+ - Full stability and WiFi improvements
-    local optimal_version=620  # 6.20+ - Latest fixes and optimizations (late 2025)
+    local optimal_version=618  # 6.18+ - Latest fixes and optimizations (Dec 2025)
     
     info "Detected kernel version: $(uname -r)"
     
@@ -185,7 +185,7 @@ check_kernel_version() {
         info "  - Power management: Refined amd_pstate=guided for Strix Halo"
         echo
         if [[ $version_num -lt $optimal_version ]]; then
-            info "Kernel 6.20+ (late 2025) includes additional improvements:"
+            info "Kernel 6.18+ (Dec 2025) includes additional improvements:"
             info "  - Wayland/KWin pageflip timeout fixes"
             info "  - RDNA 3.5 shader compiler optimizations"
             info "  - Strix Halo power efficiency enhancements"
@@ -194,10 +194,10 @@ check_kernel_version() {
         echo
     elif [[ $version_num -lt $optimal_version ]]; then
         success "Kernel version ($kernel_version) is current and well-supported"
-        info "For the latest optimizations, consider upgrading to kernel 6.20+"
+        info "For the latest optimizations, consider upgrading to kernel 6.18+"
         echo
     else
-        success "Kernel version ($kernel_version) is at the cutting edge (6.20+)"
+        success "Kernel version ($kernel_version) is at the cutting edge (6.18+)"
         success "You have all latest fixes and optimizations for GZ302EA"
         echo
     fi

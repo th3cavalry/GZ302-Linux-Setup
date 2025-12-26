@@ -50,10 +50,26 @@ ALL ALL=NOPASSWD: $RGB_PATH
 EOF
 fi
 
-cat >> /tmp/gz302-pwrcfg << EOF
-# Allow tray icon to control keyboard backlight without password
-ALL ALL=NOPASSWD: /usr/bin/bash -c *
+# Find the full path to gz302-rgb-window (rear window/lightbar control)
+WINDOW_RGB_PATH=$(which gz302-rgb-window 2>/dev/null || echo "")
+
+if [[ -z "$WINDOW_RGB_PATH" ]]; then
+    # Check common install location
+    if [[ -x /usr/local/bin/gz302-rgb-window ]]; then
+        WINDOW_RGB_PATH="/usr/local/bin/gz302-rgb-window"
+    else
+        echo "NOTE: gz302-rgb-window not found. Rear window RGB will require manual sudo."
+    fi
+fi
+
+if [[ -n "$WINDOW_RGB_PATH" ]]; then
+    echo "Found gz302-rgb-window at: $WINDOW_RGB_PATH"
+    cat >> /tmp/gz302-pwrcfg << EOF
+
+# Allow all users to run gz302-rgb-window without password (rear window RGB)
+ALL ALL=NOPASSWD: $WINDOW_RGB_PATH
 EOF
+fi
 
 # Validate and install using visudo
 if visudo -c -f /tmp/gz302-pwrcfg; then
@@ -64,8 +80,10 @@ if visudo -c -f /tmp/gz302-pwrcfg; then
     if [[ -n "$RGB_PATH" ]]; then
         echo "You can now run: gz302-rgb <command> without typing sudo (no password prompt)."
     fi
+    if [[ -n "$WINDOW_RGB_PATH" ]]; then
+        echo "You can now run: gz302-rgb-window <command> without typing sudo (no password prompt)."
+    fi
     echo "GUI apps like the tray icon will work without authentication prompts."
-    echo "Keyboard backlight and RGB control are configured for password-less sudo."
 else
     echo "ERROR: Invalid sudoers configuration!"
     rm /tmp/gz302-pwrcfg

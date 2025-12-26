@@ -2,78 +2,99 @@
 
 # ==============================================================================
 # GZ302 RGB Restore Script
-# Version: 2.3.14
+# Version: 3.0.3
 #
-# Restores the last used RGB setting on system boot.
+# Restores the last used RGB setting on system boot and after resume.
 # Called by systemd service: gz302-rgb-restore.service
 #
-# This script reads the saved RGB configuration and re-applies it.
+# This script handles both keyboard RGB and rear window/lightbar RGB.
 # ==============================================================================
 
 set -euo pipefail
 
-CONFIG_FILE="/etc/gz302/last-setting.conf"
-RGB_BIN="/usr/local/bin/gz302-rgb"
+# Config paths (FHS compliant)
+CONFIG_DIR="/etc/gz302"
+KEYBOARD_CONFIG="${CONFIG_DIR}/rgb-keyboard.conf"
+WINDOW_CONFIG="${CONFIG_DIR}/rgb-window.conf"
+LEGACY_CONFIG="${CONFIG_DIR}/last-setting.conf"
 
-# Migrate old RGB config path from pre-1.3.0 versions to FHS-compliant path
+# Binary paths
+RGB_BIN="/usr/local/bin/gz302-rgb"
+WINDOW_BIN="/usr/local/bin/gz302-rgb-window"
+
+# Migrate old RGB config paths
 migrate_rgb_config() {
-    local old_config="/etc/gz302-rgb/last-setting.conf"
+    local old_paths=(
+        "/etc/gz302-rgb/last-setting.conf"
+    )
     
-    # If old config exists but new one doesn't, migrate it
-    if [[ -f "$old_config" ]] && [[ ! -f "$CONFIG_FILE" ]]; then
-        mkdir -p /etc/gz302
-        if cp "$old_config" "$CONFIG_FILE" 2>/dev/null; then
-            chmod 644 "$CONFIG_FILE"
-            rm -f "$old_config"
-            
-            # Clean up old directory if empty
-            if [[ -d /etc/gz302-rgb ]] && ! ls -A /etc/gz302-rgb >/dev/null 2>&1; then
-                rm -rf /etc/gz302-rgb
+    mkdir -p "$CONFIG_DIR"
+    
+    for old_config in "${old_paths[@]}"; do
+        if [[ -f "$old_config" ]] && [[ ! -f "$KEYBOARD_CONFIG" ]]; then
+            if cp "$old_config" "$KEYBOARD_CONFIG" 2>/dev/null; then
+                chmod 644 "$KEYBOARD_CONFIG"
+                rm -f "$old_config"
             fi
         fi
+    done
+    
+    # Also migrate legacy config format
+    if [[ -f "$LEGACY_CONFIG" ]] && [[ ! -f "$KEYBOARD_CONFIG" ]]; then
+        cp "$LEGACY_CONFIG" "$KEYBOARD_CONFIG" 2>/dev/null || true
     fi
+    
+    # Clean up old directories
+    for old_dir in /etc/gz302-rgb; do
+        if [[ -d "$old_dir" ]] && [[ -z "$(ls -A "$old_dir" 2>/dev/null)" ]]; then
+            rm -rf "$old_dir"
+        fi
+    done
 }
 
 # Wait for hardware to be ready
 sleep 2
 
-# Enable keyboard brightness so RGB is visible after restoring
-BRIGHTNESS_PATH="/sys/class/leds/asus::kbd_backlight/brightness"
-if [[ -f "$BRIGHTNESS_PATH" ]]; then
-    echo 3 > "$BRIGHTNESS_PATH" 2>/dev/null || true
-fi
-
 # Migrate old RGB config path if needed
 migrate_rgb_config
 
-# Check if config file exists
-if [[ ! -f "$CONFIG_FILE" ]]; then
-    exit 0
-fi
+# Enable keyboard brightness so RGB is visible after restoring
+for brightness_path in /sys/class/leds/*::kbd_backlight/brightness; do
+    if [[ -f "$brightness_path" ]]; then
+        echo 3 > "$brightness_path" 2>/dev/null || true
+    fi
+done
 
-# Read config and reconstruct command
-if [[ -f "$CONFIG_FILE" ]]; then
-    # Source the config file to get variables
+# Restore keyboard RGB settings
+if [[ -f "$KEYBOARD_CONFIG" ]]; then
     # shellcheck source=/dev/null
-    source "$CONFIG_FILE"
+    source "$KEYBOARD_CONFIG"
     
-    # Reconstruct command arguments
-    if [[ -n "${COMMAND:-}" && -n "${ARGC:-}" ]]; then
+    # Handle new format (KEYBOARD_COMMAND)
+    if [[ -n "${KEYBOARD_COMMAND:-}" ]] && [[ -x "$RGB_BIN" ]]; then
+        # KEYBOARD_COMMAND contains the full command string
+        eval "$RGB_BIN $KEYBOARD_COMMAND" 2>/dev/null || true
+    # Handle legacy format (COMMAND + ARG1, ARG2, etc.)
+    elif [[ -n "${COMMAND:-}" && -n "${ARGC:-}" ]] && [[ -x "$RGB_BIN" ]]; then
         args=()
         args+=("$COMMAND")
-        
-        # Add all arguments
         for ((i=1; i<ARGC-1; i++)); do
             var_name="ARG$i"
             if [[ -n "${!var_name:-}" ]]; then
                 args+=("${!var_name}")
             fi
         done
-        
-        # Execute the restored command
-        if [[ -x "$RGB_BIN" ]]; then
-            sudo -n "$RGB_BIN" "${args[@]}" 2>/dev/null || true
-        fi
+        "$RGB_BIN" "${args[@]}" 2>/dev/null || true
+    fi
+fi
+
+# Restore rear window/lightbar RGB settings
+if [[ -f "$WINDOW_CONFIG" ]]; then
+    # shellcheck source=/dev/null
+    source "$WINDOW_CONFIG"
+    
+    if [[ -n "${WINDOW_BRIGHTNESS:-}" ]] && [[ -x "$WINDOW_BIN" ]]; then
+        "$WINDOW_BIN" --lightbar "$WINDOW_BRIGHTNESS" 2>/dev/null || true
     fi
 fi
 

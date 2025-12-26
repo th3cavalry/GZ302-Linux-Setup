@@ -28,7 +28,7 @@ readonly KERNEL_MIN=612          # 6.12 - Absolute minimum
 readonly KERNEL_RECOMMENDED=614  # 6.14 - First recommended
 readonly KERNEL_STABLE=616       # 6.16 - Stable support
 readonly KERNEL_NATIVE=617       # 6.17 - Native support for most hardware
-readonly KERNEL_OPTIMAL=620      # 6.20+ - Latest optimizations
+readonly KERNEL_OPTIMAL=618      # 6.18+ - Latest optimizations
 
 # --- Core Version Functions ---
 
@@ -88,7 +88,7 @@ kernel_has_native_support() {
     [[ $version_num -ge $KERNEL_NATIVE ]]
 }
 
-# Check if kernel is at optimal level (6.20+)
+# Check if kernel is at optimal level (6.18+)
 # Returns: 0 if optimal, 1 if not
 kernel_is_optimal() {
     local version_num
@@ -230,7 +230,7 @@ kernel_print_status() {
             ;;
         native)
             echo "✅ NATIVE: Excellent native hardware support"
-            echo "   Optimal: 6.20+"
+            echo "   Optimal: 6.18+"
             echo "   Note: Most workarounds obsolete"
             ;;
         optimal)
@@ -303,7 +303,7 @@ Version Check Functions:
   kernel_is_recommended         - Check if >= 6.14 (recommended)
   kernel_is_stable              - Check if >= 6.16 (stable)
   kernel_has_native_support     - Check if >= 6.17 (native hardware support)
-  kernel_is_optimal             - Check if >= 6.20 (optimal)
+  kernel_is_optimal             - Check if >= 6.18 (optimal)
 
 Component Compatibility Checks:
   kernel_requires_wifi_workaround    - Check if WiFi ASPM workaround needed
@@ -349,6 +349,6 @@ Version Milestones:
   6.14 - Recommended (XDNA NPU, MT7925 WiFi)
   6.16 - Stable (GPU fixes, WiFi improvements)
   6.17 - Native (native WiFi ASPM, asus-wmi tablet mode)
-  6.20 - Optimal (latest optimizations)
+  6.18 - Optimal (latest optimizations)
 HELP
 }

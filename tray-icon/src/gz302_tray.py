@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-GZ302 Power Profile Tray Icon
-A system tray utility for managing power profiles on ASUS ROG Flow Z13 (GZ302)
-Version: 2.3.14
+GZ302 Control Center
+A system tray utility for managing power profiles, RGB, and hardware settings
+on ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395
+Version: 3.0.3
 """
 
 import os
@@ -54,7 +55,7 @@ class NotificationManager:
         # Try to initialize notify2 for richer notifications
         if NOTIFY2_AVAILABLE:
             try:
-                notify2.init("GZ302 Power Manager")
+                notify2.init("GZ302 Control Center")
                 self.notify2_initialized = True
             except Exception:
                 pass
@@ -164,6 +165,9 @@ class GZ302TrayIcon(QSystemTrayIcon):
         # Store current profile name
         self.current_profile = "balanced"
 
+        # Track if profile was changed by user (vs auto-switch)
+        self.user_initiated_change = False
+
         # Track last notification time to avoid spam
         self.last_notification_time = None
 
@@ -181,12 +185,12 @@ class GZ302TrayIcon(QSystemTrayIcon):
         self.timer.start(5000)  # 5 seconds
 
         # Set initial tooltip with welcome message
-        self.setToolTip("GZ302 Power Manager\n🚀 Ready")
+        self.setToolTip("GZ302 Control Center\n🚀 Ready")
 
         # Show startup notification
         self.notifier.notify(
-            "GZ302 Power Manager",
-            "System tray utility ready.\nRight-click to manage power profiles.",
+            "GZ302 Control Center",
+            "System tray utility ready.\nRight-click to manage power, RGB, and settings.",
             "info",
             3000,
         )
@@ -317,8 +321,8 @@ class GZ302TrayIcon(QSystemTrayIcon):
             
             self.menu.addSeparator()
             
-            # Rear Window RGB
-            window_menu = self.menu.addMenu("Rear Window RGB")
+            # Rear Window RGB (brightness only - color control pending HID implementation)
+            window_menu = self.menu.addMenu("Rear Window Brightness")
             if window_menu is not None:
                  for level in range(4):
                     if level == 0:
@@ -348,10 +352,8 @@ class GZ302TrayIcon(QSystemTrayIcon):
     def change_profile(self, profile):
         """Change power profile by invoking pwrcfg with sudo (password-less via sudoers)."""
         try:
-            # Show immediate feedback
-            self.notifier.notify(
-                "Changing Profile", f"Switching to {profile}...", "info", 2000
-            )
+            # Mark as user-initiated to prevent duplicate notification from update_current_profile
+            self.user_initiated_change = True
 
             result = subprocess.run(
                 ["sudo", "/usr/local/bin/pwrcfg", profile],
@@ -375,6 +377,7 @@ class GZ302TrayIcon(QSystemTrayIcon):
                 self.update_current_profile()
                 self.create_menu()  # Rebuild menu to show checkmark on new profile
             else:
+                self.user_initiated_change = False  # Reset on failure
                 err = (result.stderr or "").strip()
                 hint = ""
                 if "requires elevated privileges" in err or "permission" in err.lower():
@@ -385,10 +388,12 @@ class GZ302TrayIcon(QSystemTrayIcon):
                     hint,
                 )
         except subprocess.TimeoutExpired:
+            self.user_initiated_change = False
             self.notifier.notify_error(
                 "Profile Change Failed", "Command timed out after 30 seconds"
             )
         except Exception as e:
+            self.user_initiated_change = False
             self.notifier.notify_error(
                 "Profile Change Failed", f"Unexpected error: {str(e)}"
             )
@@ -469,8 +474,20 @@ class GZ302TrayIcon(QSystemTrayIcon):
 
                 # Update current profile and rebuild menu if it changed
                 if self.current_profile != profile_name:
+                    old_profile = self.current_profile
                     self.current_profile = profile_name
                     self.create_menu()  # Rebuild menu to show checkmark on new profile
+                    
+                    # Show toast notification for auto-switch (external profile change)
+                    # Only notify if this wasn't a user-initiated change
+                    if not self.user_initiated_change:
+                        power = self.get_power_status()
+                        source = "AC" if power.get("plugged") else "Battery"
+                        self.notifier.notify_profile_change(
+                            profile_name,
+                            f"Auto-switched from {old_profile} ({source} detected)"
+                        )
+                    self.user_initiated_change = False  # Reset flag
 
                 # Build a rich tooltip with emoji and status
                 power = self.get_power_status()
@@ -498,18 +515,18 @@ class GZ302TrayIcon(QSystemTrayIcon):
 
                 emoji = profile_emoji.get(profile_name, "⚖️")
                 tooltip = (
-                    f"GZ302 Power Manager\n{emoji} {profile_name.title()}{power_line}"
+                    f"GZ302 Control Center\n{emoji} {profile_name.title()}{power_line}"
                 )
                 self.setToolTip(tooltip)
 
                 # Update icon based on current profile letter
                 self.update_icon_for_profile(profile_name)
             else:
-                self.setToolTip("GZ302 Power Manager\n⚠️ Status: Unknown")
+                self.setToolTip("GZ302 Control Center\n⚠️ Status: Unknown")
                 # Use balanced as fallback
                 self.update_icon_for_profile("balanced")
         except:
-            self.setToolTip("GZ302 Power Manager")
+            self.setToolTip("GZ302 Control Center")
             self.update_icon_for_profile("balanced")
 
     def get_power_status(self):
@@ -602,7 +619,7 @@ class GZ302TrayIcon(QSystemTrayIcon):
             desktop.write_text(
                 f"""[Desktop Entry]
 Type=Application
-Name=GZ302 Power Manager
+Name=GZ302 Control Center
 Comment=System tray power profile manager for GZ302
 Exec=python3 {exec_path}
 Icon={icon_name}
@@ -614,7 +631,7 @@ X-GNOME-Autostart-enabled=true
             )
             self.notifier.notify(
                 "Autostart Enabled",
-                "GZ302 Power Manager will start automatically on login.\n📁 ~/.config/autostart/gz302-tray.desktop",
+                "GZ302 Control Center will start automatically on login.\n📁 ~/.config/autostart/gz302-tray.desktop",
                 "success",
                 4000,
             )
@@ -680,7 +697,7 @@ X-GNOME-Autostart-enabled=true
     def set_window_backlight(self, brightness):
         """Set rear window backlight brightness (0-3)."""
         try:
-             # Validate brightness level
+            # Validate brightness level
             if not isinstance(brightness, int) or brightness < 0 or brightness > 3:
                 self.notifier.notify(
                     "Invalid Brightness",
@@ -690,43 +707,83 @@ X-GNOME-Autostart-enabled=true
                 )
                 return
             
-            # Use gz302-rgb-window.py command with sudo
-            # Note: Assuming script is installed to /usr/local/bin/gz302-rgb-window.py or similar
-            # For now, we'll try to execute it directly if in current path or rely on PATH
+            # Try direct sysfs write first (if udev rules configured permissions)
+            # This avoids sudo entirely when permissions are correct
+            lightbar_written = False
+            for led_path in Path("/sys/class/leds").glob("*::kbd_backlight"):
+                brightness_file = led_path / "brightness"
+                if brightness_file.exists():
+                    try:
+                        brightness_file.write_text(str(brightness))
+                        lightbar_written = True
+                    except PermissionError:
+                        pass  # Fall back to gz302-rgb-window command
             
-            cmd = ["sudo", "gz302-rgb-window.py", "--lightbar", str(brightness)]
-            
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=5,
+            # Fall back to gz302-rgb-window command (uses sudo -n for password-less)
+            if not lightbar_written:
+                cmd = ["sudo", "-n", "/usr/local/bin/gz302-rgb-window", "--lightbar", str(brightness)]
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if result.returncode != 0:
+                    err = (result.stderr or "").strip()
+                    if "command not found" in err.lower() or result.returncode == 127:
+                        self.notifier.notify_error(
+                            "Backlight Error", 
+                            "Run 'sudo gz302-rgb-install.sh' to install RGB control"
+                        )
+                    elif "password is required" in err.lower():
+                        self.notifier.notify_error(
+                            "Backlight Error",
+                            "Run 'sudo gz302-rgb-install.sh' to configure permissions"
+                        )
+                    else:
+                        self.notifier.notify_error(
+                            "Backlight Error", f"Failed to set brightness: {err}"
+                        )
+                    return
+
+            # Save window brightness setting for restore on boot
+            self._save_window_brightness(brightness)
+
+            level_names = ["💡 Off", "💡 Dim", "💡 Medium", "💡 Bright"]
+            self.notifier.notify(
+                "Rear Window Backlight",
+                f"Brightness set to {level_names[brightness]}",
+                "success",
+                2000,
             )
 
-            if result.returncode == 0:
-                level_names = ["💡 Off", "💡 Dim", "💡 Medium", "💡 Bright"]
-                self.notifier.notify(
-                    "Rear Window Backlight",
-                    f"Brightness set to {level_names[brightness]}",
-                    "success",
-                    2000,
-                )
-            else:
-                err = (result.stderr or "").strip()
-                # If command not found, provide a helpful error
-                if "command not found" in err.lower() or result.returncode == 127:
-                     self.notifier.notify_error(
-                        "Backlight Error", "Helper script gz302-rgb-window.py not found in PATH"
-                    )
-                else:
-                    self.notifier.notify_error(
-                        "Backlight Error", f"Failed to set brightness: {err}"
-                    )
-
         except subprocess.TimeoutExpired:
-             self.notifier.notify_error("Backlight Error", "Command timed out")
+            self.notifier.notify_error("Backlight Error", "Command timed out")
         except Exception as e:
             self.notifier.notify_error("Backlight Error", f"Unexpected error: {str(e)}")
+
+    def _save_window_brightness(self, brightness):
+        """Save window brightness to config for restore on boot."""
+        try:
+            config_dir = Path("/etc/gz302")
+            config_file = config_dir / "rgb-window.conf"
+            
+            # Write to temp file then move (requires sudo)
+            temp_file = Path(f"/tmp/gz302-window-{os.getpid()}.conf")
+            temp_file.write_text(f"WINDOW_BRIGHTNESS={brightness}\n")
+            
+            subprocess.run(
+                ["sudo", "-n", "mkdir", "-p", str(config_dir)],
+                capture_output=True,
+                timeout=5,
+            )
+            subprocess.run(
+                ["sudo", "-n", "mv", str(temp_file), str(config_file)],
+                capture_output=True,
+                timeout=5,
+            )
+        except Exception:
+            pass  # Non-critical - just means settings won't persist
 
     def set_keyboard_backlight(self, brightness):
         """Set keyboard backlight brightness (0-3)."""
@@ -741,9 +798,9 @@ X-GNOME-Autostart-enabled=true
                 )
                 return
 
-            # Use gz302-rgb command with sudo (NOPASSWD configured)
+            # Use gz302-rgb command with sudo -n (NOPASSWD configured via install-policy.sh)
             result = subprocess.run(
-                ["sudo", "gz302-rgb", "brightness", str(brightness)],
+                ["sudo", "-n", "gz302-rgb", "brightness", str(brightness)],
                 capture_output=True,
                 text=True,
                 timeout=5,
@@ -759,9 +816,15 @@ X-GNOME-Autostart-enabled=true
                 )
             else:
                 err = (result.stderr or "").strip()
-                self.notifier.notify_error(
-                    "Backlight Error", f"Failed to set brightness: {err}"
-                )
+                if "password is required" in err.lower():
+                    self.notifier.notify_error(
+                        "Backlight Error",
+                        "Run 'sudo tray-icon/install-policy.sh' to configure permissions"
+                    )
+                else:
+                    self.notifier.notify_error(
+                        "Backlight Error", f"Failed to set brightness: {err}"
+                    )
         except subprocess.TimeoutExpired:
             self.notifier.notify_error("Backlight Error", "Command timed out")
         except Exception as e:
@@ -780,34 +843,42 @@ X-GNOME-Autostart-enabled=true
     def save_rgb_setting(self, command, *args):
         """Save RGB setting to config file for boot persistence."""
         try:
-            config_file = "/etc/gz302-rgb/last-setting.conf"
+            # Use FHS-compliant path: /etc/gz302/rgb-keyboard.conf
+            config_dir = "/etc/gz302"
+            config_file = f"{config_dir}/rgb-keyboard.conf"
 
-            # Build the config content
-            config_lines = [f"COMMAND={command}"]
+            # Build the config content - use new format (KEYBOARD_COMMAND)
+            # Properly quote all arguments to handle colors like FF0000
+            command_str = f"{command} {' '.join(str(a) for a in args)}".strip()
+            config_lines = [
+                f"# GZ302 Keyboard RGB Settings",
+                f"# Saved at {datetime.now().isoformat()}",
+                f'KEYBOARD_COMMAND="{command_str}"',
+                f"# Legacy format for backward compatibility",
+                f'COMMAND="{command}"',
+            ]
             for i, arg in enumerate(args, 1):
-                config_lines.append(f"ARG{i}={arg}")
+                config_lines.append(f'ARG{i}="{arg}"')
             config_lines.append(f"ARGC={len(args) + 1}")
             config_content = "\n".join(config_lines) + "\n"
 
             # Write to config file using sudo
-            # Create a temporary file and use tee to write it
             temp_file = f"/tmp/gz302-rgb-{os.getpid()}.conf"
             with open(temp_file, "w") as f:
                 f.write(config_content)
 
+            # Ensure config directory exists
             subprocess.run(
-                ["sudo", "-n", "tee", config_file],
-                input=config_content,
-                text=True,
+                ["sudo", "-n", "mkdir", "-p", config_dir],
                 capture_output=True,
                 timeout=2,
             )
-
-            # Clean up temp file
-            try:
-                os.remove(temp_file)
-            except:
-                pass
+            
+            subprocess.run(
+                ["sudo", "-n", "mv", temp_file, config_file],
+                capture_output=True,
+                timeout=2,
+            )
 
         except Exception as e:
             # Silently fail - saving is not critical
@@ -815,11 +886,6 @@ X-GNOME-Autostart-enabled=true
 
     def set_rgb_color(self, hex_color):
         """Set RGB keyboard to static color (runs in background thread)."""
-        # Show a "processing" message immediately
-        self.notifier.notify(
-            "Keyboard RGB", f"🌈 Setting color to #{hex_color}...", "info", 3000
-        )
-
         # Run the command in a background thread to avoid blocking UI
         def run_rgb_command():
             try:
@@ -883,9 +949,6 @@ X-GNOME-Autostart-enabled=true
                 3000,
             )
             return
-
-        # Show processing message
-        self.notifier.notify("Keyboard RGB", f"Activating {desc}...", "info", 2000)
 
         # Run in background thread
         def run_animation():
