@@ -350,16 +350,49 @@ class GZ302TrayIcon(QSystemTrayIcon):
             # Rear Window RGB (brightness only - color control pending HID implementation)
             window_menu = self.menu.addMenu("Rear Window Brightness")
             if window_menu is not None:
-                 for level in range(4):
+                # Brightness submenu
+                brightness_sub = window_menu.addMenu("Brightness")
+                for level in range(4):
                     if level == 0:
-                        label = f"Off"
+                        label = "Off"
                     else:
                         label = f"Level {level}"
                     action = QAction(label, self)
                     action.triggered.connect(
                         lambda checked, l=level: self.set_window_backlight(l)
                     )
-                    window_menu.addAction(action)
+                    brightness_sub.addAction(action)
+
+                # Static Colors submenu
+                colors_sub = window_menu.addMenu("Static Colors")
+                presets = {
+                    "White": (255, 255, 255),
+                    "Red": (255, 0, 0),
+                    "Green": (0, 255, 0),
+                    "Blue": (0, 0, 255),
+                    "Purple": (128, 0, 255),
+                    "Yellow": (255, 200, 0),
+                }
+                for name, rgb in presets.items():
+                    a = QAction(name, self)
+                    a.triggered.connect(lambda checked, rgb=rgb: self.set_window_color(*rgb))
+                    colors_sub.addAction(a)
+
+                # Custom color
+                custom = QAction("Custom Color...", self)
+                custom.triggered.connect(self.set_window_custom_color)
+                window_menu.addAction(custom)
+
+                window_menu.addSeparator()
+
+                # Quick on/off
+                on_action = QAction("Turn On (White)", self)
+                on_action.triggered.connect(lambda: self.set_window_color(255, 255, 255))
+                window_menu.addAction(on_action)
+
+                off_action = QAction("Turn Off", self)
+                off_action.triggered.connect(lambda: self.set_window_backlight(0))
+                window_menu.addAction(off_action)
 
             self.menu.addSeparator()
 
@@ -815,6 +848,121 @@ X-GNOME-Autostart-enabled=true
             self.notifier.notify_error("Backlight Error", "Command timed out")
         except Exception as e:
             self.notifier.notify_error("Backlight Error", f"Unexpected error: {str(e)}")
+
+    def set_window_color(self, r, g, b):
+        """Set the rear window to a specific RGB color."""
+        try:
+            device_path = self._find_lightbar_hidraw()
+            if not device_path:
+                self.notifier.notify_error(
+                    "Lightbar Not Found",
+                    "Rear window lightbar device not detected. Check USB connection."
+                )
+                return
+
+            # Turn on and set color
+            on_packet = bytes([0x5d, 0xbd, 0x01, 0xae, 0x05, 0x22, 0xff, 0xff])
+            color_packet = bytes([
+                0x5d, 0xb3, 0x00, 0x00,
+                int(r), int(g), int(b),
+                0xeb, 0x00, 0x00,
+                0xff, 0xff, 0xff,
+            ])
+            try:
+                self._send_hid_packet(device_path, on_packet)
+                import time
+                time.sleep(0.08)
+                self._send_hid_packet(device_path, color_packet)
+            except PermissionError:
+                self.notifier.notify_error(
+                    "Permission Denied",
+                    "Run the main setup script to install udev rules for RGB control."
+                )
+                return
+            except Exception as e:
+                self.notifier.notify_error(
+                    "Lightbar Error", f"Failed to set color: {str(e)}"
+                )
+                return
+
+            # Save the color for persistence
+            self._save_window_color(r, g, b)
+
+            self.notifier.notify(
+                "Rear Window Color",
+                f"Color set to RGB({r},{g},{b})",
+                "success",
+                2000,
+            )
+
+    def set_window_custom_color(self):
+        """Prompt user for a hex color and apply it to the rear window."""
+        try:
+            text, ok = QInputDialog.getText(
+                None,
+                "🎨 Rear Window Color",
+                "Enter hex color (e.g., FF00FF for magenta):",
+                text="FFFFFF",
+            )
+            if ok and text:
+                hex_color = text.strip().lstrip('#')
+                if len(hex_color) == 6 and all(c in "0123456789ABCDEFabcdef" for c in hex_color):
+                    r = int(hex_color[0:2], 16)
+                    g = int(hex_color[2:4], 16)
+                    b = int(hex_color[4:6], 16)
+                    self.set_window_color(r, g, b)
+                else:
+                    self.notifier.notify(
+                        "Invalid Color",
+                        "Please use format: RRGGBB (e.g., FF0000 for red)",
+                        "warning",
+                        3000,
+                    )
+        except Exception as e:
+            self.notifier.notify_error("Color Input Error", f"Failed to get custom color: {str(e)}")
+
+    def _save_window_color(self, r, g, b):
+        """Save window RGB color to config for restore on boot (uses sudo to write)."""
+        try:
+            config_dir = Path("/etc/gz302")
+            config_file = config_dir / "rgb-window.conf"
+
+            # Read existing config (if any)
+            existing = {}
+            try:
+                if config_file.exists():
+                    for line in config_file.read_text().splitlines():
+                        if "=" in line:
+                            k, v = line.split("=", 1)
+                            existing[k.strip()] = v.strip()
+            except Exception:
+                pass
+
+            existing["WINDOW_COLOR"] = f"{int(r)},{int(g)},{int(b)}"
+
+            # Build content
+            config_lines = []
+            for k, v in existing.items():
+                config_lines.append(f"{k}={v}")
+            temp_file = Path(f"/tmp/gz302-window-{os.getpid()}.conf")
+            temp_file.write_text("\n".join(config_lines) + "\n")
+
+            subprocess.run([
+                "sudo",
+                "-n",
+                "mkdir",
+                "-p",
+                str(config_dir),
+            ], capture_output=True, timeout=5)
+            subprocess.run([
+                "sudo",
+                "-n",
+                "mv",
+                str(temp_file),
+                str(config_file),
+            ], capture_output=True, timeout=5)
+        except Exception:
+            pass  # best-effort persistence
 
     def _save_window_brightness(self, brightness):
         """Save window brightness to config for restore on boot."""

@@ -96,6 +96,14 @@ if [[ -f "$WINDOW_CONFIG" ]]; then
     if [[ -n "${WINDOW_BRIGHTNESS:-}" ]] && [[ -x "$WINDOW_BIN" ]]; then
         "$WINDOW_BIN" --lightbar "$WINDOW_BRIGHTNESS" 2>/dev/null || true
     fi
+
+    # Restore color if present (format: R,G,B)
+    if [[ -n "${WINDOW_COLOR:-}" ]] && [[ -x "$WINDOW_BIN" ]]; then
+        IFS=',' read -r R G B <<< "$WINDOW_COLOR"
+        if [[ -n "${R:-}" && -n "${G:-}" && -n "${B:-}" ]]; then
+            "$WINDOW_BIN" --color "$R" "$G" "$B" 2>/dev/null || true
+        fi
+    fi
 fi
 
 exit 0
