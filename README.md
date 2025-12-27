@@ -163,37 +163,26 @@ This setup is modular. The core script installs essential fixes; everything else
 | 🤖 AI / LLM | Ollama, ROCm, PyTorch, bitsandbytes, Transformers |
 | 🌈 RGB | Advanced keyboard lighting control (Static, Breathing, Rainbow) |
 | 💻 Hypervisor | KVM/QEMU stack (recommended) or VirtualBox |
-| 📸 Snapshots | Automatic system backups via Snapper/Btrfs |
-| 🔒 Secure Boot | Boot integrity and kernel signing tools |
 
 ## 🎛️ Control Center: Usage Guide
 
-### 1. Linux Armoury (Comprehensive GUI)
-
-A modern, full-featured GTK4 control center designed specifically for the GZ302.
-- **Features:** Visual power profile management, refresh rate control, fan curves, and system monitoring.
-- **Integration:** Uses standard `asusctl` backend for maximum compatibility.
-- **Note:** If you select this during installation, the custom `pwrcfg` and `rrcfg` tools will **not** be installed to avoid conflicts.
-- **Usage:** Launch "Linux Armoury" from your application menu.
-
-### 2. GZ302 Control Center (System Tray)
+### 1. GZ302 Control Center (System Tray)
 
 The easiest way to manage your device with a simple tray indicator.
 
 - **Right-click** the tray icon to switch profiles
 - **Visuals:** Checkmarks indicate active profiles; Tooltips show battery % and power draw
 - **Keyboard:** Adjust brightness (0-3) and RGB effects directly from the menu
+- **RGB Controls:** Unified menu for keyboard and rear window lighting
 
 **Install Control Center manually:**
 ```bash
 cd tray-icon && sudo ./install-tray.sh
 ```
 
-### 3. Command Line Tools
+### 2. Command Line Tools
 
 You can control everything via terminal. If you enabled "password-less sudo" during setup, you do not need to type sudo.
-
-**Note:** These tools are only available if you did **not** install Linux Armoury.
 
 **Power Management (pwrcfg)**
 ```bash

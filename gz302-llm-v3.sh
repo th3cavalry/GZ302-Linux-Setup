@@ -1,12 +1,19 @@
 #!/bin/bash
+# shellcheck disable=SC2329  # main() is invoked at end of script
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 2.3.12
+# Version: 3.0.0
 #
 # This module installs LLM/AI software for the ASUS ROG Flow Z13 (GZ302)
-# Includes: Ollama, ROCm, PyTorch, MIOpen, bitsandbytes, Transformers
+# Includes: Ollama, ROCm 7.1.1, PyTorch, MIOpen, bitsandbytes, Transformers
 # Configures kernel parameters optimized for LLM workloads on Strix Halo
+#
+# Updated December 2025:
+# - ROCm 7.1.1 production release support (latest stable)
+# - ROCm 7.9.0 technology preview noted
+# - Radeon 8060S (gfx1150/RDNA 3.5) optimized configuration
+# - See Info/ROCM_7.1.1_SUPPORT.md for detailed ROCm setup
 #
 # Updated January 2025:
 # - Added gfx1151 (Strix Halo) optimizations for Ollama via systemd override
@@ -16,7 +23,7 @@
 # - Environment variables for GPU tuning (HIP_VISIBLE_DEVICES, GPU_MAX_HW_QUEUES)
 #
 # Updated November 2025:
-# - Use ROCm 6.x wheels (ROCm 5.7 deprecated, no Python 3.12+ support)
+# - Use ROCm 6.x/7.x wheels (ROCm 5.7 deprecated, no Python 3.12+ support)
 # - Fixed venv permission issues
 # - Updated bitsandbytes installation (uses standard pip package now)
 # - Prefer Python 3.11/3.12 for best ROCm wheel compatibility
@@ -396,102 +403,212 @@ EOF
 build_ollama_from_source() {
     local distro="$1"
     
-    print_section "Building Ollama from Source"
-    
+    clear
+    print_box "Building Custom Ollama for GZ302 Strix Halo" "$C_BOLD_CYAN"
+    echo
     print_subsection "Build Configuration"
     print_keyval "Target GPU" "gfx1100 (RDNA3 compatible)"
     print_keyval "Hardware" "AMD Strix Halo (gfx1151)"
-    print_keyval "Features" "HIP acceleration, rocWMMA flash attention"
+    print_keyval "Flash Attention" "rocWMMA (GGML_HIP_ROCWMMA_FATTN=ON)"
+    print_keyval "hipBLASLt" "Enabled for matrix operations"
+    print_keyval "Build Time" "~5-10 minutes on GZ302"
     echo
     
     # Install build dependencies based on distro
-    print_step 1 5 "Installing build dependencies..."
+    print_step 1 6 "Installing build dependencies..."
+    echo -ne "${C_DIM}"
     case "$distro" in
         "arch"|"cachyos")
+            # Long-running pacman operation — trap SIGINT to fail gracefully
+            trap 'error "Package installation aborted by user; some packages may be partially installed. Rerun module to resume."' SIGINT SIGTERM
             pacman -S --noconfirm --needed \
                 git cmake make gcc pkgconf go \
                 rocm-hip-sdk rocm-hip-runtime hip-runtime-amd \
-                rocblas miopen-hip hipblas rocwmma >/dev/null 2>&1
+                rocblas miopen-hip hipblas rocwmma 2>&1 | grep -v "^::" | grep -v "warning:" || true
+            trap - SIGINT SIGTERM
             ;;
         "debian")
-            apt update >/dev/null 2>&1
-            apt install -y \
+            apt-get update -qq
+            apt-get install -qq -y \
                 git cmake make build-essential pkg-config golang-go \
-                rocm-dev rocm-hip-sdk rocblas miopen-hip >/dev/null 2>&1
+                rocm-dev rocm-hip-sdk rocblas miopen-hip 2>&1 | grep -v "^Reading\|^Building\|^Get:" || true
             ;;
         "fedora")
-            dnf install -y \
+            dnf install -q -y \
                 git cmake make gcc gcc-c++ pkgconf golang \
-                rocm-dev rocm-hip-devel rocblas miopen-hip >/dev/null 2>&1
+                rocm-dev rocm-hip-devel rocblas miopen-hip 2>&1 | grep -v "^Last metadata" || true
             ;;
         "opensuse")
-            zypper install -y \
+            zypper install -y --quiet \
                 git cmake make gcc gcc-c++ pkg-config go \
-                rocm-dev rocm-hip-devel rocblas miopen-hip >/dev/null 2>&1
+                rocm-dev rocm-hip-devel rocblas miopen-hip 2>&1 | grep -v "^Loading\|^Retrieving" || true
             ;;
     esac
+    echo -ne "${C_NC}"
     completed_item "Build dependencies installed"
     
     # Clone Ollama repository
     local ollama_build_dir="/tmp/ollama-build-$$"
-    print_step 2 5 "Cloning Ollama repository..."
-    git clone --depth 1 https://github.com/ollama/ollama.git "$ollama_build_dir" >/dev/null 2>&1
+    print_step 2 6 "Cloning Ollama repository..."
+    git clone --quiet --depth 1 https://github.com/ollama/ollama.git "$ollama_build_dir" 2>&1 | grep -v "^Cloning" || true
     cd "$ollama_build_dir"
     completed_item "Repository cloned"
     
-    # Build HIP backend with gfx1100 target
-    print_step 3 5 "Building HIP backend (this may take 5-10 minutes)..."
-    print_tip "Building with gfx1100 target for Strix Halo compatibility"
+    # Configure CMake
+    print_step 3 6 "Configuring CMake for gfx1100 + Flash Attention..."
     mkdir -p build && cd build
+    
+    # Export HSA override for the build process itself to ensure tools behave correctly
+    export HSA_OVERRIDE_GFX_VERSION=11.0.0
     
     # Note: We use gfx1100 target because HIP runtime doesn't fully support
     # gfx1151 code objects yet. With HSA_OVERRIDE_GFX_VERSION=11.0.0, this works perfectly.
+    # We also add -DGGML_HIP=ON to explicitly enable HIP backend
     cmake .. \
+        -DGGML_HIP=ON \
         -DAMDGPU_TARGETS="gfx1100" \
         -DGGML_HIP_ROCWMMA_FATTN=ON \
-        -DCMAKE_BUILD_TYPE=Release >/dev/null 2>&1
+        -DCMAKE_BUILD_TYPE=Release 2>&1 | grep -E "^-- |CMAKE_" | head -10 || true
+    
+    completed_item "CMake configured"
+    
+    # Build with progress tracking
+    print_step 4 6 "Compiling HIP backend..."
+    print_tip "This may take 5-10 minutes - grab a coffee!"
+    echo
     
     local nproc_count
     nproc_count="$(nproc)"
-    cmake --build . --config Release -j"${nproc_count}" 2>&1 | while read -r line; do
-        # Show only progress percentage lines, suppress verbose output
-        if [[ "$line" =~ \[.*%\] ]]; then
-            printf "\r   ${C_DIM}%s${C_NC}" "$line"
+    local last_percent=0
+    
+    # Run the build and capture output so we can show helpful errors if it fails
+    local build_log
+    build_log=$(mktemp /tmp/ollama_build_log.XXXXXX)
+    cmake --build . --config Release -j"${nproc_count}" 2>&1 | tee "$build_log" | while IFS= read -r line; do
+        # Show only major progress milestones
+        if [[ "$line" =~ \[\ *([0-9]+)% ]]; then
+            local percent="${BASH_REMATCH[1]}"
+            # Update every 5%
+            if (( percent >= last_percent + 5 )); then
+                last_percent=$percent
+                printf "${C_DIM}   [%3d%%] Building HIP backend...${C_NC}\r" "$percent"
+            fi
+        elif [[ "$line" =~ "Built target" ]]; then
+            local target="${line#*Built target }"
+            if [[ "$target" == "ggml-hip" ]] || [[ "$target" == "ollama" ]]; then
+                printf "${C_GREEN}   ${SYMBOL_CHECK} Built: %-50s${C_NC}\n" "$target"
+            fi
         fi
-    done
-    printf "\n"
-    completed_item "HIP backend compiled"
+    done || true
+    local build_exit
+    build_exit=${PIPESTATUS[0]:-0}
+    if [[ $build_exit -ne 0 ]]; then
+        error "Ollama HIP backend build failed (cmake build exit=$build_exit). Check the log: $build_log"
+    fi
+    echo
+    completed_item "HIP backend compiled with rocWMMA flash attention"
     
     # Build Go binary
-    print_step 4 5 "Building Ollama Go binary..."
+    print_step 5 6 "Building Ollama Go binary..."
     cd ..
-    go build . 2>/dev/null
+    
+    local build_log_go
+    build_log_go=$(mktemp /tmp/ollama_go_build.XXXXXX)
+    
+    start_spinner "Compiling Go binary..."
+    
+    # Run go build, capturing output and exit code
+    set +e
+    go build . > "$build_log_go" 2>&1
+    local go_exit=$?
+    set -e
+    
+    stop_spinner
+    
+    if [[ "$go_exit" -ne 0 ]]; then
+        echo
+        # Show the last few lines of the log to help diagnose
+        tail -n 20 "$build_log_go"
+        echo
+        error "Go build failed for Ollama (exit code $go_exit). See output above or full log: $build_log_go"
+    fi
+    rm -f "$build_log_go"
+    
     completed_item "Go binary compiled"
     
     # Install binary and libraries
-    print_step 5 5 "Installing Ollama..."
+    print_step 6 6 "Installing Ollama to system..."
     
     # Create ollama user if it doesn't exist
     if ! id -u ollama >/dev/null 2>&1; then
-        useradd -r -s /bin/false -m -d /usr/share/ollama ollama
+        useradd -r -s /bin/false -m -d /usr/share/ollama ollama 2>/dev/null
+        print_keyval "Created user" "ollama"
     fi
     
     # Install binary
-    cp ./ollama /usr/bin/ollama
-    chmod +x /usr/bin/ollama
+    # Ensure the binary was created; if not, abort with a helpful error
+    if [[ ! -x ./ollama ]]; then
+        error "Ollama binary not found after build; build likely failed. Check build logs: $build_log, $build_log_go"
+    fi
+    install -m 755 ./ollama /usr/bin/ollama
+    print_keyval "Installed binary" "/usr/bin/ollama"
     
     # Install libraries
     mkdir -p /usr/lib/ollama
-    cp build/lib/ollama/* /usr/lib/ollama/
+    
+    # Locate built libraries - structure can vary between Ollama versions
+    local lib_src_dir=""
+    if [[ -d build/lib/ollama ]]; then
+        lib_src_dir="build/lib/ollama"
+    elif [[ -d build/lib ]]; then
+        # Check if libs are directly in build/lib or in subdirs
+        if ls build/lib/libggml-hip.so >/dev/null 2>&1; then
+            lib_src_dir="build/lib"
+        elif ls build/lib/*/libggml-hip.so >/dev/null 2>&1; then
+            # Find the first subdir containing the lib
+            lib_src_dir=$(find build/lib -name "libggml-hip.so" -exec dirname {} \; | head -n 1)
+        fi
+    elif [[ -f build/libggml-hip.so ]]; then
+        lib_src_dir="build"
+    fi
+    
+    if [[ -z "$lib_src_dir" ]]; then
+        warning "Ollama HIP libraries not found in expected locations."
+        warning "Build log: $build_log"
+        warning "Attempting to locate any built shared objects..."
+        find build -name "*.so"
+        error "HIP backend build failed to produce libraries."
+    fi
+    
+    info "Found libraries in: $lib_src_dir"
+    cp -r "$lib_src_dir"/* /usr/lib/ollama/ 2>/dev/null || true
+    
+    # Ensure libggml-hip.so is in the root of /usr/lib/ollama
+    if [[ ! -f /usr/lib/ollama/libggml-hip.so ]]; then
+        local found_lib
+        found_lib=$(find /usr/lib/ollama -name "libggml-hip.so" | head -n 1)
+        if [[ -n "$found_lib" ]]; then
+            cp "$found_lib" /usr/lib/ollama/
+        fi
+    fi
+    
+    local lib_size
+    if [[ -f /usr/lib/ollama/libggml-hip.so ]]; then
+        lib_size=$(du -sh /usr/lib/ollama/libggml-hip.so 2>/dev/null | cut -f1)
+        print_keyval "Installed HIP lib" "/usr/lib/ollama/libggml-hip.so ($lib_size)"
+    else
+        warning "libggml-hip.so missing from install directory"
+    fi
     
     # Create models directory
     mkdir -p /usr/share/ollama/.ollama
     chown -R ollama:ollama /usr/share/ollama
+    print_keyval "Models directory" "/usr/share/ollama/.ollama"
     
-    # Create systemd service
+    # Create systemd service with gfx1151 optimizations
     cat > /etc/systemd/system/ollama.service <<'OLLAMA_SERVICE'
 [Unit]
-Description=Ollama Service (Custom GZ302 build with gfx1100 target for Strix Halo)
+Description=Ollama Service (Custom GZ302 gfx1100 build with Flash Attention)
 After=network-online.target
 Documentation=https://github.com/ollama/ollama
 
@@ -510,6 +627,7 @@ Environment="HIP_VISIBLE_DEVICES=0"
 Environment="GPU_MAX_HW_QUEUES=8"
 Environment="AMD_SERIALIZE_KERNEL=0"
 Environment="AMD_SERIALIZE_COPY=0"
+Environment="ROCBLAS_LAYER=0"
 Environment="OLLAMA_NUM_GPU=999"
 Environment="OLLAMA_GPU_OVERHEAD=512000000"
 Environment="OLLAMA_HOST=0.0.0.0:11434"
@@ -518,33 +636,46 @@ Environment="HOME=/usr/share/ollama"
 [Install]
 WantedBy=default.target
 OLLAMA_SERVICE
-
+    
+    print_keyval "Created service" "/etc/systemd/system/ollama.service"
+    
     # Reload systemd and enable service
     systemctl daemon-reload
-    systemctl enable --now ollama
+    systemctl enable --now ollama 2>&1 | grep -v "^Created symlink" || true
     
     # Clean up build directory
     cd /
     rm -rf "$ollama_build_dir"
     
     # Verify installation
+    echo
+    print_subsection "Verifying Installation"
     sleep 2
+    
     if systemctl is-active --quiet ollama; then
-        completed_item "Ollama service installed and running"
+        completed_item "Ollama service is running"
+        
+        # Verify Flash Attention support
+        local flash_count
+        flash_count=$(strings /usr/lib/ollama/libggml-hip.so 2>/dev/null | grep -c "flash_attn" || echo "0")
+        local wmma_count
+        wmma_count=$(strings /usr/lib/ollama/libggml-hip.so 2>/dev/null | grep -c "wmma" || echo "0")
+        
         echo
         print_box "${SYMBOL_CHECK} Ollama Build Complete" "$C_BOLD_GREEN"
-        print_keyval "Binary" "/usr/bin/ollama"
-        print_keyval "Libraries" "/usr/lib/ollama/"
-        print_keyval "Service" "ollama.service (running)"
-        
-        # Show performance info
-        local lib_size
-        lib_size=$(du -sh /usr/lib/ollama/libggml-hip.so 2>/dev/null | cut -f1)
-        print_keyval "HIP library" "$lib_size"
+        print_keyval "Binary" "/usr/bin/ollama ($(du -sh /usr/bin/ollama 2>/dev/null | cut -f1))"
+        print_keyval "HIP Library" "$lib_size with ROCm support"
+        print_keyval "Flash Attention" "$flash_count symbols found"
+        print_keyval "WMMA Support" "$wmma_count symbols found"
+        print_keyval "Service" "ollama.service ${C_GREEN}(running)${C_NC}"
+        print_keyval "Optimization" "gfx1100 target + HSA_OVERRIDE_GFX_VERSION=11.0.0"
+        echo
+        print_tip "Test with: ollama run llama3.2:1b"
         echo
     else
         failed_item "Ollama service failed to start"
         warning "Check logs with: journalctl -u ollama"
+        echo
     fi
 }
 
@@ -559,73 +690,101 @@ build_llamacpp_from_source() {
     print_subsection "Build Configuration"
     print_keyval "Target GPU" "gfx1100 (RDNA3 compatible)"
     print_keyval "Hardware" "AMD Strix Halo (gfx1151)"
-    print_keyval "Features" "HIP acceleration, rocWMMA flash attention"
+    print_keyval "Flash Attention" "rocWMMA (GGML_HIP_ROCWMMA_FATTN=ON)"
+    print_keyval "Build Time" "~5-10 minutes on GZ302"
     echo
     
     # Install build dependencies based on distro
-    print_step 1 4 "Installing build dependencies..."
+    print_step 1 5 "Installing build dependencies..."
+    echo -ne "${C_DIM}"
     case "$distro" in
         "arch"|"cachyos")
             pacman -S --noconfirm --needed \
                 git cmake make gcc pkgconf \
-                rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas >/dev/null 2>&1
+                rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas 2>&1 | grep -v "^::" | grep -v "warning:" || true
             ;;
         "debian")
-            apt update >/dev/null 2>&1
-            apt install -y git cmake make g++ pkg-config >/dev/null 2>&1
-            apt install -y rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas >/dev/null 2>&1 || \
+            apt-get update -qq
+            apt-get install -qq -y git cmake make g++ pkg-config 2>&1 | grep -v "^Reading\|^Building\|^Get:" || true
+            apt-get install -qq -y rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas 2>&1 | grep -v "^Reading\|^Building\|^Get:" || \
                 warning "Some ROCm packages may not be available"
             ;;
         "fedora")
-            dnf install -y git cmake make gcc-c++ pkgconf >/dev/null 2>&1
-            dnf install -y rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas >/dev/null 2>&1 || \
+            dnf install -q -y git cmake make gcc-c++ pkgconf 2>&1 | grep -v "^Last metadata" || true
+            dnf install -q -y rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas 2>&1 | grep -v "^Last metadata" || \
                 warning "Some ROCm packages may not be available"
             ;;
         "opensuse")
-            zypper install -y git cmake make gcc-c++ pkg-config >/dev/null 2>&1
-            zypper install -y rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas >/dev/null 2>&1 || \
+            zypper install -y --quiet git cmake make gcc-c++ pkg-config 2>&1 | grep -v "^Loading\|^Retrieving" || true
+            zypper install -y --quiet rocm-hip-sdk rocm-hip-runtime rocblas miopen-hip hipblas 2>&1 | grep -v "^Loading\|^Retrieving" || \
                 warning "Some ROCm packages may not be available"
             ;;
     esac
+    echo -ne "${C_NC}"
     completed_item "Build dependencies installed"
     
     # Clone llama.cpp repository
     local llama_build_dir="/tmp/llama.cpp-build-$$"
-    print_step 2 4 "Cloning llama.cpp repository..."
-    git clone --depth 1 https://github.com/ggerganov/llama.cpp.git "$llama_build_dir" >/dev/null 2>&1
+    print_step 2 5 "Cloning llama.cpp repository..."
+    git clone --quiet --depth 1 https://github.com/ggerganov/llama.cpp.git "$llama_build_dir" 2>&1 | grep -v "^Cloning" || true
     cd "$llama_build_dir"
     completed_item "Repository cloned"
     
     # Set ROCm environment for HIP compilation
+    print_step 3 5 "Configuring ROCm environment..."
     export HIPCXX="/opt/rocm/lib/llvm/bin/clang"
     export HIP_PATH="/opt/rocm"
     export HIP_DEVICE_LIB_PATH="/opt/rocm/amdgcn/bitcode"
+    completed_item "ROCm environment configured"
     
-    # Build with HIP support targeting gfx1100
-    print_step 3 4 "Building llama.cpp (this may take 5-10 minutes)..."
-    print_tip "Building with gfx1100 target for Strix Halo compatibility"
+    # Configure and build with HIP support targeting gfx1100
+    print_step 4 5 "Compiling llama.cpp with Flash Attention..."
+    print_tip "This may take 5-10 minutes"
     mkdir build && cd build
     cmake .. \
         -DGGML_HIP=ON \
         -DGGML_HIP_ROCWMMA_FATTN=ON \
         -DGPU_TARGETS=gfx1100 \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_CXX_FLAGS="-I/opt/rocm/include" >/dev/null 2>&1
+        -DCMAKE_CXX_FLAGS="-I/opt/rocm/include" 2>&1 | grep -E "^-- |CMAKE_" | head -10 || true
+    echo
     
     local nproc_count
     nproc_count="$(nproc)"
-    cmake --build . --config Release -j"${nproc_count}" 2>&1 | while read -r line; do
-        # Show only progress percentage lines, suppress verbose output
-        if [[ "$line" =~ \[.*%\] ]]; then
-            printf "\r   ${C_DIM}%s${C_NC}" "$line"
+    local last_percent=0
+
+    # Run the build and capture output so we can show helpful errors if it fails
+    local build_log
+    build_log=$(mktemp /tmp/llamacpp_build_log.XXXXXX)
+    
+    cmake --build . --config Release -j"${nproc_count}" 2>&1 | tee "$build_log" | while IFS= read -r line; do
+        # Show only major progress milestones
+        if [[ "$line" =~ \[\ *([0-9]+)% ]]; then
+            local percent="${BASH_REMATCH[1]}"
+            # Update every 5%
+            if (( percent >= last_percent + 5 )); then
+                last_percent=$percent
+                printf "${C_DIM}   [%3d%%] Building llama.cpp...${C_NC}\r" "$percent"
+            fi
+        elif [[ "$line" =~ "Built target" ]]; then
+            local target="${line#*Built target }"
+            if [[ "$target" == "llama-cli" ]] || [[ "$target" == "llama-server" ]]; then
+                printf "${C_GREEN}   ${SYMBOL_CHECK} Built: %-50s${C_NC}\n" "$target"
+            fi
         fi
-    done
-    printf "\n"
-    completed_item "llama.cpp compiled"
+    done || true
+
+    local build_exit
+    build_exit=${PIPESTATUS[0]:-0}
+    if [[ $build_exit -ne 0 ]]; then
+        error "llama.cpp build failed (exit=$build_exit). Check the log: $build_log"
+    fi
+    echo
+    completed_item "llama.cpp compiled with gfx1100 target"
     
     # Install binaries
-    print_step 4 4 "Installing llama.cpp..."
-    cmake --install . >/dev/null 2>&1
+    print_step 5 5 "Installing llama.cpp..."
+    cmake --install . 2>&1 | grep -v "^-- " || true
     
     # Determine the correct group for nobody user
     local nobody_group="nobody"
@@ -776,7 +935,15 @@ setup_openwebui_docker() {
         backend_info="No backend pre-configured (configure in Settings)"
     fi
     
+    # Explicitly pull the image first to show progress and separate download from startup
+    info "Downloading Open WebUI docker image (~2GB)..."
+    print_tip "This may take a few minutes depending on your connection speed."
+    if ! docker pull ghcr.io/open-webui/open-webui:main; then
+        warning "Failed to pull Open WebUI image. Docker run may fail if image is missing."
+    fi
+
     # Run the container
+    info "Starting Open WebUI container..."
     docker run "${docker_args[@]}" ghcr.io/open-webui/open-webui:main
     
     success "Open WebUI installed and started via Docker"
@@ -790,7 +957,7 @@ setup_openwebui_docker() {
 # Ask user which LLM backends to install
 ask_backend_choice() {
     # interactive only when running in a TTY
-    if [[ ! -t 0 ]]; then
+    if [[ ! -t 0 ]] && [[ ! -t 1 ]]; then
         info "Non-interactive mode: installing both ollama and llama.cpp"
         echo "3" > /tmp/.gz302-backend-choice
         return
@@ -801,48 +968,36 @@ ask_backend_choice() {
     echo "  1) ollama only       - Model management backend (requires Open WebUI frontend)"
     echo "  2) llama.cpp only    - Fast inference with built-in webui (port 8080, flash attention enabled)"
     echo "  3) both              - Install both backends (recommended)"
-    read -r -p "Install backends (1-3): " choice
+    
+    local choice=""
+    # Read from /dev/tty to ensure we get user input even when stdin is redirected
+    if [[ -r /dev/tty ]]; then
+        read -r -p "Install backends (1-3): " choice < /dev/tty
+    else
+        read -r -p "Install backends (1-3): " choice
+    fi
     
     case "$choice" in
-        1|2|3)
-            echo "$choice" > /tmp/.gz302-backend-choice
+        1) 
+            info "Selected: Ollama only"
+            echo "1" > /tmp/.gz302-backend-choice
+            ;;
+        2)
+            info "Selected: llama.cpp only"
+            echo "2" > /tmp/.gz302-backend-choice
+            ;;
+        3)
+            info "Selected: Both backends"
+            echo "3" > /tmp/.gz302-backend-choice
             ;;
         *)
-            warning "Invalid choice. Installing both by default."
-            echo "3" > /tmp/.gz302-backend-choice
+            warning "Invalid choice '$choice'. Please enter 1, 2, or 3."
+            # Recursively ask again instead of defaulting
+            ask_backend_choice
             ;;
     esac
 }
 
-# Ask user which frontends to install
-ask_frontend_choice() {
-    # interactive only when running in a TTY
-    if [[ ! -t 0 ]]; then
-        info "Skipping interactive frontend selection (non-interactive mode)."
-        echo "" > /tmp/.gz302-frontend-choice
-        return
-    fi
-    
-    echo
-    echo "Optional LLM frontends (choose one or more, or skip):"
-    echo "  1) text-generation-webui - Feature-rich UI for local text LLMs (oobabooga)"
-    echo "  2) ComfyUI              - Node-based UI ideal for image generation workflows"
-    echo "  3) llama.cpp webui      - Lightweight built-in web interface (requires llama.cpp backend)"
-    echo "  4) Open WebUI           - Modern web interface for various LLM backends"
-    echo "  (Leave empty to skip frontends)"
-    read -r -p "Install frontends (e.g. '1,3' or '1 2 3' or Enter=none): " choice
-    
-    # normalize and parse choice
-    choice="${choice,,}"    # lowercase
-    choice="${choice// /,}"  # replace spaces with commas
-    choice="${choice//,/,}"  # clean up multiple commas
-    
-    if [[ -z "$choice" ]]; then
-        echo "" > /tmp/.gz302-frontend-choice
-    else
-        echo "$choice" > /tmp/.gz302-frontend-choice
-    fi
-}
 
 # --- CachyOS Detection ---
 # CachyOS provides optimized packages for LLM/AI workloads via their repositories
@@ -851,7 +1006,7 @@ is_cachyos() {
     if [[ -f /etc/os-release ]]; then
         # shellcheck disable=SC1091
         source /etc/os-release
-        [[ "$ID" == "cachyos" ]]
+        [[ "${ID:-}" == "cachyos" ]]
     else
         return 1
     fi
@@ -906,10 +1061,6 @@ install_arch_llm_software() {
                 build_ollama_from_source "arch"
             fi
         fi
-        # Install Open WebUI automatically when Ollama backend is selected
-        local primary_user
-        primary_user=$(get_real_user)
-        setup_openwebui_docker "$primary_user" "arch"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -938,7 +1089,9 @@ install_arch_llm_software() {
         # Install ROCm for AMD GPU acceleration
         info "Installing ROCm for AMD GPU acceleration..."
         if ! check_rocm_installed; then
+            trap 'error "Package installation aborted by user; partial ROCm install may exist. Rerun module to resume."' SIGINT SIGTERM
             pacman -S --noconfirm --needed rocm-opencl-runtime rocm-hip-runtime rocblas miopen-hip
+            trap - SIGINT SIGTERM
         fi
         
         # MIOpen precompiled kernels (gfx1151 for Radeon 8060S)
@@ -947,7 +1100,9 @@ install_arch_llm_software() {
         info "Checking for MIOpen precompiled kernels for gfx1151 (Radeon 8060S)..."
         if pacman -Ss miopen-hip 2>/dev/null | grep -q gfx1151; then
             info "Found gfx1151 kernel packages, installing..."
+            trap 'error "Package installation aborted by user; partial MIOpen install may exist. Rerun module to resume."' SIGINT SIGTERM
             pacman -S --noconfirm --needed miopen-hip-gfx1151kdb || warning "MIOpen gfx1151 kernel package installation failed, will JIT compile on first use"
+            trap - SIGINT SIGTERM
         else
             info "MIOpen precompiled kernels for gfx1151 not available in repositories (expected as of Nov 2025)."
             info "MIOpen will JIT compile optimized kernels on first use (may take 5-15 minutes)."
@@ -1138,58 +1293,13 @@ install_arch_llm_software() {
         fi  # End of CachyOS else block (standard Arch path)
     fi
     
-    # Ask user which frontends to install (after backends are set up)
-    ask_frontend_choice
-    local frontend_choice
-    frontend_choice=$(cat /tmp/.gz302-frontend-choice)
-    rm -f /tmp/.gz302-frontend-choice
-    
-    # If user selected frontends, install them
-    if [[ -n "$frontend_choice" ]]; then
+    # Install Open WebUI automatically if any backend was selected
+    if [[ -n "$backend_choice" ]]; then
         local primary_user
         primary_user=$(get_real_user)
-        
-        # Parse the comma-separated frontend choices
-        IFS=',' read -r -a frontend_items <<< "$frontend_choice"
-        for frontend in "${frontend_items[@]}"; do
-            frontend="${frontend// /}"  # remove spaces
-            case "$frontend" in
-                1|text-generation-webui|textgen|text)
-                    info "Installing text-generation-webui..."
-                    local dst="/home/$primary_user/.local/share/text-generation-webui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "text-generation-webui already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/oobabooga/text-generation-webui "$dst" || warning "Failed to clone text-generation-webui"
-                        info "Cloned text-generation-webui to $dst"
-                        info "To finish install: cd $dst && python -m venv venv && source venv/bin/activate && pip install -r requirements/portable/requirements.txt"
-                    fi
-                    ;;
-                2|comfyui|comfy)
-                    info "Installing ComfyUI..."
-                    local dst="/home/$primary_user/.local/share/comfyui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "ComfyUI already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/comfyanonymous/ComfyUI "$dst" || warning "Failed to clone ComfyUI"
-                        info "Cloned ComfyUI to $dst"
-                        info "See $dst/README.md for install instructions (venv or comfy-cli)"
-                    fi
-                    ;;
-                3|llamacpp|llama-cpp|webui|"llama.cpp webui"|llamaccppwebui)
-                    info "llama.cpp webui is built-in (port 8080) when llama.cpp backend is running"
-                    if [[ "$backend_choice" != "2" ]] && [[ "$backend_choice" != "3" ]]; then
-                        warning "llama.cpp webui requires llama.cpp backend. Install llama.cpp backend to use this webui."
-                    fi
-                    ;;
-                4|openwebui|open-web-ui)
-                    setup_openwebui_docker "$primary_user" "arch"
-                    ;;
-                *)
-                    warning "Unknown frontend: $frontend"
-                    ;;
-            esac
-        done
+        # Note: setup_openwebui_docker auto-detects running backends (ollama/llama.cpp)
+        # and configures connections automatically.
+        setup_openwebui_docker "$primary_user" "arch"
     fi
     
     success "LLM/AI software installation completed"
@@ -1210,11 +1320,6 @@ install_debian_llm_software() {
             # Build Ollama from source with HIP support for optimal Strix Halo performance
             build_ollama_from_source "debian"
         fi
-        
-        # Setup Open WebUI automatically when Ollama backend is selected
-        local primary_user
-        primary_user=$(get_real_user)
-        setup_openwebui_docker "$primary_user" "debian"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -1303,58 +1408,11 @@ install_debian_llm_software() {
         fi
     fi
     
-    # Ask user which frontends to install (after backends are set up)
-    ask_frontend_choice
-    local frontend_choice
-    frontend_choice=$(cat /tmp/.gz302-frontend-choice)
-    rm -f /tmp/.gz302-frontend-choice
-    
-    # If user selected frontends, install them
-    if [[ -n "$frontend_choice" ]]; then
+    # Install Open WebUI automatically if any backend was selected
+    if [[ -n "$backend_choice" ]]; then
         local primary_user
         primary_user=$(get_real_user)
-        
-        # Parse the comma-separated frontend choices
-        IFS=',' read -r -a frontend_items <<< "$frontend_choice"
-        for frontend in "${frontend_items[@]}"; do
-            frontend="${frontend// /}"  # remove spaces
-            case "$frontend" in
-                1|text-generation-webui|textgen|text)
-                    info "Installing text-generation-webui..."
-                    local dst="/home/$primary_user/.local/share/text-generation-webui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "text-generation-webui already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/oobabooga/text-generation-webui "$dst" || warning "Failed to clone text-generation-webui"
-                        info "Cloned text-generation-webui to $dst"
-                        info "To finish install: cd $dst && python -m venv venv && source venv/bin/activate && pip install -r requirements/portable/requirements.txt"
-                    fi
-                    ;;
-                2|comfyui|comfy)
-                    info "Installing ComfyUI..."
-                    local dst="/home/$primary_user/.local/share/comfyui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "ComfyUI already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/comfyanonymous/ComfyUI "$dst" || warning "Failed to clone ComfyUI"
-                        info "Cloned ComfyUI to $dst"
-                        info "See $dst/README.md for install instructions (venv or comfy-cli)"
-                    fi
-                    ;;
-                3|llamacpp|llama-cpp|webui|"llama.cpp webui"|llamaccppwebui)
-                    info "llama.cpp webui is built-in (port 8080) when llama.cpp backend is running"
-                    if [[ "$backend_choice" != "2" ]] && [[ "$backend_choice" != "3" ]]; then
-                        warning "llama.cpp webui requires llama.cpp backend. Install llama.cpp backend to use this webui."
-                    fi
-                    ;;
-                4|openwebui|open-web-ui)
-                    setup_openwebui_docker "$primary_user" "debian"
-                    ;;
-                *)
-                    warning "Unknown frontend: $frontend"
-                    ;;
-            esac
-        done
+        setup_openwebui_docker "$primary_user" "debian"
     fi
     
     success "LLM/AI software installation completed"
@@ -1375,11 +1433,6 @@ install_fedora_llm_software() {
             # Build Ollama from source with HIP support for optimal Strix Halo performance
             build_ollama_from_source "fedora"
         fi
-        
-        # Setup Open WebUI automatically when Ollama backend is selected
-        local primary_user
-        primary_user=$(get_real_user)
-        setup_openwebui_docker "$primary_user" "fedora"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -1443,58 +1496,11 @@ install_fedora_llm_software() {
         fi
     fi
     
-    # Ask user which frontends to install (after backends are set up) - Fedora
-    ask_frontend_choice
-    local frontend_choice
-    frontend_choice=$(cat /tmp/.gz302-frontend-choice)
-    rm -f /tmp/.gz302-frontend-choice
-    
-    # If user selected frontends, install them
-    if [[ -n "$frontend_choice" ]]; then
+    # Install Open WebUI automatically if any backend was selected
+    if [[ -n "$backend_choice" ]]; then
         local primary_user
         primary_user=$(get_real_user)
-        
-        # Parse the comma-separated frontend choices
-        IFS=',' read -r -a frontend_items <<< "$frontend_choice"
-        for frontend in "${frontend_items[@]}"; do
-            frontend="${frontend// /}"  # remove spaces
-            case "$frontend" in
-                1|text-generation-webui|textgen|text)
-                    info "Installing text-generation-webui..."
-                    local dst="/home/$primary_user/.local/share/text-generation-webui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "text-generation-webui already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/oobabooga/text-generation-webui "$dst" || warning "Failed to clone text-generation-webui"
-                        info "Cloned text-generation-webui to $dst"
-                        info "To finish install: cd $dst && python -m venv venv && source venv/bin/activate && pip install -r requirements/portable/requirements.txt"
-                    fi
-                    ;;
-                2|comfyui|comfy)
-                    info "Installing ComfyUI..."
-                    local dst="/home/$primary_user/.local/share/comfyui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "ComfyUI already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/comfyanonymous/ComfyUI "$dst" || warning "Failed to clone ComfyUI"
-                        info "Cloned ComfyUI to $dst"
-                        info "See $dst/README.md for install instructions (venv or comfy-cli)"
-                    fi
-                    ;;
-                3|llamacpp|llama-cpp|webui|"llama.cpp webui"|llamaccppwebui)
-                    info "llama.cpp webui is built-in (port 8080) when llama.cpp backend is running"
-                    if [[ "$backend_choice" != "2" ]] && [[ "$backend_choice" != "3" ]]; then
-                        warning "llama.cpp webui requires llama.cpp backend. Install llama.cpp backend to use this webui."
-                    fi
-                    ;;
-                4|openwebui|open-web-ui)
-                    setup_openwebui_docker "$primary_user" "fedora"
-                    ;;
-                *)
-                    warning "Unknown frontend: $frontend"
-                    ;;
-            esac
-        done
+        setup_openwebui_docker "$primary_user" "fedora"
     fi
     
     success "LLM/AI software installation completed"
@@ -1516,10 +1522,6 @@ install_opensuse_llm_software() {
             build_ollama_from_source "opensuse"
         fi
         
-        # Setup Open WebUI automatically when Ollama backend is selected
-        local primary_user
-        primary_user=$(get_real_user)
-        setup_openwebui_docker "$primary_user" "opensuse"
     fi
     
     # Install llama.cpp with ROCm support if requested
@@ -1583,58 +1585,11 @@ install_opensuse_llm_software() {
         fi
     fi
     
-    # Ask user which frontends to install (after backends are set up) - OpenSUSE
-    ask_frontend_choice
-    local frontend_choice
-    frontend_choice=$(cat /tmp/.gz302-frontend-choice)
-    rm -f /tmp/.gz302-frontend-choice
-    
-    # If user selected frontends, install them
-    if [[ -n "$frontend_choice" ]]; then
+    # Install Open WebUI automatically if any backend was selected
+    if [[ -n "$backend_choice" ]]; then
         local primary_user
         primary_user=$(get_real_user)
-        
-        # Parse the comma-separated frontend choices
-        IFS=',' read -r -a frontend_items <<< "$frontend_choice"
-        for frontend in "${frontend_items[@]}"; do
-            frontend="${frontend// /}"  # remove spaces
-            case "$frontend" in
-                1|text-generation-webui|textgen|text)
-                    info "Installing text-generation-webui..."
-                    local dst="/home/$primary_user/.local/share/text-generation-webui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "text-generation-webui already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/oobabooga/text-generation-webui "$dst" || warning "Failed to clone text-generation-webui"
-                        info "Cloned text-generation-webui to $dst"
-                        info "To finish install: cd $dst && python -m venv venv && source venv/bin/activate && pip install -r requirements/portable/requirements.txt"
-                    fi
-                    ;;
-                2|comfyui|comfy)
-                    info "Installing ComfyUI..."
-                    local dst="/home/$primary_user/.local/share/comfyui"
-                    if [[ -d "$dst/.git" ]]; then
-                        info "ComfyUI already cloned"
-                    else
-                        sudo -u "$primary_user" git clone https://github.com/comfyanonymous/ComfyUI "$dst" || warning "Failed to clone ComfyUI"
-                        info "Cloned ComfyUI to $dst"
-                        info "See $dst/README.md for install instructions (venv or comfy-cli)"
-                    fi
-                    ;;
-                3|llamacpp|llama-cpp|webui|"llama.cpp webui"|llamaccppwebui)
-                    info "llama.cpp webui is built-in (port 8080) when llama.cpp backend is running"
-                    if [[ "$backend_choice" != "2" ]] && [[ "$backend_choice" != "3" ]]; then
-                        warning "llama.cpp webui requires llama.cpp backend. Install llama.cpp backend to use this webui."
-                    fi
-                    ;;
-                4|openwebui|open-web-ui)
-                    setup_openwebui_docker "$primary_user" "opensuse"
-                    ;;
-                *)
-                    warning "Unknown frontend: $frontend"
-                    ;;
-            esac
-        done
+        setup_openwebui_docker "$primary_user" "opensuse"
     fi
     
     success "LLM/AI software installation completed"
@@ -1951,7 +1906,6 @@ uninstall_llm_software() {
             
         *)
             error "Unsupported distribution: $distro"
-            return 1
             ;;
     esac
     
@@ -2028,4 +1982,3 @@ main() {
 }
 
 main "$@"
-
