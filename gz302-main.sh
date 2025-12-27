@@ -448,6 +448,26 @@ install_v4_control_center() {
         mv "$old_dest" "$tray_dest"
     fi
     
+    # Clean up old tray-icon directory if control-center exists
+    if [[ -d "$old_dest" && -d "$tray_dest" ]]; then
+        rm -rf "$old_dest"
+    fi
+    
+    # Fix any stale desktop/autostart files pointing to old tray-icon path
+    local real_user="${SUDO_USER:-$USER}"
+    local real_home
+    real_home=$(getent passwd "$real_user" | cut -d: -f6)
+    
+    for desktop_file in \
+        "$real_home/.config/autostart/gz302-tray.desktop" \
+        "$real_home/.local/share/applications/gz302-tray.desktop" \
+        "/usr/share/applications/gz302-tray.desktop"; do
+        if [[ -f "$desktop_file" ]] && grep -q "tray-icon" "$desktop_file" 2>/dev/null; then
+            sed -i 's|/usr/local/share/gz302/tray-icon/|/usr/local/share/gz302/control-center/|g' "$desktop_file"
+            info "Fixed stale path in $desktop_file"
+        fi
+    done
+    
     # Check version
     local new_version=""
     if [[ -f "$tray_src/VERSION" ]]; then

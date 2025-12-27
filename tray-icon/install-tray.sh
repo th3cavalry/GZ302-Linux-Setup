@@ -8,10 +8,12 @@ set -euo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
 # Determine the canonical install location for the tray icon
-# Priority: local script directory > system location
+# Priority: local script directory > system control-center > legacy tray-icon
 # This ensures the script works both when run directly and from the main setup
 if [[ -f "$SCRIPT_DIR/src/gz302_tray.py" ]]; then
   APP_DIR="$SCRIPT_DIR"
+elif [[ -f "/usr/local/share/gz302/control-center/src/gz302_tray.py" ]]; then
+  APP_DIR="/usr/local/share/gz302/control-center"
 elif [[ -f "/usr/local/share/gz302/tray-icon/src/gz302_tray.py" ]]; then
   APP_DIR="/usr/local/share/gz302/tray-icon"
 else
