@@ -26,7 +26,7 @@ sudo ./gz302-main.sh
 ```
 
 **Features:**
-- 🧩 **11 modular libraries** - Each subsystem (WiFi, GPU, audio, power, display, RGB) is a separate, testable library
+- 🧩 **9 modular libraries** - Each subsystem (WiFi, GPU, audio, power, display, RGB) is a separate, testable library
 - 🔄 **State tracking** - Knows what's already applied, avoids duplicate work
 - ↩️ **Rollback support** - Can undo changes if something goes wrong
 - 📊 **Status mode** - `sudo ./gz302-main.sh --status` shows all subsystem status
@@ -160,9 +160,10 @@ This setup is modular. The core script installs essential fixes; everything else
 | Module | Description |
 |---|---|
 | 🎮 Gaming | Steam, Lutris, MangoHUD, GameMode, Wine, Discord |
-| 🤖 AI / LLM | Ollama, ROCm, PyTorch, bitsandbytes, Transformers |
-| 🌈 RGB | Advanced keyboard lighting control (Static, Breathing, Rainbow) |
+| 🤖 AI / LLM | Ollama, LM Studio, llama.cpp, vLLM backends + frontends |
 | 💻 Hypervisor | KVM/QEMU stack (recommended) or VirtualBox |
+
+> **Note:** RGB control is now part of the core installation (Step 5) and includes both keyboard and rear window lighting.
 
 ## 🎛️ Control Center: Usage Guide
 
@@ -210,166 +211,73 @@ gz302-rgb brightness 50     # Set brightness to 50%
 
 ## 🤖 AI/LLM Module: Complete Setup Guide
 
-The AI module provides a complete local LLM inference stack optimized for Strix Halo. This section covers backend selection, frontend options, Python 3.11 setup, and kernel optimization.
+The AI module provides a complete local LLM inference stack optimized for Strix Halo with AMD Radeon 8060S (gfx1151). The module uses a sequential menu flow: **Backends → Frontends → Libraries**.
 
-### CachyOS Optimized Installation (Recommended)
-
-If you're running **CachyOS**, the script automatically uses optimized packages from CachyOS repositories:
+### Quick Start
 
 ```bash
-# CachyOS automatically installs these znver4-optimized packages:
-sudo pacman -S ollama-rocm           # Ollama with ROCm for AMD GPUs
-sudo pacman -S python-pytorch-opt-rocm  # PyTorch with ROCm + AVX2
-
-# Optional: Install Open WebUI from AUR
-yay -S open-webui
+sudo ./gz302-llm.sh
 ```
 
-**CachyOS LLM advantages:**
-- **znver4 optimizations**: Packages compiled specifically for Zen 4/5 (like your Ryzen AI MAX+ 395)
-- **5-20% faster inference** from optimized builds vs generic x86-64
-- **ollama-rocm**: Pre-built with ROCm support for AMD Radeon 8060S
-- **No virtualenv needed**: System PyTorch package works out of the box
+The script will guide you through selecting backends, frontends, and Python AI libraries.
 
-### Backend Options
+### Backend Options (Step 1)
 
-When you run the AI module, you'll be prompted to choose an inference backend:
+| # | Backend | Description | Best For |
+|---|---------|-------------|----------|
+| 1 | **Ollama** | Model management + serving via official installer | Easy model switching, API at :11434 |
+| 2 | **LM Studio** | GUI application (AppImage) with model library | Visual model management |
+| 3 | **llama.cpp** | High-performance inference server (CLI-based) | Speed, low overhead |
+| 4 | **vLLM** | Production-grade serving with batching | Multi-user serving, high throughput |
+| 5 | Install All | Installs all 4 backends | Maximum flexibility |
+| 6 | Skip | Skip backend installation | Use existing backends |
 
-**1. Ollama (Model Management)**
-- Unified model downloading, management, and serving
-- Works with various frontend UIs (Open WebUI, text-generation-webui, etc.)
-- Best for: Multiple model experimentation, easy model switching
-- API available at http://localhost:11434
+### Frontend Options (Step 2)
 
-**2. llama.cpp (Fast Inference)**
-- Direct model inference, built-in web UI (port 8080)
-- Single-model focused, optimized for performance
-- Best for: Speed, low resource overhead
-- Systemd service: `sudo systemctl enable --now llama-server`
-- Access web UI: http://localhost:8080
+| # | Frontend | Description | Best For |
+|---|----------|-------------|----------|
+| 1 | **Open WebUI** | Modern ChatGPT-like interface | Clean UI, chat-focused |
+| 2 | **SillyTavern** | Character AI and roleplay platform | Creative writing, personas |
+| 3 | **Text Generation WebUI** | Feature-rich oobabooga interface | Advanced settings, fine-tuning |
+| 4 | **LibreChat** | Multi-provider chat interface | API aggregation |
+| 5 | Install All | Installs all 4 frontends | Try everything |
+| 6 | Skip | Skip frontend installation | CLI-only usage |
 
-**3. Both (Recommended)**
-- Installs Ollama + llama.cpp for maximum flexibility
-- Use Ollama for complex workflows, llama.cpp for quick inference
-- Default in non-interactive mode
+### Python AI Libraries (Step 3)
 
-### Frontend UIs (Top 3)
+Optionally install PyTorch, Transformers, bitsandbytes, and Accelerate for custom AI development.
 
-After selecting a backend, you can install one or more frontends:
+### AMD Strix Halo GPU Configuration
 
-**1. text-generation-webui** (Feature-Rich LLM Interface)
-- Popular, community-driven, extensive customization
-- Best for: Text generation, fine-tuning, advanced settings
-- Install location: `~/.local/share/gz302/frontends/text-generation-webui`
-- Setup: `cd ~/.local/share/gz302/frontends/text-generation-webui && python -m venv venv && source venv/bin/activate && pip install -r requirements/portable/requirements.txt`
+The script automatically configures ROCm environment variables in `/etc/profile.d/gz302-rocm.sh`:
 
-**2. ComfyUI** (Node-Based Visual Workflows)
-- Ideal for image generation and complex pipelines
-- Best for: Stable Diffusion, ControlNet, advanced image workflows
-- Install location: `~/.local/share/gz302/frontends/ComfyUI`
-- Setup: `cd ~/.local/share/gz302/frontends/ComfyUI && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`
-
-**3. llama.cpp Built-In WebUI** (Lightweight)
-- No separate installation needed
-- Runs on port 8080 when llama.cpp service is active
-- Best for: Quick inference without overhead
-- Automatically available when llama.cpp backend is selected
-
-**4. Open WebUI** (Modern Web Interface)
-- Sleek, modern web interface for various LLM backends
-- Best for: Clean UI, chat-focused interactions, multi-model management
-- Can work with Ollama, llama.cpp, or other backends
-- Uses uv for Python environment management
-- Directory: `~/open-webui`
-- Run: `cd ~/open-webui && source .venv/bin/activate && open-webui serve`
-
-### Strix Halo GPU Optimization
-
-**Critical Flags for llama-server (Automatically Applied):**
 ```bash
--fa 1          # Flash attention - REQUIRED for Strix Halo, improves throughput by 10x
---no-mmap      # Prevents memory-mapping issues with unified memory aperture
--ngl 999       # All layers to GPU for maximum performance
+export HSA_OVERRIDE_GFX_VERSION=11.0.0   # Required for gfx1151 → gfx1100 compatibility
+export HIP_VISIBLE_DEVICES=0
+export GPU_MAX_HW_QUEUES=8
 ```
 
-These flags are automatically configured in the systemd service (`/etc/systemd/system/llama-server.service`). Without `-fa 1 --no-mmap`, performance collapses or the system crashes.
+### CachyOS Optimized Installation
 
-**Kernel Parameters (Set by LLM script for AI workloads):**
-```bash
-amd_iommu=off              # Disables IOMMU for lower latency GPU memory access
-amdgpu.gttsize=131072      # Sets GTT size to 128MB for larger unified memory pools
-```
-
-These are automatically configured when installing the LLM/AI software module. The script detects your boot loader (GRUB, systemd-boot, Limine, rEFInd, syslinux) and configures the appropriate configuration files. To verify: `cat /proc/cmdline`
-
-**Note:** The `ttm.pages_limit` parameter mentioned in some documentation is not a valid kernel parameter and has been removed.
-
-### Python 3.11 & Open WebUI
-
-Open WebUI uses **uv** for Python environment management and requires Python 3.11. The installer automatically:
-
-- **Installs uv** if not present:
-  - **Arch:** `pacman -S uv`
-  - **Debian/Ubuntu:** `curl -LsSf https://astral.sh/uv/install.sh | sh`
-  - **Fedora:** `dnf install uv`
-  - **OpenSUSE:** `zypper install uv`
-
-- **Installs Python 3.11** if not present (distro-specific)
-- **Creates uv venv** at `~/open-webui/.venv` with Python 3.11
-- **Installs Open WebUI** via `uv pip install open-webui`
-
-- **Directory:** `~/open-webui`
-- **Activation:** `cd ~/open-webui && source .venv/bin/activate`
-- **Launch:** `open-webui serve`
-- **Access:** http://localhost:3000 (default port)
+On **CachyOS**, the script automatically uses znver4-optimized packages:
+- `ollama-rocm` - Pre-built with ROCm support
+- `python-pytorch-opt-rocm` - PyTorch with ROCm + AVX2
+- **5-20% faster inference** from optimized builds
 
 ### Model Selection & VRAM Planning
 
-All models should be in GGUF format (quantized for CPU/GPU inference). Recommended sources:
+All models should be in GGUF format. Recommended sources:
 
 - **Unsloth GGUF Models:** https://huggingface.co/unsloth (High quality, actively maintained)
 - **TheBloke:** https://huggingface.co/TheBloke (Largest GGUF collection)
 
-**VRAM Estimation Tool:**
-Use the VRAM estimator from kyuz0 Strix Halo toolbox to plan:
+**VRAM Estimation:**
 ```
 Model Size + Context Memory + Overhead = Total VRAM
 Example: 7B model (7GB) + 8K context (2GB) + 1GB overhead = ~10GB required
 ```
 
 See: https://github.com/kyuz0/amd-strix-halo-toolboxes#4--memory-planning--vram-estimator
-
-### Performance Tuning
-
-**Recommended ROCm Versions (in order):**
-1. **ROCm 7.1 with ROCWMMA** - Best throughput, flash attention optimized
-2. **ROCm 6.4.4** - Stable, excellent compatibility
-3. **Vulkan RADV** - Most stable, works everywhere (slower)
-
-**Model Quantization Guidelines:**
-- **Q4_K_M:** Best balance (4-bit, medium) - Recommended starting point
-- **Q3_K_XL:** For larger models or limited VRAM
-- **BF16/FP16:** For maximum quality, requires more VRAM
-
-**Batch Size Tuning:**
-- Start with `-ngl 999` (all layers to GPU)
-- If OOM: Reduce context length (`-c 4096` instead of 8192)
-- Test batch sizes with small context first
-
-### Troubleshooting
-
-**"Flash attention disabled" warning:**
-- The system is running without optimization. Recheck kernel params.
-- Solution: `pwrcfg` and verify `--no-mmap` in llama-server service
-
-**"Could not find Open WebUI wheels for Python X.Y":**
-- Open WebUI requires Python 3.11 specifically
-- Solution: Manually set up Python 3.11 venv or use Ollama Docker container
-
-**Slow inference (< 10 tokens/sec):**
-- Missing `-fa 1` flag
-- Check: `sudo systemctl cat llama-server.service | grep ExecStart`
-- Fix: Reinstall or manually update the service file
 
 ---
 
@@ -411,13 +319,6 @@ If `pwrcfg` asks for a password, the sudoers file is missing. Run:
 cd tray-icon && sudo ./install-policy.sh
 ```
 
-### Folio Keyboard Issues
-
-If your keyboard disconnects after sleep, run the specific fix:
-```bash
-cd Optional && sudo ./gz302-folio-fix.sh
-```
-
 ### Uninstallation
 
 To safely remove all components:
@@ -430,8 +331,8 @@ cd Uninstall && sudo ./gz302-uninstall.sh
 - **ec_su_axb35 kernel module** (optional, manual): Advanced fan speed and power mode control for Strix Halo
   - See: https://github.com/cmetz/ec-su_axb35-linux
 
-- **Linux-G14 Kernel** (optional, Arch only): Enhanced ROG laptop support with kernel-level RGB LED control
-  - See: `Optional/gz302-g14-kernel.sh` and https://asus-linux.org
+- **Linux-G14 Kernel** (Arch only): Enhanced ROG laptop support with kernel-level RGB LED control
+  - See: https://asus-linux.org
 
 ## 📚 Additional Documentation
 
@@ -446,8 +347,8 @@ cd Uninstall && sudo ./gz302-uninstall.sh
 
 | Aspect | V3 (Monolithic) | V4 (Library-First) |
 |--------|-----------------|-------------------|
-| Main Script | 4,159 lines | 718 lines |
-| Libraries | None | 11 modular files |
+| Main Script | 4,159 lines | 738 lines |
+| Libraries | None | 9 modular files |
 | Functions | 64 | 217 |
 | State Tracking | Limited | Full persistence |
 | Testability | Script-level | Per-library |

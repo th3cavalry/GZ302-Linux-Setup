@@ -19,7 +19,7 @@
 # Replaces v3.0.x monolithic script with modular architecture.
 #
 # USAGE:
-#   sudo ./gz302-main-v4-complete.sh [--status] [--force] [--help]
+#   sudo ./gz302-main.sh [--status] [--force] [--help]
 # ==============================================================================
 
 set -euo pipefail
