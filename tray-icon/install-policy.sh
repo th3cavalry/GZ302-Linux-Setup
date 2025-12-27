@@ -83,7 +83,7 @@ if visudo -c -f /tmp/gz302-pwrcfg; then
     if [[ -n "$WINDOW_RGB_PATH" ]]; then
         echo "You can now run: gz302-rgb-window <command> without typing sudo (no password prompt)."
     fi
-    echo "GUI apps like the tray icon will work without authentication prompts."
+    echo \"The GZ302 Control Center will work without authentication prompts.\"
 else
     echo "ERROR: Invalid sudoers configuration!"
     rm /tmp/gz302-pwrcfg

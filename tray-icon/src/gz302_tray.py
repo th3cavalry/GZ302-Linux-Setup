@@ -273,100 +273,109 @@ class GZ302TrayIcon(QSystemTrayIcon):
             charge_100_action.triggered.connect(lambda: self.set_charge_limit("100"))
             charge_limit_menu.addAction(charge_100_action)
 
-        # Keyboard brightness
-        brightness_menu = self.menu.addMenu("Keyboard Brightness")
-        if brightness_menu is not None:
-            for level in range(4):
-                if level == 0:
-                    label = f"Off"
-                else:
-                    label = f"Level {level}"
-                action = QAction(label, self)
-                action.triggered.connect(
-                    lambda checked, l=level: self.set_keyboard_backlight(l)
-                )
-                brightness_menu.addAction(action)
+        # RGB Controls (unified menu for keyboard and rear window)
+        rgb_controls_menu = self.menu.addMenu("RGB Controls")
+        if rgb_controls_menu is not None:
+            # Shared color options for both keyboard and window
+            color_presets = [
+                ("Red", "FF0000", (255, 0, 0)),
+                ("Green", "00FF00", (0, 255, 0)),
+                ("Blue", "0000FF", (0, 0, 255)),
+                ("Yellow", "FFFF00", (255, 255, 0)),
+                ("Cyan", "00FFFF", (0, 255, 255)),
+                ("Magenta", "FF00FF", (255, 0, 255)),
+                ("White", "FFFFFF", (255, 255, 255)),
+                ("Off", "000000", (0, 0, 0)),
+            ]
 
-        self.menu.addSeparator()
-
-        # Keyboard RGB Colors
-        if self.rgb_available:
-            rgb_menu = self.menu.addMenu("Keyboard RGB")
-            if rgb_menu is not None:
-                # Static colors submenu
-                colors_submenu = rgb_menu.addMenu("Static Colors")
-                color_options = [
-                    ("Red", "FF0000"),
-                    ("Green", "00FF00"),
-                    ("Blue", "0000FF"),
-                    ("Yellow", "FFFF00"),
-                    ("Cyan", "00FFFF"),
-                    ("Magenta", "FF00FF"),
-                    ("White", "FFFFFF"),
-                    ("Black", "000000"),
-                ]
-                for color_name, hex_value in color_options:
-                    action = QAction(color_name, self)
+            # === KEYBOARD SECTION ===
+            keyboard_menu = rgb_controls_menu.addMenu("⌨️ Keyboard")
+            if keyboard_menu is not None:
+                # Brightness submenu
+                brightness_menu = keyboard_menu.addMenu("Brightness")
+                for level in range(4):
+                    label = "Off" if level == 0 else f"Level {level}"
+                    action = QAction(label, self)
                     action.triggered.connect(
-                        lambda checked, h=hex_value: self.set_rgb_color(h)
+                        lambda checked, l=level: self.set_keyboard_backlight(l)
                     )
-                    colors_submenu.addAction(action)
+                    brightness_menu.addAction(action)
 
-                rgb_menu.addSeparator()
+                # Static Colors submenu
+                if self.rgb_available:
+                    colors_submenu = keyboard_menu.addMenu("Static Colors")
+                    for color_name, hex_value, _ in color_presets:
+                        action = QAction(color_name, self)
+                        action.triggered.connect(
+                            lambda checked, h=hex_value: self.set_rgb_color(h)
+                        )
+                        colors_submenu.addAction(action)
 
-                # Animations submenu
-                animations_submenu = rgb_menu.addMenu("Animations")
+                    # Animations submenu
+                    animations_submenu = keyboard_menu.addMenu("Animations")
 
-                # Breathing animation
-                breathing_action = QAction("Breathing (Red)", self)
-                breathing_action.triggered.connect(
-                    lambda: self.set_rgb_animation("breathing", "FF0000", "000000", 2)
-                )
-                animations_submenu.addAction(breathing_action)
+                    breathing_action = QAction("Breathing", self)
+                    breathing_action.triggered.connect(
+                        lambda: self.set_rgb_animation("breathing", "FF0000", "000000", 2)
+                    )
+                    animations_submenu.addAction(breathing_action)
 
-                # Color cycle
-                cycle_action = QAction("Color Cycle", self)
-                cycle_action.triggered.connect(
-                    lambda: self.set_rgb_animation("colorcycle", None, None, 2)
-                )
-                animations_submenu.addAction(cycle_action)
+                    cycle_action = QAction("Color Cycle", self)
+                    cycle_action.triggered.connect(
+                        lambda: self.set_rgb_animation("colorcycle", None, None, 2)
+                    )
+                    animations_submenu.addAction(cycle_action)
 
-                # Rainbow
-                rainbow_action = QAction("Rainbow", self)
-                rainbow_action.triggered.connect(
-                    lambda: self.set_rgb_animation("rainbow", None, None, 2)
-                )
-                animations_submenu.addAction(rainbow_action)
+                    rainbow_action = QAction("Rainbow", self)
+                    rainbow_action.triggered.connect(
+                        lambda: self.set_rgb_animation("rainbow", None, None, 2)
+                    )
+                    animations_submenu.addAction(rainbow_action)
 
-                rgb_menu.addSeparator()
+                    # Custom color
+                    custom_action = QAction("Custom Color...", self)
+                    custom_action.triggered.connect(self.set_custom_rgb_color)
+                    keyboard_menu.addAction(custom_action)
 
-                # Custom color
-                custom_action = QAction("Custom Color...", self)
-                custom_action.triggered.connect(self.set_custom_rgb_color)
-                rgb_menu.addAction(custom_action)
-            
-            self.menu.addSeparator()
-            
-            # Rear Window RGB (brightness only - color control pending HID implementation)
-            window_menu = self.menu.addMenu("Rear Window Brightness")
+                    keyboard_menu.addSeparator()
+
+                    # Quick on/off
+                    on_action = QAction("Turn On (White)", self)
+                    on_action.triggered.connect(lambda: self.set_rgb_color("FFFFFF"))
+                    keyboard_menu.addAction(on_action)
+
+                    off_action = QAction("Turn Off", self)
+                    off_action.triggered.connect(lambda: self.set_keyboard_backlight(0))
+                    keyboard_menu.addAction(off_action)
+
+            rgb_controls_menu.addSeparator()
+
+            # === REAR WINDOW SECTION ===
+            window_menu = rgb_controls_menu.addMenu("🔲 Rear Window")
             if window_menu is not None:
                 # Brightness submenu
                 brightness_sub = window_menu.addMenu("Brightness")
                 for level in range(4):
-                    if level == 0:
-                        label = "Off"
-                    else:
-                        label = f"Level {level}"
+                    label = "Off" if level == 0 else f"Level {level}"
                     action = QAction(label, self)
                     action.triggered.connect(
                         lambda checked, l=level: self.set_window_backlight(l)
                     )
                     brightness_sub.addAction(action)
 
-                # Animations submenu (breathing, colorcycle, rainbow)
+                # Static Colors submenu
+                colors_sub = window_menu.addMenu("Static Colors")
+                for color_name, _, rgb_tuple in color_presets:
+                    action = QAction(color_name, self)
+                    action.triggered.connect(
+                        lambda checked, rgb=rgb_tuple: self.set_window_color(*rgb)
+                    )
+                    colors_sub.addAction(action)
+
+                # Animations submenu
                 animations_sub = window_menu.addMenu("Animations")
 
-                breathing_action = QAction("Breathing (Custom)", self)
+                breathing_action = QAction("Breathing", self)
                 breathing_action.triggered.connect(self.set_window_breathing_dialog)
                 animations_sub.addAction(breathing_action)
 
@@ -377,21 +386,6 @@ class GZ302TrayIcon(QSystemTrayIcon):
                 rainbow_action = QAction("Rainbow", self)
                 rainbow_action.triggered.connect(lambda: self.set_window_animation("rainbow", None, None, 2))
                 animations_sub.addAction(rainbow_action)
-
-                # Static Colors submenu
-                colors_sub = window_menu.addMenu("Static Colors")
-                presets = {
-                    "White": (255, 255, 255),
-                    "Red": (255, 0, 0),
-                    "Green": (0, 255, 0),
-                    "Blue": (0, 0, 255),
-                    "Purple": (128, 0, 255),
-                    "Yellow": (255, 200, 0),
-                }
-                for name, rgb in presets.items():
-                    a = QAction(name, self)
-                    a.triggered.connect(lambda checked, rgb=rgb: self.set_window_color(*rgb))
-                    colors_sub.addAction(a)
 
                 # Custom color
                 custom = QAction("Custom Color...", self)
@@ -414,7 +408,7 @@ class GZ302TrayIcon(QSystemTrayIcon):
                 stop_anim.triggered.connect(lambda: self._stop_window_animation())
                 window_menu.addAction(stop_anim)
 
-            self.menu.addSeparator()
+        self.menu.addSeparator()
 
         # Autostart
         autostart_action = QAction("Enable Autostart", self)

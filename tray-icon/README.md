@@ -1,10 +1,10 @@
-# GZ302 Tray Icon
+# GZ302 Control Center
 
-A system tray icon for convenient power profile management on the ASUS ROG Flow Z13 (GZ302).
+A system tray application for convenient power profile management on the ASUS ROG Flow Z13 (GZ302).
 
 ## Overview
 
-This is a standalone GUI utility that provides quick access to `pwrcfg` power profiles through a system tray icon. Instead of using terminal commands, users can right-click the tray icon and select their desired power profile.
+This is a standalone GUI utility that provides quick access to `pwrcfg` power profiles through a system tray application. Instead of using terminal commands, users can right-click the tray icon and select their desired power profile.
 
 ## Status
 
@@ -12,7 +12,7 @@ This is a standalone GUI utility that provides quick access to `pwrcfg` power pr
 
 ## Features
 
-- ✅ System tray icon with power profile menu
+- ✅ System tray application with power profile menu
 - ✅ Right-click menu to switch between power profiles:
   - Emergency (10W)
   - Battery (18W)
@@ -29,7 +29,7 @@ This is a standalone GUI utility that provides quick access to `pwrcfg` power pr
 ## Technology Stack
 
 - **Python 3** - Main programming language
-- **PyQt6** - GUI framework for system tray
+- **PyQt6** - GUI framework for system tray application
 - **Sudoers** - Privilege escalation without password
 
 ## Installation
@@ -69,7 +69,7 @@ sudo ./install-policy.sh
 
 This configures sudoers to allow `pwrcfg` to self-elevate without a password. The tray calls `pwrcfg` directly—no sudo needed.
 
-### Step 3: Run the Tray Icon
+### Step 3: Run the Control Center
 
 ```bash
 cd tray-icon/src
@@ -93,7 +93,7 @@ This creates a launcher in `~/.local/share/applications` and an autostart entry 
 
 ## Usage
 
-1. Launch the tray icon application
+1. Launch the Control Center application
 2. Look for the computer icon in your system tray
 3. Right-click the icon to see the menu
 4. Select a power profile to switch

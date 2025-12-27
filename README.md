@@ -3,18 +3,37 @@
 **Performance optimization and convenience toolkit for the ASUS ROG Flow Z13 (GZ302).**
 Transform your device into an optimized Linux powerhouse with kernel-aware hardware fixes, intelligent power management, and optional gaming/AI modules.
 
-> **🚀 Version 3.0.0 (Dec 2025)**
+> **🚀 Version 4.0.0 (Dec 2025)**
+> **New Library-First Architecture:** Modular, testable, maintainable codebase
+> **GZ302 Control Center:** Renamed system tray app with power/RGB/monitoring
 > **Kernel-Aware Fixes:** Automatically detects kernel version (6.14-6.18+) and applies only necessary fixes
 > **Obsolescence Cleanup:** Removes outdated workarounds when running on kernel 6.17+ with native support
-> **Repository Transition:** Evolved from "hardware enablement" to "optimization toolkit" for modern kernels
-> **New GUI Option:** "Linux Armoury" - A full-featured GTK4 control center (optional)
 > **Kernel Requirement:** Linux 6.14+ required (6.17+ recommended) for full native hardware support
 
 ---
 
 ## ⚡ Quick Start
 
-### Option 1: Minimal Setup (Essential Fixes Only)
+### Full Setup (Recommended)
+
+The main script uses a modular library-first architecture for better maintainability and testability:
+
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-main.sh -o gz302-main.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-utils.sh -o gz302-utils.sh
+chmod +x gz302-main.sh gz302-utils.sh
+sudo ./gz302-main.sh
+```
+
+**Features:**
+- 🧩 **11 modular libraries** - Each subsystem (WiFi, GPU, audio, power, display, RGB) is a separate, testable library
+- 🔄 **State tracking** - Knows what's already applied, avoids duplicate work
+- ↩️ **Rollback support** - Can undo changes if something goes wrong
+- 📊 **Status mode** - `sudo ./gz302-main.sh --status` shows all subsystem status
+- ⚡ **Force mode** - `sudo ./gz302-main.sh --force` re-applies all fixes
+- 🤖 **Non-interactive** - `sudo ./gz302-main.sh -y` skips optional modules prompt
+
+### Minimal Setup (Essential Fixes Only)
 
 For users who want **only the essential hardware fixes** to make Linux run properly:
 
@@ -36,19 +55,17 @@ The minimal script applies only what your kernel version needs:
 - Touchpad/keyboard detection - *only if kernel < 6.17*
 - Essential kernel parameters (amd_pstate, amdgpu)
 
-### Option 2: Full Setup (All Features)
+### Legacy V3 Setup (Deprecated)
 
-**One-line installation for all supported distros:**
-- **Arch-based:** Arch Linux, CachyOS (optimized), Omarchy, EndeavourOS, Manjaro
-- **Debian-based:** Debian (including Trixie/13), Ubuntu, Pop!_OS, Linux Mint
-- **RPM-based:** Fedora, Nobara
-- **SUSE-based:** OpenSUSE Tumbleweed, OpenSUSE Leap
+The original monolithic v3 script is still available but deprecated:
 
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-main.sh -o gz302-main.sh
-chmod +x gz302-main.sh
-sudo ./gz302-main.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-main-v3.sh -o gz302-main-v3.sh
+chmod +x gz302-main-v3.sh
+sudo ./gz302-main-v3.sh
 ```
+
+> ⚠️ **Note:** V3 is no longer maintained. Use the main script instead.
 
 ### Non-interactive / CI-friendly
 
@@ -159,15 +176,15 @@ A modern, full-featured GTK4 control center designed specifically for the GZ302.
 - **Note:** If you select this during installation, the custom `pwrcfg` and `rrcfg` tools will **not** be installed to avoid conflicts.
 - **Usage:** Launch "Linux Armoury" from your application menu.
 
-### 2. System Tray Icon (Legacy GUI)
+### 2. GZ302 Control Center (System Tray)
 
-The easiest way to manage your device if you prefer a simple tray indicator.
+The easiest way to manage your device with a simple tray indicator.
 
 - **Right-click** the tray icon to switch profiles
 - **Visuals:** Checkmarks indicate active profiles; Tooltips show battery % and power draw
 - **Keyboard:** Adjust brightness (0-3) and RGB effects directly from the menu
 
-**Install Tray Icon manually:**
+**Install Control Center manually:**
 ```bash
 cd tray-icon && sudo ./install-tray.sh
 ```
@@ -433,7 +450,21 @@ cd Uninstall && sudo ./gz302-uninstall.sh
 - [CHANGELOG.md](Info/CHANGELOG.md) - Version history and release notes
 - [Info/kernel_changelog.md](Info/kernel_changelog.md) - Detailed kernel version features (6.14-6.18)
 - [Info/DISTRIBUTION_KERNEL_STATUS.md](Info/DISTRIBUTION_KERNEL_STATUS.md) - Current kernel versions by distribution
-- [tray-icon/](tray-icon/) - GUI system tray utility documentation
+- [gz302-lib/README.md](gz302-lib/README.md) - V4 library architecture documentation
+- [tray-icon/](tray-icon/) - GZ302 Control Center documentation
+
+## 🏗️ Architecture: V3 vs V4
+
+| Aspect | V3 (Monolithic) | V4 (Library-First) |
+|--------|-----------------|-------------------|
+| Main Script | 4,159 lines | 718 lines |
+| Libraries | None | 11 modular files |
+| Functions | 64 | 217 |
+| State Tracking | Limited | Full persistence |
+| Testability | Script-level | Per-library |
+| Rollback | Manual | Automated |
+
+V4 is recommended for new installations. V3 remains fully functional for existing users.
 
 ## 🤝 Contributing
 
@@ -447,4 +478,4 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ---
 
-**Last Updated:** December 2025 (v3.0.0)
+**Last Updated:** December 2025 (v4.0.0)

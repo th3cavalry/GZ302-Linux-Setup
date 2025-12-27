@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Install a Desktop launcher and Autostart entry for the GZ302 tray icon
+# Install a Desktop launcher and Autostart entry for the GZ302 Control Center
 # This script can be run as a regular user for user-specific installation
 # or with sudo for system-wide installation
 
@@ -90,7 +90,7 @@ fi
 DESKTOP_FILE_CONTENT="[Desktop Entry]
 Type=Application
 Name=$APP_NAME
-Comment=System tray power profile manager for ASUS ROG Flow Z13 (GZ302)
+Comment=Power profile, RGB, and hardware control for ASUS ROG Flow Z13 (GZ302)
 Exec=python3 $APP_PY
 Icon=$ICON_NAME
 Terminal=false
