@@ -363,6 +363,21 @@ class GZ302TrayIcon(QSystemTrayIcon):
                     )
                     brightness_sub.addAction(action)
 
+                # Animations submenu (breathing, colorcycle, rainbow)
+                animations_sub = window_menu.addMenu("Animations")
+
+                breathing_action = QAction("Breathing (Custom)", self)
+                breathing_action.triggered.connect(self.set_window_breathing_dialog)
+                animations_sub.addAction(breathing_action)
+
+                colorcycle_action = QAction("Color Cycle", self)
+                colorcycle_action.triggered.connect(lambda: self.set_window_animation("colorcycle", None, None, 2))
+                animations_sub.addAction(colorcycle_action)
+
+                rainbow_action = QAction("Rainbow", self)
+                rainbow_action.triggered.connect(lambda: self.set_window_animation("rainbow", None, None, 2))
+                animations_sub.addAction(rainbow_action)
+
                 # Static Colors submenu
                 colors_sub = window_menu.addMenu("Static Colors")
                 presets = {
@@ -393,6 +408,11 @@ class GZ302TrayIcon(QSystemTrayIcon):
                 off_action = QAction("Turn Off", self)
                 off_action.triggered.connect(lambda: self.set_window_backlight(0))
                 window_menu.addAction(off_action)
+
+                # Stop animation (if running)
+                stop_anim = QAction("Stop Animation", self)
+                stop_anim.triggered.connect(lambda: self._stop_window_animation())
+                window_menu.addAction(stop_anim)
 
             self.menu.addSeparator()
 
@@ -776,6 +796,145 @@ X-GNOME-Autostart-enabled=true
         with open(device_path, 'wb') as f:
             f.write(packet_bytes)
 
+    def _stop_window_animation(self):
+        """Stop any running window animation thread."""
+        try:
+            if hasattr(self, "window_animation_stop") and self.window_animation_stop is not None:
+                self.window_animation_stop.set()
+            if hasattr(self, "window_animation_thread") and self.window_animation_thread is not None:
+                self.window_animation_thread.join(timeout=1)
+        except Exception:
+            pass
+        finally:
+            self.window_animation_thread = None
+            self.window_animation_stop = None
+
+    def set_window_animation(self, animation_type, color1=None, color2=None, speed=2):
+        """Start a window animation (breathing, colorcycle, rainbow)."""
+        # Stop any existing animation
+        self._stop_window_animation()
+
+        stop_event = threading.Event()
+        self.window_animation_stop = stop_event
+
+        def breathing_worker(c1, c2, speed, stop_evt):
+            # Linear interpolate between c1 and c2
+            steps = 24
+            period = {1: 3.0, 2: 2.0, 3: 1.0}.get(speed, 2.0)
+            half = steps
+            import time
+            while not stop_evt.is_set():
+                # fade from c1 to c2
+                for i in range(half):
+                    if stop_evt.is_set():
+                        return
+                    t = i / float(half - 1)
+                    r = int(c1[0] + (c2[0] - c1[0]) * t)
+                    g = int(c1[1] + (c2[1] - c1[1]) * t)
+                    b = int(c1[2] + (c2[2] - c1[2]) * t)
+                    try:
+                        self.set_window_color(r, g, b)
+                    except Exception:
+                        pass
+                    time.sleep(period / half)
+                # fade back
+                for i in range(half):
+                    if stop_evt.is_set():
+                        return
+                    t = i / float(half - 1)
+                    r = int(c2[0] + (c1[0] - c2[0]) * t)
+                    g = int(c2[1] + (c1[1] - c2[1]) * t)
+                    b = int(c2[2] + (c1[2] - c2[2]) * t)
+                    try:
+                        self.set_window_color(r, g, b)
+                    except Exception:
+                        pass
+                    time.sleep(period / half)
+
+        def colorcycle_worker(speed, stop_evt):
+            import time
+            palette = [
+                (255, 0, 0),
+                (255, 128, 0),
+                (255, 255, 0),
+                (0, 255, 0),
+                (0, 255, 255),
+                (0, 128, 255),
+                (0, 0, 255),
+                (128, 0, 255),
+                (255, 0, 255),
+            ]
+            idx = 0
+            interval = {1: 0.8, 2: 0.4, 3: 0.2}.get(speed, 0.4)
+            while not stop_evt.is_set():
+                try:
+                    self.set_window_color(*palette[idx % len(palette)])
+                except Exception:
+                    pass
+                idx += 1
+                time.sleep(interval)
+
+        def rainbow_worker(speed, stop_evt):
+            import time, colorsys
+            hue = 0.0
+            step = {1: 0.015, 2: 0.03, 3: 0.06}.get(speed, 0.03)
+            while not stop_evt.is_set():
+                r, g, b = [int(x * 255) for x in colorsys.hsv_to_rgb(hue % 1.0, 1.0, 1.0)]
+                try:
+                    self.set_window_color(r, g, b)
+                except Exception:
+                    pass
+                hue += step
+                time.sleep(0.08)
+
+        # Decide which worker
+        if animation_type == "breathing":
+            # Expect color1/color2 as tuples
+            c1 = color1 or (255, 255, 255)
+            c2 = color2 or (0, 0, 0)
+            th = threading.Thread(target=breathing_worker, args=(c1, c2, speed, stop_event), daemon=True)
+        elif animation_type == "colorcycle":
+            th = threading.Thread(target=colorcycle_worker, args=(speed, stop_event), daemon=True)
+        elif animation_type == "rainbow":
+            th = threading.Thread(target=rainbow_worker, args=(speed, stop_event), daemon=True)
+        else:
+            self.notifier.notify("Animation Error", f"Unknown animation: {animation_type}", "warning", 3000)
+            return
+
+        self.window_animation_thread = th
+        th.start()
+
+        # Persist animation choice for restore (best-effort)
+        try:
+            config_dir = Path("/etc/gz302")
+            config_file = config_dir / "rgb-window.conf"
+            temp_file = Path(f"/tmp/gz302-window-{os.getpid()}.conf")
+
+            # Read existing config
+            existing = {}
+            try:
+                if config_file.exists():
+                    for line in config_file.read_text().splitlines():
+                        if "=" in line:
+                            k, v = line.split("=", 1)
+                            existing[k.strip()] = v.strip()
+            except Exception:
+                pass
+
+            existing["WINDOW_ANIMATION"] = animation_type
+            if color1 and isinstance(color1, tuple):
+                existing["WINDOW_ANIM_ARG1"] = f"{color1[0]},{color1[1]},{color1[2]}"
+            if color2 and isinstance(color2, tuple):
+                existing["WINDOW_ANIM_ARG2"] = f"{color2[0]},{color2[1]},{color2[2]}"
+            existing["WINDOW_ANIM_SPEED"] = str(speed)
+
+            lines = [f"{k}={v}" for k, v in existing.items()]
+            temp_file.write_text("\n".join(lines) + "\n")
+            subprocess.run(["sudo", "-n", "mkdir", "-p", str(config_dir)], capture_output=True, timeout=3)
+            subprocess.run(["sudo", "-n", "mv", str(temp_file), str(config_file)], capture_output=True, timeout=3)
+        except Exception:
+            pass  # fail silently
+
     def set_window_backlight(self, brightness):
         """Set rear window lightbar brightness (0=off, 1-3=on with color)."""
         try:
@@ -852,6 +1011,12 @@ X-GNOME-Autostart-enabled=true
     def set_window_color(self, r, g, b):
         """Set the rear window to a specific RGB color."""
         try:
+            # Stop any running animation first
+            try:
+                self._stop_window_animation()
+            except Exception:
+                pass
+
             device_path = self._find_lightbar_hidraw()
             if not device_path:
                 self.notifier.notify_error(
@@ -894,6 +1059,8 @@ X-GNOME-Autostart-enabled=true
                 "success",
                 2000,
             )
+        except Exception as e:
+            self.notifier.notify_error("Lightbar Error", f"Unexpected error: {str(e)}")
 
     def set_window_custom_color(self):
         """Prompt user for a hex color and apply it to the rear window."""
@@ -910,6 +1077,11 @@ X-GNOME-Autostart-enabled=true
                     r = int(hex_color[0:2], 16)
                     g = int(hex_color[2:4], 16)
                     b = int(hex_color[4:6], 16)
+                    # Stop any running animation before setting static color
+                    try:
+                        self._stop_window_animation()
+                    except Exception:
+                        pass
                     self.set_window_color(r, g, b)
                 else:
                     self.notifier.notify(
@@ -920,6 +1092,34 @@ X-GNOME-Autostart-enabled=true
                     )
         except Exception as e:
             self.notifier.notify_error("Color Input Error", f"Failed to get custom color: {str(e)}")
+
+    def set_window_breathing_dialog(self):
+        """Prompt for two hex colors and speed, then start breathing animation."""
+        try:
+            text1, ok1 = QInputDialog.getText(None, "Breathing - Color 1", "Enter hex color 1 (e.g., FF0000):", text="FF0000")
+            if not ok1 or not text1:
+                return
+            text2, ok2 = QInputDialog.getText(None, "Breathing - Color 2", "Enter hex color 2 (e.g., 000000):", text="000000")
+            if not ok2 or not text2:
+                return
+            speed, ok3 = QInputDialog.getInt(None, "Breathing Speed", "Speed (1=slow,2=normal,3=fast):", value=2, min=1, max=3)
+            if not ok3:
+                return
+
+            hex1 = text1.strip().lstrip('#')
+            hex2 = text2.strip().lstrip('#')
+            if len(hex1) != 6 or len(hex2) != 6:
+                self.notifier.notify("Invalid Color", "Please enter 6-digit hex colors.", "warning", 3000)
+                return
+
+            c1 = (int(hex1[0:2], 16), int(hex1[2:4], 16), int(hex1[4:6], 16))
+            c2 = (int(hex2[0:2], 16), int(hex2[2:4], 16), int(hex2[4:6], 16))
+
+            # Start breathing animation
+            self.set_window_animation("breathing", c1, c2, speed)
+
+        except Exception as e:
+            self.notifier.notify_error("Breathing Error", f"Failed to start breathing animation: {str(e)}")
 
     def _save_window_color(self, r, g, b):
         """Save window RGB color to config for restore on boot (uses sudo to write)."""
@@ -939,6 +1139,11 @@ X-GNOME-Autostart-enabled=true
                 pass
 
             existing["WINDOW_COLOR"] = f"{int(r)},{int(g)},{int(b)}"
+            # Clear any animation persistence when user selects static color
+            existing.pop("WINDOW_ANIMATION", None)
+            existing.pop("WINDOW_ANIM_ARG1", None)
+            existing.pop("WINDOW_ANIM_ARG2", None)
+            existing.pop("WINDOW_ANIM_SPEED", None)
 
             # Build content
             config_lines = []
