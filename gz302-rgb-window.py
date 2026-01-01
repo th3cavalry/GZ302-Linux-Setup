@@ -26,6 +26,27 @@ import time
 LIGHTBAR_SIG = "usb-0000:c6:00.0-5/input0"
 KEYBOARD_SIG = "usb-0000:c6:00.0-4/input"
 
+# Config file for persistence
+CONFIG_DIR = "/etc/gz302"
+WINDOW_CONFIG = f"{CONFIG_DIR}/rgb-window.conf"
+
+
+def save_config(r, g, b, power_on=True):
+    """Save lightbar color to config file for restore on boot/resume."""
+    try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+        with open(WINDOW_CONFIG, 'w') as f:
+            f.write(f"# Saved by gz302-rgb-window\n")
+            if power_on:
+                f.write(f"WINDOW_COLOR={r},{g},{b}\n")
+            else:
+                f.write("WINDOW_POWER=off\n")
+    except PermissionError:
+        # Silently fail if not running as root - color still applied
+        pass
+    except Exception:
+        pass
+
 
 def get_hid_phys(path):
     """Returns the HID_PHYS string from the device uevent file."""
@@ -186,28 +207,33 @@ Examples:
         if args.off:
             print(f"Turning lightbar OFF")
             set_lightbar_power(device_path, False)
+            save_config(0, 0, 0, power_on=False)
         elif args.on:
             print(f"Turning lightbar ON (white)")
             set_lightbar_power(device_path, True)
             time.sleep(0.1)
             set_lightbar_color(device_path, 255, 255, 255)
+            save_config(255, 255, 255)
         elif args.color:
             r, g, b = args.color
             print(f"Setting lightbar to RGB({r}, {g}, {b})")
             set_lightbar_power(device_path, True)
             time.sleep(0.1)
             set_lightbar_color(device_path, r, g, b)
+            save_config(r, g, b)
         elif args.brightness is not None:
             level = args.brightness
             if level == 0:
                 print("Setting lightbar brightness to 0 (off)")
                 set_lightbar_power(device_path, False)
+                save_config(0, 0, 0, power_on=False)
             else:
                 intensity = [0, 85, 170, 255][level]
                 print(f"Setting lightbar brightness to {level} (intensity {intensity})")
                 set_lightbar_power(device_path, True)
                 time.sleep(0.1)
                 set_lightbar_color(device_path, intensity, intensity, intensity)
+                save_config(intensity, intensity, intensity)
         else:
             parser.print_help()
             sys.exit(1)
