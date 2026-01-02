@@ -4,10 +4,15 @@
 # Uninstall Script for ASUS ROG Flow Z13 (GZ302) Setup
 #
 # Author: th3cavalry using Copilot
-# Version: 2.3.14
+# Version: 4.0.0
 #
-# This script detects and removes components installed by gz302-main.sh
-# and optional scripts (gz302-folio-fix.sh, gz302-g14-kernel.sh).
+# This script completely removes:
+# - Hardware fixes (kernel parameters, modprobe configs)
+# - Power/Display management tools (pwrcfg, rrcfg)
+# - RGB control tools (gz302-rgb)
+# - Command Center (Tray Icon)
+# - Systemd services and udev rules
+# - Configuration files and logs
 #
 # USAGE:
 # 1. Make executable: chmod +x gz302-uninstall.sh
@@ -17,396 +22,149 @@
 set -euo pipefail
 
 # --- Color codes for output ---
-C_BLUE='\033[0;34m'
+C_RED='\033[0;31m'
 C_GREEN='\033[0;32m'
 C_YELLOW='\033[1;33m'
-C_RED='\033[0;31m'
-C_BOLD_CYAN='\033[1;36m'
-C_DIM='\033[2m'
+C_CYAN='\033[0;36m'
+C_BOLD='\033[1m'
 C_NC='\033[0m'
 
-# --- Symbols ---
-SYMBOL_CHECK='✓'
-SYMBOL_CROSS='✗'
-
 # --- Logging functions ---
-error() {
-    echo -e "${C_RED}ERROR:${C_NC} $1" >&2
-    exit 1
-}
-
-info() {
-    echo -e "${C_BLUE}INFO:${C_NC} $1" >&2
-}
-
-success() {
-    echo -e "${C_GREEN}SUCCESS:${C_NC} $1" >&2
-}
-
-warning() {
-    echo -e "${C_YELLOW}WARNING:${C_NC} $1" >&2
-}
-
-# --- Visual formatting functions ---
-print_box() {
-    local text="$1"
-    local padding=4
-    local text_len=${#text}
-    local total_width=$((text_len + padding * 2))
-    
-    echo
-    echo -e "${C_GREEN}╔$(printf '═%.0s' $(seq 1 $total_width))╗${C_NC}"
-    echo -e "${C_GREEN}║${C_NC}$(printf ' %.0s' $(seq 1 $padding))${text}$(printf ' %.0s' $(seq 1 $padding))${C_GREEN}║${C_NC}"
-    echo -e "${C_GREEN}╚$(printf '═%.0s' $(seq 1 $total_width))╝${C_NC}"
-    echo
-}
-
-print_section() {
-    echo
-    echo -e "${C_BOLD_CYAN}━━━ $1 ━━━${C_NC}"
-}
-
-print_step() {
-    local step="$1"
-    local total="$2"
-    local desc="$3"
-    echo -e "${C_BOLD_CYAN}[$step/$total]${C_NC} $desc"
-}
-
-print_keyval() {
-    printf "  ${C_DIM}%-25s${C_NC} %s\n" "$1:" "$2"
-}
-
-completed_item() {
-    echo -e "  ${C_GREEN}${SYMBOL_CHECK}${C_NC} $1"
-}
-
-failed_item() {
-    echo -e "  ${C_RED}${SYMBOL_CROSS}${C_NC} $1"
-}
+info() { echo -e "${C_CYAN}INFO:${C_NC} $1"; }
+success() { echo -e "${C_GREEN}SUCCESS:${C_NC} $1"; }
+warning() { echo -e "${C_YELLOW}WARNING:${C_NC} $1"; }
+error() { echo -e "${C_RED}ERROR:${C_NC} $1" >&2; exit 1; }
 
 check_root() {
     if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
-        error "This script must be run as root. Please run: sudo ./gz302-uninstall.sh"
+        error "This script must be run as root."
     fi
 }
 
-detect_distribution() {
-    local distro=""
-    
-    if [[ -f /etc/os-release ]]; then
-        # shellcheck disable=SC1091
-        source /etc/os-release
-        
-        if [[ "${ID:-}" == "arch" || "${ID_LIKE:-}" == *"arch"* ]]; then
-            distro="arch"
-        elif [[ "${ID:-}" == "ubuntu" || "${ID:-}" == "debian" || "${ID:-}" == "pop" || "${ID:-}" == "linuxmint" || "${ID_LIKE:-}" == *"ubuntu" || "${ID_LIKE:-}" == *"debian" ]]; then
-            distro="ubuntu"
-        elif [[ "${ID:-}" == "fedora" || "${ID_LIKE:-}" == *"fedora"* ]]; then
-            distro="fedora"
-        elif [[ "${ID:-}" == "opensuse-tumbleweed" || "${ID:-}" == "opensuse-leap" || "${ID:-}" == "opensuse" || "${ID_LIKE:-}" == *"suse"* ]]; then
-            distro="opensuse"
-        fi
-    fi
-    
-    echo "$distro"
-}
-
-# --- Detection functions ---
-detect_hardware_fixes() {
-    local found=0
-    
-    [[ -f /etc/modprobe.d/mt7925.conf ]] && found=1
-    [[ -f /etc/modprobe.d/amdgpu.conf ]] && found=1
-    [[ -f /etc/modprobe.d/hid-asus.conf ]] && found=1
-    
-    return $((1 - found))
-}
-
-detect_tdp_management() {
-    local found=0
-    
-    [[ -f /usr/local/bin/pwrcfg ]] && found=1
-    [[ -f /usr/local/bin/pwrcfg-monitor ]] && found=1
-    [[ -f /etc/systemd/system/pwrcfg-auto.service ]] && found=1
-    [[ -f /etc/systemd/system/pwrcfg-monitor.service ]] && found=1
-    
-    return $((1 - found))
-}
-
-detect_refresh_management() {
-    local found=0
-    
-    [[ -f /usr/local/bin/rrcfg ]] && found=1
-    
-    return $((1 - found))
-}
-
-detect_folio_fix() {
-    local found=0
-    
-    [[ -f /usr/local/bin/gz302-folio-resume.sh ]] && found=1
-    [[ -f /etc/systemd/system/reload-hid_asus-resume.service ]] && found=1
-    
-    return $((1 - found))
-}
-
-detect_g14_kernel() {
-    local found=0
-    
-    if command -v pacman >/dev/null 2>&1; then
-        if pacman -Q linux-g14 >/dev/null 2>&1; then
-            found=1
-        fi
-    fi
-    
-    return $((1 - found))
-}
-
-# --- Uninstall functions ---
-uninstall_hardware_fixes() {
-    print_section "Removing Hardware Configuration"
-    
-    rm -f /etc/modprobe.d/mt7925.conf && completed_item "WiFi config removed" || true
-    rm -f /etc/modprobe.d/amdgpu.conf && completed_item "GPU config removed" || true
-    rm -f /etc/modprobe.d/hid-asus.conf && completed_item "HID config removed" || true
-    
-    # Remove HID reload service
-    if systemctl is-enabled reload-hid_asus.service >/dev/null 2>&1; then
-        systemctl disable reload-hid_asus.service 2>/dev/null || true
-    fi
-    systemctl stop reload-hid_asus.service 2>/dev/null || true
-    rm -f /etc/systemd/system/reload-hid_asus.service
-    completed_item "HID reload service removed"
-    
-    # Remove keyboard backlight restore script
-    rm -f /usr/lib/systemd/system-sleep/gz302-kbd-backlight
-    rm -rf /var/lib/gz302
-    
-    systemctl daemon-reload >/dev/null 2>&1
-    
-    warning "Reboot required to fully remove kernel module configurations"
-}
-
-uninstall_tdp_management() {
-    print_section "Removing TDP/Power Management"
-    
-    # Stop and disable services
-    if systemctl is-active pwrcfg-monitor.service >/dev/null 2>&1; then
-        systemctl stop pwrcfg-monitor.service 2>/dev/null || true
-    fi
-    if systemctl is-enabled pwrcfg-monitor.service >/dev/null 2>&1; then
-        systemctl disable pwrcfg-monitor.service 2>/dev/null || true
-    fi
-    if systemctl is-enabled pwrcfg-auto.service >/dev/null 2>&1; then
-        systemctl disable pwrcfg-auto.service 2>/dev/null || true
-    fi
-    completed_item "Services stopped and disabled"
-    
-    # Remove files
-    rm -f /usr/local/bin/pwrcfg && completed_item "pwrcfg command removed" || true
-    rm -f /usr/local/bin/pwrcfg-monitor && completed_item "pwrcfg-monitor removed" || true
-    rm -f /etc/systemd/system/pwrcfg-auto.service
-    rm -f /etc/systemd/system/pwrcfg-monitor.service
-    rm -rf /etc/gz302-tdp && completed_item "TDP config directory removed" || true
-    
-    # Remove sudoers rule if present
-    rm -f /etc/sudoers.d/pwrcfg
-    
-    systemctl daemon-reload >/dev/null 2>&1
-}
-
-uninstall_refresh_management() {
-    print_section "Removing Refresh Rate Management"
-    
-    rm -f /usr/local/bin/rrcfg && completed_item "rrcfg command removed" || true
-    rm -rf /etc/gz302-refresh && completed_item "Refresh config removed" || true
-}
-
-uninstall_folio_fix() {
-    print_section "Removing Folio Resume Fix"
-    
-    # Stop and disable service
-    if systemctl is-enabled reload-hid_asus-resume.service >/dev/null 2>&1; then
-        systemctl disable reload-hid_asus-resume.service 2>/dev/null || true
-    fi
-    systemctl stop reload-hid_asus-resume.service 2>/dev/null || true
-    
-    # Remove files
-    rm -f /usr/local/bin/gz302-folio-resume.sh
-    rm -f /etc/systemd/system/reload-hid_asus-resume.service
-    
-    systemctl daemon-reload >/dev/null 2>&1
-    
-    completed_item "Folio resume fix removed"
-}
-
-uninstall_g14_kernel() {
-    info "Removing linux-g14 kernel..."
-    
-    local distro
-    distro=$(detect_distribution)
-    
-    if [[ "$distro" != "arch" ]]; then
-        warning "linux-g14 kernel is Arch-specific. Skipping."
-        return 0
-    fi
-    
-    if ! command -v pacman >/dev/null 2>&1; then
-        warning "pacman not found. Cannot remove linux-g14 kernel."
-        return 0
-    fi
-    
-    # Check if linux-g14 is installed
-    if ! pacman -Q linux-g14 >/dev/null 2>&1; then
-        warning "linux-g14 kernel is not installed. Skipping."
-        return 0
-    fi
-    
-    echo
-    warning "Removing the linux-g14 kernel will require a reboot to another kernel."
-    echo "Available kernels on your system:"
-    pacman -Q | grep "^linux " || true
-    echo
-    read -r -p "Are you sure you want to remove linux-g14? (y/N): " response
-    
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-        info "Skipping linux-g14 kernel removal"
-        return 0
-    fi
-    
-    # Remove kernel and headers
-    if pacman -R --noconfirm linux-g14 linux-g14-headers 2>/dev/null; then
-        success "linux-g14 kernel removed"
-        
-        # Update bootloader
-        if command -v grub-mkconfig >/dev/null 2>&1; then
-            info "Updating GRUB..."
-            grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null || true
-        fi
-        if command -v bootctl >/dev/null 2>&1; then
-            info "Updating systemd-boot..."
-            bootctl update 2>/dev/null || true
-        fi
-        
-        warning "REBOOT REQUIRED - Select a different kernel from the boot menu"
-    else
-        warning "Failed to remove linux-g14 kernel"
+remove_file() {
+    if [[ -f "$1" ]]; then
+        rm -f "$1"
+        echo -e "  Removed file: $1"
     fi
 }
 
-# --- Main execution ---
+remove_dir() {
+    if [[ -d "$1" ]]; then
+        rm -rf "$1"
+        echo -e "  Removed directory: $1"
+    fi
+}
+
+disable_service() {
+    if systemctl list-unit-files "$1" &>/dev/null; then
+        systemctl stop "$1" 2>/dev/null || true
+        systemctl disable "$1" 2>/dev/null || true
+        echo -e "  Disabled service: $1"
+    fi
+    remove_file "/etc/systemd/system/$1"
+}
+
+# --- Main Uninstall Logic ---
+
 main() {
     check_root
     
-    print_box "GZ302 Setup Uninstaller"
-    
-    print_section "Scanning for Installed Components"
-    
-    # Detect what's installed
-    local components=()
-    local component_funcs=()
-    
-    if detect_hardware_fixes; then
-        components+=("Hardware fixes (kernel modules, modprobe configs)")
-        component_funcs+=("uninstall_hardware_fixes")
-        completed_item "Hardware fixes detected"
-    fi
-    
-    if detect_tdp_management; then
-        components+=("TDP/Power management (pwrcfg, services)")
-        component_funcs+=("uninstall_tdp_management")
-        completed_item "TDP management detected"
-    fi
-    
-    if detect_refresh_management; then
-        components+=("Refresh rate management (rrcfg)")
-        component_funcs+=("uninstall_refresh_management")
-        completed_item "Refresh management detected"
-    fi
-    
-    if detect_folio_fix; then
-        components+=("Folio resume fix (Optional)")
-        component_funcs+=("uninstall_folio_fix")
-        completed_item "Folio fix detected"
-    fi
-    
-    if detect_g14_kernel; then
-        components+=("Linux-G14 kernel (Optional, Arch only)")
-        component_funcs+=("uninstall_g14_kernel")
-        completed_item "G14 kernel detected"
-    fi
-    
-    # Check if anything is installed
-    if [[ ${#components[@]} -eq 0 ]]; then
-        echo
-        info "No GZ302 setup components detected on this system."
-        info "Nothing to uninstall."
+    echo -e "${C_BOLD}ASUS GZ302 Cleanup Utility${C_NC}"
+    echo "This will remove all GZ302 tools, services, and configurations."
+    echo
+    read -r -p "Are you sure you want to proceed? [y/N] " response
+    if [[ ! "$response" =~ ^[yY]$ ]]; then
+        echo "Aborted."
         exit 0
     fi
     
-    # Display detected components
-    print_section "Detected Components"
-    for i in "${!components[@]}"; do
-        echo -e "  ${C_BOLD_CYAN}$((i+1))${C_NC}) ${components[$i]}"
-    done
     echo
+    info "Stopping services..."
+    # Power Management
+    disable_service "pwrcfg-auto.service"
+    disable_service "pwrcfg-monitor.service"
+    disable_service "pwrcfg-resume.service"
     
-    # Get user selection
-    echo -e "${C_BOLD_CYAN}Select components to uninstall:${C_NC}"
-    echo -e "  ${C_DIM}Enter comma-separated numbers (e.g., 1,2,3) or 'all'${C_NC}"
-    read -r -p "> " selection
+    # RGB Persistence
+    disable_service "gz302-rgb-restore.service"
     
-    # Parse selection
-    local to_uninstall=()
-    if [[ "$selection" == "all" ]]; then
-        to_uninstall=("${component_funcs[@]}")
-    else
-        IFS=',' read -ra CHOICES <<< "$selection"
-        for choice in "${CHOICES[@]}"; do
-            choice=$(echo "$choice" | tr -d ' ')
-            if [[ "$choice" =~ ^[0-9]+$ ]] && [[ $choice -ge 1 ]] && [[ $choice -le ${#components[@]} ]]; then
-                to_uninstall+=("${component_funcs[$((choice-1))]}")
-            else
-                warning "Invalid choice: $choice (skipping)"
-            fi
-        done
-    fi
+    # Legacy services
+    disable_service "reload-hid_asus.service"
+    disable_service "reload-hid_asus-resume.service"
+    disable_service "gz302-kbd-backlight-restore.service"
     
-    # Confirm
-    if [[ ${#to_uninstall[@]} -eq 0 ]]; then
-        info "No components selected for removal."
-        exit 0
-    fi
+    # Reload systemd
+    systemctl daemon-reload
     
-    print_section "Components to Remove"
-    for func in "${to_uninstall[@]}"; do
-        for i in "${!component_funcs[@]}"; do
-            if [[ "${component_funcs[$i]}" == "$func" ]]; then
-                echo -e "  ${C_RED}•${C_NC} ${components[$i]}"
-            fi
-        done
-    done
     echo
+    info "Removing binaries and scripts..."
+    # Power/Display Tools
+    remove_file "/usr/local/bin/pwrcfg"
+    remove_file "/usr/local/bin/pwrcfg-monitor"
+    remove_file "/usr/local/bin/pwrcfg-restore"
+    remove_file "/usr/local/bin/rrcfg"
     
-    read -r -p "$(echo -e "${C_YELLOW}Continue with uninstallation? (y/N):${C_NC} ")" confirm
-    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-        info "Uninstallation cancelled"
-        exit 0
-    fi
+    # RGB Tools
+    remove_file "/usr/local/bin/gz302-rgb"
+    remove_file "/usr/local/bin/gz302-rgb-bin"
+    remove_file "/usr/local/bin/gz302-rgb-wrapper"
+    remove_file "/usr/local/bin/gz302-rgb-window"
+    remove_file "/usr/local/bin/gz302-rgb-restore"
     
-    # Perform uninstallation
-    for func in "${to_uninstall[@]}"; do
-        $func
+    # Legacy/Misc
+    remove_file "/usr/local/bin/gz302-folio-resume.sh"
+    remove_file "/usr/lib/systemd/system-sleep/gz302-kbd-backlight"
+    
+    echo
+    info "Removing Command Center / GUI..."
+    remove_dir "/usr/local/share/gz302"
+    remove_file "/usr/share/applications/gz302-command-center.desktop"
+    remove_file "/usr/share/applications/gz302-tray.desktop"  # Legacy name
+    
+    # Remove from all users' autostart (best effort)
+    for home in /home/*; do
+        remove_file "$home/.config/autostart/gz302-command-center.desktop"
+        remove_file "$home/.config/autostart/gz302-tray.desktop"
     done
     
-    # Summary
-    print_box "Uninstallation Complete"
+    echo
+    info "Removing configuration..."
+    remove_dir "/etc/gz302"
+    remove_dir "/var/lib/gz302"
+    remove_dir "/var/log/gz302"
     
-    print_keyval "Components removed" "${#to_uninstall[@]}"
+    # Remove legacy config dirs
+    remove_dir "/etc/gz302-tdp"
+    remove_dir "/etc/gz302-refresh"
+    remove_dir "/etc/gz302-rgb"
+    
     echo
-    warning "Some changes may require a reboot to take full effect"
+    info "Removing system integration..."
+    # Sudoers
+    remove_file "/etc/sudoers.d/gz302-pwrcfg"
+    remove_file "/etc/sudoers.d/gz302-command-center"
+    remove_file "/etc/sudoers.d/pwrcfg" # Legacy
+    
+    # Udev rules
+    remove_file "/etc/udev/rules.d/99-gz302-rgb.rules"
+    remove_file "/etc/udev/rules.d/99-gz302-keyboard.rules" # Legacy
+    udevadm control --reload || true
+    
+    # Modprobe configs
+    remove_file "/etc/modprobe.d/mt7925.conf"
+    remove_file "/etc/modprobe.d/amdgpu.conf"
+    remove_file "/etc/modprobe.d/hid-asus.conf"
+    remove_file "/etc/modprobe.d/cs35l41.conf"
+    
+    # ASUS Daemon override
+    remove_file "/etc/systemd/system/asusd.service.d/gz302-lightbar.conf"
+    if [[ -d "/etc/systemd/system/asusd.service.d" ]]; then
+        rmdir --ignore-fail-on-non-empty "/etc/systemd/system/asusd.service.d"
+    fi
+    
     echo
+    success "Uninstallation complete."
+    warning "A reboot is recommended to clear running kernel modules and processes."
 }
 
 main "$@"
