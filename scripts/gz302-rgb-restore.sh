@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 RGB Restore Script
-# Version: 3.0.3
+# Version: 3.0.4
 #
 # Restores the last used RGB setting on system boot and after resume.
 # Called by systemd service: gz302-rgb-restore.service
@@ -21,6 +21,15 @@ LEGACY_CONFIG="${CONFIG_DIR}/last-setting.conf"
 # Binary paths
 RGB_BIN="/usr/local/bin/gz302-rgb"
 WINDOW_BIN="/usr/local/bin/gz302-rgb-window"
+
+# Helper to read config values safely without sourcing
+get_config_var() {
+    local file="$1"
+    local key="$2"
+    if [[ -f "$file" ]]; then
+        grep "^${key}=" "$file" | head -n1 | cut -d'=' -f2- | tr -d '"' | tr -d "'"
+    fi
+}
 
 # Migrate old RGB config paths
 migrate_rgb_config() {
@@ -67,21 +76,26 @@ done
 
 # Restore keyboard RGB settings
 if [[ -f "$KEYBOARD_CONFIG" ]]; then
-    # shellcheck source=/dev/null
-    source "$KEYBOARD_CONFIG"
+    # Read values safely
+    KEYBOARD_COMMAND=$(get_config_var "$KEYBOARD_CONFIG" "KEYBOARD_COMMAND")
+    COMMAND=$(get_config_var "$KEYBOARD_CONFIG" "COMMAND")
+    ARGC=$(get_config_var "$KEYBOARD_CONFIG" "ARGC")
     
     # Handle new format (KEYBOARD_COMMAND)
     if [[ -n "${KEYBOARD_COMMAND:-}" ]] && [[ -x "$RGB_BIN" ]]; then
-        # KEYBOARD_COMMAND contains the full command string
-        eval "$RGB_BIN $KEYBOARD_COMMAND" 2>/dev/null || true
+        # KEYBOARD_COMMAND contains the full command string (e.g. "static ff0000")
+        # Split into array to avoid eval
+        read -r -a CMD_ARGS <<< "$KEYBOARD_COMMAND"
+        "$RGB_BIN" "${CMD_ARGS[@]}" 2>/dev/null || true
+        
     # Handle legacy format (COMMAND + ARG1, ARG2, etc.)
     elif [[ -n "${COMMAND:-}" && -n "${ARGC:-}" ]] && [[ -x "$RGB_BIN" ]]; then
-        args=()
-        args+=("$COMMAND")
+        # Reconstruct args array
+        args=("$COMMAND")
         for ((i=1; i<ARGC-1; i++)); do
-            var_name="ARG$i"
-            if [[ -n "${!var_name:-}" ]]; then
-                args+=("${!var_name}")
+            val=$(get_config_var "$KEYBOARD_CONFIG" "ARG$i")
+            if [[ -n "$val" ]]; then
+                args+=("$val")
             fi
         done
         "$RGB_BIN" "${args[@]}" 2>/dev/null || true
@@ -90,8 +104,8 @@ fi
 
 # Restore rear window/lightbar RGB settings
 if [[ -f "$WINDOW_CONFIG" ]]; then
-    # shellcheck source=/dev/null
-    source "$WINDOW_CONFIG"
+    WINDOW_BRIGHTNESS=$(get_config_var "$WINDOW_CONFIG" "WINDOW_BRIGHTNESS")
+    WINDOW_COLOR=$(get_config_var "$WINDOW_CONFIG" "WINDOW_COLOR")
     
     if [[ -n "${WINDOW_BRIGHTNESS:-}" ]] && [[ -x "$WINDOW_BIN" ]]; then
         "$WINDOW_BIN" --lightbar "$WINDOW_BRIGHTNESS" 2>/dev/null || true

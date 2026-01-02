@@ -8,11 +8,26 @@
 
 # ==============================================================================
 # GZ302 Shared Utilities Library
-# Version: 3.0.0
+# Version: 3.1.0
 #
 # This library contains shared functions for the GZ302 Linux Setup scripts.
 # It is sourced by gz302-main.sh and all optional modules.
 # ==============================================================================
+
+# --- System Paths (Single Source of Truth) ---
+export CONFIG_DIR="/etc/gz302"
+export BIN_DIR="/usr/local/bin"
+export STATE_DIR="/var/lib/gz302"
+export LOG_DIR="/var/log/gz302"
+export BACKUP_DIR="/var/backups/gz302"
+export UDEV_RULES_DIR="/etc/udev/rules.d"
+export SUDOERS_DIR="/etc/sudoers.d"
+export SYSTEMD_DIR="/etc/systemd/system"
+
+# Ensure directories exist (when running as root)
+if [[ $EUID -eq 0 ]]; then
+    mkdir -p "$CONFIG_DIR" "$STATE_DIR" "$LOG_DIR" "$BACKUP_DIR"
+fi
 
 # --- Color codes and formatting for beautiful output ---
 # Text colors (foreground)
@@ -217,7 +232,8 @@ finish_progress_bar() {
 print_keyval() {
     local key="$1"
     local val="$2"
-    printf "   ${C_BLUE}%-20s${C_NC} ${C_WHITE}%s${C_NC}\n" "$key:" "$val"
+    local width="${3:-20}"
+    printf "   ${C_BLUE}%-${width}s${C_NC} ${C_WHITE}%s${C_NC}\n" "$key:" "$val"
 }
 
 # Print a status line (used for showing current operation)
@@ -266,7 +282,8 @@ print_box() {
 
 # Print a tip/hint message
 print_tip() {
-    printf "${C_DIM}   💡 Tip: %s${C_NC}\n" "$1"
+    local tip="$1"
+    printf "${C_DIM}💡 ${C_ITALIC}%s${C_NC}\n" "$tip"
 }
 
 # Print the GZ302 banner (for script startup)
@@ -421,9 +438,8 @@ ensure_loader_entry_param() {
 # Creates timestamped backups of configurations before making changes
 # ==============================================================================
 
-# Backup directory location
-GZ302_BACKUP_DIR="/var/backups/gz302"
-GZ302_CHECKPOINT_FILE="/var/lib/gz302/checkpoint"
+# GZ302_BACKUP_DIR and GZ302_CHECKPOINT_FILE are now set from STATE_DIR and BACKUP_DIR
+GZ302_CHECKPOINT_FILE="${STATE_DIR}/checkpoint"
 
 # Create a backup of existing configurations before making changes
 # Usage: create_config_backup "description"
@@ -431,7 +447,7 @@ create_config_backup() {
     local description="${1:-system-configs}"
     local timestamp
     timestamp=$(date +%Y%m%d_%H%M%S)
-    local backup_subdir="${GZ302_BACKUP_DIR}/${timestamp}_${description}"
+    local backup_subdir="${BACKUP_DIR}/${timestamp}_${description}"
     
     # Create backup directory
     mkdir -p "$backup_subdir"
@@ -455,9 +471,9 @@ create_config_backup() {
     fi
     
     # Backup systemd services
-    if [[ -d /etc/systemd/system ]]; then
+    if [[ -d "$SYSTEMD_DIR" ]]; then
         local systemd_files
-        systemd_files=$(find /etc/systemd/system -name "*gz302*" 2>/dev/null || true)
+        systemd_files=$(find "$SYSTEMD_DIR" -name "*gz302*" 2>/dev/null || true)
         if [[ -n "$systemd_files" ]]; then
             mkdir -p "$backup_subdir/systemd"
             echo "$systemd_files" | while read -r f; do
@@ -468,9 +484,9 @@ create_config_backup() {
     fi
     
     # Backup sudoers entries
-    if [[ -d /etc/sudoers.d ]]; then
+    if [[ -d "$SUDOERS_DIR" ]]; then
         local sudoers_files
-        sudoers_files=$(find /etc/sudoers.d -name "*gz302*" -o -name "*pwrcfg*" -o -name "*rrcfg*" 2>/dev/null || true)
+        sudoers_files=$(find "$SUDOERS_DIR" -name "*gz302*" -o -name "*pwrcfg*" -o -name "*rrcfg*" 2>/dev/null || true)
         if [[ -n "$sudoers_files" ]]; then
             mkdir -p "$backup_subdir/sudoers.d"
             echo "$sudoers_files" | while read -r f; do
@@ -481,9 +497,9 @@ create_config_backup() {
     fi
     
     # Backup custom scripts
-    if [[ -d /usr/local/bin ]]; then
+    if [[ -d "$BIN_DIR" ]]; then
         local script_files
-        script_files=$(find /usr/local/bin -name "*gz302*" -o -name "pwrcfg" -o -name "rrcfg" 2>/dev/null || true)
+        script_files=$(find "$BIN_DIR" -name "*gz302*" -o -name "pwrcfg" -o -name "rrcfg" 2>/dev/null || true)
         if [[ -n "$script_files" ]]; then
             mkdir -p "$backup_subdir/bin"
             echo "$script_files" | while read -r f; do
@@ -494,7 +510,7 @@ create_config_backup() {
     fi
     
     # Backup config directories
-    for config_dir in /etc/gz302 /etc/gz302-tdp /etc/gz302-refresh /etc/gz302-rgb; do
+    for config_dir in "$CONFIG_DIR" "/etc/gz302-tdp" "/etc/gz302-refresh" "/etc/gz302-rgb"; do
         if [[ -d "$config_dir" ]]; then
             local dir_name
             dir_name=$(basename "$config_dir")
@@ -530,14 +546,14 @@ EOF
 
 # List available backups
 list_backups() {
-    if [[ ! -d "$GZ302_BACKUP_DIR" ]]; then
+    if [[ ! -d "$BACKUP_DIR" ]]; then
         info "No backups found"
         return 1
     fi
     
     print_subsection "Available Backups"
     local count=0
-    for backup in "$GZ302_BACKUP_DIR"/*; do
+    for backup in "$BACKUP_DIR"/*; do
         if [[ -d "$backup" ]]; then
             local name
             name=$(basename "$backup")
@@ -725,39 +741,6 @@ prompt_resume() {
         clear_checkpoint
         return 1
     fi
-}
-
-# ==============================================================================
-# ADDITIONAL DISPLAY UTILITIES
-# ==============================================================================
-
-# Print a tip/hint box
-print_tip() {
-    local tip="$1"
-    printf "${C_DIM}💡 ${C_ITALIC}%s${C_NC}\n" "$tip"
-}
-
-# Print a boxed message
-print_box() {
-    local msg="$1"
-    local width=${#msg}
-    width=$((width + 4))
-    
-    printf "${C_BOLD_WHITE}"
-    printf '┌'; printf '─%.0s' $(seq 1 $width); printf '┐\n'
-    printf '│  %s  │\n' "$msg"
-    printf '└'; printf '─%.0s' $(seq 1 $width); printf '┘'
-    printf "${C_NC}\n"
-}
-
-# Print aligned key-value pair
-# Usage: print_keyval "Key" "Value" [width]
-print_keyval() {
-    local key="$1"
-    local value="$2"
-    local width="${3:-20}"
-    
-    printf "   ${C_DIM}%-${width}s${C_NC} ${C_WHITE}%s${C_NC}\n" "$key:" "$value"
 }
 
 # Configure kernel parameters for rEFInd

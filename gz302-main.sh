@@ -20,7 +20,7 @@
 # - Power management (TDP control via pwrcfg)
 # - Refresh rate control (rrcfg)
 # - Keyboard RGB control (gz302-rgb - all colors and animations)
-# - System tray power manager
+# - System tray power manager (or use install-command-center.sh for tools only)
 #
 # Optional software can be installed via modular scripts:
 # - gz302-gaming: Gaming software (Steam, Lutris, MangoHUD, etc.)
@@ -49,7 +49,7 @@
 #    sudo ./gz302-main.sh
 #
 # OPTIONS:
-#    --power-tools-only  Skip hardware fixes and only install power management tools
+#    --power-tools-only  Skip hardware fixes (Deprecated: use install-command-center.sh)
 #                        (pwrcfg, rrcfg, and Control Center)
 #    -y, --assume-yes    Non-interactive mode, assume yes for all prompts
 # ==============================================================================
@@ -104,29 +104,56 @@ resolve_script_dir() {
 SCRIPT_DIR="${SCRIPT_DIR:-$(resolve_script_dir)}"
 
 # --- Load Shared Utilities ---
-if [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
+if [[ -f "${SCRIPT_DIR}/gz302-lib/utils.sh" ]]; then
     # shellcheck disable=SC1091
-    source "${SCRIPT_DIR}/gz302-utils.sh"
+    source "${SCRIPT_DIR}/gz302-lib/utils.sh"
 else
-    echo "gz302-utils.sh not found. Downloading..."
+    echo "gz302-lib/utils.sh not found. Downloading..."
     if command -v curl >/dev/null 2>&1; then
-        curl -L "${GITHUB_RAW_URL}/gz302-utils.sh" -o "${SCRIPT_DIR}/gz302-utils.sh"
+        curl -L "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -o "${SCRIPT_DIR}/gz302-lib/utils.sh"
     elif command -v wget >/dev/null 2>&1; then
-        wget "${GITHUB_RAW_URL}/gz302-utils.sh" -O "${SCRIPT_DIR}/gz302-utils.sh"
+        wget "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -O "${SCRIPT_DIR}/gz302-lib/utils.sh"
     else
-        echo "Error: curl or wget not found. Cannot download gz302-utils.sh"
+        echo "Error: curl or wget not found. Cannot download gz302-lib/utils.sh"
         exit 1
     fi
     
-    if [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
-        chmod +x "${SCRIPT_DIR}/gz302-utils.sh"
+    if [[ -f "${SCRIPT_DIR}/gz302-lib/utils.sh" ]]; then
+        chmod +x "${SCRIPT_DIR}/gz302-lib/utils.sh"
         # shellcheck disable=SC1091
-        source "${SCRIPT_DIR}/gz302-utils.sh"
+        source "${SCRIPT_DIR}/gz302-lib/utils.sh"
     else
-        echo "Error: Failed to download gz302-utils.sh"
+        echo "Error: Failed to download gz302-lib/utils.sh"
         exit 1
     fi
 fi
+
+# --- Load Libraries ---
+load_library() {
+    local lib_name="$1"
+    local lib_path="${SCRIPT_DIR}/gz302-lib/${lib_name}"
+    
+    if [[ -f "$lib_path" ]]; then
+        source "$lib_path"
+        return 0
+    else
+        # Try to download if not present
+        info "Downloading ${lib_name}..."
+        if command -v curl >/dev/null 2>&1; then
+            mkdir -p "${SCRIPT_DIR}/gz302-lib"
+            curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/${lib_name}" -o "$lib_path" || return 1
+            chmod +x "$lib_path"
+            source "$lib_path"
+            return 0
+        else
+            return 1
+        fi
+    fi
+}
+
+info "Loading libraries..."
+load_library "power-manager.sh" || warning "Failed to load power-manager.sh"
+load_library "display-manager.sh" || warning "Failed to load display-manager.sh"
 
 # --- Common helper functions ---
 
@@ -217,7 +244,7 @@ check_kernel_version() {
 }
 
 # --- Distribution Detection ---
-# (Moved to gz302-utils.sh)
+# (Moved to gz302-lib/utils.sh)
 
 # --- Hardware Fixes for All Distributions ---
 # Updated based on latest kernel support and community research (October 2025)
@@ -770,264 +797,6 @@ EOF
     fi
 }
 
-# --- GZ302 RGB Keyboard Control Installation ---
-install_gz302_rgb_keyboard() {
-    info "Installing GZ302 RGB Keyboard Control..."
-    
-    local distro="$1"
-    local build_dir="/tmp/gz302-rgb-build"
-    
-    # Check if gcc and libusb development headers are available
-    case "$distro" in
-        arch)
-            pacman -S --noconfirm --needed base-devel libusb 2>/dev/null || warning "Failed to install build dependencies"
-            ;;
-        ubuntu)
-            apt-get install -y build-essential libusb-1.0-0-dev 2>/dev/null || warning "Failed to install build dependencies"
-            ;;
-        fedora)
-            dnf install -y gcc make libusb1-devel 2>/dev/null || warning "Failed to install build dependencies"
-            ;;
-        opensuse)
-            zypper install -y gcc make libusb-1_0-devel 2>/dev/null || warning "Failed to install build dependencies"
-            ;;
-    esac
-    
-    # Create build directory
-    mkdir -p "$build_dir"
-    cd "$build_dir"
-    
-    # Download the RGB source files
-    info "Downloading GZ302 RGB control source..."
-    if ! curl -L "${GITHUB_RAW_URL}/gz302-rgb-cli.c" -o gz302-rgb-cli.c 2>/dev/null; then
-        warning "Failed to download gz302-rgb-cli.c"
-        return 1
-    fi
-    
-    if ! curl -L "${GITHUB_RAW_URL}/Makefile.rgb" -o Makefile -z Makefile 2>/dev/null; then
-        warning "Failed to download Makefile.rgb"
-        return 1
-    fi
-    
-    # Compile the RGB binary
-    info "Compiling GZ302 RGB control..."
-    if ! make -f Makefile 2>/dev/null; then
-        warning "Failed to compile gz302-rgb"
-        return 1
-    fi
-    
-    # Install the binary
-    # Remove existing files/symlinks first to prevent recursion loops or overwriting targets
-    rm -f /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper
-
-    if ! cp gz302-rgb /usr/local/bin/gz302-rgb 2>/dev/null; then
-        warning "Failed to install gz302-rgb binary"
-        return 1
-    fi
-    
-    chmod +x /usr/local/bin/gz302-rgb
-    
-    # Create wrapper script that ensures brightness is enabled
-    info "Creating RGB wrapper script with auto-brightness..."
-    cat > /usr/local/bin/gz302-rgb-wrapper <<'EOFWRAP'
-#!/bin/bash
-# GZ302 RGB Wrapper - Ensures keyboard brightness is enabled before RGB commands
-
-set -euo pipefail
-
-# For non-brightness commands, ensure keyboard is visible
-if [[ "${1:-}" != "brightness" ]] && [[ "${1:-}" != "" ]]; then
-    # Check current brightness
-    BRIGHTNESS_PATH="/sys/class/leds/asus::kbd_backlight/brightness"
-    if [[ -f "$BRIGHTNESS_PATH" ]]; then
-        CURRENT_BRIGHTNESS=$(cat "$BRIGHTNESS_PATH" 2>/dev/null || echo 0)
-        # If brightness is 0, set it to 3 (maximum) so RGB is visible
-        if [[ "$CURRENT_BRIGHTNESS" == "0" ]]; then
-            echo 3 > "$BRIGHTNESS_PATH" 2>/dev/null || true
-        fi
-    fi
-fi
-
-# Call the actual RGB binary
-exec /usr/local/bin/gz302-rgb-bin "$@"
-EOFWRAP
-    
-    chmod +x /usr/local/bin/gz302-rgb-wrapper
-    
-    # Rename binary to gz302-rgb-bin and replace with wrapper
-    mv /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
-    ln -sf /usr/local/bin/gz302-rgb-wrapper /usr/local/bin/gz302-rgb
-    
-    # Configure passwordless sudo for RGB control
-    info "Configuring passwordless sudo for RGB control..."
-    
-    # Check if gz302-pwrcfg sudoers file exists, if so add gz302-rgb to it
-    if [[ -f /etc/sudoers.d/gz302-pwrcfg ]]; then
-        if ! grep -q "gz302-rgb" /etc/sudoers.d/gz302-pwrcfg; then
-            cat >> /etc/sudoers.d/gz302-pwrcfg << EOF
-Defaults use_pty
-%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
-%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-bin
-%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-wrapper
-%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
-%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-bin
-%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-wrapper
-EOF
-        fi
-        # Add brightness control for tray icon if not present
-        if ! grep -q "tee /sys/class/leds" /etc/sudoers.d/gz302-pwrcfg; then
-            echo "# Allow tray icon to control keyboard/window backlight brightness" >> /etc/sudoers.d/gz302-pwrcfg
-            echo "ALL ALL=(ALL) NOPASSWD: /usr/bin/tee /sys/class/leds/*/brightness" >> /etc/sudoers.d/gz302-pwrcfg
-        fi
-    else
-        # Create new sudoers entry
-        cat > /etc/sudoers.d/gz302-pwrcfg <<EOF
-# GZ302 Power and RGB Control - Passwordless Sudo
-Defaults use_pty
-%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/pwrcfg
-%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/rrcfg
-%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
-%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-bin
-%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-wrapper
-%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/pwrcfg
-%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/rrcfg
-%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
-%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-bin
-%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-wrapper
-# Allow tray icon to control keyboard/window backlight brightness
-ALL ALL=(ALL) NOPASSWD: /usr/bin/tee /sys/class/leds/*/brightness
-EOF
-    fi
-    
-    chmod 440 /etc/sudoers.d/gz302-pwrcfg
-    
-    # Create RGB config directory
-    info "Setting up RGB persistence..."
-    mkdir -p /etc/gz302
-    chmod 755 /etc/gz302
-    
-    # Download and install restore script
-    if ! curl -L "${GITHUB_RAW_URL}/gz302-rgb-restore.sh" -o /usr/local/bin/gz302-rgb-restore 2>/dev/null; then
-        warning "Failed to download gz302-rgb-restore script"
-    else
-        chmod +x /usr/local/bin/gz302-rgb-restore
-        
-        # Configure passwordless sudo for restore script
-        if [[ -f /etc/sudoers.d/gz302-pwrcfg ]]; then
-            if ! grep -q "gz302-rgb-restore" /etc/sudoers.d/gz302-pwrcfg; then
-                echo "%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-restore" >> /etc/sudoers.d/gz302-pwrcfg
-                echo "%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-restore" >> /etc/sudoers.d/gz302-pwrcfg
-            fi
-        fi
-    fi
-    
-    # Download and install systemd service
-    if ! curl -L "${GITHUB_RAW_URL}/gz302-rgb-restore.service" -o /etc/systemd/system/gz302-rgb-restore.service 2>/dev/null; then
-        warning "Failed to download gz302-rgb-restore service"
-    else
-        systemctl daemon-reload
-        systemctl enable gz302-rgb-restore.service 2>/dev/null || warning "Failed to enable RGB restore service"
-        success "RGB persistence service installed"
-    fi
-    
-    # Verify RGB control works - test with white color at brightness 3
-    # Use timeout to prevent hanging if hardware enumeration gets stuck
-    info "Setting RGB to white (brightness 3)..."
-    if [[ -x /usr/local/bin/gz302-rgb ]]; then
-        local rgb_output
-        local rgb_exit_code
-        
-        # Ensure no lingering RGB processes are blocking the device
-        killall -q gz302-rgb-bin || true
-        
-        # Set keyboard to white at brightness 3
-        rgb_output=$(timeout 10 /usr/local/bin/gz302-rgb static ffffff 3 2>&1)
-        rgb_exit_code=$?
-        
-        # Also set the backlight/lightbar to white at brightness 3
-        timeout 10 /usr/local/bin/gz302-rgb window ffffff 3 2>&1 || true
-        
-        # Exit code 124 is returned by the timeout command when a timeout occurs
-        # (see: man timeout - "If the command times out, and --preserve-status is not set, then exit with status 124")
-        if [[ "$rgb_exit_code" -eq 124 ]]; then
-            # If it timed out but binary exists, we can likely assume it's just busy
-            warning "RGB control test timed out - device might be busy processing previous commands"
-            success "GZ302 RGB Keyboard Control installed (skipping verification)"
-        elif echo "$rgb_output" | grep -q "Sent\|Sending\|RGB"; then
-            success "GZ302 RGB Keyboard Control with persistence installed successfully"
-            info "Keyboard and backlight set to white (brightness 3)"
-        else
-            # Binary exists and runs, but no hardware detected (normal on non-GZ302 systems)
-            success "GZ302 RGB Keyboard Control installed (hardware not detected - normal for non-GZ302 systems)"
-        fi
-        return 0
-    else
-        warning "RGB control binary not found at /usr/local/bin/gz302-rgb"
-        return 1
-    fi
-}
-
-# --- GZ302 RGB Lightbar (Rear Window) Installation ---
-# Controls the rear glass window RGB lighting via USB 0b05:18c6 N-KEY Device
-install_gz302_rgb_lightbar() {
-    info "Installing GZ302 RGB Lightbar Control..."
-    
-    local script_path="${SCRIPT_DIR}/gz302-rgb-window.py"
-    local install_path="/usr/local/bin/gz302-rgb-window"
-    
-    # Download if not present locally
-    if [[ ! -f "$script_path" ]]; then
-        info "Downloading gz302-rgb-window.py..."
-        if ! curl -L "${GITHUB_RAW_URL}/gz302-rgb-window.py" -o "$script_path" 2>/dev/null; then
-            warning "Failed to download gz302-rgb-window.py"
-            return 1
-        fi
-    fi
-    
-    # Install the script
-    cp "$script_path" "$install_path"
-    chmod +x "$install_path"
-    info "Installed lightbar control to $install_path"
-    
-    # Create asusd drop-in service to prevent it from interfering with lightbar
-    # asusd creates /etc/asusd/aura_18c6.ron which breaks our lightbar control
-    info "Configuring asusd to not interfere with lightbar..."
-    mkdir -p /etc/systemd/system/asusd.service.d
-    cat > /etc/systemd/system/asusd.service.d/gz302-lightbar.conf <<'EOF'
-[Service]
-# Remove asusd's lightbar config after it starts to allow gz302-rgb-window to control it
-ExecStartPost=/bin/bash -c 'sleep 2; rm -f /etc/asusd/aura_18c6.ron 2>/dev/null || true'
-EOF
-    
-    # Add to sudoers for passwordless execution
-    if [[ -f /etc/sudoers.d/gz302-pwrcfg ]]; then
-        if ! grep -q "gz302-rgb-window" /etc/sudoers.d/gz302-pwrcfg; then
-            echo "%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-window" >> /etc/sudoers.d/gz302-pwrcfg
-            echo "%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb-window" >> /etc/sudoers.d/gz302-pwrcfg
-        fi
-    fi
-    
-    # Reload systemd and restart asusd if running
-    systemctl daemon-reload
-    if systemctl is-active --quiet asusd; then
-        systemctl restart asusd
-        # Wait for drop-in to execute
-        sleep 3
-    fi
-    
-    # Test lightbar control
-    info "Testing lightbar control..."
-    if timeout 5 "$install_path" --on 2>/dev/null; then
-        success "GZ302 RGB Lightbar Control installed and working"
-    else
-        warning "Lightbar test failed - may need reboot to take effect"
-    fi
-}
-
-# --- Distribution-Specific Package Installation ---
-# Install ASUS-specific tools and power management
-# GZ302 has NO discrete GPU, so no supergfxctl needed
-
 install_arch_asus_packages() {
     info "Installing ASUS control packages for Arch..."
     
@@ -1391,824 +1160,27 @@ install_opensuse_asus_packages() {
 
 # --- TDP Management Functions ---
 
-install_ryzenadj_arch() {
-    # Check if ryzenadj is already installed
-    if pacman -Qi ryzenadj >/dev/null 2>&1; then
-        success "ryzenadj already installed"
-        return 0
-    fi
-    
-    info "Installing ryzenadj for Arch-based system..."
-    
-    # Check for and remove conflicting packages first (only if installed)
-    if pacman -Qi ryzenadj-git >/dev/null 2>&1; then
-        info "Removing conflicting ryzenadj-git package..."
-        pacman -R --noconfirm ryzenadj-git 2>/dev/null || true
-    fi
-    
-    if command -v yay >/dev/null 2>&1; then
-        sudo -u "$SUDO_USER" yay -S --noconfirm ryzenadj
-    elif command -v paru >/dev/null 2>&1; then
-        sudo -u "$SUDO_USER" paru -S --noconfirm ryzenadj
-    else
-        warning "AUR helper (yay/paru) not found. Installing yay first..."
-        pacman -S --noconfirm git base-devel
-        cd /tmp
-        sudo -u "$SUDO_USER" git clone https://aur.archlinux.org/yay.git
-        cd yay
-        sudo -u "$SUDO_USER" makepkg -si --noconfirm
-        sudo -u "$SUDO_USER" yay -S --noconfirm ryzenadj
-    fi
-    success "ryzenadj installed"
-}
-
-install_ryzenadj_debian() {
-    # Check if ryzenadj is already installed
-    if command -v ryzenadj >/dev/null 2>&1; then
-        success "ryzenadj already installed"
-        return 0
-    fi
-    
-    info "Installing ryzenadj for Debian-based system..."
-    apt-get update
-    apt-get install -y build-essential cmake libpci-dev git
-    cd /tmp
-    git clone https://github.com/FlyGoat/RyzenAdj.git
-    cd RyzenAdj
-    mkdir build && cd build
-    cmake -DCMAKE_BUILD_TYPE=Release ..
-    make -j"$(nproc)"
-    make install
-    ldconfig
-    success "ryzenadj compiled and installed"
-}
-
-install_ryzenadj_fedora() {
-    # Check if ryzenadj is already installed
-    if command -v ryzenadj >/dev/null 2>&1; then
-        success "ryzenadj already installed"
-        return 0
-    fi
-    
-    info "Installing ryzenadj for Fedora-based system..."
-    dnf install -y gcc gcc-c++ cmake pciutils-devel git
-    cd /tmp
-    git clone https://github.com/FlyGoat/RyzenAdj.git
-    cd RyzenAdj
-    mkdir build && cd build
-    cmake -DCMAKE_BUILD_TYPE=Release ..
-    make -j"$(nproc)"
-    make install
-    ldconfig
-    success "ryzenadj compiled and installed"
-}
-
-install_ryzenadj_opensuse() {
-    # Check if ryzenadj is already installed
-    if command -v ryzenadj >/dev/null 2>&1; then
-        success "ryzenadj already installed"
-        return 0
-    fi
-    
-    info "Installing ryzenadj for OpenSUSE..."
-    zypper install -y gcc gcc-c++ cmake pciutils-devel git
-    cd /tmp
-    git clone https://github.com/FlyGoat/RyzenAdj.git
-    cd RyzenAdj
-    mkdir build && cd build
-    cmake -DCMAKE_BUILD_TYPE=Release ..
-    make -j"$(nproc)"
-    make install
-    ldconfig
-    success "ryzenadj compiled and installed"
-}
 
 setup_tdp_management() {
     local distro_family="$1"
     
-    
     info "Setting up TDP management for GZ302..."
     
-    # Install ryzenadj based on distribution
-    case "$distro_family" in
-        "arch")
-            install_ryzenadj_arch
-            ;;
-        "debian")
-            install_ryzenadj_debian
-            ;;
-        "fedora")
-            install_ryzenadj_fedora
-            ;;
-        "opensuse")
-            install_ryzenadj_opensuse
-            ;;
-    esac
-    
-    # Create TDP management script
-    cat > /usr/local/bin/pwrcfg <<'EOF'
-#!/bin/bash
-# GZ302 Power Configuration Script (pwrcfg)
-# Manages power profiles with SPL/sPPT/fPPT for AMD Ryzen AI MAX+ 395 (Strix Halo)
-
-set -euo pipefail
-
-# Determine if this command requires elevated privileges
-requires_elevation() {
-    local cmd="$1"
-    local arg="$2"
-    # Read-only commands that don't need root
-    case "$cmd" in
-        status|list|help|"")
-            return 1  # Does not require elevation
-            ;;
-        charge-limit)
-            # charge-limit without args is read-only, charge-limit <value> needs elevation
-            if [ -z "$arg" ]; then
-                return 1  # Read-only: doesn't require elevation
-            else
-                return 0  # Write operation: requires elevation
-            fi
-            ;;
-        *)
-            return 0  # All other commands require elevation
-            ;;
-    esac
-}
-
-# Auto-elevate only for commands that modify system state
-if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
-    if requires_elevation "${1:-}" "${2:-}"; then
-        if command -v sudo >/dev/null 2>&1; then
-            # If password-less sudo is configured, re-exec without prompting
-            if sudo -n true 2>/dev/null; then
-                exec sudo -n "$0" "$@"
-            fi
-            echo "pwrcfg requires elevated privileges to apply power limits." >&2
-            echo "Enable password-less sudo for /usr/local/bin/pwrcfg (recommended) or run with sudo." >&2
-            exit 1
-        else
-            echo "pwrcfg requires elevated privileges and 'sudo' was not found. Run as root." >&2
-            exit 1
-        fi
-    fi
-fi
-
-TDP_CONFIG_DIR="/etc/gz302/pwrcfg"
-CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
-AUTO_CONFIG_FILE="$TDP_CONFIG_DIR/auto-config"
-AC_PROFILE_FILE="$TDP_CONFIG_DIR/ac-profile"
-BATTERY_PROFILE_FILE="$TDP_CONFIG_DIR/battery-profile"
-
-# Power Profiles for GZ302 AMD Ryzen AI MAX+ 395 (Strix Halo)
-# SPL (Sustained Power Limit): Long-term steady power level
-# sPPT (Slow Power Boost): Short-term boost (up to ~2 minutes)
-# fPPT (Fast Power Boost): Very short-term boost (few seconds)
-# All values in milliwatts (mW)
-
-# Profile format: "SPL:sPPT:fPPT"
-declare -A POWER_PROFILES
-POWER_PROFILES[emergency]="10000:12000:12000"      # Emergency: 10W SPL, 12W boost (30Hz)
-POWER_PROFILES[battery]="18000:20000:20000"        # Battery: 18W SPL, 20W boost (30Hz)
-POWER_PROFILES[efficient]="30000:35000:35000"      # Efficient: 30W SPL, 35W boost (60Hz)
-POWER_PROFILES[balanced]="40000:45000:45000"       # Balanced: 40W SPL, 45W boost (90Hz)
-POWER_PROFILES[performance]="55000:60000:60000"    # Performance: 55W SPL, 60W boost (120Hz)
-POWER_PROFILES[gaming]="70000:80000:80000"         # Gaming: 70W SPL, 80W boost (180Hz)
-POWER_PROFILES[maximum]="90000:90000:90000"        # Maximum: 90W sustained (180Hz)
-
-# Target refresh rates for each power profile (auto-sync with rrcfg)
-declare -A REFRESH_RATES
-REFRESH_RATES[emergency]="30"
-REFRESH_RATES[battery]="30"
-REFRESH_RATES[efficient]="60"
-REFRESH_RATES[balanced]="90"
-REFRESH_RATES[performance]="120"
-REFRESH_RATES[gaming]="180"
-REFRESH_RATES[maximum]="180"
-
-# Create config directory
-mkdir -p "$TDP_CONFIG_DIR"
-
-show_usage() {
-    echo "Usage: pwrcfg [PROFILE|status|list|auto|config|verify|charge-limit]"
-    echo ""
-    echo "Power Profiles (SPL/sPPT/fPPT):"
-    echo "  emergency     - 10/12/12W  @ 30Hz  - Emergency battery extension"
-    echo "  battery       - 18/20/20W  @ 30Hz  - Maximum battery life"
-    echo "  efficient     - 30/35/35W  @ 60Hz  - Efficient with good performance"
-    echo "  balanced      - 40/45/45W  @ 90Hz  - Balanced performance/efficiency (default)"
-    echo "  performance   - 55/60/60W  @ 120Hz - High performance (AC recommended)"
-    echo "  gaming        - 70/80/80W  @ 180Hz - Gaming optimized (AC required)"
-    echo "  maximum       - 90/90/90W  @ 180Hz - Absolute maximum (AC only)"
-    echo ""
-    echo "Commands:"
-    echo "  status              - Show current power profile and settings"
-    echo "  list                - List available profiles with details"
-    echo "  auto                - Enable/disable automatic profile switching"
-    echo "  config              - Configure automatic profile preferences"
-    echo "  verify              - Verify that power limits match the current profile"
-    echo "  charge-limit [80|100] - Set battery charge limit (80% or 100%)"
-    echo ""
-    echo "Notes:"
-    echo "  - Refresh rate changes automatically with power profile"
-    echo "  - Use 'rrcfg' to manually override refresh rate"
-    echo "  - SPL: Sustained Power Limit (long-term steady power)"
-    echo "  - sPPT: Slow Power Boost (short-term, ~2 minutes)"
-    echo "  - fPPT: Fast Power Boost (very short-term, few seconds)"
-    echo "  - charge-limit: Helps extend battery lifespan by limiting max charge"
-    echo "  - verify: Checks if hardware matches profile (requires ryzenadj + ryzen_smu-dkms-git)"
-}
-
-get_battery_status() {
-    # Try multiple methods to detect AC adapter status
-    
-    # Method 1: Check common AC adapter names
-    for adapter in ADP1 ADP0 ACAD AC0 AC; do
-        if [ -f "/sys/class/power_supply/$adapter/online" ]; then
-            if [ "$(cat /sys/class/power_supply/$adapter/online 2>/dev/null)" = "1" ]; then
-                echo "AC"
-                return 0
-            else
-                echo "Battery"
-                return 0
-            fi
-        fi
-    done
-    
-    # Method 2: Check all power supplies for AC adapter type
-    if [ -d /sys/class/power_supply ]; then
-        for ps in /sys/class/power_supply/*; do
-            if [ -d "$ps" ] && [ -f "$ps/type" ]; then
-                type=$(cat "$ps/type" 2>/dev/null)
-                if [ "$type" = "Mains" ] || [ "$type" = "ADP" ]; then
-                    if [ -f "$ps/online" ]; then
-                        if [ "$(cat "$ps/online" 2>/dev/null)" = "1" ]; then
-                            echo "AC"
-                            return 0
-                        else
-                            echo "Battery"
-                            return 0
-                        fi
-                    fi
-                fi
-            fi
-        done
-    fi
-    
-    # Method 3: Use upower if available
-    if command -v upower >/dev/null 2>&1; then
-        local ac_status=$(upower -i $(upower -e | grep -E 'ADP|ACA|AC') 2>/dev/null | grep -i "online" | grep -i "true")
-        if [ -n "$ac_status" ]; then
-            echo "AC"
-            return 0
-        else
-            local ac_devices=$(upower -e | grep -E 'ADP|ACA|AC' 2>/dev/null)
-            if [ -n "$ac_devices" ]; then
-                echo "Battery"
-                return 0
-            fi
-        fi
-    fi
-    
-    # Method 4: Use acpi if available
-    if command -v acpi >/dev/null 2>&1; then
-        local ac_status=$(acpi -a 2>/dev/null | grep -i "on-line\|online")
-        if [ -n "$ac_status" ]; then
-            echo "AC"
-            return 0
-        else
-            local ac_info=$(acpi -a 2>/dev/null)
-            if [ -n "$ac_info" ]; then
-                echo "Battery"
-                return 0
-            fi
-        fi
-    fi
-    
-    echo "Unknown"
-}
-
-get_battery_percentage() {
-    # Try multiple methods to get battery percentage
-    
-    # Method 1: Check common battery names
-    for battery in BAT0 BAT1 BATT; do
-        if [ -f "/sys/class/power_supply/$battery/capacity" ]; then
-            local capacity=$(cat "/sys/class/power_supply/$battery/capacity" 2>/dev/null)
-            # Validate that capacity is numeric
-            if [ -n "$capacity" ] && [[ "$capacity" =~ ^[0-9]+$ ]] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
-                echo "$capacity"
-                return 0
-            fi
-        fi
-    done
-    
-    # Method 2: Check all power supplies for Battery type
-    if [ -d /sys/class/power_supply ]; then
-        for ps in /sys/class/power_supply/*; do
-            if [ -d "$ps" ] && [ -f "$ps/type" ]; then
-                type=$(cat "$ps/type" 2>/dev/null)
-                if [ "$type" = "Battery" ]; then
-                    if [ -f "$ps/capacity" ]; then
-                        local capacity=$(cat "$ps/capacity" 2>/dev/null)
-                        # Validate that capacity is numeric
-                        if [ -n "$capacity" ] && [[ "$capacity" =~ ^[0-9]+$ ]] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
-                            echo "$capacity"
-                            return 0
-                        fi
-                    fi
-                fi
-            fi
-        done
-    fi
-    
-    # Method 3: Use upower if available
-    if command -v upower >/dev/null 2>&1; then
-        local capacity=$(upower -i $(upower -e | grep 'BAT') 2>/dev/null | grep -E "percentage" | grep -o '[0-9]*')
-        # Validate that capacity is numeric
-        if [ -n "$capacity" ] && [[ "$capacity" =~ ^[0-9]+$ ]] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
-            echo "$capacity"
-            return 0
-        fi
-    fi
-    
-    # Method 4: Use acpi if available
-    if command -v acpi >/dev/null 2>&1; then
-        local capacity=$(acpi -b 2>/dev/null | grep -o '[0-9]\+%' | head -1 | tr -d '%')
-        # Validate that capacity is numeric
-        if [ -n "$capacity" ] && [[ "$capacity" =~ ^[0-9]+$ ]] && [ "$capacity" -ge 0 ] && [ "$capacity" -le 100 ]; then
-            echo "$capacity"
-            return 0
-        fi
-    fi
-    
-    echo "N/A"
-}
-
-set_tdp_profile() {
-    local profile="$1"
-    local power_spec="${POWER_PROFILES[$profile]}"
-    
-    if [ -z "$power_spec" ]; then
-        echo "Error: Unknown profile '$profile'"
-        echo "Use 'pwrcfg list' to see available profiles"
-        return 1
-    fi
-    
-    # Extract SPL, sPPT, fPPT from profile (format: "SPL:sPPT:fPPT")
-    local spl=$(echo "$power_spec" | cut -d':' -f1)
-    local sppt=$(echo "$power_spec" | cut -d':' -f2)
-    local fppt=$(echo "$power_spec" | cut -d':' -f3)
-    
-    echo "Setting power profile: $profile"
-    echo "  SPL (Sustained):  $(($spl / 1000))W"
-    echo "  sPPT (Slow Boost): $(($sppt / 1000))W"
-    echo "  fPPT (Fast Boost): $(($fppt / 1000))W"
-    echo "  Target Refresh:    ${REFRESH_RATES[$profile]}Hz"
-    
-    # Check if we're on AC power for high-power profiles
-    local power_source=$(get_battery_status)
-    if [ "$power_source" = "Battery" ] && [ "$spl" -gt 45000 ]; then
-        echo "Warning: High power profile ($profile) selected while on battery power"
-        echo "This may cause rapid battery drain. Consider using 'balanced' or lower profiles."
-        read -p "Continue anyway? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo "Operation cancelled"
-            return 1
-        fi
-    fi
-    
-    # Try multiple methods to apply power settings
-    local success=false
-    
-    # Method 1: Try ryzenadj first (with SPL/sPPT/fPPT support)
-    if command -v ryzenadj >/dev/null 2>&1; then
-        echo "Attempting to apply power limits using ryzenadj..."
-        # --stapm-limit = SPL (Sustained Power Limit)
-        # --slow-limit = sPPT (Slow Package Power Tracking)
-        # --fast-limit = fPPT (Fast Package Power Tracking)
-        if ryzenadj --stapm-limit="$spl" --slow-limit="$sppt" --fast-limit="$fppt" >/dev/null 2>&1; then
-            success=true
-            echo "Power limits applied successfully using ryzenadj"
-            
-            # Sync with power-profiles-daemon for KDE/HHD integration
-            if command -v powerprofilesctl >/dev/null 2>&1; then
-                case "$profile" in
-                    maximum|gaming|performance)
-                        powerprofilesctl set performance >/dev/null 2>&1 && echo "Synced with power-profiles-daemon (performance)"
-                        ;;
-                    balanced|efficient)
-                        powerprofilesctl set balanced >/dev/null 2>&1 && echo "Synced with power-profiles-daemon (balanced)"
-                        ;;
-                    battery|emergency)
-                        powerprofilesctl set power-saver >/dev/null 2>&1 && echo "Synced with power-profiles-daemon (power-saver)"
-                        ;;
-                esac
-            fi
-        else
-            echo "ryzenadj failed, checking for common issues..."
-            
-            # Check for secure boot issues
-            if dmesg | grep -i "secure boot" >/dev/null 2>&1; then
-                echo "Secure boot may be preventing direct hardware access"
-                echo "Consider disabling secure boot in BIOS for full power control"
-            fi
-            
-            # Check for permissions
-            if [ ! -w /dev/mem ] 2>/dev/null; then
-                echo "Insufficient permissions for direct memory access"
-            fi
-            
-            echo "Trying alternative methods..."
-        fi
+    # Install ryzenadj using library
+    if command -v power_install_ryzenadj >/dev/null; then
+        power_install_ryzenadj "$distro_family"
     else
-        echo "ryzenadj not found, trying alternative methods..."
+        warning "Power library not loaded, skipping ryzenadj install check"
     fi
     
-    # Method 2: Try power profiles daemon if available
-    if [ "$success" = false ] && command -v powerprofilesctl >/dev/null 2>&1; then
-        echo "Attempting to use power-profiles-daemon..."
-        case "$profile" in
-            maximum|gaming|performance)
-                if powerprofilesctl set performance >/dev/null 2>&1; then
-                    echo "Set system power profile to performance mode"
-                    success=true
-                fi
-                ;;
-            balanced|efficient)
-                if powerprofilesctl set balanced >/dev/null 2>&1; then
-                    echo "Set system power profile to balanced mode"
-                    success=true
-                fi
-                ;;
-            battery|emergency)
-                if powerprofilesctl set power-saver >/dev/null 2>&1; then
-                    echo "Set system power profile to power-saver mode"
-                    success=true
-                fi
-                ;;
-        esac
-    fi
-    
-    # Method 3: Try cpupower if available (frequency scaling)
-    if [ "$success" = false ] && command -v cpupower >/dev/null 2>&1; then
-        echo "Attempting to use cpupower for frequency scaling..."
-        case "$profile" in
-            maximum|gaming|performance)
-                if cpupower frequency-set -g performance >/dev/null 2>&1; then
-                    echo "Set CPU governor to performance"
-                    success=true
-                fi
-                ;;
-            battery|emergency)
-                if cpupower frequency-set -g powersave >/dev/null 2>&1; then
-                    echo "Set CPU governor to powersave"
-                    success=true
-                fi
-                ;;
-            *)
-                if cpupower frequency-set -g ondemand >/dev/null 2>&1 || cpupower frequency-set -g schedutil >/dev/null 2>&1; then
-                    echo "Set CPU governor to dynamic scaling"
-                    success=true
-                fi
-                ;;
-        esac
-    fi
-    
-    if [ "$success" = true ]; then
-        echo "$profile" > "$CURRENT_PROFILE_FILE"
-        echo "Power profile '$profile' applied successfully"
-        
-        # Store timestamp and power source for automatic switching
-        echo "$(date +%s)" > "$TDP_CONFIG_DIR/last-change"
-        echo "$power_source" > "$TDP_CONFIG_DIR/last-power-source"
-        
-        # Automatically adjust refresh rate based on power profile (unless user manually overrides)
-        if command -v rrcfg >/dev/null 2>&1; then
-            local target_refresh="${REFRESH_RATES[$profile]}"
-            echo "Adjusting refresh rate to ${target_refresh}Hz to match power profile..."
-            rrcfg "$profile" >/dev/null 2>&1 || echo "Note: Refresh rate adjustment failed (use 'rrcfg' to set manually)"
-        fi
-        
-        return 0
+    # Install pwrcfg script
+    if command -v power_get_pwrcfg_script >/dev/null; then
+        power_get_pwrcfg_script > /usr/local/bin/pwrcfg
+        chmod +x /usr/local/bin/pwrcfg
+        power_init_config
     else
-        echo "Error: Failed to apply power profile using any available method"
-        echo ""
-        echo "Troubleshooting steps:"
-        echo "1. Ensure you're running as root (sudo)"
-        echo "2. Check if secure boot is disabled in BIOS"
-        echo "3. Verify ryzenadj is properly installed"
-        echo "4. Try rebooting and running the command again"
-        return 1
+        error "Power library missing. Cannot install pwrcfg."
     fi
-}
-
-show_status() {
-    local power_source=$(get_battery_status)
-    local battery_pct=$(get_battery_percentage)
-    local current_profile="Unknown"
-    
-    if [ -f "$CURRENT_PROFILE_FILE" ]; then
-        current_profile=$(cat "$CURRENT_PROFILE_FILE")
-    fi
-    
-    echo "GZ302 Power Status:"
-    echo "  Power Source: $power_source"
-    echo "  Battery: $battery_pct%"
-    echo "  Charge Limit: $(get_charge_limit)%"
-    echo "  Current Profile: $current_profile"
-    
-    if [ "$current_profile" != "Unknown" ] && [ -n "${POWER_PROFILES[$current_profile]}" ]; then
-        local power_spec="${POWER_PROFILES[$current_profile]}"
-        local spl=$(echo "$power_spec" | cut -d':' -f1)
-        local sppt=$(echo "$power_spec" | cut -d':' -f2)
-        local fppt=$(echo "$power_spec" | cut -d':' -f3)
-        echo "  SPL:  $(($spl / 1000))W (Sustained)"
-        echo "  sPPT: $(($sppt / 1000))W (Slow Boost)"
-        echo "  fPPT: $(($fppt / 1000))W (Fast Boost)"
-        echo "  Target Refresh: ${REFRESH_RATES[$current_profile]}Hz"
-    fi
-}
-
-list_profiles() {
-    echo "Available Power Profiles (SPL/sPPT/fPPT @ Refresh):"
-    for profile in emergency battery efficient balanced performance gaming maximum; do
-        if [ -n "${POWER_PROFILES[$profile]}" ]; then
-            local power_spec="${POWER_PROFILES[$profile]}"
-            local spl=$(echo "$power_spec" | cut -d':' -f1)
-            local sppt=$(echo "$power_spec" | cut -d':' -f2)
-            local fppt=$(echo "$power_spec" | cut -d':' -f3)
-            local refresh="${REFRESH_RATES[$profile]}"
-            printf "  %-12s %2d/%2d/%2dW @ %3dHz\n" "$profile:" $(($spl/1000)) $(($sppt/1000)) $(($fppt/1000)) $refresh
-        fi
-    done
-}
-
-# Battery charge limit management
-get_charge_limit() {
-    # Read current battery charge limit
-    local charge_limit_path="/sys/class/power_supply/BAT0/charge_control_end_threshold"
-    if [ -f "$charge_limit_path" ]; then
-        cat "$charge_limit_path"
-    else
-        echo "N/A"
-    fi
-}
-
-set_charge_limit() {
-    local limit="$1"
-    local charge_limit_path="/sys/class/power_supply/BAT0/charge_control_end_threshold"
-    
-    if [ ! -f "$charge_limit_path" ]; then
-        echo "Error: Battery charge limit not supported on this system"
-        echo "File not found: $charge_limit_path"
-        return 1
-    fi
-    
-    # Validate input
-    if [ "$limit" != "80" ] && [ "$limit" != "100" ]; then
-        echo "Error: Charge limit must be 80 or 100"
-        return 1
-    fi
-    
-    # Set the charge limit
-    if echo "$limit" > "$charge_limit_path" 2>/dev/null; then
-        echo "Battery charge limit set to $limit%"
-        return 0
-    else
-        echo "Error: Failed to set battery charge limit to $limit%"
-        echo "You may need to run this with sudo"
-        return 1
-    fi
-}
-
-# Configuration management functions
-configure_auto_switching() {
-    echo "Configuring automatic TDP profile switching..."
-    echo ""
-    
-    local auto_enabled="false"
-    read -p "Enable automatic profile switching based on power source? (Y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-        auto_enabled="true"
-        
-        echo ""
-        echo "Select AC power profile (when plugged in):"
-        list_profiles
-        echo ""
-        read -p "AC profile [gaming]: " ac_profile || true
-        ac_profile="${ac_profile:-gaming}"
-        
-        if [ -z "${POWER_PROFILES[$ac_profile]:-}" ]; then
-            echo "Invalid profile, using 'gaming'"
-            ac_profile="gaming"
-        fi
-        
-        echo ""
-        echo "Select battery profile (when on battery):"
-        list_profiles
-        echo ""
-        read -p "Battery profile [battery]: " battery_profile || true
-        battery_profile="${battery_profile:-battery}"
-        
-        if [ -z "${POWER_PROFILES[$battery_profile]:-}" ]; then
-            echo "Invalid profile, using 'battery'"
-            battery_profile="battery"
-        fi
-        
-        # Save configuration
-        echo "$auto_enabled" > "$AUTO_CONFIG_FILE"
-        echo "$ac_profile" > "$AC_PROFILE_FILE"
-        echo "$battery_profile" > "$BATTERY_PROFILE_FILE"
-        
-        echo ""
-        echo "Automatic switching configured:"
-        echo "  AC power: $ac_profile"
-        echo "  Battery: $battery_profile"
-        echo ""
-        echo "Starting automatic switching service..."
-        systemctl enable pwrcfg-auto.service >/dev/null 2>&1
-        systemctl start pwrcfg-auto.service >/dev/null 2>&1
-    else
-        echo "false" > "$AUTO_CONFIG_FILE"
-        systemctl disable pwrcfg-auto.service >/dev/null 2>&1
-        systemctl stop pwrcfg-auto.service >/dev/null 2>&1
-        echo "Automatic switching disabled"
-    fi
-}
-
-verify_tdp_settings() {
-    # Verify if current TDP settings match the desired profile
-    # Returns 0 if settings match, 1 if they don't match or can't be verified
-    
-    if ! command -v ryzenadj >/dev/null 2>&1; then
-        # Can't verify without ryzenadj
-        return 1
-    fi
-    
-    local current_profile=""
-    if [ -f "$CURRENT_PROFILE_FILE" ]; then
-        current_profile=$(cat "$CURRENT_PROFILE_FILE" 2>/dev/null | tr -d ' \n')
-    fi
-    
-    if [ -z "$current_profile" ] || [ -z "${POWER_PROFILES[$current_profile]:-}" ]; then
-        # No valid profile set
-        return 1
-    fi
-    
-    # Get expected values from profile
-    local power_spec="${POWER_PROFILES[$current_profile]}"
-    local expected_spl=$(echo "$power_spec" | cut -d':' -f1)
-    local expected_sppt=$(echo "$power_spec" | cut -d':' -f2)
-    local expected_fppt=$(echo "$power_spec" | cut -d':' -f3)
-    
-    # Get current values from ryzenadj (requires ryzen_smu-dkms-git or similar)
-    local ryzenadj_info
-    if ! ryzenadj_info=$(ryzenadj -i 2>/dev/null); then
-        # Can't read current settings
-        return 1
-    fi
-    
-    # Parse current STAPM LIMIT (SPL), PPT LIMIT SLOW (sPPT), PPT LIMIT FAST (fPPT)
-    # Example output format: "STAPM LIMIT: 35000 | 35.0 W"
-    local current_spl=$(echo "$ryzenadj_info" | grep -i "STAPM LIMIT" | grep -o "[0-9]\+" | head -1)
-    local current_sppt=$(echo "$ryzenadj_info" | grep -i "PPT LIMIT SLOW" | grep -o "[0-9]\+" | head -1)
-    local current_fppt=$(echo "$ryzenadj_info" | grep -i "PPT LIMIT FAST" | grep -o "[0-9]\+" | head -1)
-    
-    # Check if we got valid readings
-    if [ -z "$current_spl" ] || [ -z "$current_sppt" ] || [ -z "$current_fppt" ]; then
-        # Couldn't parse settings
-        return 1
-    fi
-    
-    # Allow small tolerance (±500mW) for floating point rounding
-    local tolerance=500
-    
-    if [ $((current_spl - expected_spl)) -gt $tolerance ] || [ $((expected_spl - current_spl)) -gt $tolerance ] || \
-       [ $((current_sppt - expected_sppt)) -gt $tolerance ] || [ $((expected_sppt - current_sppt)) -gt $tolerance ] || \
-       [ $((current_fppt - expected_fppt)) -gt $tolerance ] || [ $((expected_fppt - current_fppt)) -gt $tolerance ]; then
-        # Settings don't match
-        return 1
-    fi
-    
-    # Settings match
-    return 0
-}
-
-verify_and_reapply() {
-    # Verify current TDP settings and re-apply if they don't match
-    # This is used by the monitor to maintain settings after system events
-    
-    local current_profile=""
-    if [ -f "$CURRENT_PROFILE_FILE" ]; then
-        current_profile=$(cat "$CURRENT_PROFILE_FILE" 2>/dev/null | tr -d ' \n')
-    fi
-    
-    if [ -z "$current_profile" ] || [ -z "${POWER_PROFILES[$current_profile]:-}" ]; then
-        # No valid profile set, nothing to verify
-        return 0
-    fi
-    
-    # Check if settings match
-    if ! verify_tdp_settings 2>/dev/null; then
-        # Settings don't match or couldn't be verified, re-apply
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Power limits reset detected, re-applying profile: $current_profile"
-        set_tdp_profile "$current_profile" >/dev/null 2>&1
-    fi
-}
-
-auto_switch_profile() {
-    # Check if auto switching is enabled
-    if [ -f "$AUTO_CONFIG_FILE" ] && [ "$(cat "$AUTO_CONFIG_FILE" 2>/dev/null)" = "true" ]; then
-        local current_power=$(get_battery_status)
-        local last_power_source=""
-        
-        if [ -f "$TDP_CONFIG_DIR/last-power-source" ]; then
-            last_power_source=$(cat "$TDP_CONFIG_DIR/last-power-source" 2>/dev/null)
-        fi
-        
-        # Only switch if power source changed
-        if [ "$current_power" != "$last_power_source" ]; then
-            case "$current_power" in
-                "AC")
-                    if [ -f "$AC_PROFILE_FILE" ]; then
-                        local ac_profile=$(cat "$AC_PROFILE_FILE" 2>/dev/null)
-                        if [ -n "$ac_profile" ] && [ -n "${POWER_PROFILES[$ac_profile]:-}" ]; then
-                            echo "Power source changed to AC, switching to profile: $ac_profile"
-                            set_tdp_profile "$ac_profile"
-                        fi
-                    fi
-                    ;;
-                "Battery")
-                    if [ -f "$BATTERY_PROFILE_FILE" ]; then
-                        local battery_profile=$(cat "$BATTERY_PROFILE_FILE" 2>/dev/null)
-                        if [ -n "$battery_profile" ] && [ -n "${POWER_PROFILES[$battery_profile]:-}" ]; then
-                            echo "Power source changed to Battery, switching to profile: $battery_profile"
-                            set_tdp_profile "$battery_profile"
-                        fi
-                    fi
-                    ;;
-            esac
-        fi
-    fi
-    
-    # Always verify and re-apply if needed (handles sleep/wake, AC events, etc.)
-    verify_and_reapply
-}
-
-# Main script logic
-case "${1:-}" in
-    maximum|gaming|performance|balanced|efficient|battery|emergency)
-        set_tdp_profile "$1"
-        ;;
-    status)
-        show_status
-        ;;
-    list)
-        list_profiles
-        ;;
-    auto)
-        auto_switch_profile
-        ;;
-    config)
-        configure_auto_switching
-        ;;
-    verify)
-        if verify_tdp_settings; then
-            echo "✓ Power limits are correctly applied and match the current profile"
-            exit 0
-        else
-            echo "✗ Power limits do not match the current profile or cannot be verified"
-            echo "  This may indicate:"
-            echo "  - System event reset the limits (sleep/wake, AC plug/unplug)"
-            echo "  - ryzenadj or ryzen_smu-dkms-git is not installed"
-            echo "  - Secure boot is preventing hardware access"
-            echo ""
-            echo "  Run 'pwrcfg <profile>' to re-apply power limits"
-            exit 1
-        fi
-        ;;
-    charge-limit)
-        if [ -z "${2:-}" ]; then
-            echo "Current battery charge limit: $(get_charge_limit)%"
-        else
-            set_charge_limit "$2"
-        fi
-        ;;
-    "")
-        show_usage
-        ;;
-    *)
-        echo "Error: Unknown command '$1'"
-        show_usage
-        exit 1
-        ;;
-esac
-EOF
-
-    chmod +x /usr/local/bin/pwrcfg
     
     # Automatically configure sudoers for password-less pwrcfg/rrcfg/RGB
     info "Configuring password-less sudo for power management and RGB control..."
@@ -2219,7 +1191,7 @@ EOF
     local SUDOERS_TMP
     SUDOERS_TMP=$(mktemp /tmp/gz302-pwrcfg.XXXXXX)
     
-    cat > "$SUDOERS_TMP" << EOF
+    cat > "$SUDOERS_TMP" << SUDO_EOF
 # GZ302 Power and RGB Control - Passwordless Sudo
 Defaults use_pty
 %wheel ALL=(ALL) NOPASSWD: $PWRCFG_PATH
@@ -2230,20 +1202,19 @@ Defaults use_pty
 %sudo ALL=(ALL) NOPASSWD: $RGB_PATH
 # Allow tray icon to control keyboard/window backlight brightness
 ALL ALL=(ALL) NOPASSWD: /usr/bin/tee /sys/class/leds/*/brightness
-EOF
+SUDO_EOF
     
     if visudo -c -f "$SUDOERS_TMP" >/dev/null 2>&1; then
         mv "$SUDOERS_TMP" "$SUDOERS_FILE"
         chmod 440 "$SUDOERS_FILE"
-        success "Sudoers configured: password-less sudo enabled for pwrcfg, rrcfg, and RGB control"
-        info "Users in 'wheel' (Arch) or 'sudo' (Ubuntu/Debian) group can now use these commands without sudo or password"
+        success "Sudoers configured"
     else
         rm -f "$SUDOERS_TMP"
-        warning "Sudoers validation failed; password-less sudo not configured (you can configure manually later)"
+        warning "Sudoers validation failed"
     fi
     
-    # Create systemd service for automatic TDP management (restores saved profile on boot)
-    cat > /etc/systemd/system/pwrcfg-auto.service <<EOF
+    # Create systemd service for automatic TDP management
+    cat > /etc/systemd/system/pwrcfg-auto.service <<SERVICE_EOF
 [Unit]
 Description=GZ302 Automatic TDP Management
 After=multi-user.target
@@ -2256,10 +1227,10 @@ RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
-EOF
+SERVICE_EOF
 
     # Create systemd service for power monitoring
-    cat > /etc/systemd/system/pwrcfg-monitor.service <<EOF
+    cat > /etc/systemd/system/pwrcfg-monitor.service <<SERVICE_EOF
 [Unit]
 Description=GZ302 TDP Power Source Monitor
 After=multi-user.target
@@ -2272,10 +1243,10 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-EOF
+SERVICE_EOF
 
-    # Create systemd sleep hook to restore TDP settings after suspend/resume
-    cat > /etc/systemd/system/pwrcfg-resume.service <<EOF
+    # Create systemd sleep hook
+    cat > /etc/systemd/system/pwrcfg-resume.service <<SERVICE_EOF
 [Unit]
 Description=GZ302 TDP Resume Handler
 After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
@@ -2286,1024 +1257,55 @@ ExecStart=/usr/local/bin/pwrcfg-restore
 
 [Install]
 WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
-EOF
+SERVICE_EOF
 
     # Create power monitoring script
     cat > /usr/local/bin/pwrcfg-monitor <<'MONITOR_EOF'
 #!/bin/bash
-# GZ302 TDP Power Source Monitor
-# Monitors power source changes and automatically maintains TDP profiles
-# This script ensures power limits persist after system events (sleep/wake, AC changes)
-
 while true; do
-    # Check for power source changes and verify/re-apply settings
     /usr/local/bin/pwrcfg auto
-    sleep 5  # Check every 5 seconds (more responsive to system events)
+    sleep 5
 done
 MONITOR_EOF
-
     chmod +x /usr/local/bin/pwrcfg-monitor
     
-    # Create power profile restore script (restores saved profile on boot)
+    # Create power profile restore script
     cat > /usr/local/bin/pwrcfg-restore <<'RESTORE_EOF'
 #!/bin/bash
-# GZ302 Power Profile Restore Script
-# Restores the previously saved power profile on system boot
-# Called by pwrcfg-auto.service during startup
-
 TDP_CONFIG_DIR="/etc/gz302/pwrcfg"
 CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
-
-# Default to balanced if no profile was previously saved
 DEFAULT_PROFILE="balanced"
-
-# Read the saved profile, or use default if file doesn't exist
 if [[ -f "$CURRENT_PROFILE_FILE" ]]; then
     SAVED_PROFILE=$(cat "$CURRENT_PROFILE_FILE" 2>/dev/null | tr -d ' \n')
 else
     SAVED_PROFILE="$DEFAULT_PROFILE"
 fi
-
-# Validate that the saved profile is one of the known profiles
-case "$SAVED_PROFILE" in
-    emergency|battery|efficient|balanced|performance|gaming|maximum)
-        # Valid profile, restore it
-        /usr/local/bin/pwrcfg "$SAVED_PROFILE"
-        ;;
-    *)
-        # Invalid profile, use default
-        echo "Invalid saved profile '$SAVED_PROFILE', using default: $DEFAULT_PROFILE"
-        /usr/local/bin/pwrcfg "$DEFAULT_PROFILE"
-        ;;
-esac
+/usr/local/bin/pwrcfg "$SAVED_PROFILE"
 RESTORE_EOF
-
     chmod +x /usr/local/bin/pwrcfg-restore
     
-    # Reload systemd units to ensure new services are recognized
     systemctl daemon-reload
-    
     systemctl enable pwrcfg-auto.service
     systemctl enable pwrcfg-resume.service
     
-    echo ""
-    info "TDP management installation complete!"
-    echo ""
-    echo "Would you like to configure automatic TDP profile switching now?"
-    echo "This allows the system to automatically change performance profiles"
-    echo "when you plug/unplug the AC adapter."
-    echo ""
-    read -p "Configure automatic switching? (Y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-        /usr/local/bin/pwrcfg config
-    else
-        echo "You can configure automatic switching later using: pwrcfg config"
-    fi
-    
-    echo ""
-    success "Power management installed. Use 'pwrcfg' command to manage power profiles."
+    success "Power management installed."
 }
-
 # Refresh Rate Management Installation
+enable_arch_services() {
 install_refresh_management() {
-
     info "Installing virtual refresh rate management system..."
     
-    # Create refresh rate management script
-    cat > /usr/local/bin/rrcfg <<'EOF'
-#!/bin/bash
-# GZ302 Refresh Rate Management Script
-# Manual refresh rate control - auto-switching handled by pwrcfg
-
-REFRESH_CONFIG_DIR="/etc/gz302/rrcfg"
-CURRENT_PROFILE_FILE="$REFRESH_CONFIG_DIR/current-profile"
-VRR_ENABLED_FILE="$REFRESH_CONFIG_DIR/vrr-enabled"
-GAME_PROFILES_FILE="$REFRESH_CONFIG_DIR/game-profiles"
-VRR_RANGES_FILE="$REFRESH_CONFIG_DIR/vrr-ranges"
-MONITOR_CONFIGS_FILE="$REFRESH_CONFIG_DIR/monitor-configs"
-POWER_MONITORING_FILE="$REFRESH_CONFIG_DIR/power-monitoring"
-
-# Refresh Rate Profiles - Matched to power profiles for GZ302 display and AMD GPU
-declare -A REFRESH_PROFILES
-REFRESH_PROFILES[emergency]="30"         # Emergency battery extension
-REFRESH_PROFILES[battery]="30"           # Maximum battery life
-REFRESH_PROFILES[efficient]="60"         # Efficient with good performance
-REFRESH_PROFILES[balanced]="90"          # Balanced performance/power
-REFRESH_PROFILES[performance]="120"      # High performance applications
-REFRESH_PROFILES[gaming]="180"           # Gaming optimized
-REFRESH_PROFILES[maximum]="180"          # Absolute maximum
-
-# Frame rate limiting profiles (for VRR)
-declare -A FRAME_LIMITS
-FRAME_LIMITS[emergency]="30"             # Cap at 30fps
-FRAME_LIMITS[battery]="30"               # Cap at 30fps
-FRAME_LIMITS[efficient]="60"             # Cap at 60fps
-FRAME_LIMITS[balanced]="90"              # Cap at 90fps
-FRAME_LIMITS[performance]="120"          # Cap at 120fps
-FRAME_LIMITS[gaming]="0"                 # No frame limiting (VRR handles it)
-FRAME_LIMITS[maximum]="0"              # No frame limiting
-
-# VRR min/max refresh ranges by profile
-declare -A VRR_MIN_RANGES
-declare -A VRR_MAX_RANGES
-VRR_MIN_RANGES[emergency]="20"           # Allow 20-30Hz range
-VRR_MAX_RANGES[emergency]="30"
-VRR_MIN_RANGES[battery]="20"             # Allow 20-30Hz range
-VRR_MAX_RANGES[battery]="30"
-VRR_MIN_RANGES[efficient]="30"           # Allow 30-60Hz range
-VRR_MAX_RANGES[efficient]="60"
-VRR_MIN_RANGES[balanced]="30"            # Allow 30-90Hz range
-VRR_MAX_RANGES[balanced]="90"
-VRR_MIN_RANGES[performance]="48"         # Allow 48-120Hz range
-VRR_MAX_RANGES[performance]="120"
-VRR_MIN_RANGES[gaming]="48"              # Allow 48-180Hz range for VRR
-VRR_MAX_RANGES[gaming]="180"
-VRR_MIN_RANGES[maximum]="48"             # Allow 48-180Hz range
-VRR_MAX_RANGES[maximum]="180"
-
-# Power consumption estimates (watts) by profile for monitoring (matches pwrcfg)
-declare -A POWER_ESTIMATES
-POWER_ESTIMATES[emergency]="10"          # Minimal power
-POWER_ESTIMATES[battery]="18"            # Low power
-POWER_ESTIMATES[efficient]="30"          # Lower power
-POWER_ESTIMATES[balanced]="40"           # Balanced power
-POWER_ESTIMATES[performance]="55"        # Medium-high power
-POWER_ESTIMATES[gaming]="70"             # High power consumption
-POWER_ESTIMATES[maximum]="90"            # Maximum power
-
-# Create config directory
-mkdir -p "$REFRESH_CONFIG_DIR"
-
-show_usage() {
-    echo "Usage: rrcfg [PROFILE|COMMAND|GAME_NAME]"
-    echo ""
-    echo "Refresh Rate Profiles (auto-synced by pwrcfg when power profile changes):"
-    echo "  emergency     - 30Hz  - Emergency battery extension"
-    echo "  battery       - 30Hz  - Maximum battery life"
-    echo "  efficient     - 60Hz  - Efficient with good performance"
-    echo "  balanced      - 90Hz  - Balanced performance/power (default)"
-    echo "  performance   - 120Hz - High performance applications"
-    echo "  gaming        - 180Hz - Gaming optimized"
-    echo "  maximum       - 180Hz - Absolute maximum"
-    echo ""
-    echo "Commands:"
-    echo "  status           - Show current refresh rate and VRR status"
-    echo "  list             - List available profiles and supported rates"
-    echo "  vrr [on|off|ranges] - VRR control and min/max range configuration"
-    echo "  monitor [display] - Configure specific monitor settings"
-    echo "  game [add|remove|list] - Manage game-specific profiles"
-    echo "  color [set|auto|reset] - Display color temperature management"
-    echo "  monitor-power    - Show real-time power consumption monitoring"
-    echo "  thermal-status   - Check thermal throttling status"
-    echo "  battery-predict  - Predict battery life with different refresh rates"
-    echo ""
-    echo "Note: Refresh rates are automatically adjusted when using 'pwrcfg' to change power profiles."
-    echo "      Use 'rrcfg [profile]' to manually override refresh rate independent of power settings."
-    echo "      To enable automatic power/refresh switching, use: pwrcfg config"
-    echo ""
-    echo "Examples:"
-    echo "  rrcfg gaming        # Manually set gaming refresh rate (180Hz)"
-    echo "  rrcfg game add steam # Add game-specific profile for Steam"
-    echo "  rrcfg vrr ranges    # Configure VRR min/max ranges"
-    echo "  rrcfg monitor DP-1  # Configure specific monitor"
-    echo "  rrcfg color set 6500K # Set color temperature"
-    echo "  rrcfg thermal-status # Check thermal throttling"
-}
-
-# Keyboard RGB Control Installation
-detect_displays() {
-    # Detect connected displays and their capabilities
-    local displays=()
-    
-    if command -v xrandr >/dev/null 2>&1; then
-        # X11 environment
-        displays=($(xrandr --listmonitors 2>/dev/null | grep -E "^ [0-9]:" | awk '{print $4}' | cut -d'/' -f1))
-    elif command -v wlr-randr >/dev/null 2>&1; then
-        # Wayland environment with wlr-randr (supports Hyprland, GNOME, KDE Plasma, etc.)
-        displays=($(wlr-randr 2>/dev/null | grep "^[A-Z]" | awk '{print $1}'))
-    elif [[ -d /sys/class/drm ]]; then
-        # DRM fallback
-        displays=($(find /sys/class/drm -name "card*-*" -type d | grep -v "Virtual" | head -1 | xargs basename))
-    fi
-    
-    if [[ ${#displays[@]} -eq 0 ]]; then
-        displays=("card0-eDP-1")  # Fallback for GZ302 internal display
-    fi
-    
-    echo "${displays[@]}"
-}
-
-get_current_refresh_rate() {
-    local display="${1:-$(detect_displays | awk '{print $1}')}"
-    
-    if command -v xrandr >/dev/null 2>&1; then
-        # X11: Extract current refresh rate
-        xrandr 2>/dev/null | grep -A1 "^${display}" | grep "\*" | awk '{print $1}' | sed 's/.*@\([0-9]*\).*/\1/' | head -1
-    elif [[ -d "/sys/class/drm/${display}" ]]; then
-        # DRM: Try to read from sysfs
-        local mode_file="/sys/class/drm/${display}/modes"
-        if [[ -f "$mode_file" ]]; then
-            head -1 "$mode_file" 2>/dev/null | sed 's/.*@\([0-9]*\).*/\1/'
-        else
-            echo "60"  # Default fallback
-        fi
+    # Install rrcfg script
+    if command -v display_get_rrcfg_script >/dev/null; then
+        display_get_rrcfg_script > /usr/local/bin/rrcfg
+        chmod +x /usr/local/bin/rrcfg
+        display_init_config
     else
-        echo "60"  # Default fallback
+        error "Display library missing. Cannot install rrcfg."
     fi
+    
+    success "Refresh rate management installed."
 }
-
-get_supported_refresh_rates() {
-    local display="${1:-$(detect_displays | awk '{print $1}')}"
-    
-    if command -v xrandr >/dev/null 2>&1; then
-        # X11: Get all supported refresh rates
-        xrandr 2>/dev/null | grep -A20 "^${display}" | grep -E "^ " | awk '{print $1}' | sed 's/.*@\([0-9]*\).*/\1/' | sort -n | uniq
-    else
-        # Fallback: Common refresh rates for GZ302
-        echo -e "30\n48\n60\n90\n120\n180"
-    fi
-}
-
-set_refresh_rate() {
-    local profile="$1"
-    local target_rate="${REFRESH_PROFILES[$profile]}"
-    local frame_limit="${FRAME_LIMITS[$profile]}"
-    local displays=($(detect_displays))
-    
-    if [[ -z "$target_rate" ]]; then
-        echo "Error: Unknown profile '$profile'"
-        echo "Use 'rrcfg list' to see available profiles"
-        return 1
-    fi
-    
-    echo "Setting refresh rate profile: $profile (${target_rate}Hz)"
-    
-    # Apply refresh rate to all detected displays
-    for display in "${displays[@]}"; do
-        echo "Configuring display: $display"
-        
-        # Try multiple methods to set refresh rate
-        local success=false
-        
-        # Method 1: xrandr (X11)
-        if command -v xrandr >/dev/null 2>&1; then
-            if xrandr --output "$display" --rate "$target_rate" >/dev/null 2>&1; then
-                success=true
-                echo "Refresh rate set to ${target_rate}Hz using xrandr"
-            fi
-        fi
-        
-        # Method 2: wlr-randr (Wayland)
-        if [[ "$success" == false ]] && command -v wlr-randr >/dev/null 2>&1; then
-            if wlr-randr --output "$display" --mode "${target_rate}Hz" >/dev/null 2>&1; then
-                success=true
-                echo "Refresh rate set to ${target_rate}Hz using wlr-randr"
-            fi
-        fi
-        
-        # Method 3: DRM mode setting (fallback)
-        if [[ "$success" == false ]] && [[ -d "/sys/class/drm" ]]; then
-            echo "Attempting DRM mode setting for ${target_rate}Hz"
-            # This would require more complex DRM manipulation
-            # For now, we'll log the attempt
-            echo "DRM fallback attempted for ${target_rate}Hz"
-            success=true
-        fi
-        
-        if [[ "$success" == false ]]; then
-            echo "Warning: Could not set refresh rate for $display"
-        fi
-    done
-    
-    # Set frame rate limiting if applicable
-    if [[ "$frame_limit" != "0" ]]; then
-        echo "Applying frame rate limit: ${frame_limit}fps"
-        
-        # Create MangoHUD configuration for FPS limiting
-        local mangohud_config="/home/$(get_real_user 2>/dev/null || echo "$USER")/.config/MangoHud/MangoHud.conf"
-        if [[ -d "$(dirname "$mangohud_config")" ]] || mkdir -p "$(dirname "$mangohud_config")" 2>/dev/null; then
-            # Update MangoHud config with FPS limit
-            if [[ -f "$mangohud_config" ]]; then
-                sed -i "/^fps_limit=/d" "$mangohud_config" 2>/dev/null
-            fi
-            echo "fps_limit=$frame_limit" >> "$mangohud_config"
-            echo "MangoHUD FPS limit set to ${frame_limit}fps"
-        fi
-        
-        # Also set global FPS limit via environment variable for compatibility
-        export MANGOHUD_CONFIG="fps_limit=$frame_limit"
-        echo "export MANGOHUD_CONFIG=\"fps_limit=$frame_limit\"" > "/etc/gz302/rrcfg/mangohud-fps-limit"
-        
-        # Apply VRR range if VRR is enabled
-        if [[ -f "$VRR_ENABLED_FILE" ]] && [[ "$(cat "$VRR_ENABLED_FILE" 2>/dev/null)" == "true" ]]; then
-            local min_range="${VRR_MIN_RANGES[$profile]}"
-            local max_range="${VRR_MAX_RANGES[$profile]}"
-            if [[ -n "$min_range" && -n "$max_range" ]]; then
-                echo "Setting VRR range: ${min_range}Hz - ${max_range}Hz for profile $profile"
-                echo "${min_range}:${max_range}" > "$VRR_RANGES_FILE"
-                apply_vrr_ranges "$min_range" "$max_range"
-            fi
-        fi
-    fi
-    
-    # Save current profile
-    echo "$profile" > "$CURRENT_PROFILE_FILE"
-    echo "Profile '$profile' applied successfully"
-}
-
-get_vrr_status() {
-    # Check VRR (Variable Refresh Rate) status
-    local vrr_enabled=false
-    
-    # Method 1: Check AMD GPU sysfs
-    if [[ -d /sys/class/drm ]]; then
-        for card in /sys/class/drm/card*; do
-            if [[ -f "$card/device/vendor" ]] && grep -q "0x1002" "$card/device/vendor" 2>/dev/null; then
-                # AMD GPU found, check for VRR capability
-                if [[ -f "$card/vrr_capable" ]] && grep -q "1" "$card/vrr_capable" 2>/dev/null; then
-                    vrr_enabled=true
-                    break
-                fi
-            fi
-        done
-    fi
-    
-    # Method 2: Check if VRR was manually enabled
-    if [[ -f "$VRR_ENABLED_FILE" ]] && [[ "$(cat "$VRR_ENABLED_FILE" 2>/dev/null)" == "true" ]]; then
-        vrr_enabled=true
-    fi
-    
-    if [[ "$vrr_enabled" == true ]]; then
-        echo "enabled"
-    else
-        echo "disabled"
-    fi
-}
-
-toggle_vrr() {
-    local action="$1"
-    local displays=($(detect_displays))
-    
-    case "$action" in
-        "on"|"enable"|"true")
-            echo "Enabling Variable Refresh Rate (FreeSync)..."
-            
-            # Enable VRR via xrandr if available
-            if command -v xrandr >/dev/null 2>&1; then
-                for display in "${displays[@]}"; do
-                    if xrandr --output "$display" --set "vrr_capable" 1 >/dev/null 2>&1; then
-                        echo "VRR enabled for $display"
-                    fi
-                done
-            fi
-            
-            # Enable via DRM properties
-            if command -v drm_info >/dev/null 2>&1; then
-                echo "Enabling VRR via DRM properties..."
-            fi
-            
-            # Mark VRR as enabled
-            echo "true" > "$VRR_ENABLED_FILE"
-            echo "Variable Refresh Rate enabled"
-            ;;
-            
-        "off"|"disable"|"false")
-            echo "Disabling Variable Refresh Rate..."
-            
-            # Disable VRR via xrandr if available
-            if command -v xrandr >/dev/null 2>&1; then
-                for display in "${displays[@]}"; do
-                    if xrandr --output "$display" --set "vrr_capable" 0 >/dev/null 2>&1; then
-                        echo "VRR disabled for $display"
-                    fi
-                done
-            fi
-            
-            # Mark VRR as disabled
-            echo "false" > "$VRR_ENABLED_FILE"
-            echo "Variable Refresh Rate disabled"
-            ;;
-            
-        "toggle"|"")
-            local current_status=$(get_vrr_status)
-            if [[ "$current_status" == "enabled" ]]; then
-                toggle_vrr "off"
-            else
-                toggle_vrr "on"
-            fi
-            ;;
-            
-        *)
-            echo "Usage: rrcfg vrr [on|off|toggle]"
-            return 1
-            ;;
-    esac
-}
-
-show_status() {
-    local current_profile="unknown"
-    local current_rate=$(get_current_refresh_rate)
-    local vrr_status=$(get_vrr_status)
-    local displays=($(detect_displays))
-    
-    if [[ -f "$CURRENT_PROFILE_FILE" ]]; then
-        current_profile=$(cat "$CURRENT_PROFILE_FILE" 2>/dev/null || echo "unknown")
-    fi
-    
-    echo "=== GZ302 Refresh Rate Status ==="
-    echo "Current Profile: $current_profile"
-    echo "Current Rate: ${current_rate}Hz"
-    echo "Variable Refresh Rate: $vrr_status"
-    echo "Detected Displays: ${displays[*]}"
-    echo ""
-    echo "Supported Refresh Rates:"
-    get_supported_refresh_rates | while read rate; do
-        if [[ "$rate" == "$current_rate" ]]; then
-            echo "  ${rate}Hz (current)"
-        else
-            echo "  ${rate}Hz"
-        fi
-    done
-}
-
-list_profiles() {
-    echo "Available refresh rate profiles:"
-    echo ""
-    for profile in gaming performance balanced efficient battery emergency; do
-        if [[ -n "${REFRESH_PROFILES[$profile]}" ]]; then
-            local rate="${REFRESH_PROFILES[$profile]}"
-            local limit="${FRAME_LIMITS[$profile]}"
-            local limit_text=""
-            if [[ "$limit" != "0" ]]; then
-                limit_text=" (capped at ${limit}fps)"
-            fi
-            echo "  $profile: ${rate}Hz${limit_text}"
-        fi
-    done
-}
-
-# Note: get_battery_status() is defined in pwrcfg template (lines 1078-1145)
-# This is the comprehensive version with multiple fallback methods
-
-# Enhanced VRR Functions
-apply_vrr_ranges() {
-    local min_rate="$1"
-    local max_rate="$2"
-    local displays=($(detect_displays))
-    
-    echo "Applying VRR range: ${min_rate}Hz - ${max_rate}Hz"
-    
-    for display in "${displays[@]}"; do
-        # X11 VRR range setting
-        if command -v xrandr >/dev/null 2>&1; then
-            # Try setting VRR properties if available
-            xrandr --output "$display" --set "vrr_range" "${min_rate}-${max_rate}" 2>/dev/null || true
-        fi
-        
-        # DRM direct property setting for better VRR control
-        if [[ -d "/sys/class/drm" ]]; then
-            for card in /sys/class/drm/card*; do
-                if [[ -f "$card/device/vendor" ]] && grep -q "0x1002" "$card/device/vendor" 2>/dev/null; then
-                    # AMD GPU found - try to set VRR range via sysfs
-                    if [[ -f "$card/vrr_range" ]]; then
-                        echo "${min_rate}-${max_rate}" > "$card/vrr_range" 2>/dev/null || true
-                    fi
-                fi
-            done
-        fi
-    done
-}
-
-# Game-specific profile management
-manage_game_profiles() {
-    local action="$1"
-    local game_name="$2"
-    local profile="$3"
-    
-    case "$action" in
-        "add")
-            if [[ -z "$game_name" ]]; then
-                echo "Usage: rrcfg game add [GAME_NAME] [PROFILE]"
-                echo "Example: rrcfg game add steam gaming"
-                return 1
-            fi
-            
-            # Default to gaming profile if not specified
-            profile="${profile:-gaming}"
-            
-            # Validate profile exists
-            if [[ -z "${REFRESH_PROFILES[$profile]}" ]]; then
-                echo "Error: Unknown profile '$profile'"
-                echo "Available profiles: gaming, performance, balanced, efficient, battery, emergency"
-                return 1
-            fi
-            
-            echo "${game_name}:${profile}" >> "$GAME_PROFILES_FILE"
-            echo "Game profile added: $game_name -> $profile (${REFRESH_PROFILES[$profile]}Hz)"
-            ;;
-            
-        "remove")
-            if [[ -z "$game_name" ]]; then
-                echo "Usage: rrcfg game remove [GAME_NAME]"
-                return 1
-            fi
-            
-            if [[ -f "$GAME_PROFILES_FILE" ]]; then
-                grep -v "^${game_name}:" "$GAME_PROFILES_FILE" > "${GAME_PROFILES_FILE}.tmp" 2>/dev/null || true
-                mv "${GAME_PROFILES_FILE}.tmp" "$GAME_PROFILES_FILE" 2>/dev/null || true
-                echo "Game profile removed for: $game_name"
-            fi
-            ;;
-            
-        "list")
-            echo "Game-specific profiles:"
-            if [[ -f "$GAME_PROFILES_FILE" ]] && [[ -s "$GAME_PROFILES_FILE" ]]; then
-                while IFS=':' read -r game profile; do
-                    if [[ -n "$game" && -n "$profile" ]]; then
-                        echo "  $game -> $profile (${REFRESH_PROFILES[$profile]}Hz)"
-                    fi
-                done < "$GAME_PROFILES_FILE"
-            else
-                echo "  No game-specific profiles configured"
-            fi
-            ;;
-            
-        "detect")
-            # Auto-detect running games and apply profiles
-            if [[ -f "$GAME_PROFILES_FILE" ]]; then
-                while IFS=':' read -r game profile; do
-                    if [[ -n "$game" && -n "$profile" ]]; then
-                        # Check if game process is running
-                        if pgrep -i "$game" >/dev/null 2>&1; then
-                            echo "Detected running game: $game, applying profile: $profile"
-                            set_refresh_rate "$profile"
-                            return 0
-                        fi
-                    fi
-                done < "$GAME_PROFILES_FILE"
-            fi
-            ;;
-            
-        *)
-            echo "Usage: rrcfg game [add|remove|list|detect]"
-            ;;
-    esac
-}
-
-# Monitor-specific configuration
-configure_monitor() {
-    local display="$1"
-    local rate="$2"
-    
-    if [[ -z "$display" ]]; then
-        echo "Available displays:"
-        detect_displays | while read -r disp; do
-            local current_rate=$(get_current_refresh_rate "$disp")
-            echo "  $disp (current: ${current_rate}Hz)"
-        done
-        return 0
-    fi
-    
-    if [[ -z "$rate" ]]; then
-        echo "Usage: rrcfg monitor [DISPLAY] [RATE]"
-        echo "Example: rrcfg monitor DP-1 120"
-        return 1
-    fi
-    
-    echo "Setting $display to ${rate}Hz"
-    
-    # Set refresh rate for specific display
-    local success=false
-    
-    # Method 1: xrandr (X11)
-    if command -v xrandr >/dev/null 2>&1; then
-        if xrandr --output "$display" --rate "$rate" >/dev/null 2>&1; then
-            success=true
-            echo "Refresh rate set to ${rate}Hz using xrandr"
-        fi
-    fi
-    
-    # Method 2: wlr-randr (Wayland)
-    if [[ "$success" == false ]] && command -v wlr-randr >/dev/null 2>&1; then
-        if wlr-randr --output "$display" --mode "${rate}Hz" >/dev/null 2>&1; then
-            success=true
-            echo "Refresh rate set to ${rate}Hz using wlr-randr"
-        fi
-    fi
-    
-    if [[ "$success" == true ]]; then
-        # Save monitor-specific configuration
-        echo "${display}:${rate}" >> "$MONITOR_CONFIGS_FILE"
-        echo "Monitor configuration saved"
-    else
-        echo "Warning: Could not set refresh rate for $display"
-    fi
-}
-
-# Real-time power consumption monitoring
-monitor_power_consumption() {
-    echo "=== GZ302 Refresh Rate Power Monitoring ==="
-    echo ""
-    
-    local current_profile=$(cat "$CURRENT_PROFILE_FILE" 2>/dev/null || echo "unknown")
-    local estimated_power="${POWER_ESTIMATES[$current_profile]:-20}"
-    
-    echo "Current Profile: $current_profile"
-    echo "Estimated Display Power: ${estimated_power}W"
-    echo ""
-    
-    # Real-time power reading if available
-    if [[ -f "/sys/class/power_supply/BAT0/power_now" ]]; then
-        local power_now=$(cat /sys/class/power_supply/BAT0/power_now 2>/dev/null)
-        if [[ -n "$power_now" && "$power_now" -gt 0 ]]; then
-            local power_watts=$((power_now / 1000000))
-            echo "Current System Power: ${power_watts}W"
-        fi
-    fi
-    
-    # CPU frequency and thermal info
-    if [[ -f "/sys/class/thermal/thermal_zone0/temp" ]]; then
-        local temp=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
-        if [[ -n "$temp" ]]; then
-            local temp_celsius=$((temp / 1000))
-            echo "CPU Temperature: ${temp_celsius}°C"
-        fi
-    fi
-    
-    # Battery status and predictions
-    if command -v acpi >/dev/null 2>&1; then
-        echo ""
-        echo "Battery Status:"
-        acpi -b 2>/dev/null | head -3
-    fi
-    
-    echo ""
-    echo "Power Estimates by Profile:"
-    for profile in gaming performance balanced efficient battery emergency; do
-        local power="${POWER_ESTIMATES[$profile]}"
-        local rate="${REFRESH_PROFILES[$profile]}"
-        echo "  $profile: ${rate}Hz @ ~${power}W"
-    done
-}
-
-# Thermal throttling status
-check_thermal_status() {
-    echo "=== GZ302 Thermal Throttling Status ==="
-    echo ""
-    
-    # Check CPU thermal throttling
-    if [[ -f "/sys/class/thermal/thermal_zone0/temp" ]]; then
-        local temp=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
-        if [[ -n "$temp" ]]; then
-            local temp_celsius=$((temp / 1000))
-            echo "CPU Temperature: ${temp_celsius}°C"
-            
-            if [[ "$temp_celsius" -gt 85 ]]; then
-                echo "⚠️  WARNING: High CPU temperature detected!"
-                echo "Consider switching to battery or emergency profile"
-            elif [[ "$temp_celsius" -gt 75 ]]; then
-                echo "⚠️  CPU running warm - consider balanced or efficient profile"
-            else
-                echo "✅ CPU temperature normal"
-            fi
-        fi
-    fi
-    
-    # Check GPU thermal status if available
-    if command -v sensors >/dev/null 2>&1; then
-        echo ""
-        echo "GPU Temperature:"
-        sensors 2>/dev/null | grep -i "edge\|junction" | head -2 || echo "GPU sensors not available"
-    fi
-    
-    # Check current CPU frequency scaling
-    if [[ -f "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" ]]; then
-        local cur_freq=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq 2>/dev/null)
-        local max_freq=$(cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq 2>/dev/null)
-        if [[ -n "$cur_freq" && -n "$max_freq" ]]; then
-            local freq_percent=$((cur_freq * 100 / max_freq))
-            echo ""
-            echo "CPU Frequency: $((cur_freq / 1000))MHz (${freq_percent}% of max)"
-            if [[ "$freq_percent" -lt 70 ]]; then
-                echo "⚠️  CPU may be throttling due to thermal or power limits"
-            fi
-        fi
-    fi
-}
-
-# Battery life prediction with different refresh rates
-predict_battery_life() {
-    echo "=== GZ302 Battery Life Prediction ==="
-    echo ""
-    
-    # Get current battery info
-    local battery_capacity=0
-    local battery_current=0
-    
-    if [[ -f "/sys/class/power_supply/BAT0/capacity" ]]; then
-        battery_capacity=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || echo 0)
-    fi
-    
-    if [[ -f "/sys/class/power_supply/BAT0/current_now" ]]; then
-        battery_current=$(cat /sys/class/power_supply/BAT0/current_now 2>/dev/null || echo 0)
-    fi
-    
-    echo "Current Battery Level: ${battery_capacity}%"
-    
-    if [[ "$battery_current" -gt 0 ]]; then
-        local current_ma=$((battery_current / 1000))
-        echo "Current Draw: ${current_ma}mA"
-        echo ""
-        
-        echo "Estimated Battery Life by Refresh Profile:"
-        echo ""
-        
-        # Base battery capacity (typical for GZ302)
-        local battery_wh=56  # Approximate battery capacity in Wh
-        local usable_capacity=$((battery_wh * battery_capacity / 100))
-        
-        for profile in emergency battery efficient balanced performance gaming; do
-            local power="${POWER_ESTIMATES[$profile]}"
-            local rate="${REFRESH_PROFILES[$profile]}"
-            local estimated_hours=$((usable_capacity * 100 / power / 100))
-            local estimated_minutes=$(((usable_capacity * 100 / power % 100) * 60 / 100))
-            
-            printf "  %-12s: %sHz @ ~%sW -> ~%s:%02d hours\n" \
-                "$profile" "$rate" "$power" "$estimated_hours" "$estimated_minutes"
-        done
-        
-        echo ""
-        echo "Note: Estimates include display power only. Actual battery life"
-        echo "depends on CPU load, GPU usage, and other system components."
-        
-    else
-        echo "Battery information not available or system is plugged in"
-    fi
-}
-
-# Display temperature/color management integration
-configure_display_color() {
-    local action="$1"
-    local temperature="$2"
-    
-    case "$action" in
-        "set")
-            if [[ -z "$temperature" ]]; then
-                echo "Usage: rrcfg color set [TEMPERATURE]"
-                echo "Example: rrcfg color set 6500K"
-                echo "Common values: 6500K (daylight), 5000K (neutral), 3200K (warm)"
-                return 1
-            fi
-            
-            # Remove 'K' suffix if present
-            temperature="${temperature%K}"
-            
-            # Validate temperature range
-            if [[ "$temperature" -lt 1000 || "$temperature" -gt 10000 ]]; then
-                echo "Error: Temperature must be between 1000K and 10000K"
-                return 1
-            fi
-            
-            echo "Setting display color temperature to ${temperature}K"
-            
-            # Try redshift for color temperature control
-            if command -v redshift >/dev/null 2>&1; then
-                redshift -O "$temperature" >/dev/null 2>&1 && echo "Color temperature set using redshift"
-            elif command -v gammastep >/dev/null 2>&1; then
-                gammastep -O "$temperature" >/dev/null 2>&1 && echo "Color temperature set using gammastep"
-            elif command -v xrandr >/dev/null 2>&1; then
-                # Fallback: use xrandr gamma adjustment (approximate)
-                local displays=($(detect_displays))
-                for display in "${displays[@]}"; do
-                    # Calculate approximate gamma adjustment for color temperature
-                    local gamma_r gamma_g gamma_b
-                    if [[ "$temperature" -gt 6500 ]]; then
-                        # Cooler - reduce red
-                        gamma_r="0.9"
-                        gamma_g="1.0"
-                        gamma_b="1.1"
-                    elif [[ "$temperature" -lt 5000 ]]; then
-                        # Warmer - reduce blue
-                        gamma_r="1.1"
-                        gamma_g="1.0"
-                        gamma_b="0.8"
-                    else
-                        # Neutral
-                        gamma_r="1.0"
-                        gamma_g="1.0"
-                        gamma_b="1.0"
-                    fi
-                    
-                    xrandr --output "$display" --gamma "${gamma_r}:${gamma_g}:${gamma_b}" 2>/dev/null && \
-                        echo "Gamma adjustment applied to $display"
-                done
-            else
-                echo "No color temperature control tools available"
-                echo "Consider installing redshift or gammastep"
-            fi
-            ;;
-            
-        "auto")
-            echo "Setting up automatic color temperature adjustment..."
-            
-            # Check if redshift/gammastep is available
-            if command -v redshift >/dev/null 2>&1; then
-                echo "Enabling redshift automatic color temperature"
-                # Create a simple redshift config for automatic day/night cycle
-                local user_home="/home/$(get_real_user 2>/dev/null || echo "$USER")"
-                mkdir -p "$user_home/.config/redshift"
-                cat > "$user_home/.config/redshift/redshift.conf" <<'REDSHIFT_EOF'
-[redshift]
-temp-day=6500
-temp-night=3200
-brightness-day=1.0
-brightness-night=0.8
-transition=1
-gamma=0.8:0.7:0.8
-
-[manual]
-lat=40.0
-lon=-74.0
-REDSHIFT_EOF
-                echo "Redshift configured for automatic color temperature"
-                
-            elif command -v gammastep >/dev/null 2>&1; then
-                echo "Enabling gammastep automatic color temperature"
-                local user_home="/home/$(get_real_user 2>/dev/null || echo "$USER")"
-                mkdir -p "$user_home/.config/gammastep"
-                cat > "$user_home/.config/gammastep/config.ini" <<'GAMMASTEP_EOF'
-[general]
-temp-day=6500
-temp-night=3200
-brightness-day=1.0
-brightness-night=0.8
-transition=1
-gamma=0.8:0.7:0.8
-
-[manual]
-lat=40.0
-lon=-74.0
-GAMMASTEP_EOF
-                echo "Gammastep configured for automatic color temperature"
-            else
-                echo "Installing redshift for color temperature control..."
-                # This would be handled by the package manager in the main setup
-                echo "Please run the main setup script to install color management tools"
-            fi
-            ;;
-            
-        "reset")
-            echo "Resetting display color temperature to default"
-            if command -v redshift >/dev/null 2>&1; then
-                redshift -x >/dev/null 2>&1
-                echo "Redshift reset"
-            elif command -v gammastep >/dev/null 2>&1; then
-                gammastep -x >/dev/null 2>&1
-                echo "Gammastep reset"
-            elif command -v xrandr >/dev/null 2>&1; then
-                local displays=($(detect_displays))
-                for display in "${displays[@]}"; do
-                    xrandr --output "$display" --gamma 1.0:1.0:1.0 2>/dev/null && \
-                        echo "Gamma reset for $display"
-                done
-            fi
-            ;;
-            
-        *)
-            echo "Usage: rrcfg color [set|auto|reset]"
-            echo ""
-            echo "Commands:"
-            echo "  set [TEMP]  - Set color temperature (e.g., 6500K, 3200K)"
-            echo "  auto        - Enable automatic day/night color adjustment"
-            echo "  reset       - Reset to default color temperature"
-            ;;
-    esac
-}
-
-# Enhanced status function with new monitoring features
-show_enhanced_status() {
-    show_status
-    echo ""
-    echo "=== Enhanced Monitoring ==="
-    
-    # Show game profiles
-    echo ""
-    echo "Game Profiles:"
-    manage_game_profiles "list"
-    
-    # Show VRR ranges
-    echo ""
-    echo "VRR Ranges:"
-    if [[ -f "$VRR_RANGES_FILE" ]]; then
-        local vrr_range=$(cat "$VRR_RANGES_FILE" 2>/dev/null)
-        echo "  Current VRR Range: ${vrr_range}Hz"
-    else
-        echo "  VRR ranges not configured"
-    fi
-    
-    # Quick thermal and power info
-    echo ""
-    local temp_celsius=0
-    if [[ -f "/sys/class/thermal/thermal_zone0/temp" ]]; then
-        local temp=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
-        if [[ -n "$temp" ]]; then
-            temp_celsius=$((temp / 1000))
-        fi
-    fi
-    echo "CPU Temperature: ${temp_celsius}°C"
-    
-    local battery_capacity=0
-    if [[ -f "/sys/class/power_supply/BAT0/capacity" ]]; then
-        battery_capacity=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || echo 0)
-    fi
-    echo "Battery Level: ${battery_capacity}%"
-}
-
-# Main command processing
-case "${1:-}" in
-    "status")
-        show_enhanced_status
-        ;;
-    "list")
-        list_profiles
-        ;;
-    "vrr")
-        case "$2" in
-            "ranges")
-                echo "VRR Range Configuration:"
-                echo "Enter minimum refresh rate (default: 30): "
-                read -r min_range
-                min_range="${min_range:-30}"
-                echo "Enter maximum refresh rate (default: 180): "
-                read -r max_range
-                max_range="${max_range:-180}"
-                echo "${min_range}:${max_range}" > "$VRR_RANGES_FILE"
-                apply_vrr_ranges "$min_range" "$max_range"
-                echo "VRR range set to ${min_range}Hz - ${max_range}Hz"
-                ;;
-            *)
-                toggle_vrr "$2"
-                ;;
-        esac
-        ;;
-    "monitor")
-        configure_monitor "$2" "$3"
-        ;;
-    "game")
-        manage_game_profiles "$2" "$3" "$4"
-        ;;
-    "color")
-        configure_display_color "$2" "$3"
-        ;;
-    "monitor-power")
-        monitor_power_consumption
-        ;;
-    "thermal-status")
-        check_thermal_status
-        ;;
-    "battery-predict")
-        predict_battery_life
-        ;;
-    "gaming"|"performance"|"balanced"|"efficient"|"battery"|"emergency")
-        # Check for game-specific profile detection first
-        manage_game_profiles "detect"
-        # If no game detected, apply the requested profile
-        if [[ $? -ne 0 ]]; then
-            set_refresh_rate "$1"
-        fi
-        ;;
-    "")
-        show_usage
-        ;;
-    *)
-        # Check if it's a game name for quick profile switching
-        if [[ -f "$GAME_PROFILES_FILE" ]] && grep -q "^${1}:" "$GAME_PROFILES_FILE" 2>/dev/null; then
-            local game_profile=$(grep "^${1}:" "$GAME_PROFILES_FILE" | cut -d':' -f2)
-            echo "Applying game profile for $1: $game_profile"
-            set_refresh_rate "$game_profile"
-        else
-            echo "Unknown command or game: $1"
-            show_usage
-        fi
-        ;;
-esac
-EOF
-
-    chmod +x /usr/local/bin/rrcfg
-    
-    echo ""
-    success "Refresh rate management installed. Use 'rrcfg' command to manually control display refresh rates."
-    echo ""
-    info "Note: Refresh rates automatically adjust when using 'pwrcfg' to change power profiles."
-    info "      Use 'pwrcfg config' to enable automatic power/refresh switching based on AC/battery status."
-}
-
-# Placeholder functions for snapshots
-
-# --- Service Enable Functions ---
-# Simplified - no services needed with new lightweight hardware fixes
-enable_arch_services() {
     info "Services configuration complete for Arch-based system"
 }
 
@@ -3576,15 +1578,25 @@ install_tray_icon() {
 
 
 # --- Module Download and Execution ---
+
 download_and_execute_module() {
     local module_name="$1"
     local distro="$2"
-    local module_url="${GITHUB_RAW_URL}/${module_name}.sh"
+    local local_module="${SCRIPT_DIR}/modules/${module_name}.sh"
+    
+    # Try local execution first (Repo mode)
+    if [[ -f "$local_module" ]]; then
+        info "Executing local module: ${module_name}..."
+        bash "$local_module" "$distro"
+        return $?
+    fi
+
+    # Download fallback (Standalone mode)
+    local module_url="${GITHUB_RAW_URL}/modules/${module_name}.sh"
     local temp_script="/tmp/${module_name}.sh"
     
-    # Check network connectivity before attempting download
     if ! check_network; then
-        warning "No network connectivity detected. Cannot download ${module_name} module.\nPlease check your internet connection and try again."
+        warning "No network connectivity. Cannot download ${module_name}."
         return 1
     fi
     
@@ -3592,17 +1604,15 @@ download_and_execute_module() {
     if curl -fsSL "$module_url" -o "$temp_script" 2>/dev/null; then
         chmod +x "$temp_script"
         
-        # Copy local utils to temp dir so the module uses our fixed version
-        # instead of downloading a potentially stale one from GitHub
-        if [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
-            cp "${SCRIPT_DIR}/gz302-utils.sh" "/tmp/gz302-utils.sh"
+        # Ensure utils are available
+        if [[ -f "${SCRIPT_DIR}/gz302-lib/utils.sh" ]]; then
+            cp "${SCRIPT_DIR}/gz302-lib/utils.sh" "/tmp/gz302-lib/utils.sh" 2>/dev/null || mkdir -p /tmp/gz302-lib && cp "${SCRIPT_DIR}/gz302-lib/utils.sh" "/tmp/gz302-lib/utils.sh"
         fi
         
         info "Executing ${module_name} module..."
         bash "$temp_script" "$distro"
         local exec_result=$?
         rm -f "$temp_script"
-        rm -f "/tmp/gz302-utils.sh"
         
         if [[ $exec_result -eq 0 ]]; then
             success "${module_name} module completed"
@@ -3612,11 +1622,10 @@ download_and_execute_module() {
             return 1
         fi
     else
-        warning "Failed to download ${module_name} module from ${module_url}\nPlease verify:\n  1. Internet connection is active\n  2. GitHub is accessible\n  3. Repository URL is correct"
+        warning "Failed to download ${module_name} module from ${module_url}"
         return 1
     fi
 }
-
 # --- Distribution-Specific Setup Functions ---
 setup_arch_based() {
     local distro="$1"
@@ -3689,7 +1698,6 @@ EOFYAY
     if ! is_step_completed "arch_rgb"; then
         printf '%s' "${C_DIM}"
         install_gz302_rgb_keyboard "arch" || warning "RGB keyboard installation failed"
-        install_gz302_rgb_lightbar || warning "RGB lightbar installation failed"
         printf '%s' "${C_NC}"
         complete_step "arch_rgb"
     fi
@@ -3763,7 +1771,6 @@ setup_debian_based() {
     if ! is_step_completed "debian_rgb"; then
         printf '%s' "${C_DIM}"
         install_gz302_rgb_keyboard "ubuntu" || warning "RGB keyboard installation failed"
-        install_gz302_rgb_lightbar || warning "RGB lightbar installation failed"
         printf '%s' "${C_NC}"
         complete_step "debian_rgb"
     fi
@@ -3838,7 +1845,6 @@ setup_fedora_based() {
     if ! is_step_completed "fedora_rgb"; then
         printf '%s' "${C_DIM}"
         install_gz302_rgb_keyboard "fedora" || warning "RGB keyboard installation failed"
-        install_gz302_rgb_lightbar || warning "RGB lightbar installation failed"
         printf '%s' "${C_NC}"
         complete_step "fedora_rgb"
     fi
@@ -3914,7 +1920,6 @@ setup_opensuse() {
     if ! is_step_completed "opensuse_rgb"; then
         printf '%s' "${C_DIM}"
         install_gz302_rgb_keyboard "opensuse" || warning "RGB keyboard installation failed"
-        install_gz302_rgb_lightbar || warning "RGB lightbar installation failed"
         printf '%s' "${C_NC}"
         complete_step "opensuse_rgb"
     fi
@@ -4163,7 +2168,6 @@ setup_power_tools_only() {
     print_step 4 5 "Setting up RGB keyboard control..."
     printf '%s' "${C_DIM}"
     install_gz302_rgb_keyboard "$distro" || warning "RGB keyboard installation failed"
-    install_gz302_rgb_lightbar || warning "RGB lightbar installation failed"
     printf '%s' "${C_NC}"
     completed_item "RGB keyboard and lightbar configured"
     

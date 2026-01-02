@@ -159,16 +159,15 @@ if [[ ! -f /etc/gz302/tray.conf ]] || ! grep -q "APP_NAME" /etc/gz302/tray.conf 
 fi
 
 # Notify running tray processes using SIGUSR1 so they reload UI strings
-pids=""
+pids=()
 for name in "gz302_tray.py" "gz302_tray" "gz302-tray"; do
-  p=$(pgrep -f "$name" 2>/dev/null || true)
-  if [[ -n "$p" ]]; then
-    pids="$pids $p"
-  fi
+  while read -r p; do
+    [[ -n "$p" ]] && pids+=("$p")
+  done < <(pgrep -f "$name" 2>/dev/null || true)
 done
 
-if [[ -n "$pids" ]]; then
-  for pid in $pids; do
+if [[ ${#pids[@]} -gt 0 ]]; then
+  for pid in "${pids[@]}"; do
     if kill -0 "$pid" >/dev/null 2>&1; then
       kill -USR1 "$pid" 2>/dev/null || true
       echo "Sent SIGUSR1 to tray process: $pid"

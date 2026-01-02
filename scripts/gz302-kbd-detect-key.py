@@ -12,6 +12,7 @@ Then update gz302-kbd-backlight-listener.py with the correct code.
 import os
 import struct
 import sys
+import subprocess
 
 
 def detect_key_codes(event_device: str = "/dev/input/event10", max_events: int = 100):
@@ -181,7 +182,10 @@ def detect_key_codes(event_device: str = "/dev/input/event10", max_events: int =
     except FileNotFoundError:
         print(f"Error: Input device not found: {event_device}")
         print("\nAvailable ASUS input devices:")
-        os.system("ls -la /dev/input/by-path/ | grep asus")
+        try:
+            subprocess.run("ls -la /dev/input/by-path/ | grep asus", shell=True)
+        except Exception:
+            pass
         sys.exit(1)
     except KeyboardInterrupt:
         print("\n\nDetection stopped by user.")

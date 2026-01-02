@@ -598,7 +598,7 @@ class GZ302TrayIcon(QSystemTrayIcon):
                 self.setToolTip("GZ302 Control Center\n⚠️ Status: Unknown")
                 # Use balanced as fallback
                 self.update_icon_for_profile("balanced")
-        except:
+        except Exception:
             self.setToolTip("GZ302 Control Center")
             self.update_icon_for_profile("balanced")
 

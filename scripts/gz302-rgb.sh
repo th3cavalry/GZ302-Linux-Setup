@@ -5,7 +5,7 @@
 # GZ302 Keyboard RGB Control Module
 #
 # Author: th3cavalry using Copilot
-# Version: 3.0.0
+# Version: 3.1.0
 #
 # This module compiles and installs a minimal, GZ302-specific RGB keyboard CLI.
 # The GZ302EA keyboard communicates via USB (0x0b05:0x1a30) and supports:
@@ -30,36 +30,37 @@ set -euo pipefail
 
 # --- Script Configuration ---
 SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BINARY_PATH="/usr/local/bin/gz302-rgb"
+GITHUB_RAW_URL="https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main"
 
-# --- Load Shared Utilities (for visual formatting) ---
-if [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
-    # shellcheck disable=SC1091
+# --- Load Shared Utilities ---
+if [[ -f "${SCRIPT_DIR}/../gz302-lib/utils.sh" ]]; then
+    source "${SCRIPT_DIR}/../gz302-lib/utils.sh"
+elif [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
     source "${SCRIPT_DIR}/gz302-utils.sh"
 else
-    # Fallback color codes if utils not available
-    C_BLUE='\033[0;34m'
-    C_GREEN='\033[0;32m'
-    C_YELLOW='\033[1;33m'
-    C_RED='\033[0;31m'
-    C_DIM='\033[2m'
-    C_BOLD_CYAN='\033[1;36m'
-    C_NC='\033[0m'
+    echo "gz302-utils.sh not found. Downloading..."
+    GITHUB_RAW_URL="${GITHUB_RAW_URL:-https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main}"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -o "${SCRIPT_DIR}/gz302-utils.sh"
+    elif command -v wget >/dev/null 2>&1; then
+        wget "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -O "${SCRIPT_DIR}/gz302-utils.sh"
+    else
+        echo "Error: curl or wget not found. Cannot download utils."
+        exit 1
+    fi
     
-    # Fallback logging functions
-    error() { echo -e "${C_RED}ERROR:${C_NC} $1" >&2; exit 1; }
-    info() { echo -e "${C_BLUE}INFO:${C_NC} $1" >&2; }
-    success() { echo -e "${C_GREEN}SUCCESS:${C_NC} $1" >&2; }
-    warning() { echo -e "${C_YELLOW}WARNING:${C_NC} $1" >&2; }
-    
-    # Fallback visual functions
-    print_section() { echo -e "\n${C_BOLD_CYAN}━━━ $1 ━━━${C_NC}"; }
-    print_step() { echo -e "${C_BOLD_CYAN}[$1/$2]${C_NC} $3"; }
-    print_keyval() { printf "  ${C_DIM}%-15s${C_NC} %s\n" "$1:" "$2"; }
-    completed_item() { echo -e "  ${C_GREEN}✓${C_NC} $1"; }
-    print_box() { echo -e "\n${C_GREEN}╔══════════════════════════════════════════╗${C_NC}"; echo -e "${C_GREEN}║${C_NC}  $1"; echo -e "${C_GREEN}╚══════════════════════════════════════════╝${C_NC}"; }
-    print_tip() { echo -e "\n${C_BOLD_CYAN}💡 Tip:${C_NC} $1"; }
+    if [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
+        chmod +x "${SCRIPT_DIR}/gz302-utils.sh"
+        source "${SCRIPT_DIR}/gz302-utils.sh"
+    else
+        echo "Error: Failed to download gz302-utils.sh"
+        exit 1
+    fi
 fi
+
+
+# Use BIN_DIR from utils if available, else default
+BINARY_PATH="${BIN_DIR:-/usr/local/bin}/gz302-rgb"
 
 # --- Detect distribution ---
 detect_distribution() {
@@ -117,9 +118,9 @@ install_rgb_arch() {
     # Step 3: Install
     print_step 3 $total_steps "Installing binary..."
     # Clean up old wrapper/symlink mess if present
-    rm -f "$BINARY_PATH" /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
+    rm -f "$BINARY_PATH" "${BIN_DIR:-/usr/local/bin}/gz302-rgb-bin" "${BIN_DIR:-/usr/local/bin}/gz302-rgb-wrapper" 2>/dev/null || true
     make -f Makefile.rgb install PREFIX="/usr/local"
-    ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
+    ln -sf "${BIN_DIR:-/usr/local/bin}/gz302-rgb" "${BIN_DIR:-/usr/local/bin}/gz302-rgb-bin"
     completed_item "Binary installed to $BINARY_PATH"
 }
 
@@ -147,9 +148,9 @@ install_rgb_debian() {
     # Step 3: Install
     print_step 3 $total_steps "Installing binary..."
     # Clean up old wrapper/symlink mess if present
-    rm -f "$BINARY_PATH" /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
+    rm -f "$BINARY_PATH" "${BIN_DIR:-/usr/local/bin}/gz302-rgb-bin" "${BIN_DIR:-/usr/local/bin}/gz302-rgb-wrapper" 2>/dev/null || true
     install -m 755 gz302-rgb "$BINARY_PATH"
-    ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
+    ln -sf "${BIN_DIR:-/usr/local/bin}/gz302-rgb" "${BIN_DIR:-/usr/local/bin}/gz302-rgb-bin"
     completed_item "Binary installed to $BINARY_PATH"
 }
 
@@ -176,9 +177,9 @@ install_rgb_fedora() {
     # Step 3: Install
     print_step 3 $total_steps "Installing binary..."
     # Clean up old wrapper/symlink mess if present
-    rm -f "$BINARY_PATH" /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
+    rm -f "$BINARY_PATH" "${BIN_DIR:-/usr/local/bin}/gz302-rgb-bin" "${BIN_DIR:-/usr/local/bin}/gz302-rgb-wrapper" 2>/dev/null || true
     make -f Makefile.rgb install PREFIX="/usr/local"
-    ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
+    ln -sf "${BIN_DIR:-/usr/local/bin}/gz302-rgb" "${BIN_DIR:-/usr/local/bin}/gz302-rgb-bin"
     completed_item "Binary installed to $BINARY_PATH"
 }
 
@@ -205,9 +206,9 @@ install_rgb_opensuse() {
     # Step 3: Install
     print_step 3 $total_steps "Installing binary..."
     # Clean up old wrapper/symlink mess if present
-    rm -f "$BINARY_PATH" /usr/local/bin/gz302-rgb-bin /usr/local/bin/gz302-rgb-wrapper 2>/dev/null || true
+    rm -f "$BINARY_PATH" "${BIN_DIR:-/usr/local/bin}/gz302-rgb-bin" "${BIN_DIR:-/usr/local/bin}/gz302-rgb-wrapper" 2>/dev/null || true
     make -f Makefile.rgb install PREFIX="/usr/local"
-    ln -sf /usr/local/bin/gz302-rgb /usr/local/bin/gz302-rgb-bin
+    ln -sf "${BIN_DIR:-/usr/local/bin}/gz302-rgb" "${BIN_DIR:-/usr/local/bin}/gz302-rgb-bin"
     completed_item "Binary installed to $BINARY_PATH"
 }
 

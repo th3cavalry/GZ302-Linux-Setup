@@ -5,7 +5,7 @@
 # GZ302 RGB Control Installation Script
 #
 # Author: th3cavalry using Copilot
-# Version: 3.0.3
+# Version: 3.1.0
 #
 # Unified installation script for both RGB control zones on the GZ302:
 # 1. Keyboard RGB (USB 0x0b05:0x1a30) - C binary compiled from gz302-rgb-cli.c
@@ -28,43 +28,48 @@ set -euo pipefail
 
 # --- Script Configuration ---
 SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-KEYBOARD_RGB_PATH="/usr/local/bin/gz302-rgb"
-WINDOW_RGB_PATH="/usr/local/bin/gz302-rgb-window"
-UDEV_RULES_PATH="/etc/udev/rules.d/99-gz302-rgb.rules"
-SUDOERS_PATH="/etc/sudoers.d/gz302-rgb"
-RESTORE_SCRIPT_PATH="/usr/local/bin/gz302-rgb-restore"
-SERVICE_PATH="/etc/systemd/system/gz302-rgb-restore.service"
-CONFIG_DIR="/etc/gz302"
+GITHUB_RAW_URL="https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main"
 
-# --- Load Shared Utilities (for visual formatting) ---
-if [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
-    # shellcheck disable=SC1091
+# --- Load Shared Utilities ---
+if [[ -f "${SCRIPT_DIR}/../gz302-lib/utils.sh" ]]; then
+    source "${SCRIPT_DIR}/../gz302-lib/utils.sh"
+elif [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
     source "${SCRIPT_DIR}/gz302-utils.sh"
 else
-    # Fallback color codes if utils not available
-    C_BLUE='\033[0;34m'
-    C_GREEN='\033[0;32m'
-    C_YELLOW='\033[1;33m'
-    C_RED='\033[0;31m'
-    C_DIM='\033[2m'
-    C_BOLD_CYAN='\033[1;36m'
-    C_NC='\033[0m'
+    echo "gz302-utils.sh not found. Downloading..."
+    GITHUB_RAW_URL="${GITHUB_RAW_URL:-https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main}"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -o "${SCRIPT_DIR}/gz302-utils.sh"
+    elif command -v wget >/dev/null 2>&1; then
+        wget "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -O "${SCRIPT_DIR}/gz302-utils.sh"
+    else
+        echo "Error: curl or wget not found. Cannot download utils."
+        exit 1
+    fi
     
-    # Fallback logging functions
-    error() { echo -e "${C_RED}ERROR:${C_NC} $1" >&2; exit 1; }
-    info() { echo -e "${C_BLUE}INFO:${C_NC} $1" >&2; }
-    success() { echo -e "${C_GREEN}SUCCESS:${C_NC} $1" >&2; }
-    warning() { echo -e "${C_YELLOW}WARNING:${C_NC} $1" >&2; }
-    
-    # Fallback visual functions
-    print_section() { echo -e "\n${C_BOLD_CYAN}━━━ $1 ━━━${C_NC}"; }
-    print_subsection() { echo -e "\n${C_BOLD_CYAN}── $1 ──${C_NC}"; }
-    print_step() { echo -e "${C_BOLD_CYAN}[$1/$2]${C_NC} $3"; }
-    print_keyval() { printf "  ${C_DIM}%-20s${C_NC} %s\n" "$1:" "$2"; }
-    completed_item() { echo -e "  ${C_GREEN}✓${C_NC} $1"; }
-    print_box() { echo -e "\n${C_GREEN}╔════════════════════════════════════════════════╗${C_NC}"; echo -e "${C_GREEN}║${C_NC}  $1"; echo -e "${C_GREEN}╚════════════════════════════════════════════════╝${C_NC}"; }
-    print_tip() { echo -e "\n${C_BOLD_CYAN}💡 Tip:${C_NC} $1"; }
+    if [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
+        chmod +x "${SCRIPT_DIR}/gz302-utils.sh"
+        source "${SCRIPT_DIR}/gz302-utils.sh"
+    else
+        echo "Error: Failed to download gz302-utils.sh"
+        exit 1
+    fi
 fi
+
+
+# Use BIN_DIR from utils if available, else default
+BIN_DIR="${BIN_DIR:-/usr/local/bin}"
+CONFIG_DIR="${CONFIG_DIR:-/etc/gz302}"
+UDEV_RULES_DIR="${UDEV_RULES_DIR:-/etc/udev/rules.d}"
+SUDOERS_DIR="${SUDOERS_DIR:-/etc/sudoers.d}"
+SYSTEMD_DIR="${SYSTEMD_DIR:-/etc/systemd/system}"
+
+KEYBOARD_RGB_PATH="${BIN_DIR}/gz302-rgb"
+WINDOW_RGB_PATH="${BIN_DIR}/gz302-rgb-window"
+UDEV_RULES_PATH="${UDEV_RULES_DIR}/99-gz302-rgb.rules"
+SUDOERS_PATH="${SUDOERS_DIR}/gz302-rgb"
+RESTORE_SCRIPT_PATH="${BIN_DIR}/gz302-rgb-restore"
+SERVICE_PATH="${SYSTEMD_DIR}/gz302-rgb-restore.service"
 
 # --- Detect distribution ---
 detect_distribution() {
@@ -137,7 +142,7 @@ install_sudoers() {
     
     # Use the same sudoers file as tray-icon/install-policy.sh for consistency
     # This prevents having multiple conflicting sudoers files
-    local existing_sudoers="/etc/sudoers.d/gz302-pwrcfg"
+    local existing_sudoers="${SUDOERS_DIR}/gz302-pwrcfg"
     
     # Build sudoers content - append to existing or create new
     local tmp_sudoers="/tmp/gz302-rgb-sudoers-$$"
@@ -233,15 +238,17 @@ done
 
 # Restore keyboard RGB settings
 if [[ -f "$CONFIG_FILE" ]]; then
-    # shellcheck source=/dev/null
-    source "$CONFIG_FILE"
+    # Safe parsing
+    KEYBOARD_COMMAND=$(grep "^KEYBOARD_COMMAND=" "$CONFIG_FILE" | cut -d"=" -f2- | tr -d "\"" | tr -d "'")
     
     # Restore keyboard RGB
     if [[ -n "${KEYBOARD_COMMAND:-}" && -x "$KEYBOARD_RGB" ]]; then
-        eval "$KEYBOARD_RGB $KEYBOARD_COMMAND" 2>/dev/null || true
+        read -r -a CMD_ARGS <<< "$KEYBOARD_COMMAND"
+        "$KEYBOARD_RGB" "${CMD_ARGS[@]}" 2>/dev/null || true
     fi
     
     # Restore window RGB
+    WINDOW_BRIGHTNESS=$(grep "^WINDOW_BRIGHTNESS=" "$CONFIG_FILE" | cut -d"=" -f2- | tr -d "\"" | tr -d "'")
     if [[ -n "${WINDOW_BRIGHTNESS:-}" && -x "$WINDOW_RGB" ]]; then
         "$WINDOW_RGB" --lightbar "$WINDOW_BRIGHTNESS" 2>/dev/null || true
     fi

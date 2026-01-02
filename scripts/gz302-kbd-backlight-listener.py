@@ -19,6 +19,7 @@ import os
 import struct
 import sys
 import syslog
+import subprocess
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -102,14 +103,15 @@ class KeyboardBacklightListener:
             return True
         except PermissionError:
             # Fall back to sudo for unprivileged execution
-            result = os.system(
-                f'sudo bash -c "echo {level} > {self.brightness_path}" 2>/dev/null'
-            )
-            if result == 0:
+            try:
+                subprocess.run(
+                    ['sudo', 'bash', '-c', f'echo {level} > {self.brightness_path}'],
+                    check=True, stderr=subprocess.DEVNULL
+                )
                 self.current_level = level
                 self._log(f"Brightness set to level {level} (via sudo)")
                 return True
-            else:
+            except subprocess.CalledProcessError:
                 self._log(
                     f"Failed to set brightness to {level} (permission denied)", "ERROR"
                 )
