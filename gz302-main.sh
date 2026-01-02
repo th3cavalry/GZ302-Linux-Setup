@@ -227,6 +227,38 @@ check_kernel_version() {
 # REQUIRED: Kernel 6.14+ minimum (6.17+ strongly recommended)
 # See Info/kernel_changelog.md for detailed kernel version comparison
 
+# --- Configure Early KMS ---
+configure_early_kms() {
+    # Only applies to Arch-based distros using mkinitcpio
+    if [[ -f /etc/mkinitcpio.conf ]]; then
+        info "Checking Early KMS configuration..."
+        # Read the MODULES line
+        local modules_line
+        modules_line=$(grep "^MODULES=" /etc/mkinitcpio.conf)
+        
+        if [[ "$modules_line" != *"amdgpu"* ]]; then
+            info "Enabling Early KMS for amdgpu (fixes boot/reboot freeze)..."
+            # Backup
+            cp /etc/mkinitcpio.conf /etc/mkinitcpio.conf.bak
+            
+            # Add amdgpu to MODULES. Robustly handles () or (module1 module2)
+            # Remove the closing parenthesis, append ' amdgpu)', and handle double spaces
+            sed -i -E 's/^MODULES=\((.*)\)/MODULES=(\1 amdgpu)/' /etc/mkinitcpio.conf
+            # Cleanup leading space if list was empty "()" -> "( amdgpu)"
+            sed -i 's/MODULES=( amdgpu)/MODULES=(amdgpu)/' /etc/mkinitcpio.conf
+            
+            info "Regenerating initramfs..."
+            if mkinitcpio -P; then
+                success "Early KMS enabled"
+            else
+                warning "Failed to regenerate initramfs. Please run 'sudo mkinitcpio -P' manually."
+            fi
+        else
+            success "Early KMS already enabled"
+        fi
+    fi
+}
+
 apply_hardware_fixes() {
     info "Applying GZ302 hardware fixes for all distributions..."
     
@@ -466,6 +498,9 @@ EOF
     # Reload hardware database and udev
     systemd-hwdb update 2>/dev/null || true
     udevadm control --reload 2>/dev/null || true
+
+    # Enable Early KMS for AMDGPU (Fixes Plymouth/Reboot freezing)
+    configure_early_kms
 
     # GZ302 RGB udev rules for non-root access to HID raw devices
     info "Configuring udev rules for keyboard and lightbar RGB control..."
