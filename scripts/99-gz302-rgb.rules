@@ -11,5 +11,7 @@ SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1a30", MODE="0666
 ACTION=="add|change", SUBSYSTEM=="leds", KERNEL=="*::kbd_backlight", RUN+="/bin/chmod 0666 /sys/%p/brightness"
 ACTION=="add|change", SUBSYSTEM=="leds", KERNEL=="asus::kbd_backlight", RUN+="/bin/chmod 0666 /sys/%p/brightness"
 
-# Lightbar-specific LED device (if exposed as separate device)
+# Lightbar-specific LED device (if exposed as separate device) - HIDRAW access
+# N-KEY Device (0b05:18c6)
+KERNEL=="hidraw*", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18c6", MODE="0666"
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18c6", MODE="0666"
