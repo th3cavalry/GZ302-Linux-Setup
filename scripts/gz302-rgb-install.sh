@@ -284,6 +284,36 @@ EOF
     completed_item "Systemd service installed and enabled"
 }
 
+# --- Install lightbar reset service ---
+# This is critical: asusd locks the lightbar HID device, preventing direct control.
+# Unbinding and rebinding the device to the asus driver resets it and allows our commands to work.
+install_lightbar_reset_service() {
+    print_subsection "Installing Lightbar Reset Service"
+    
+    local reset_service_path="${SYSTEMD_DIR}/gz302-lightbar-reset.service"
+    
+    cat > "$reset_service_path" << 'EOF'
+[Unit]
+Description=Reset GZ302 Lightbar HID device for direct control
+After=asusd.service
+Wants=asusd.service
+
+[Service]
+Type=oneshot
+# Unbind and rebind the N-KEY device (lightbar) from the asus HID driver
+# This resets the device and allows direct HID commands to work
+ExecStart=/bin/bash -c 'DEV=$(ls /sys/bus/hid/drivers/asus/ 2>/dev/null | grep "0B05:18C6" | head -1); if [ -n "$DEV" ]; then echo "$DEV" > /sys/bus/hid/drivers/asus/unbind 2>/dev/null; sleep 0.5; echo "$DEV" > /sys/bus/hid/drivers/asus/bind 2>/dev/null; fi'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    systemctl daemon-reload
+    systemctl enable gz302-lightbar-reset.service 2>/dev/null || true
+    completed_item "Lightbar reset service installed and enabled"
+}
+
 # --- Install keyboard RGB binary (distro-specific) ---
 install_keyboard_rgb_arch() {
     print_subsection "Building Keyboard RGB (Arch)"
@@ -405,6 +435,10 @@ main() {
     print_section "Step 5: Restore Service"
     install_restore_service
     
+    # Step 6: Install lightbar reset service (fixes asusd locking the device)
+    print_section "Step 6: Lightbar Reset Service"
+    install_lightbar_reset_service
+    
     # Summary
     print_section "Installation Complete"
     echo
@@ -413,6 +447,7 @@ main() {
     print_keyval "udev Rules" "$UDEV_RULES_PATH"
     print_keyval "Sudoers" "$SUDOERS_PATH"
     print_keyval "Restore Service" "gz302-rgb-restore.service"
+    print_keyval "Lightbar Reset" "gz302-lightbar-reset.service"
     
     print_box "RGB Control Ready"
     echo

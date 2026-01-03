@@ -115,9 +115,19 @@ if [[ ${EUID:-$(id -u)} -eq 0 ]] && [[ -n "${SUDO_USER:-}" ]]; then
 fi
 
 # Install autostart entry
+# Skip user-level autostart if system-level autostart exists (prevents duplicates)
 AUTOSTART_FILE="$AUTOSTART_DIR/gz302-tray.desktop"
-printf "%s" "$DESKTOP_FILE_CONTENT" > "$AUTOSTART_FILE"
-chmod 644 "$AUTOSTART_FILE"
+SYSTEM_AUTOSTART="/etc/xdg/autostart/gz302-control-center.desktop"
+if [[ -f "$SYSTEM_AUTOSTART" ]]; then
+  echo "System-level autostart exists at $SYSTEM_AUTOSTART - skipping user autostart"
+  # Remove any existing user autostart to prevent duplicates
+  rm -f "$AUTOSTART_FILE" 2>/dev/null || true
+  rm -f "$AUTOSTART_DIR/gz302-control-center.desktop" 2>/dev/null || true
+else
+  printf "%s" "$DESKTOP_FILE_CONTENT" > "$AUTOSTART_FILE"
+  chmod 644 "$AUTOSTART_FILE"
+  echo "Enabled autostart entry:    $AUTOSTART_FILE"
+fi
 
 # Fix ownership if running as root
 if [[ ${EUID:-$(id -u)} -eq 0 ]] && [[ -n "${SUDO_USER:-}" ]]; then
@@ -147,7 +157,6 @@ if command -v update-desktop-database >/dev/null 2>&1; then
 fi
 
 echo "Installed desktop launcher: $DESKTOP_FILE"
-echo "Enabled autostart entry:    $AUTOSTART_FILE"
 echo ""
 
 echo "Registering APP_NAME to /etc/gz302/tray.conf and notifying running tray (if any)..."

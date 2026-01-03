@@ -243,6 +243,16 @@ stop_running_tray() {
         sleep 1
         completed_item "Stopped existing tray processes"
     fi
+    
+    # Remove any user-level autostart files to prevent duplicates
+    # (we only use system-level /etc/xdg/autostart)
+    local real_user="${SUDO_USER:-}"
+    if [[ -n "$real_user" && "$real_user" != "root" ]]; then
+        local real_home
+        real_home=$(getent passwd "$real_user" | cut -d: -f6)
+        rm -f "$real_home/.config/autostart/gz302-tray.desktop" 2>/dev/null || true
+        rm -f "$real_home/.config/autostart/gz302-control-center.desktop" 2>/dev/null || true
+    fi
 }
 
 # Restart tray for the user who invoked sudo
