@@ -1290,8 +1290,8 @@ RESTORE_EOF
     
     success "Power management installed."
 }
+
 # Refresh Rate Management Installation
-enable_arch_services() {
 install_refresh_management() {
     info "Installing virtual refresh rate management system..."
     
@@ -1306,6 +1306,34 @@ install_refresh_management() {
     
     success "Refresh rate management installed."
 }
+
+# RGB Keyboard Installation
+install_gz302_rgb_keyboard() {
+    local distro="${1:-arch}"
+    info "Installing GZ302 RGB keyboard control..."
+    
+    local rgb_install_script="${SCRIPT_DIR}/scripts/gz302-rgb-install.sh"
+    
+    if [[ -f "$rgb_install_script" ]]; then
+        chmod +x "$rgb_install_script"
+        bash "$rgb_install_script" "$distro"
+        return $?
+    else
+        # Try to download if not present
+        info "RGB install script not found locally, downloading..."
+        mkdir -p "${SCRIPT_DIR}/scripts" || { error "Failed to create scripts directory"; return 1; }
+        if curl -fsSL "${GITHUB_RAW_URL}/scripts/gz302-rgb-install.sh" -o "$rgb_install_script"; then
+            chmod +x "$rgb_install_script"
+            bash "$rgb_install_script" "$distro"
+            return $?
+        else
+            error "Failed to download RGB install script"
+            return 1
+        fi
+    fi
+}
+
+enable_arch_services() {
     info "Services configuration complete for Arch-based system"
 }
 

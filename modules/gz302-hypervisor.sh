@@ -33,9 +33,10 @@ elif [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
     source "${SCRIPT_DIR}/gz302-utils.sh"
 else
     echo "gz302-utils.sh not found. Downloading..."
+    mkdir -p "$(dirname "${SCRIPT_DIR}/gz302-utils.sh")" || { echo "Error: Failed to create directory"; exit 1; }
     GITHUB_RAW_URL="${GITHUB_RAW_URL:-https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main}"
     if command -v curl >/dev/null 2>&1; then
-        curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -o "${SCRIPT_DIR}/gz302-utils.sh"
+        curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -o "${SCRIPT_DIR}/gz302-utils.sh" || { echo "Error: curl failed"; exit 1; }
     elif command -v wget >/dev/null 2>&1; then
         wget "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -O "${SCRIPT_DIR}/gz302-utils.sh"
     else

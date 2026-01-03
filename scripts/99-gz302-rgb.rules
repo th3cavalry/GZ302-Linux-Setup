@@ -1,17 +1,30 @@
 # GZ302 RGB Control - udev rules for unprivileged access
 # This file configures permissions for both keyboard and rear window RGB
 
+# ============================================================================
 # Keyboard RGB Control - ASUS ROG Flow Z13 keyboard (USB 0b05:1a30)
-# Allows unprivileged access to the USB device for gz302-rgb binary
+# ============================================================================
+# USB device access for gz302-rgb binary (libusb mode)
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1a30", MODE="0666"
 
-# Rear Window/Lightbar RGB Control - sysfs LED brightness
-# Allows unprivileged write access to kbd_backlight brightness files
-# Multiple patterns to catch different device paths
+# HIDRAW device access for keyboard RGB (hidraw mode)
+KERNEL=="hidraw*", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1a30", MODE="0666"
+
+# ============================================================================
+# Rear Window/Lightbar RGB Control - N-KEY Device (USB 0b05:18c6)
+# ============================================================================
+# USB device access
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18c6", MODE="0666"
+
+# HIDRAW device access for lightbar control
+KERNEL=="hidraw*", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18c6", MODE="0666"
+
+# ============================================================================
+# Keyboard Backlight sysfs permissions (asus driver)
+# ============================================================================
+# Allows unprivileged write access to kbd_backlight brightness
 ACTION=="add|change", SUBSYSTEM=="leds", KERNEL=="*::kbd_backlight", RUN+="/bin/chmod 0666 /sys/%p/brightness"
 ACTION=="add|change", SUBSYSTEM=="leds", KERNEL=="asus::kbd_backlight", RUN+="/bin/chmod 0666 /sys/%p/brightness"
 
-# Lightbar-specific LED device (if exposed as separate device) - HIDRAW access
-# N-KEY Device (0b05:18c6)
-KERNEL=="hidraw*", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18c6", MODE="0666"
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18c6", MODE="0666"
+# ASUS aura_keyboard interface (kernel 6.14+)
+ACTION=="add|change", SUBSYSTEM=="leds", KERNEL=="aura_keyboard", RUN+="/bin/chmod -R 0666 /sys/%p/*"

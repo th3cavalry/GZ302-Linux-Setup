@@ -13,6 +13,7 @@ class NotificationManager:
     def __init__(self, tray_icon):
         self.tray = tray_icon
         self.notify2_initialized = False
+        self._app_name = "GZ302 Control Center"
 
         # Try to initialize notify2 for richer notifications
         if NOTIFY2_AVAILABLE:
@@ -21,6 +22,14 @@ class NotificationManager:
                 self.notify2_initialized = True
             except Exception:
                 pass
+
+    @property
+    def app_name(self):
+        """Get app name from tray's config if available."""
+        try:
+            return self.tray.config.get_app_name()
+        except:
+            return self._app_name
 
     def notify(self, title, message, icon_type="info", duration=4000, urgency="normal"):
         """
@@ -99,11 +108,11 @@ class NotificationManager:
             message += f"\n{power_info}"
 
         # Prepend application name for clarity
-        self.notify(f"{self.tray.app_name}: {title}", message, "success", 4000)
+        self.notify(f"{self.app_name}: {title}", message, "success", 4000)
 
     def notify_error(self, title, message, hint=""):
         """Send error notification with optional hint"""
         full_message = message
         if hint:
             full_message += f"\n\n💡 Tip: {hint}"
-        self.notify(f"{self.tray.app_name}: {title}", full_message, "error", 6000, "critical")
+        self.notify(f"{self.app_name}: {title}", full_message, "error", 6000, "critical")

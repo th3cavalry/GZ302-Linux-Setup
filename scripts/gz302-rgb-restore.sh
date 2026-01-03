@@ -23,11 +23,12 @@ RGB_BIN="/usr/local/bin/gz302-rgb"
 WINDOW_BIN="/usr/local/bin/gz302-rgb-window"
 
 # Helper to read config values safely without sourcing
+# Returns empty string if key not found (grep || true prevents pipefail exit)
 get_config_var() {
     local file="$1"
     local key="$2"
     if [[ -f "$file" ]]; then
-        grep "^${key}=" "$file" | head -n1 | cut -d'=' -f2- | tr -d '"' | tr -d "'"
+        (grep "^${key}=" "$file" 2>/dev/null || true) | head -n1 | cut -d'=' -f2- | tr -d '"' | tr -d "'"
     fi
 }
 

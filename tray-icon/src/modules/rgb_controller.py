@@ -12,16 +12,23 @@ class RGBController:
         self.notifier = notifier
         self.window_animation_thread = None
         self.window_animation_stop = None
+        self._check_installation()
+
+    def _check_installation(self):
+        """Check RGB tools installation status on startup."""
+        self.keyboard_available = self.check_available()
+        self.window_available = self._find_lightbar() is not None
 
     def check_available(self):
         """Check if gz302-rgb binary is available."""
         try:
+            # Check multiple possible locations
+            paths = ["/usr/local/bin/gz302-rgb", "/usr/bin/gz302-rgb"]
+            for p in paths:
+                if Path(p).exists():
+                    return True
             result = subprocess.run(["which", "gz302-rgb"], capture_output=True, timeout=2)
-            if result.returncode == 0:
-                return True
-            if Path("/usr/local/bin/gz302-rgb").exists():
-                return True
-            return False
+            return result.returncode == 0
         except Exception:
             return False
 
@@ -46,6 +53,10 @@ class RGBController:
 
     def set_keyboard_color(self, hex_color):
         """Set static color."""
+        if not self.keyboard_available:
+            self.notifier.notify_error("Keyboard RGB", "gz302-rgb not installed. Run: sudo ./scripts/gz302-rgb-install.sh")
+            return
+        
         self._run_bg_command(
             ["sudo", "-n", "gz302-rgb", "single_static", hex_color],
             success_msg=f"🌈 Color set to #{hex_color}",
@@ -54,10 +65,14 @@ class RGBController:
         )
 
     def set_keyboard_animation(self, anim_type, c1=None, c2=None, speed=2):
+        if not self.keyboard_available:
+            self.notifier.notify_error("Keyboard RGB", "gz302-rgb not installed")
+            return
+            
         cmd = []
         desc = ""
         if anim_type == "breathing":
-            cmd = ["single_breathing", c1, c2, str(speed)]
+            cmd = ["single_breathing", c1 or "FFFFFF", c2 or "000000", str(speed)]
             desc = "🌬️ Breathing"
         elif anim_type == "colorcycle":
             cmd = ["single_colorcycle", str(speed)]
@@ -65,6 +80,9 @@ class RGBController:
         elif anim_type == "rainbow":
             cmd = ["rainbow_cycle", str(speed)]
             desc = "🌈 Rainbow"
+        else:
+            self.notifier.notify_error("RGB", f"Unknown animation: {anim_type}")
+            return
             
         full_cmd = ["sudo", "-n", "gz302-rgb"] + cmd
         
@@ -77,6 +95,9 @@ class RGBController:
 
     def set_keyboard_brightness(self, level):
         if not (0 <= level <= 3): return
+        if not self.keyboard_available:
+            self.notifier.notify_error("Keyboard RGB", "gz302-rgb not installed")
+            return
         
         self._run_bg_command(
             ["sudo", "-n", "gz302-rgb", "brightness", str(level)],
@@ -93,9 +114,22 @@ class RGBController:
                     if save_cb: save_cb()
                     self.notifier.notify("Keyboard RGB", success_msg, "success", 2000)
                 else:
-                    self.notifier.notify_error("RGB Error", f"{error_msg}: {res.stderr.strip()}")
+                    err_detail = res.stderr.strip() or res.stdout.strip() or "Unknown error"
+                    # Check for common issues
+                    if "permission" in err_detail.lower() or "LIBUSB_ERROR" in err_detail:
+                        hint = "Try: sudo udevadm control --reload && sudo udevadm trigger"
+                        self.notifier.notify_error("RGB Error", f"{error_msg}\n{hint}")
+                    elif "not found" in err_detail.lower():
+                        self.notifier.notify_error("RGB Error", f"{error_msg}: Keyboard not detected")
+                    else:
+                        self.notifier.notify_error("RGB Error", f"{error_msg}: {err_detail[:100]}")
+            except subprocess.TimeoutExpired:
+                self.notifier.notify_error("RGB Error", f"{error_msg}: Command timed out")
+            except FileNotFoundError:
+                self.notifier.notify_error("RGB Error", "gz302-rgb not found. Run RGB installer.")
+                self.keyboard_available = False
             except Exception as e:
-                self.notifier.notify_error("RGB Error", str(e))
+                self.notifier.notify_error("RGB Error", str(e)[:100])
         threading.Thread(target=worker, daemon=True).start()
 
     # --- Window / Lightbar Logic ---
@@ -240,11 +274,12 @@ class RGBController:
         self.notifier.notify("Rear Window", f"Animation: {anim_type.title()}", "success", 2000)
 
     def _write_config(self, filepath, lines):
-        # Helper to write config with sudo
+        # Helper to write config with sudo (suppress errors if sudoers not configured)
         tmp = f"/tmp/gz302-cfg-{os.getpid()}"
         with open(tmp, 'w') as f: f.write("\n".join(lines) + "\n")
-        subprocess.run(["sudo", "-n", "mkdir", "-p", os.path.dirname(filepath)])
-        subprocess.run(["sudo", "-n", "mv", tmp, filepath])
+        subprocess.run(["sudo", "-n", "mkdir", "-p", os.path.dirname(filepath)], 
+                      capture_output=True)
+        subprocess.run(["sudo", "-n", "mv", tmp, filepath], capture_output=True)
 
     def _save_window_config(self, updates):
         try:
