@@ -42,7 +42,7 @@ GITHUB_RAW_URL="https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/m
 check_root() {
     if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
         echo "❌ Error: This script must be run as root"
-        echo "Usage: sudo ./install.sh [--full|--minimal|--tools]"
+        echo "Usage: sudo ./install.sh [--full|--minimal|--cc]"
         exit 1
     fi
 }
@@ -338,12 +338,9 @@ install_modules() {
 
 # --- Main Execution ---
 
-check_root
-check_library
-
 MODE="full"
 
-# Parse command-line arguments
+# Parse command-line arguments FIRST (to handle --help without root)
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --full) MODE="full" ;;
@@ -360,6 +357,10 @@ while [[ "$#" -gt 0 ]]; do
     esac
     shift
 done
+
+# Now check requirements
+check_root
+check_library
 
 # Display banner
 echo
