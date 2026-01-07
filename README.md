@@ -1,56 +1,27 @@
-# 🚀 GZ302 Linux Toolkit
+# GZ302 Linux Toolkit
 
-![Version](https://img.shields.io/badge/version-4.0.0-blue?style=for-the-badge)
-![Kernel](https://img.shields.io/badge/Kernel-6.14%2B-orange?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Platform](https://img.shields.io/badge/Device-ASUS%20ROG%20Flow%20Z13-red?style=for-the-badge)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Platform](https://img.shields.io/badge/Platform-ASUS%20ROG%20Flow%20Z13-blue)](https://asus-linux.org)
 
 **The ultimate Linux optimization suite for the ASUS ROG Flow Z13 (GZ302).**
-Transform your device into a powerhouse with kernel-aware hardware fixes, intelligent power management, and a dedicated Command Center.
+
+Transform your device into a powerhouse with kernel-aware hardware fixes, intelligent power management, and a dedicated Command Center. This toolkit uses a **Library-First Architecture**.
 
 ---
 
 ## 📥 Installation
 
-### ❓ Which script should I use?
-
-| Feature | 1. Command Center | 2. Full Setup | 3. Minimal |
-| :--- | :---: | :---: | :---: |
-| **Best For** | **Existing Users / Power Users** | **Fresh Installations** | **Purists / Servers** |
-| **Hardware Fixes** | ❌ (Assumes native/fixed) | ✅ (Kernel-aware) | ✅ (Kernel-aware) |
-| **Power/Fan Control** | ✅ | ✅ | ❌ |
-| **RGB Control** | ✅ | ✅ | ❌ |
-| **GUI / Tray App** | ✅ | ✅ | ❌ |
-| **Optional Modules** | ❌ | ✅ | ❌ |
-
----
-
-### 1. Command Center Installer (Recommended)
-**Installs:** Power profiles, Fan curves, RGB control, Refresh rate manager, and the System Tray App.
-*Does NOT touch kernel parameters or hardware drivers.*
+**One script to rule them all.**
 
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/install-command-center.sh -o install-command-center.sh
-chmod +x install-command-center.sh
-sudo ./install-command-center.sh
-```
+# Download the installer
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/install.sh -o install.sh
+chmod +x install.sh
 
-### 2. Full Setup (Fresh Install)
-**Installs:** Everything in Command Center **PLUS** essential hardware fixes (WiFi, GPU, Input) tailored to your kernel version.
-
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-main.sh -o gz302-main.sh
-chmod +x gz302-main.sh
-sudo ./gz302-main.sh
-```
-
-### 3. Minimal Setup (Fixes Only)
-**Installs:** Only the bare minimum kernel patches and configuration files to make the hardware function. No extra tools.
-
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-minimal.sh -o gz302-minimal.sh
-chmod +x gz302-minimal.sh
-sudo ./gz302-minimal.sh
+# Run the setup
+sudo ./install.sh --full      # Recommended: Full setup (Fixes + Tools + GUI)
+sudo ./install.sh --tools     # Tools only (No kernel patches)
+sudo ./install.sh --minimal   # Fixes only (Server/Purist mode)
 ```
 
 ---
@@ -97,26 +68,19 @@ The scripts automatically detect your kernel and adapt the strategy:
 
 ## 📂 Repository Structure
 
-The project uses a **Library-First Architecture** for stability and modularity.
-
 ```
 GZ302-Linux-Setup/
-├── gz302-main.sh              # 🟢 Entry Point: Full Setup
-├── install-command-center.sh  # 🟢 Entry Point: Tools Only
-├── gz302-minimal.sh           # 🟢 Entry Point: Minimal Fixes
-├── modules/                   # 📦 Optional feature packs (Gaming, AI, etc.)
-├── scripts/                   # 🛠️ Standalone binaries & helpers (RGB, Restore)
-├── gz302-lib/                 # 📚 Shared core libraries (Power, Display, Utils)
-└── tray-icon/                 # 🖼️ Python/Qt6 GUI Application
+├── install.sh              # 🟢 Unified Entry Point
+├── modules/                # 📦 Feature packs (Gaming, AI, etc.)
+├── scripts/                # 🛠️ Standalone binaries
+│   └── uninstall/          # 🗑️ Cleanup scripts
+├── gz302-lib/              # 📚 Shared core libraries
+├── tray-icon/              # 🖼️ Python/Qt6 GUI Application
+└── docs/                   # 📄 Hardware research & documentation
 ```
 
 ---
 
-## 🤝 Contributing & Support
+## 🤝 Contributing
 
-*   **Documentation:** Check the [Info/](Info/) directory for detailed hardware research.
-*   **Issues:** Please report bugs on the [Issues page](https://github.com/th3cavalry/GZ302-Linux-Setup/issues).
-*   **Development:** See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
-
-**License:** MIT  
-**Maintained by:** th3cavalry
+See CONTRIBUTING.md. For hardware research, check the docs/ directory.
