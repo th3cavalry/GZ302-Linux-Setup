@@ -315,7 +315,7 @@ install_tools() {
         print_subsection "Installing System Tray Application"
         if [[ -d "$REPO_ROOT/tray-icon" ]] && [[ -f "$REPO_ROOT/tray-icon/install-tray.sh" ]]; then
             info "Running tray installer..."
-            bash "$REPO_ROOT/tray-icon/install-tray.sh"
+            bash "$REPO_ROOT/tray-icon/install-tray.sh" || warning "Tray installer failed"
         else
             warning "Tray installer not found, skipping"
         fi
