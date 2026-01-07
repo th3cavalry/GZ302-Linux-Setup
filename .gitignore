@@ -66,4 +66,4 @@ MANIFEST
 # Build artifacts (if any)
 build/
 dist/
-gz302-rgb
+gz302-rgb.CHANGELOG.md

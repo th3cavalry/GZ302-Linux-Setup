@@ -401,6 +401,13 @@ power_apply_profile() {
         echo "$(date +%s)" > "$POWER_CONFIG_DIR/last-change"
         echo "$(power_get_source)" > "$POWER_CONFIG_DIR/last-power-source"
         
+        # Apply Refresh Rate
+        local refresh="${POWER_REFRESH_RATES[$profile]:-}"
+        if [[ -n "$refresh" ]] && command -v rrcfg >/dev/null; then
+            # Run rrcfg in background to not block
+            rrcfg "$refresh" >/dev/null 2>&1 &
+        fi
+        
         echo "Power profile '$profile' applied ($method)"
         return 0
     else

@@ -42,10 +42,9 @@ def save_config(r, g, b, power_on=True):
             else:
                 f.write("WINDOW_POWER=off\n")
     except PermissionError:
-        # Silently fail if not running as root - color still applied
-        pass
-    except Exception:
-        pass
+        print(f"Warning: Could not save settings to {WINDOW_CONFIG} (Permission denied)")
+    except Exception as e:
+        print(f"Warning: Could not save settings: {e}")
 
 
 def get_hid_phys(path):
@@ -92,6 +91,19 @@ def set_lightbar_power(device_path, state):
     else:
         packet = bytes([0x5d, 0xbd, 0x01, 0xaa, 0x00, 0x00, 0xff, 0xff])
     send_packet(device_path, packet)
+    # Also set sysfs brightness if available (asus driver requirement)
+    try:
+        brightness_val = "3" if state else "0"
+        for path in glob.glob("/sys/class/leds/asus::kbd_backlight*"):
+            uevent = os.path.join(path, "device/uevent")
+            if os.path.exists(uevent):
+                with open(uevent, 'r') as f:
+                    if "000018C6" in f.read():
+                        # Found lightbar LED class
+                        b_file = os.path.join(path, "brightness")
+                        with open(b_file, 'w') as bf:
+                            bf.write(brightness_val)
+    except: pass
 
 
 def set_lightbar_color(device_path, r, g, b):

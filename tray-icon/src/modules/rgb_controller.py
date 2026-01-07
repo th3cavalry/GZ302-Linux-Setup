@@ -170,6 +170,16 @@ class RGBController:
             raise Exception(f"Permission denied accessing {dev}. Check udev rules.")
         except Exception as e:
             raise Exception(f"Failed to write to {dev}: {str(e)}")
+            
+    def _set_sysfs_power(self, power_on):
+        """Set Sysfs brightness to ensure asus driver enables the LED."""
+        try:
+            val = "3" if power_on else "0"
+            for p in Path("/sys/class/leds").glob("asus::kbd_backlight*"):
+                uevent = p / "device/uevent"
+                if uevent.exists() and "000018C6" in uevent.read_text():
+                    (p / "brightness").write_text(val)
+        except: pass
 
     def set_window_backlight(self, level):
         try:
@@ -178,7 +188,9 @@ class RGBController:
             
             if level == 0:
                 self._send_packet(dev, bytes([0x5d, 0xbd, 0x01, 0xaa, 0x00, 0x00, 0xff, 0xff]))
+                self._set_sysfs_power(False)
             else:
+                self._set_sysfs_power(True)
                 self._send_packet(dev, bytes([0x5d, 0xbd, 0x01, 0xae, 0x05, 0x22, 0xff, 0xff]))
                 val = [0, 85, 170, 255][level]
                 time.sleep(0.1)
@@ -195,6 +207,9 @@ class RGBController:
             dev = self._find_lightbar()
             if not dev: raise Exception("Rear window lightbar not detected")
             
+            if not dev: raise Exception("Rear window lightbar not detected")
+            
+            self._set_sysfs_power(True)
             self._send_packet(dev, bytes([0x5d, 0xbd, 0x01, 0xae, 0x05, 0x22, 0xff, 0xff]))
             time.sleep(0.08)
             self._send_packet(dev, bytes([0x5d, 0xb3, 0x00, 0x00, r, g, b, 0xeb, 0x00, 0x00, 0xff, 0xff, 0xff]))
@@ -274,12 +289,21 @@ class RGBController:
         self.notifier.notify("Rear Window", f"Animation: {anim_type.title()}", "success", 2000)
 
     def _write_config(self, filepath, lines):
-        # Helper to write config with sudo (suppress errors if sudoers not configured)
-        tmp = f"/tmp/gz302-cfg-{os.getpid()}"
-        with open(tmp, 'w') as f: f.write("\n".join(lines) + "\n")
-        subprocess.run(["sudo", "-n", "mkdir", "-p", os.path.dirname(filepath)], 
-                      capture_output=True)
-        subprocess.run(["sudo", "-n", "mv", tmp, filepath], capture_output=True)
+        """Write config file directly (assumes user has write permission via group/ACL)."""
+        try:
+            # Ensure directory exists (basic check, though install script handles it)
+            config_dir = os.path.dirname(filepath)
+            if not os.path.exists(config_dir):
+                # Fallback to sudo if dir missing (shouldn't happen after install)
+                subprocess.run(["sudo", "-n", "mkdir", "-p", config_dir], capture_output=True)
+                subprocess.run(["sudo", "-n", "chmod", "777", config_dir], capture_output=True)
+
+            with open(filepath, 'w') as f:
+                f.write("\n".join(lines) + "\n")
+        except PermissionError:
+            self.notifier.notify_error("Config Error", f"Permission denied writing to {filepath}")
+        except Exception as e:
+            self.notifier.notify_error("Config Error", f"Failed to save settings: {e}")
 
     def _save_window_config(self, updates):
         try:
@@ -289,11 +313,13 @@ class RGBController:
             
             # Read existing
             if config_file.exists():
-                txt = config_file.read_text()
-                for line in txt.splitlines():
-                    if "=" in line:
-                        k, v = line.split("=", 1)
-                        existing[k.strip()] = v.strip()
+                try:
+                    txt = config_file.read_text()
+                    for line in txt.splitlines():
+                        if "=" in line:
+                            k, v = line.split("=", 1)
+                            existing[k.strip()] = v.strip()
+                except: pass
             
             # Update
             for k, v in updates.items():
@@ -302,6 +328,7 @@ class RGBController:
                 else:
                     existing[k] = v
             
-            lines = [f"{k}={v}" for k,v in existing.items()]
+            lines = [f"# Saved by GZ302 Tray"] + [f"{k}={v}" for k,v in existing.items()]
             self._write_config(str(config_file), lines)
-        except: pass
+        except Exception as e:
+            self.notifier.notify_error("Save Error", str(e))

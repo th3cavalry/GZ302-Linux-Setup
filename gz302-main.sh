@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # Author: th3cavalry using Copilot
-# Version: 3.0.3
+# Version: $(cat "$(dirname "${BASH_SOURCE[0]}")/VERSION" 2>/dev/null || echo "4.0.0")
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -307,9 +307,9 @@ apply_hardware_fixes() {
         ensure_grub_kernel_param "amdgpu.ppfeaturemask=0xffffffff" && grub_changed=true || true
         # Display stability (Wayland/KWin pageflip mitigation)
         ensure_grub_kernel_param "amdgpu.sg_display=0" && grub_changed=true || true
-        # dcdebugmask options: 0x400 disables DMUB Panel Self-Refresh/Replay that causes freezes on Strix Halo
-        # This fixes the dmub_replay_enable kernel bug that causes system freeze after login
-        ensure_grub_kernel_param "amdgpu.dcdebugmask=0x400" && grub_changed=true || true
+        # dcdebugmask options: 0x410 combines 0x400 (disables DMUB Panel Self-Refresh/Replay) and 0x10 (pageflip timeout fix)
+        # This fixes the dmub_replay_enable kernel bug and pageflip timeout that causes system freeze after login
+        ensure_grub_kernel_param "amdgpu.dcdebugmask=0x410" && grub_changed=true || true
         # Sleep/ACPI behavior
         ensure_grub_kernel_param "mem_sleep_default=deep" && grub_changed=true || true
         ensure_grub_kernel_param 'acpi_osi="Windows 2022"' && grub_changed=true || true
@@ -329,7 +329,7 @@ apply_hardware_fixes() {
         ensure_kcmdline_param "amd_pstate=guided" && kcmd_changed=true || true
         ensure_kcmdline_param "amdgpu.ppfeaturemask=0xffffffff" && kcmd_changed=true || true
         ensure_kcmdline_param "amdgpu.sg_display=0" && kcmd_changed=true || true
-        ensure_kcmdline_param "amdgpu.dcdebugmask=0x400" && kcmd_changed=true || true
+        ensure_kcmdline_param "amdgpu.dcdebugmask=0x410" && kcmd_changed=true || true
         ensure_kcmdline_param "mem_sleep_default=deep" && kcmd_changed=true || true
         ensure_kcmdline_param 'acpi_osi="Windows 2022"' && kcmd_changed=true || true
 
@@ -374,7 +374,7 @@ apply_hardware_fixes() {
             ensure_loader_entry_param "$entry" "amd_pstate=guided" && loader_changed=true || true
             ensure_loader_entry_param "$entry" "amdgpu.ppfeaturemask=0xffffffff" && loader_changed=true || true
             ensure_loader_entry_param "$entry" "amdgpu.sg_display=0" && loader_changed=true || true
-            ensure_loader_entry_param "$entry" "amdgpu.dcdebugmask=0x400" && loader_changed=true || true
+            ensure_loader_entry_param "$entry" "amdgpu.dcdebugmask=0x410" && loader_changed=true || true
             ensure_loader_entry_param "$entry" "mem_sleep_default=deep" && loader_changed=true || true
             ensure_loader_entry_param "$entry" 'acpi_osi="Windows 2022"' && loader_changed=true || true
         done
@@ -392,7 +392,7 @@ apply_hardware_fixes() {
         ensure_limine_kernel_param "amd_pstate=guided" && limine_changed=true || true
         ensure_limine_kernel_param "amdgpu.ppfeaturemask=0xffffffff" && limine_changed=true || true
         ensure_limine_kernel_param "amdgpu.sg_display=0" && limine_changed=true || true
-        ensure_limine_kernel_param "amdgpu.dcdebugmask=0x400" && limine_changed=true || true
+        ensure_limine_kernel_param "amdgpu.dcdebugmask=0x410" && limine_changed=true || true
         ensure_limine_kernel_param "mem_sleep_default=deep" && limine_changed=true || true
         ensure_limine_kernel_param 'acpi_osi="Windows 2022"' && limine_changed=true || true
 
@@ -797,52 +797,7 @@ EOF
     fi
 }
 
-install_arch_asus_packages() {
-    info "Installing ASUS control packages for Arch..."
-    
-    # Install from official repos first
-    pacman -S --noconfirm --needed power-profiles-daemon
-    
-    # Method 1: Try G14 repository (recommended, official asus-linux.org repo)
-    info "Attempting to install asusctl from G14 repository..."
-    if ! grep -q '\[g14\]' /etc/pacman.conf; then
-        info "Adding G14 repository..."
-        # Add repository key
-        pacman-key --recv-keys 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35 || warning "Failed to receive G14 key"
-        pacman-key --lsign-key 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35 || warning "Failed to sign G14 key"
-        
-        # Add repository to pacman.conf
-    { echo ""; echo "[g14]"; echo "Server = https://arch.asus-linux.org"; } >> /etc/pacman.conf
-        
-        # Update package database
-        pacman -Sy
-    fi
-    
-    # Try to install from G14 repo
-    if pacman -S --noconfirm --needed asusctl 2>/dev/null; then
-        success "asusctl installed from G14 repository"
-    else
-        warning "G14 repository installation failed, trying AUR..."
-        # Method 2: Fallback to AUR if G14 repo fails
-        if command -v yay >/dev/null 2>&1; then
-            local primary_user
-            primary_user=$(get_real_user)
-            # Install ASUS control tools from AUR
-            sudo -u "$primary_user" yay -S --noconfirm --needed asusctl || warning "AUR asusctl install failed"
-            
-            # Install switcheroo-control for display management
-            sudo -u "$primary_user" yay -S --noconfirm --needed switcheroo-control || warning "switcheroo-control install failed"
-        else
-            warning "yay not available - skipping asusctl installation"
-            info "Manually add G14 repo or install yay and run: yay -S asusctl switcheroo-control"
-        fi
-    fi
-    
-    # Enable services
-    systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
-    
-    success "ASUS packages installed"
-}
+
 
 # --- Battery Limit Fallback Service ---
 setup_battery_limit_service() {
@@ -889,445 +844,62 @@ EOF
     fi
 }
 
-# --- Build asusctl from Source (Fallback for Ubuntu 25.10) ---
-build_asusctl_from_source() {
-    info "PPA installation failed - asusctl packages not available for this Ubuntu version"
+
+
+
+
+
+
+
+
+# --- Command Center Installation Delegation ---
+offer_command_center_install() {
+    local distro="$1"
+    
     echo
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "  asusctl Build Options"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "============================================================"
+    echo "  GZ302 Command Center"
+    echo "============================================================"
     echo
-    echo "asusctl provides essential hardware control features:"
-    echo "  • Battery charge limit (preserve battery health)"
-    echo "  • Fan curve control (customize cooling)"
-    echo "  • Keyboard backlight control (RGB customization)"
-    echo "  • Performance profiles (silent/balanced/performance)"
+    info "The Command Center provides a user interface and essential tools for:"
+    echo "   - Power Management (TDP control)"
+    echo "   - Display Refresh Rate Control"
+    echo "   - RGB Lighting Control (Keyboard & Window)"
+    echo "   - System Tray Icon"
     echo
-    echo "Option 1: Build asusctl from source (~5-10 minutes)"
-    echo "          Full ASUS hardware control with GUI"
-    echo
-    echo "Option 2: Skip and use basic battery limit service"
-    echo "          Only battery charge limit (no other features)"
-    echo
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo
+    
     if [[ "${ASSUME_YES:-false}" == "true" ]]; then
-        response="Y"
-    elif [[ -t 0 ]]; then
-        read -r -p "Would you like to build asusctl from source? (y/N): " response
-    else
-        warning "Non-interactive environment detected - skipping asusctl build"
-        response="N"
+        info "ASSUME_YES: Installing Command Center automatically"
+        install_command_center
+        return
     fi
-
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-        warning "Skipping asusctl installation"
-        info "Attempting to set up basic battery limit service instead..."
-        if setup_battery_limit_service; then
-            info "Basic battery limit configured successfully"
-        else
-            warning "Battery limit service setup failed"
-        fi
-        info "For full asusctl features, see: https://gitlab.com/asus-linux/asusctl"
-        return 1
-    fi
-
-    info "Building asusctl from source - this will take 5-10 minutes..."
-
-    # Install build dependencies
-    info "Installing build dependencies..."
-    apt-get update || warning "Failed to update package list"
-    apt-get install -y \
-        make cargo gcc pkg-config \
-        libasound2-dev cmake build-essential python3 \
-        libfreetype6-dev libexpat1-dev libxcb-composite0-dev \
-        libssl-dev libx11-dev libfontconfig1-dev curl \
-        libclang-dev libudev-dev libseat-dev libinput-dev \
-        libxkbcommon-dev libgbm-dev git || {
-            error "Failed to install build dependencies"
-        }
-
-    # Clone or update asusctl repository
-    local asusctl_dir="/tmp/asusctl"
-    if [[ -d "$asusctl_dir" ]]; then
-        info "Using existing asusctl repository at $asusctl_dir"
-        cd "$asusctl_dir" || return 1
-        if git fetch origin; then
-            git reset --hard origin/main || warning "Failed to reset to latest"
-        else
-            warning "Failed to fetch latest changes - using existing state"
-        fi
+    
+    if ask_yes_no "Do you want to install the GZ302 Command Center? (Y/n): " Y; then
+        install_command_center
     else
-        info "Cloning asusctl repository..."
-        cd /tmp || return 1
-        git clone https://gitlab.com/asus-linux/asusctl.git || {
-            error "Failed to clone asusctl repository"
-        }
-        cd asusctl || return 1
-    fi
-
-    # Build asusctl
-    info "Building asusctl (this may take several minutes)..."
-    info "Progress: Compiling Rust code with cargo..."
-    if make 2>&1 | tee /tmp/asusctl-build.log; then
-        success "asusctl build completed successfully"
-    else
-        error "asusctl build failed - see /tmp/asusctl-build.log for details"
-    fi
-
-    # Install asusctl
-    info "Installing asusctl..."
-    if make install 2>&1 | tee /tmp/asusctl-install.log; then
-        success "asusctl installed successfully"
-    else
-        error "asusctl installation failed - see /tmp/asusctl-install.log for details"
-    fi
-
-    # Reload systemd and start services
-    info "Configuring asusctl services..."
-    systemctl daemon-reload
-    systemctl enable --now asusd.service 2>/dev/null || warning "Failed to enable asusd service"
-    systemctl enable --now asusd-user.service 2>/dev/null || warning "Failed to enable asusd-user service"
-
-    # Wait a moment for service to initialize
-    sleep 2
-
-    # Verify installation
-    info "Verifying asusctl installation..."
-    if command -v asusctl >/dev/null 2>&1; then
-        local version
-        version=$(asusctl --version 2>/dev/null | head -n1)
-        success "asusctl installed: $version"
-
-        # Check if asusd service is running
-        if systemctl is-active --quiet asusd.service; then
-            success "asusd service is running"
-
-            # Set battery charge limit to 80% (recommended for longevity)
-            info "Setting battery charge limit to 80%..."
-            if asusctl -c 80 2>/dev/null; then
-                success "Battery charge limit set to 80%"
-                info "Your battery will stop charging at 80% to preserve battery health"
-            else
-                warning "Failed to set battery charge limit with asusctl"
-                info "You can set it manually later with: asusctl -c 80"
-            fi
-        else
-            warning "asusd service is not running - asusctl may not work correctly"
-            info "Try restarting the service: sudo systemctl restart asusd"
-        fi
-
-        return 0
-    else
-        warning "asusctl installation verification failed - command not found"
-        return 1
+        info "Skipping Command Center installation."
+        info "You can install it later by running: ./install-command-center.sh"
     fi
 }
 
-install_debian_asus_packages() {
-    info "Installing ASUS control packages for Debian/Ubuntu..."
-
-    # Install power-profiles-daemon
-    apt install -y power-profiles-daemon || warning "power-profiles-daemon install failed"
-
-    # Install switcheroo-control
-    apt install -y switcheroo-control || warning "switcheroo-control install failed"
-
-    # Try to install asusctl from PPA
-    info "Attempting to install asusctl from PPA..."
-    local ppa_success=0
-
-    if command -v add-apt-repository >/dev/null 2>&1; then
-        # Add Mitchell Austin's asusctl PPA
-        if add-apt-repository -y ppa:mitchellaugustin/asusctl 2>/dev/null; then
-            # Try apt update - if it fails (e.g., PPA doesn't support this Ubuntu version),
-            # remove the PPA to prevent blocking future apt operations
-            local apt_update_log="/tmp/apt-update-asusctl-$$.txt"
-            apt update 2>&1 | tee "$apt_update_log" || true
-            if ! grep -q "^E:" "$apt_update_log"; then
-                # apt update succeeded, try to install the package
-                if apt install -y rog-control-center 2>/dev/null; then
-                    systemctl daemon-reload
-                    systemctl restart asusd 2>/dev/null || warning "Failed to restart asusd"
-                    success "asusctl installed from PPA"
-                    ppa_success=1
-                else
-                    warning "PPA packages not available for this Ubuntu version"
-                fi
-            else
-                # apt update failed - likely PPA doesn't have packages for this Ubuntu version
-                # Check if the error is related to the asusctl PPA
-                if grep -q "mitchellaugustin/asusctl" "$apt_update_log" 2>/dev/null; then
-                    warning "asusctl PPA does not support this Ubuntu version"
-                    info "Removing broken PPA to prevent future apt errors..."
-                    add-apt-repository -y --remove ppa:mitchellaugustin/asusctl 2>/dev/null || true
-                    apt update 2>/dev/null || true
-                else
-                    warning "Failed to update package list"
-                fi
-            fi
-            rm -f "$apt_update_log"
-        else
-            warning "Failed to add asusctl PPA"
-        fi
-    else
-        warning "add-apt-repository not available (expected on Debian Trixie/13+)"
-        info "Falling back to building asusctl from source"
-    fi
-
-    # If PPA installation failed, try building from source
-    if [[ $ppa_success -eq 0 ]]; then
-        if build_asusctl_from_source; then
-            success "asusctl built and installed from source"
-        else
-            warning "asusctl installation skipped"
-            info "Manual installation guide: https://asus-linux.org/guides/asusctl-install/"
-            info "Ubuntu 25.10 workarounds: Info/ubuntu-25.10-notes.md"
-        fi
-    fi
-
-    # Enable services
-    systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
-
-    success "ASUS packages installation complete"
-}
-
-install_fedora_asus_packages() {
-    info "Installing ASUS control packages for Fedora..."
+install_command_center() {
+    print_section "Installing Command Center"
     
-    # Install power-profiles-daemon (usually already installed)
-    dnf install -y power-profiles-daemon || warning "power-profiles-daemon install failed"
+    local cmd_install_script="${SCRIPT_DIR}/install-command-center.sh"
     
-    # Install switcheroo-control
-    dnf install -y switcheroo-control || warning "switcheroo-control install failed"
-    
-    # Install asusctl from COPR
-    info "Attempting to install asusctl from COPR repository..."
-    if command -v dnf >/dev/null 2>&1; then
-        # Enable lukenukem/asus-linux COPR repository
-        dnf copr enable -y lukenukem/asus-linux 2>/dev/null || warning "Failed to enable COPR repository"
-        
-        # Update and install asusctl
-        dnf install -y asusctl 2>/dev/null || warning "asusctl install failed"
-        
-        # Note: supergfxctl not needed for GZ302 (no discrete GPU)
-        info "Note: supergfxctl not installed (GZ302 has integrated GPU only)"
-    else
-        warning "dnf not available"
-        info "Manually enable COPR: dnf copr enable lukenukem/asus-linux && dnf install asusctl"
-    fi
-    
-    # Enable services
-    systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
-    
-    success "ASUS packages installed"
-}
-
-install_opensuse_asus_packages() {
-    info "Installing ASUS control packages for OpenSUSE..."
-    
-    # Install power-profiles-daemon
-    zypper install -y power-profiles-daemon || warning "power-profiles-daemon install failed"
-    
-    # Install switcheroo-control if available
-    zypper install -y switcheroo-control || warning "switcheroo-control install failed"
-    
-    # Try to install asusctl from OBS repository
-    info "Attempting to install asusctl from OBS repository..."
-    # Detect OpenSUSE version
-    local opensuse_version="openSUSE_Tumbleweed"
-    if grep -q "openSUSE Leap" /etc/os-release 2>/dev/null; then
-        opensuse_version="openSUSE_Leap_15.6"
-    fi
-    
-    # Add ASUS Linux OBS repository
-    zypper ar -f "https://download.opensuse.org/repositories/hardware:/asus/${opensuse_version}/" hardware:asus 2>/dev/null || warning "Failed to add OBS repository"
-    zypper ref 2>/dev/null || warning "Failed to refresh repositories"
-    
-    # Try to install asusctl
-    if zypper install -y asusctl 2>/dev/null; then
-        success "asusctl installed from OBS repository"
-    else
-        warning "OBS repository installation failed"
-        info "Manual installation from source: https://asus-linux.org/guides/asusctl-install/"
-    fi
-    
-    # Enable services
-    systemctl enable --now power-profiles-daemon || warning "Failed to enable power-profiles-daemon service"
-    
-    success "ASUS packages installed"
-}
-
-# --- TDP Management Functions ---
-
-
-setup_tdp_management() {
-    local distro_family="$1"
-    
-    info "Setting up TDP management for GZ302..."
-    
-    # Install ryzenadj using library
-    if command -v power_install_ryzenadj >/dev/null; then
-        power_install_ryzenadj "$distro_family"
-    else
-        warning "Power library not loaded, skipping ryzenadj install check"
-    fi
-    
-    # Install pwrcfg script
-    if command -v power_get_pwrcfg_script >/dev/null; then
-        power_get_pwrcfg_script > /usr/local/bin/pwrcfg
-        chmod +x /usr/local/bin/pwrcfg
-        power_init_config
-    else
-        error "Power library missing. Cannot install pwrcfg."
-    fi
-    
-    # Automatically configure sudoers for password-less pwrcfg/rrcfg/RGB
-    info "Configuring password-less sudo for power management and RGB control..."
-    local PWRCFG_PATH="/usr/local/bin/pwrcfg"
-    local RRCFG_PATH="/usr/local/bin/rrcfg"
-    local RGB_PATH="/usr/local/bin/gz302-rgb"
-    local SUDOERS_FILE="/etc/sudoers.d/gz302-pwrcfg"
-    local SUDOERS_TMP
-    SUDOERS_TMP=$(mktemp /tmp/gz302-pwrcfg.XXXXXX)
-    
-    cat > "$SUDOERS_TMP" << SUDO_EOF
-# GZ302 Power and RGB Control - Passwordless Sudo
-Defaults use_pty
-%wheel ALL=(ALL) NOPASSWD: $PWRCFG_PATH
-%wheel ALL=(ALL) NOPASSWD: $RRCFG_PATH
-%wheel ALL=(ALL) NOPASSWD: $RGB_PATH
-%sudo ALL=(ALL) NOPASSWD: $PWRCFG_PATH
-%sudo ALL=(ALL) NOPASSWD: $RRCFG_PATH
-%sudo ALL=(ALL) NOPASSWD: $RGB_PATH
-# Allow tray icon to control keyboard/window backlight brightness
-ALL ALL=(ALL) NOPASSWD: /usr/bin/tee /sys/class/leds/*/brightness
-SUDO_EOF
-    
-    if visudo -c -f "$SUDOERS_TMP" >/dev/null 2>&1; then
-        mv "$SUDOERS_TMP" "$SUDOERS_FILE"
-        chmod 440 "$SUDOERS_FILE"
-        success "Sudoers configured"
-    else
-        rm -f "$SUDOERS_TMP"
-        warning "Sudoers validation failed"
-    fi
-    
-    # Create systemd service for automatic TDP management
-    cat > /etc/systemd/system/pwrcfg-auto.service <<SERVICE_EOF
-[Unit]
-Description=GZ302 Automatic TDP Management
-After=multi-user.target
-Wants=pwrcfg-monitor.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/pwrcfg-restore
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-SERVICE_EOF
-
-    # Create systemd service for power monitoring
-    cat > /etc/systemd/system/pwrcfg-monitor.service <<SERVICE_EOF
-[Unit]
-Description=GZ302 TDP Power Source Monitor
-After=multi-user.target
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/pwrcfg-monitor
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-SERVICE_EOF
-
-    # Create systemd sleep hook
-    cat > /etc/systemd/system/pwrcfg-resume.service <<SERVICE_EOF
-[Unit]
-Description=GZ302 TDP Resume Handler
-After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/pwrcfg-restore
-
-[Install]
-WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
-SERVICE_EOF
-
-    # Create power monitoring script
-    cat > /usr/local/bin/pwrcfg-monitor <<'MONITOR_EOF'
-#!/bin/bash
-while true; do
-    /usr/local/bin/pwrcfg auto
-    sleep 5
-done
-MONITOR_EOF
-    chmod +x /usr/local/bin/pwrcfg-monitor
-    
-    # Create power profile restore script
-    cat > /usr/local/bin/pwrcfg-restore <<'RESTORE_EOF'
-#!/bin/bash
-TDP_CONFIG_DIR="/etc/gz302/pwrcfg"
-CURRENT_PROFILE_FILE="$TDP_CONFIG_DIR/current-profile"
-DEFAULT_PROFILE="balanced"
-if [[ -f "$CURRENT_PROFILE_FILE" ]]; then
-    SAVED_PROFILE=$(cat "$CURRENT_PROFILE_FILE" 2>/dev/null | tr -d ' \n')
-else
-    SAVED_PROFILE="$DEFAULT_PROFILE"
-fi
-/usr/local/bin/pwrcfg "$SAVED_PROFILE"
-RESTORE_EOF
-    chmod +x /usr/local/bin/pwrcfg-restore
-    
-    systemctl daemon-reload
-    systemctl enable pwrcfg-auto.service
-    systemctl enable pwrcfg-resume.service
-    
-    success "Power management installed."
-}
-
-# Refresh Rate Management Installation
-install_refresh_management() {
-    info "Installing virtual refresh rate management system..."
-    
-    # Install rrcfg script
-    if command -v display_get_rrcfg_script >/dev/null; then
-        display_get_rrcfg_script > /usr/local/bin/rrcfg
-        chmod +x /usr/local/bin/rrcfg
-        display_init_config
-    else
-        error "Display library missing. Cannot install rrcfg."
-    fi
-    
-    success "Refresh rate management installed."
-}
-
-# RGB Keyboard Installation
-install_gz302_rgb_keyboard() {
-    local distro="${1:-arch}"
-    info "Installing GZ302 RGB keyboard control..."
-    
-    local rgb_install_script="${SCRIPT_DIR}/scripts/gz302-rgb-install.sh"
-    
-    if [[ -f "$rgb_install_script" ]]; then
-        chmod +x "$rgb_install_script"
-        bash "$rgb_install_script" "$distro"
-        return $?
+    if [[ -f "$cmd_install_script" ]]; then
+        info "Running Command Center installer..."
+        bash "$cmd_install_script"
     else
         # Try to download if not present
-        info "RGB install script not found locally, downloading..."
-        mkdir -p "${SCRIPT_DIR}/scripts" || { error "Failed to create scripts directory"; return 1; }
-        if curl -fsSL "${GITHUB_RAW_URL}/scripts/gz302-rgb-install.sh" -o "$rgb_install_script"; then
-            chmod +x "$rgb_install_script"
-            bash "$rgb_install_script" "$distro"
-            return $?
+        info "Command Center installer not found locally, downloading..."
+        local temp_script="/tmp/install-command-center.sh"
+        if curl -fsSL "${GITHUB_RAW_URL}/install-command-center.sh" -o "$temp_script"; then
+            chmod +x "$temp_script"
+            bash "$temp_script"
+            rm -f "$temp_script"
         else
-            error "Failed to download RGB install script"
+            error "Failed to download Command Center installer"
             return 1
         fi
     fi
@@ -1349,260 +921,7 @@ enable_opensuse_services() {
     info "Services configuration complete for OpenSUSE"
 }
 
-# --- Tray Icon Installation ---
-install_tray_icon() {
-    info "Starting GZ302 Control Center (Tray Icon) installation..."
-    echo
-    
-    # Use the global SCRIPT_DIR that was determined at script initialization
-    local tray_dir="$SCRIPT_DIR/tray-icon"
-    local system_tray_dir="/usr/local/share/gz302/tray-icon"
-    
-    # Get version from VERSION file (single source of truth)
-    local new_version=""
-    if [[ -f "$tray_dir/VERSION" ]]; then
-        new_version=$(cat "$tray_dir/VERSION" 2>/dev/null | tr -d '[:space:]')
-    fi
-    
-    # Get installed version if it exists
-    local installed_version=""
-    if [[ -f "$system_tray_dir/VERSION" ]]; then
-        installed_version=$(cat "$system_tray_dir/VERSION" 2>/dev/null | tr -d '[:space:]')
-    fi
-    
-    # Semver comparison using sort -V
-    # Returns true if new_version is greater than installed_version
-    version_greater() {
-        local v1="$1" v2="$2"
-        [[ -z "$v1" || -z "$v2" ]] && return 0  # Always update if version unknown
-        [[ "$v1" == "$v2" ]] && return 1  # Same version, no update needed
-        # Use sort -V: if v1 sorts after v2, then v1 > v2
-        local highest
-        highest=$(printf '%s\n%s\n' "$v1" "$v2" | sort -V | tail -n1)
-        [[ "$highest" == "$v1" ]]
-    }
-    
-    # Check if update is needed
-    local needs_update=true
-    if [[ -n "$installed_version" && -n "$new_version" ]]; then
-        if version_greater "$new_version" "$installed_version"; then
-            info "Updating tray icon from version $installed_version to $new_version"
-        elif [[ "$installed_version" == "$new_version" ]]; then
-            info "Tray icon version $installed_version is already installed"
-            needs_update=false
-        else
-            info "Installed version $installed_version is newer than source $new_version - skipping"
-            needs_update=false
-        fi
-    elif [[ -n "$new_version" ]]; then
-        info "Installing tray icon version $new_version"
-    fi
-    
-    # Kill any running tray processes before updating (to ensure clean update)
-    if [[ "$needs_update" == true ]]; then
-        info "Stopping any running tray processes..."
-        pkill -f "gz302_tray.py" 2>/dev/null || true
-        pkill -f "gz302_tray" 2>/dev/null || true
-        sleep 1
-        
-        # Remove old installation to ensure clean update
-        if [[ -d "$system_tray_dir" ]]; then
-            info "Removing old tray installation..."
-            rm -rf "$system_tray_dir"
-        fi
-    fi
-    
-    # Check if tray-icon directory exists locally; if not, download it
-    if [[ ! -d "$tray_dir" ]]; then
-        info "Downloading tray icon files from GitHub..."
-        mkdir -p "$tray_dir"
-        
-        # Download the necessary tray icon files
-        local tray_files=("install-tray.sh" "install-policy.sh" "README.md")
-        for file in "${tray_files[@]}"; do
-            if ! curl -fsSL "${GITHUB_RAW_URL}/tray-icon/${file}" -o "$tray_dir/${file}" 2>/dev/null; then
-                warning "Failed to download tray-icon/${file}"
-            else
-                chmod +x "$tray_dir/${file}"
-            fi
-        done
-        
-        # Download tray icon source directory
-        mkdir -p "$tray_dir/src"
-        if ! curl -fsSL "${GITHUB_RAW_URL}/tray-icon/src/gz302_tray.py" -o "$tray_dir/src/gz302_tray.py" 2>/dev/null; then
-            warning "Failed to download tray-icon/src/gz302_tray.py"
-        else
-            chmod +x "$tray_dir/src/gz302_tray.py"
-        fi
-        
-        # Download assets (icons for tray)
-        mkdir -p "$tray_dir/assets"
-        local asset_files=("profile-b.svg" "profile-e.svg" "profile-f.svg" "profile-g.svg" "profile-m.svg" "profile-p.svg" "ac.svg" "battery.svg" "lightning.svg")
-        for asset in "${asset_files[@]}"; do
-            if ! curl -fsSL "${GITHUB_RAW_URL}/tray-icon/assets/${asset}" -o "$tray_dir/assets/${asset}" 2>/dev/null; then
-                warning "Failed to download tray-icon/assets/${asset}"
-            fi
-        done
-        
-        # Download requirements.txt and VERSION
-        if ! curl -fsSL "${GITHUB_RAW_URL}/tray-icon/requirements.txt" -o "$tray_dir/requirements.txt" 2>/dev/null; then
-            warning "Failed to download tray-icon/requirements.txt"
-        fi
-        if ! curl -fsSL "${GITHUB_RAW_URL}/tray-icon/VERSION" -o "$tray_dir/VERSION" 2>/dev/null; then
-            warning "Failed to download tray-icon/VERSION"
-        fi
-    else
-        info "Tray icon files found locally at: $tray_dir"
-    fi
-    
-    # Copy tray icon files to system location for persistence and proper operation
-    info "Installing tray icon to system location: $system_tray_dir"
-    mkdir -p "$system_tray_dir"
-    
-    # Copy VERSION file (single source of truth for versioning)
-    if [[ -f "$tray_dir/VERSION" ]]; then
-        cp "$tray_dir/VERSION" "$system_tray_dir/"
-    fi
-    
-    # Copy source files
-    if [[ -d "$tray_dir/src" ]]; then
-        cp -r "$tray_dir/src" "$system_tray_dir/"
-        chmod +x "$system_tray_dir/src/gz302_tray.py"
-    fi
-    
-    # Copy assets
-    if [[ -d "$tray_dir/assets" ]]; then
-        cp -r "$tray_dir/assets" "$system_tray_dir/"
-    fi
-    
-    # Copy installation scripts
-    if [[ -f "$tray_dir/install-tray.sh" ]]; then
-        cp "$tray_dir/install-tray.sh" "$system_tray_dir/"
-        chmod +x "$system_tray_dir/install-tray.sh"
-    fi
-    if [[ -f "$tray_dir/install-policy.sh" ]]; then
-        cp "$tray_dir/install-policy.sh" "$system_tray_dir/"
-        chmod +x "$system_tray_dir/install-policy.sh"
-    fi
-    
-    # Verify critical files exist at system location
-    if [[ ! -f "$system_tray_dir/src/gz302_tray.py" ]]; then
-        error "Failed to install tray icon: $system_tray_dir/src/gz302_tray.py not found"
-    fi
-    if [[ ! -f "$system_tray_dir/install-tray.sh" ]]; then
-        error "Failed to install tray icon: $system_tray_dir/install-tray.sh not found"
-    fi
-    
-    # Check if Python 3 is available
-    if ! command -v python3 >/dev/null 2>&1; then
-        error "Python 3 is required for the tray icon but is not installed.\nPlease install Python 3 and try again."
-    fi
-    
-    info "Installing Python dependencies for tray icon..."
-    
-    # Install Python dependencies based on distribution
-    local distro
-    distro=$(detect_distribution)
-    
-    case "$distro" in
-        arch)
-            info "Installing PyQt6 and psutil for Arch Linux..."
-            if ! pacman -S --noconfirm --needed python-pyqt6 python-psutil; then
-                warning "Failed to install python-pyqt6 and python-psutil via pacman"
-            fi
-            ;;
-        debian)
-            info "Installing PyQt6 and psutil for Debian/Ubuntu..."
-            if ! apt-get install -y python3-pyqt6 python3-psutil; then
-                warning "Failed to install python3-pyqt6 and python3-psutil via apt"
-            fi
-            ;;
-        fedora)
-            info "Installing PyQt6 and psutil for Fedora..."
-            if ! dnf install -y python3-pyqt6 python3-psutil; then
-                warning "Failed to install python3-pyqt6 and python3-psutil via dnf"
-            fi
-            ;;
-        opensuse)
-            info "Installing PyQt6 and psutil for OpenSUSE..."
-            if ! zypper install -y python3-qt6 python3-psutil; then
-                warning "Failed to install PyQt6 and psutil packages via zypper"
-            fi
-            ;;
-    esac
-    
-    # Get the real user (not root)
-    local real_user
-    real_user=$(get_real_user)
-    local real_user_home
-    real_user_home=$(getent passwd "$real_user" | cut -d: -f6)
-    
-    # Run the tray icon installation script from system location
-    # The script handles both system-wide and user-specific installations
-    info "Installing system-wide desktop entries, icons, and autostart..."
-    local install_script="$system_tray_dir/install-tray.sh"
 
-    # For Ubuntu 25.10 and newer, run the installer as the real user to avoid permission issues
-    local distro_version=""
-    if [[ -f /etc/os-release ]]; then
-        # shellcheck disable=SC1091
-        source /etc/os-release
-        # Be defensive: VERSION_ID may not be defined in some environments
-        # (set -euo pipefail causes an unbound variable error), so use a
-        # default empty value instead of referencing it directly.
-        distro_version="${VERSION_ID:-}"
-    fi
-
-    if [[ "$distro" == "ubuntu" && "$distro_version" == "25.10" ]]; then
-        info "Ubuntu 25.10 detected - running tray icon installer as user..."
-        su - "$real_user" -c "bash '$install_script'" || warning "Tray icon configuration encountered issues"
-    else
-        SUDO_USER="$real_user" bash "$install_script" || warning "Tray icon configuration encountered issues"
-    fi
-    
-    # Configure sudoers for password-less pwrcfg
-    info "Configuring password-less sudo for pwrcfg..."
-    if [[ -f "$system_tray_dir/install-policy.sh" ]]; then
-        bash "$system_tray_dir/install-policy.sh" || warning "Sudoers configuration encountered issues"
-    else
-        warning "Sudoers installation script not found. You may need to configure password-less sudo manually."
-    fi
-    
-    success "GZ302 Control Center (Tray Icon) installation complete!"
-    echo
-    info "The tray icon has been installed and configured. You can:"
-    echo "  - Launch it from your applications menu as 'GZ302 Control Center'"
-    echo "  - Run: python3 /usr/local/share/gz302/tray-icon/src/gz302_tray.py"
-    echo "  - It will start automatically on login (if your desktop environment supports it)"
-    echo
-    info "Installation locations:"
-    echo "  - System desktop file: /usr/share/applications/gz302-tray.desktop"
-    echo "  - User autostart: $real_user_home/.config/autostart/gz302-tray.desktop"
-    echo "  - System icon: /usr/share/icons/hicolor/scalable/apps/gz302-power-manager.svg"
-    echo
-    
-    # Start the tray icon for the user after installation
-    info "Starting tray icon..."
-    if [[ -n "$real_user" && "$real_user" != "root" ]]; then
-        # Check if tray is already running
-        if ! pgrep -f "gz302_tray.py" > /dev/null 2>&1; then
-            # Start as the real user, not root
-            su - "$real_user" -c "nohup python3 '$system_tray_dir/src/gz302_tray.py' >/dev/null 2>&1 &" || true
-        else
-            info "Tray icon is already running"
-        fi
-    fi
-    
-    # Check desktop environment for compatibility notes
-    local current_de="${XDG_CURRENT_DESKTOP:-unknown}"
-    if [[ "$current_de" == *"GNOME"* ]]; then
-        warning "GNOME detected: You may need to install the 'AppIndicator' extension for system tray support."
-        info "Install from: https://extensions.gnome.org/extension/615/appindicator-support/"
-        info "Or: gnome-extensions install appindicatorsupport@rgcjonas.gmail.com"
-    fi
-    
-    info "For more information, see: $system_tray_dir/README.md"
-}
 
 
 # --- Module Download and Execution ---
@@ -1702,14 +1021,8 @@ EOFYAY
     provide_distro_optimization_info "$distro"
     
     # Step 4: Install ASUS-specific packages
-    print_step 4 7 "Installing ASUS control packages..."
-    if ! is_step_completed "arch_asus"; then
-        printf '%s' "${C_DIM}"
-        install_arch_asus_packages
-        printf '%s' "${C_NC}"
-        complete_step "arch_asus"
-    fi
-    completed_item "ASUS packages installed"
+    # (Delegated to Command Center)
+
     
     # Step 5: Install SOF firmware for audio support
     print_step 5 7 "Installing audio firmware..."
@@ -1722,23 +1035,10 @@ EOFYAY
     completed_item "Audio firmware installed"
     
     # Step 6: Install GZ302 RGB keyboard control
-    print_step 6 7 "Setting up RGB keyboard control..."
-    if ! is_step_completed "arch_rgb"; then
-        printf '%s' "${C_DIM}"
-        install_gz302_rgb_keyboard "arch" || warning "RGB keyboard installation failed"
-        printf '%s' "${C_NC}"
-        complete_step "arch_rgb"
-    fi
-    completed_item "RGB keyboard and lightbar configured"
+    # (Delegated to Command Center)
     
     # Step 7: Setup TDP and refresh management
-    print_step 7 7 "Setting up power and display management..."
-    if ! is_step_completed "arch_tdp"; then
-        setup_tdp_management "arch"
-        install_refresh_management
-        complete_step "arch_tdp"
-    fi
-    completed_item "Power and display management ready"
+    # (Delegated to Command Center)
     
     enable_arch_services
 }
@@ -1775,14 +1075,8 @@ setup_debian_based() {
     provide_distro_optimization_info "$distro"
     
     # Step 3: Install ASUS-specific packages
-    print_step 3 7 "Installing ASUS control packages..."
-    if ! is_step_completed "debian_asus"; then
-        printf '%s' "${C_DIM}"
-        install_debian_asus_packages
-        printf '%s' "${C_NC}"
-        complete_step "debian_asus"
-    fi
-    completed_item "ASUS packages installed"
+    # (Delegated to Command Center)
+
     
     # Step 4: Install SOF firmware for audio support
     print_step 4 7 "Installing audio firmware..."
@@ -1795,29 +1089,10 @@ setup_debian_based() {
     completed_item "Audio firmware installed"
     
     # Step 5: Install GZ302 RGB keyboard control
-    print_step 5 7 "Setting up RGB keyboard control..."
-    if ! is_step_completed "debian_rgb"; then
-        printf '%s' "${C_DIM}"
-        install_gz302_rgb_keyboard "ubuntu" || warning "RGB keyboard installation failed"
-        printf '%s' "${C_NC}"
-        complete_step "debian_rgb"
-    fi
-    completed_item "RGB keyboard and lightbar configured"
+    # (Delegated to Command Center)
     
     # Step 6-7: Setup TDP management and refresh rate
-    print_step 6 7 "Setting up power management..."
-    if ! is_step_completed "debian_tdp"; then
-        setup_tdp_management "debian"
-        complete_step "debian_tdp"
-    fi
-    completed_item "Power management ready"
-    
-    print_step 7 7 "Setting up display management..."
-    if ! is_step_completed "debian_refresh"; then
-        install_refresh_management
-        complete_step "debian_refresh"
-    fi
-    completed_item "Display management ready"
+    # (Delegated to Command Center)
     
     enable_debian_services
 }
@@ -1849,14 +1124,8 @@ setup_fedora_based() {
     provide_distro_optimization_info "$distro"
     
     # Step 3: Install ASUS-specific packages
-    print_step 3 7 "Installing ASUS control packages..."
-    if ! is_step_completed "fedora_asus"; then
-        printf '%s' "${C_DIM}"
-        install_fedora_asus_packages
-        printf '%s' "${C_NC}"
-        complete_step "fedora_asus"
-    fi
-    completed_item "ASUS packages installed"
+    # (Delegated to Command Center)
+
     
     # Step 4: Install SOF firmware for audio support
     print_step 4 7 "Installing audio firmware..."
@@ -1869,29 +1138,10 @@ setup_fedora_based() {
     completed_item "Audio firmware installed"
     
     # Step 5: Install GZ302 RGB keyboard control
-    print_step 5 7 "Setting up RGB keyboard control..."
-    if ! is_step_completed "fedora_rgb"; then
-        printf '%s' "${C_DIM}"
-        install_gz302_rgb_keyboard "fedora" || warning "RGB keyboard installation failed"
-        printf '%s' "${C_NC}"
-        complete_step "fedora_rgb"
-    fi
-    completed_item "RGB keyboard and lightbar configured"
+    # (Delegated to Command Center)
     
     # Step 6-7: Setup TDP management and refresh rate
-    print_step 6 7 "Setting up power management..."
-    if ! is_step_completed "fedora_tdp"; then
-        setup_tdp_management "fedora"
-        complete_step "fedora_tdp"
-    fi
-    completed_item "Power management ready"
-    
-    print_step 7 7 "Setting up display management..."
-    if ! is_step_completed "fedora_refresh"; then
-        install_refresh_management
-        complete_step "fedora_refresh"
-    fi
-    completed_item "Display management ready"
+    # (Delegated to Command Center)
     
     enable_fedora_services
 }
@@ -1924,14 +1174,8 @@ setup_opensuse() {
     provide_distro_optimization_info "$distro"
     
     # Step 3: Install ASUS-specific packages
-    print_step 3 7 "Installing ASUS control packages..."
-    if ! is_step_completed "opensuse_asus"; then
-        printf '%s' "${C_DIM}"
-        install_opensuse_asus_packages
-        printf '%s' "${C_NC}"
-        complete_step "opensuse_asus"
-    fi
-    completed_item "ASUS packages installed"
+    # (Delegated to Command Center)
+
     
     # Step 4: Install SOF firmware for audio support
     print_step 4 7 "Installing audio firmware..."
@@ -1944,29 +1188,10 @@ setup_opensuse() {
     completed_item "Audio firmware installed"
     
     # Step 5: Install GZ302 RGB keyboard control
-    print_step 5 7 "Setting up RGB keyboard control..."
-    if ! is_step_completed "opensuse_rgb"; then
-        printf '%s' "${C_DIM}"
-        install_gz302_rgb_keyboard "opensuse" || warning "RGB keyboard installation failed"
-        printf '%s' "${C_NC}"
-        complete_step "opensuse_rgb"
-    fi
-    completed_item "RGB keyboard and lightbar configured"
+    # (Delegated to Command Center)
     
     # Step 6-7: Setup TDP management and refresh rate
-    print_step 6 7 "Setting up power management..."
-    if ! is_step_completed "opensuse_tdp"; then
-        setup_tdp_management "opensuse"
-        complete_step "opensuse_tdp"
-    fi
-    completed_item "Power management ready"
-    
-    print_step 7 7 "Setting up display management..."
-    if ! is_step_completed "opensuse_refresh"; then
-        install_refresh_management
-        complete_step "opensuse_refresh"
-    fi
-    completed_item "Display management ready"
+    # (Delegated to Command Center)
     
     enable_opensuse_services
 }
@@ -2142,70 +1367,7 @@ migrate_old_paths() {
     echo "$paths_migrated"
 }
 
-# --- Power Tools Only Installation ---
-# Installs only the power management tools (pwrcfg, rrcfg), RGB control, and Control Center
-# without applying any hardware fixes (kernel parameters, GRUB changes, etc.)
-setup_power_tools_only() {
-    local distro="$1"
-    print_subsection "Power Tools Only Installation"
-    
-    info "Skipping hardware fixes - installing power tools, RGB, and Control Center only"
-    echo
-    
-    # Step 1: Install base dependencies for the tools
-    print_step 1 5 "Installing base dependencies..."
-    case "$distro" in
-        arch)
-            printf '%s' "${C_DIM}"
-            pacman -S --noconfirm --needed python python-pip
-            printf '%s' "${C_NC}"
-            ;;
-        ubuntu)
-            printf '%s' "${C_DIM}"
-            apt-get install -y python3 python3-pip
-            printf '%s' "${C_NC}"
-            ;;
-        fedora)
-            printf '%s' "${C_DIM}"
-            dnf install -y python3 python3-pip
-            printf '%s' "${C_NC}"
-            ;;
-        opensuse)
-            printf '%s' "${C_DIM}"
-            zypper install -y python3 python3-pip
-            printf '%s' "${C_NC}"
-            ;;
-    esac
-    completed_item "Base dependencies installed"
-    
-    # Step 2: Install power management (pwrcfg)
-    print_step 2 5 "Setting up power management (pwrcfg)..."
-    printf '%s' "${C_DIM}"
-    setup_tdp_management "$distro"
-    printf '%s' "${C_NC}"
-    completed_item "Power management (pwrcfg) installed"
-    
-    # Step 3: Install refresh rate control (rrcfg)
-    print_step 3 5 "Setting up refresh rate control (rrcfg)..."
-    printf '%s' "${C_DIM}"
-    install_refresh_management
-    printf '%s' "${C_NC}"
-    completed_item "Refresh rate control (rrcfg) installed"
-    
-    # Step 4: Install RGB keyboard control
-    print_step 4 5 "Setting up RGB keyboard control..."
-    printf '%s' "${C_DIM}"
-    install_gz302_rgb_keyboard "$distro" || warning "RGB keyboard installation failed"
-    printf '%s' "${C_NC}"
-    completed_item "RGB keyboard and lightbar configured"
-    
-    # Step 5: Install Control Center (tray icon)
-    print_step 5 5 "Installing GZ302 Control Center..."
-    printf '%s' "${C_DIM}"
-    install_tray_icon
-    printf '%s' "${C_NC}"
-    completed_item "Control Center installed"
-}
+
 
 # --- Main Execution Logic ---
 main() {
@@ -2335,21 +1497,13 @@ main() {
     
     # Route to appropriate installation mode
     if [[ "$install_fixes" == false ]]; then
-        print_section "Installing Power Tools Only"
-        setup_power_tools_only "$detected_distro"
+        print_section "Installing Command Center Only"
+        install_command_center
         
         echo
         print_section "Setup Complete"
         
-        print_subsection "Installed Components"
-        completed_item "Power management (pwrcfg command)"
-        completed_item "Refresh rate control (rrcfg command)"
-        completed_item "RGB keyboard control"
-        completed_item "GZ302 Control Center (tray icon)"
-        echo
-        
-        info "Hardware fixes were skipped. If you need them later, run the script again"
-        info "and answer 'yes' when asked about hardware fixes."
+        info "Hardware fixes were skipped."
         echo
     else
         # Full installation - route to appropriate setup function based on base distribution
@@ -2381,13 +1535,11 @@ main() {
         completed_item "Touchpad detection and functionality"
         completed_item "Audio support (SOF firmware)"
         completed_item "GPU and thermal optimizations"
-        completed_item "Power management (pwrcfg command)"
-        completed_item "Refresh rate control (rrcfg command)"
+        completed_item "GPU and thermal optimizations"
         echo
         
-        # Install tray icon (core feature - automatically installed)
-        info "Installing GZ302 Power Manager (Tray Icon)..."
-        install_tray_icon
+        # Offer Command Center installation (User Tools)
+        offer_command_center_install "$detected_distro"
         
         # Offer optional modules
         offer_optional_modules "$detected_distro"

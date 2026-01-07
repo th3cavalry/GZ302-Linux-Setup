@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
 # GZ302 Command Center Installer
-# Version: 1.0.0
+# Version: $(cat "$(dirname "${BASH_SOURCE[0]}")/VERSION" 2>/dev/null || echo "4.0.0")
 #
 # Installs the complete user-facing toolset for ASUS ROG Flow Z13 (GZ302):
 # 1. Power Controls (pwrcfg) - TDP and Power Profile management
@@ -91,6 +91,168 @@ install_dependencies() {
             ;;
     esac
     completed_item "Dependencies installed"
+}
+
+# --- System Daemon Installation (Moved from Main Installer) ---
+install_system_daemon() {
+    print_subsection "Installing System Daemons (PPD & ASUS Tools)"
+    
+    local distro
+    distro=$(detect_distribution)
+    
+    case "$distro" in
+        arch)
+            echo "Installing packages for Arch Linux..."
+            # Install PPD
+            pacman -S --noconfirm --needed power-profiles-daemon
+            
+            # Install asusctl (G14 repo or AUR)
+            if ! grep -q '\[g14\]' /etc/pacman.conf; then
+                echo "Adding G14 repository..."
+                pacman-key --recv-keys 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35 || echo "Warning: Failed to receive G14 key"
+                pacman-key --lsign-key 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35 || echo "Warning: Failed to sign G14 key"
+                { echo ""; echo "[g14]"; echo "Server = https://arch.asus-linux.org"; } >> /etc/pacman.conf
+                pacman -Sy
+            fi
+            
+            if pacman -S --noconfirm --needed asusctl; then
+                echo "asusctl installed from G14 repository"
+            else
+                echo "G14 repo failed, trying AUR (yay)..."
+                local primary_user
+                primary_user=$(get_real_user)
+                if command -v yay >/dev/null 2>&1; then
+                    sudo -u "$primary_user" yay -S --noconfirm --needed asusctl || echo "Warning: AUR install failed"
+                    sudo -u "$primary_user" yay -S --noconfirm --needed switcheroo-control || echo "Warning: switcheroo-control install failed"
+                else
+                    echo "Warning: yay not found, skipping asusctl"
+                fi
+            fi
+            ;;
+            
+        debian)
+            echo "Installing packages for Debian/Ubuntu..."
+            apt-get install -y power-profiles-daemon switcheroo-control
+            
+            # Install asusctl (PPA)
+            if command -v add-apt-repository >/dev/null 2>&1; then
+                add-apt-repository -y ppa:mitchellaugustin/asusctl 2>/dev/null || true
+                apt-get update
+                if apt-get install -y rog-control-center; then
+                    echo "asusctl installed from PPA"
+                else
+                    echo "PPA install failed, attempting source build..."
+                    build_asusctl_from_source
+                fi
+            else
+                echo "add-apt-repository not found, attempting source build..."
+                build_asusctl_from_source
+            fi
+            ;;
+            
+        fedora)
+            echo "Installing packages for Fedora..."
+            dnf install -y power-profiles-daemon switcheroo-control
+            
+            # Install asusctl (COPR)
+            if command -v dnf >/dev/null 2>&1; then
+                dnf copr enable -y lukenukem/asus-linux 2>/dev/null || true
+                dnf install -y asusctl 2>/dev/null || echo "Warning: asusctl install failed"
+            fi
+            ;;
+            
+        opensuse)
+            echo "Installing packages for OpenSUSE..."
+            zypper install -y power-profiles-daemon switcheroo-control
+            
+            # Install asusctl (OBS)
+            local os_ver="openSUSE_Tumbleweed"
+            if grep -q "openSUSE Leap" /etc/os-release 2>/dev/null; then
+                os_ver="openSUSE_Leap_15.6"
+            fi
+            zypper ar -f "https://download.opensuse.org/repositories/hardware:/asus/${os_ver}/" hardware:asus 2>/dev/null || true
+            zypper ref 2>/dev/null || true
+            zypper install -y asusctl 2>/dev/null || echo "Warning: asusctl install failed"
+            ;;
+    esac
+    
+    # Enable PPD service
+    systemctl enable --now power-profiles-daemon || echo "Warning: Failed to enable power-profiles-daemon"
+    systemctl enable --now asusd 2>/dev/null || true
+    
+    completed_item "System Daemons installed (PPD, asusctl)"
+}
+
+build_asusctl_from_source() {
+    echo "Building asusctl from source..."
+    
+    # Build dependencies
+    apt-get update
+    apt-get install -y make cargo gcc pkg-config libasound2-dev cmake build-essential python3 \
+        libfreetype6-dev libexpat1-dev libxcb-composite0-dev libssl-dev libx11-dev \
+        libfontconfig1-dev curl libclang-dev libudev-dev libseat-dev libinput-dev \
+        libxkbcommon-dev libgbm-dev git || return 1
+    
+    local work_dir="/tmp/asusctl_build"
+    local original_dir
+    original_dir=$(pwd)
+    
+    mkdir -p "$work_dir"
+    
+    # Use pushd/popd to safely change directories (avoids getcwd errors)
+    if ! pushd "$work_dir" > /dev/null 2>&1; then
+        echo "Error: Could not enter $work_dir"
+        return 1
+    fi
+    
+    if [[ ! -d "asusctl" ]]; then
+        git clone https://gitlab.com/asus-linux/asusctl.git || {
+            echo "Error: Failed to clone asusctl repository"
+            popd > /dev/null 2>&1
+            return 1
+        }
+    fi
+    
+    if ! pushd asusctl > /dev/null 2>&1; then
+        echo "Error: Could not enter asusctl directory"
+        popd > /dev/null 2>&1
+        return 1
+    fi
+    
+    # Fetch latest stable tag to avoid build issues with main branch
+    git fetch --tags 2>/dev/null || true
+    local stable_tag
+    stable_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+    if [[ -n "$stable_tag" ]]; then
+        echo "Checking out stable release: $stable_tag"
+        git checkout "$stable_tag" 2>/dev/null || true
+    fi
+    
+    echo "Compiling asusd (core daemon)..."
+    # Build only asusd - skip rog-control-center due to slint GUI framework dependency issues
+    # The rog-control-center requires slint which may have version/dependency conflicts
+    if make asusd 2>/dev/null; then
+        echo "asusd compiled successfully"
+    else
+        echo "asusd target not found, trying full build (may fail on rog-control-center)..."
+        make || {
+            echo "Warning: Full build failed, attempting daemon-only install..."
+            # Try to install just what was built
+            make install 2>/dev/null || true
+        }
+    fi
+    
+    make install 2>/dev/null || true
+    
+    # Return to original directories
+    popd > /dev/null 2>&1  # exit asusctl
+    popd > /dev/null 2>&1  # exit work_dir
+    
+    # Return to original directory as fallback
+    cd "$original_dir" 2>/dev/null || true
+    
+    systemctl daemon-reload
+    systemctl enable --now asusd 2>/dev/null || echo "Note: asusd service may need manual configuration"
 }
 
 install_power_tools() {
@@ -448,7 +610,9 @@ main() {
     stop_running_tray
     
     # Install in order
+    # Install in order
     install_dependencies
+    install_system_daemon
     install_power_tools
     install_display_tools
     install_rgb_tools

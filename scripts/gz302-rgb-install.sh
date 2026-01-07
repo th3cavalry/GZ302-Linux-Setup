@@ -77,7 +77,7 @@ detect_distribution() {
         ID_LIKE=""
         ID=""
         . /etc/os-release
-        if [[ "${ID_LIKE:-}" =~ arch ]] || [[ "${ID:-}" == "arch" ]]; then
+        if [[ "${ID_LIKE:-}" =~ arch ]] || [[ "${ID:-}" == "arch" ]] || [[ "${ID:-}" == "cachyos" ]]; then
             echo "arch"
         elif [[ "${ID_LIKE:-}" =~ debian ]] || [[ "${ID:-}" == "debian" ]] || [[ "${ID:-}" == "ubuntu" ]]; then
             echo "debian"
@@ -114,10 +114,11 @@ SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1a30", MODE="0666
 # Rear Window/Lightbar RGB Control - sysfs LED brightness
 # Allows unprivileged write access to kbd_backlight brightness files
 # Multiple patterns to catch different device paths
-ACTION=="add|change", SUBSYSTEM=="leds", KERNEL=="*::kbd_backlight", RUN+="/bin/chmod 0666 /sys/%p/brightness"
-ACTION=="add|change", SUBSYSTEM=="leds", KERNEL=="asus::kbd_backlight", RUN+="/bin/chmod 0666 /sys/%p/brightness"
+ACTION=="add|change", SUBSYSTEM=="leds", KERNEL=="*::kbd_backlight*", RUN+="/bin/chmod 0666 /sys/%p/brightness"
+ACTION=="add|change", SUBSYSTEM=="leds", KERNEL=="asus::kbd_backlight*", RUN+="/bin/chmod 0666 /sys/%p/brightness"
 
-# Lightbar-specific LED device (if exposed as separate device)
+# Lightbar-specific HID device (direct control)
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18c6", MODE="0666"
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18c6", MODE="0666"
 EOF
 
@@ -203,12 +204,15 @@ install_window_rgb() {
     fi
 }
 
-# --- Install RGB restore script and service ---
+# --- Install RGB restore service ---
 install_restore_service() {
     print_subsection "Installing RGB Restore Service"
     
-    # Create config directory
+    # Create config directory with permissive permissions
+    # This allows the GUI/CLI (running as user) to save settings without sudo
     mkdir -p "$CONFIG_DIR"
+    chmod 777 "$CONFIG_DIR"
+    completed_item "Config directory created with user write permissions"
     
     # Install restore script
     if [[ -f "${SCRIPT_DIR}/gz302-rgb-restore.sh" ]]; then
@@ -222,9 +226,14 @@ install_restore_service() {
 
 set -euo pipefail
 
-CONFIG_FILE="/etc/gz302/rgb-settings.conf"
+KBD_CONFIG="/etc/gz302/rgb-keyboard.conf"
+WIN_CONFIG="/etc/gz302/rgb-window.conf"
 KEYBOARD_RGB="/usr/local/bin/gz302-rgb"
 WINDOW_RGB="/usr/local/bin/gz302-rgb-window"
+
+# Ensure config files are user-writable if they exist
+touch "$KBD_CONFIG" "$WIN_CONFIG" 2>/dev/null || true
+chmod 666 "$KBD_CONFIG" "$WIN_CONFIG" 2>/dev/null || true
 
 # Wait for hardware to be ready
 sleep 2
@@ -237,20 +246,31 @@ for brightness_file in /sys/class/leds/*::kbd_backlight/brightness; do
 done
 
 # Restore keyboard RGB settings
-if [[ -f "$CONFIG_FILE" ]]; then
+if [[ -f "$KBD_CONFIG" && -x "$KEYBOARD_RGB" ]]; then
     # Safe parsing
-    KEYBOARD_COMMAND=$(grep "^KEYBOARD_COMMAND=" "$CONFIG_FILE" | cut -d"=" -f2- | tr -d "\"" | tr -d "'")
+    KEYBOARD_COMMAND=$(grep "^KEYBOARD_COMMAND=" "$KBD_CONFIG" 2>/dev/null | cut -d"=" -f2- | tr -d "\"" | tr -d "'" || true)
     
     # Restore keyboard RGB
-    if [[ -n "${KEYBOARD_COMMAND:-}" && -x "$KEYBOARD_RGB" ]]; then
+    if [[ -n "${KEYBOARD_COMMAND:-}" ]]; then
         read -r -a CMD_ARGS <<< "$KEYBOARD_COMMAND"
         "$KEYBOARD_RGB" "${CMD_ARGS[@]}" 2>/dev/null || true
     fi
-    
-    # Restore window RGB
-    WINDOW_BRIGHTNESS=$(grep "^WINDOW_BRIGHTNESS=" "$CONFIG_FILE" | cut -d"=" -f2- | tr -d "\"" | tr -d "'")
-    if [[ -n "${WINDOW_BRIGHTNESS:-}" && -x "$WINDOW_RGB" ]]; then
-        "$WINDOW_RGB" --lightbar "$WINDOW_BRIGHTNESS" 2>/dev/null || true
+fi
+
+# Restore window RGB settings
+if [[ -f "$WIN_CONFIG" && -x "$WINDOW_RGB" ]]; then
+    # Try color first
+    WINDOW_COLOR=$(grep "^WINDOW_COLOR=" "$WIN_CONFIG" 2>/dev/null | cut -d"=" -f2- | tr -d "\"" | tr -d "'" || true)
+    if [[ -n "${WINDOW_COLOR:-}" ]]; then
+        # Convert comma to space for arguments
+        IFS=',' read -r R G B <<< "$WINDOW_COLOR"
+        "$WINDOW_RGB" --color "$R" "$G" "$B" 2>/dev/null || true
+    else
+        # Try brightness
+        WINDOW_BRIGHTNESS=$(grep "^WINDOW_BRIGHTNESS=" "$WIN_CONFIG" 2>/dev/null | cut -d"=" -f2- | tr -d "\"" | tr -d "'" || true)
+        if [[ -n "${WINDOW_BRIGHTNESS:-}" ]]; then
+            "$WINDOW_RGB" --brightness "$WINDOW_BRIGHTNESS" 2>/dev/null || true
+        fi
     fi
 fi
 
@@ -264,7 +284,8 @@ RESTORE_EOF
     cat > "$SERVICE_PATH" << EOF
 [Unit]
 Description=Restore GZ302 RGB Settings on Boot
-After=multi-user.target
+After=multi-user.target gz302-lightbar-reset.service
+Wants=gz302-lightbar-reset.service
 Documentation=https://github.com/th3cavalry/GZ302-Linux-Setup
 
 [Service]
@@ -312,6 +333,68 @@ EOF
     systemctl daemon-reload
     systemctl enable gz302-lightbar-reset.service 2>/dev/null || true
     completed_item "Lightbar reset service installed and enabled"
+}
+
+# --- Install suspend/resume hook ---
+install_suspend_hook() {
+    print_subsection "Installing Suspend/Resume Hook"
+    
+    local hook_dir="/usr/lib/systemd/system-sleep"
+    local hook_path="${hook_dir}/gz302-reset.sh"
+    
+    if [[ ! -d "$hook_dir" ]]; then
+        # On some distros this might be different, but it's standard systemd
+        mkdir -p "$hook_dir"
+    fi
+    
+    cat > "$hook_path" << 'EOF'
+#!/bin/bash
+# GZ302 Resume Reset Hook
+# Resets keyboard and lightbar USB devices on resume to fix touchpad and RGB
+
+case "$1" in
+    post)
+        # 1. Reset Keyboard/Touchpad (0b05:1a30)
+        # This fixes the touchpad not working after sleep
+        for dev in /sys/bus/usb/devices/*; do
+            if [[ -f "$dev/idVendor" && -f "$dev/idProduct" ]]; then
+                vid=$(cat "$dev/idVendor")
+                pid=$(cat "$dev/idProduct")
+                if [[ "$vid" == "0b05" && "$pid" == "1a30" ]]; then
+                    echo "Resetting Keyboard/Touchpad ($dev)..."
+                    echo 0 > "$dev/authorized"
+                    sleep 0.5
+                    echo 1 > "$dev/authorized"
+                fi
+            fi
+        done
+        
+        # 2. Reset Lightbar (0b05:18c6)
+        # This ensures the lightbar is ready for commands
+        for dev in /sys/bus/usb/devices/*; do
+            if [[ -f "$dev/idVendor" && -f "$dev/idProduct" ]]; then
+                vid=$(cat "$dev/idVendor")
+                pid=$(cat "$dev/idProduct")
+                if [[ "$vid" == "0b05" && "$pid" == "18c6" ]]; then
+                    echo "Resetting Lightbar ($dev)..."
+                    echo 0 > "$dev/authorized"
+                    sleep 0.5
+                    echo 1 > "$dev/authorized"
+                fi
+            fi
+        done
+        
+        # 3. Restore RGB settings
+        # Wait a moment for devices to reappear
+        sleep 2
+        systemctl restart gz302-rgb-restore.service
+        ;;
+esac
+exit 0
+EOF
+
+    chmod +x "$hook_path"
+    completed_item "Suspend hook installed to $hook_path"
 }
 
 # --- Install keyboard RGB binary (distro-specific) ---
@@ -439,6 +522,10 @@ main() {
     print_section "Step 6: Lightbar Reset Service"
     install_lightbar_reset_service
     
+    # Step 7: Install suspend/resume hook
+    print_section "Step 7: Suspend/Resume Hook"
+    install_suspend_hook
+    
     # Summary
     print_section "Installation Complete"
     echo
@@ -448,6 +535,7 @@ main() {
     print_keyval "Sudoers" "$SUDOERS_PATH"
     print_keyval "Restore Service" "gz302-rgb-restore.service"
     print_keyval "Lightbar Reset" "gz302-lightbar-reset.service"
+    print_keyval "Suspend Hook" "/usr/lib/systemd/system-sleep/gz302-reset.sh"
     
     print_box "RGB Control Ready"
     echo

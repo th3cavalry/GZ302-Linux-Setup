@@ -64,6 +64,13 @@ class GZ302TrayApp(QSystemTrayIcon):
             profiles_menu.addAction(action)
         
         profiles_menu.addSeparator()
+        
+        # Charge Limit
+        charge_menu = profiles_menu.addMenu("🔋 Battery Health")
+        charge_menu.addAction("✅ Complete (100%)").triggered.connect(lambda: self.power.set_charge_limit(100))
+        charge_menu.addAction("🛡️ Balanced (80%)").triggered.connect(lambda: self.power.set_charge_limit(80))
+        
+        profiles_menu.addSeparator()
         profiles_menu.addAction("📊 Status").triggered.connect(self.show_power_status)
         profiles_menu.addAction("🔄 Auto (AC/Battery)").triggered.connect(lambda: self.power.set_profile("auto"))
             
@@ -225,18 +232,68 @@ class GZ302TrayApp(QSystemTrayIcon):
         self.rgb.start_window_animation("rainbow")
 
     def update_icon(self):
-        # Path resolution logic for assets...
+        """Update tray icon based on current power profile."""
+        # Refresh current profile from file
+        self.power.current_profile = self.power._read_current_profile()
+        
+        # Map profiles to icon suffixes
+        # Icons: profile-b (balanced/battery), profile-e (emergency/efficient), 
+        #        profile-g (gaming), profile-m (maximum), profile-p (performance)
+        profile_icons = {
+            "emergency": "profile-e",
+            "battery": "profile-b",    # Use B for battery mode
+            "efficient": "profile-e",
+            "balanced": "profile-b",
+            "performance": "profile-p",
+            "gaming": "profile-g",
+            "maximum": "profile-m",
+        }
+        
+        icon_name = profile_icons.get(self.power.current_profile, "profile-b")
         assets = Path(__file__).parent.parent / "assets"
-        icon_path = assets / "profile-b.svg"
+        icon_path = assets / f"{icon_name}.svg"
+        
         if icon_path.exists():
             self.setIcon(QIcon(str(icon_path)))
+        else:
+            # Fallback to default
+            fallback = assets / "profile-b.svg"
+            if fallback.exists():
+                self.setIcon(QIcon(str(fallback)))
     
     def update_status(self):
-        # Update tooltip with battery info
-        batt = self.power.get_battery_info()
-        pct = batt.get('percent')
-        status = f"Battery: {pct}%" if pct else "AC Power"
-        self.setToolTip(f"GZ302 Control Center\n{status}")
+        # Refresh current profile from file
+        self.power.current_profile = self.power._read_current_profile()
+        
+        # Get profile TDP details
+        profile = self.power.current_profile.capitalize()
+        spl, sppt, fppt = self.power.get_profile_details()
+        
+        # Build tooltip with power info
+        tooltip_lines = [
+            "GZ302 Control Center",
+            f"Profile: {profile} ({spl}W)",
+        ]
+        
+        # Show auto-switch status
+        if self.power.is_auto_enabled():
+            ac = self.power.get_ac_profile().capitalize()
+            batt = self.power.get_battery_profile().capitalize()
+            tooltip_lines.append(f"Auto: AC→{ac}, Batt→{batt}")
+        
+        # Battery info
+        batt_info = self.power.get_battery_info()
+        pct = batt_info.get('percent')
+        if pct is not None:
+            status = batt_info.get('status', 'unknown').capitalize()
+            tooltip_lines.append(f"Battery: {pct}% ({status})")
+        else:
+            tooltip_lines.append("Power: AC")
+        
+        self.setToolTip("\n".join(tooltip_lines))
+        
+        # Update icon to match profile
+        self.update_icon()
 
 def main():
     app = QApplication(sys.argv)

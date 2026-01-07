@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 Hypervisor Software Module
-# Version: 3.0.0
+# Version: $(cat "$(dirname "${BASH_SOURCE[0]}")/../VERSION" 2>/dev/null || echo "4.0.0")
 #
 # This module installs hypervisor software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Full KVM/QEMU stack, VirtualBox
@@ -53,3 +53,92 @@ else
     fi
 fi
 
+# --- Main Installation Logic ---
+install_kvm_stack() {
+    print_section "Installing Hypervisor Software (KVM/QEMU)"
+    
+    local distro
+    distro=$(detect_distribution)
+    
+    case "$distro" in
+        arch)
+            info "Installing KVM packages for Arch Linux..."
+            pacman -S --noconfirm --needed \
+                qemu-full \
+                virt-manager \
+                virt-viewer \
+                dnsmasq \
+                vde2 \
+                bridge-utils \
+                openbsd-netcat \
+                libguestfs
+            ;;
+            
+        debian)
+            info "Installing KVM packages for Debian/Ubuntu..."
+            apt-get install -y \
+                qemu-system \
+                libvirt-daemon-system \
+                libvirt-clients \
+                bridge-utils \
+                virt-manager
+            ;;
+            
+        fedora)
+            info "Installing KVM packages for Fedora..."
+            dnf groupinstall -y "Virtualization"
+            ;;
+            
+        opensuse)
+            info "Installing KVM packages for OpenSUSE..."
+            zypper install -y -t pattern kvm_server kvm_tools
+            ;;
+            
+        *)
+            warning "Unsupported distribution: $distro"
+            return 1
+            ;;
+    esac
+    
+    # --- Configuration ---
+    print_subsection "Configuring Libvirt"
+    
+    # Enable libvirtd service
+    systemctl enable --now libvirtd || warning "Failed to enable libvirtd"
+    
+    # Add user to libvirt group
+    local real_user="${SUDO_USER:-$USER}"
+    if [[ -n "$real_user" && "$real_user" != "root" ]]; then
+        info "Adding user $real_user to libvirt group..."
+        usermod -aG libvirt "$real_user" 2>/dev/null || true
+        # Also kvm group just in case
+        usermod -aG kvm "$real_user" 2>/dev/null || true
+    fi
+    
+    # Set URI default
+    if [[ -n "$real_user" ]]; then
+        local user_home
+        user_home=$(getent passwd "$real_user" | cut -d: -f6)
+        if [[ -d "$user_home" ]]; then
+             # Default to system connection for KVM
+             if ! grep -q "LIBVIRT_DEFAULT_URI" "$user_home/.bashrc"; then
+                 echo "export LIBVIRT_DEFAULT_URI='qemu:///system'" >> "$user_home/.bashrc"
+             fi
+        fi
+    fi
+    
+    success "Hypervisor stack installed!"
+}
+
+main() {
+    # Check root
+    if [[ $EUID -ne 0 ]]; then
+        error "This script must be run as root"
+        exit 1
+    fi
+    
+    print_banner "GZ302 Hypervisor Module"
+    install_kvm_stack
+}
+
+main "$@"

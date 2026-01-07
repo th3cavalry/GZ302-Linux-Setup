@@ -167,6 +167,64 @@ if [[ ! -f /etc/gz302/tray.conf ]] || ! grep -q "APP_NAME" /etc/gz302/tray.conf 
   chmod 644 /etc/gz302/tray.conf
 fi
 
+# ==============================================================================
+# RGB Tools Integration
+# Ensure RGB backends are installed since the tray app depends on them
+# ==============================================================================
+RGB_BIN="/usr/local/bin/gz302-rgb"
+WINDOW_BIN="/usr/local/bin/gz302-rgb-window"
+
+if [[ ! -f "$RGB_BIN" || ! -f "$WINDOW_BIN" ]]; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "RGB Backend Tools Missing"
+    echo "The Control Center requires the RGB backend tools to be installed."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Try to find the installer relative to this script
+    # Pattern: ../scripts/gz302-rgb-install.sh (from repo structure)
+    REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+    RGB_INSTALLER="$REPO_ROOT/scripts/gz302-rgb-install.sh"
+    
+    if [[ ! -f "$RGB_INSTALLER" ]]; then
+        # Try finding it if we are in the installed location
+        # If installed to /usr/local/share/gz302/tray-icon, scripts might not be there
+        # So we download it
+        echo "RGB installer not found locally. Downloading..."
+        RGB_INSTALLER="/tmp/gz302-rgb-install.sh"
+        curl -fsSL "https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/scripts/gz302-rgb-install.sh" -o "$RGB_INSTALLER"
+        chmod +x "$RGB_INSTALLER"
+    fi
+    
+    if [[ -f "$RGB_INSTALLER" ]]; then
+        echo "Launching RGB installer..."
+        echo "NOTE: This may require sudo privileges."
+        
+        # Detect distro roughly or default to arch (installer handles it better)
+        if [[ -f /etc/os-release ]]; then
+            # shellcheck disable=SC1091
+            source /etc/os-release
+            DISTRO="${ID:-arch}"
+        else
+            DISTRO="arch"
+        fi
+        
+        # Run installer
+        if [[ $EUID -eq 0 ]]; then
+            bash "$RGB_INSTALLER" "$DISTRO"
+        else
+            sudo bash "$RGB_INSTALLER" "$DISTRO"
+        fi
+        
+        echo "RGB tools installation attempted."
+    else
+        echo "WARNING: Failed to locate or download RGB installer."
+        echo "The RGB tab in the Control Center may not function."
+    fi
+    echo ""
+fi
+# ==============================================================================
+
 # Notify running tray processes using SIGUSR1 so they reload UI strings
 pids=()
 for name in "gz302_tray.py" "gz302_tray" "gz302-tray"; do
