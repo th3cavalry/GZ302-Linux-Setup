@@ -22,9 +22,9 @@ set -euo pipefail
 # REQUIRED: Linux kernel 6.14+ minimum (6.17+ strongly recommended)
 #
 # Installation Modes:
-# - --full: (Default) Hardware fixes + Power tools + GUI
+# - --full: (Default) Hardware fixes + Command Center + GUI
 # - --minimal: Hardware fixes only (kernel patches, no GUI)
-# - --tools: Power tools + GUI only (no kernel patches)
+# - --cc: Command Center + GUI only (no kernel patches)
 #
 # Supported Distributions:
 # - Arch-based: Arch Linux, EndeavourOS, Manjaro, CachyOS, Omarchy
@@ -117,7 +117,7 @@ OPTIONS:
                 • NO GUI, NO power tools
                 • Best for: Servers, purists, troubleshooting
 
-    --tools     Tools only (No kernel patches)
+    --cc        Command Center only (No kernel patches)
                 • Power management tools
                 • RGB control
                 • GUI Command Center
@@ -132,8 +132,8 @@ EXAMPLES:
     # Minimal fixes only (no GUI)
     sudo ./install.sh --minimal
 
-    # Tools only (skip hardware fixes)
-    sudo ./install.sh --tools
+    # Command Center only (skip hardware fixes)
+    sudo ./install.sh --cc
 
 REQUIREMENTS:
     • Linux kernel 6.14+ (6.17+ recommended)
@@ -348,7 +348,8 @@ while [[ "$#" -gt 0 ]]; do
     case $1 in
         --full) MODE="full" ;;
         --minimal) MODE="minimal" ;;
-        --tools) MODE="tools" ;;
+        --cc) MODE="cc" ;;
+        --tools) MODE="cc" ;; # Backward compatibility
         -h|--help) show_help; exit 0 ;;
         *) 
             echo "❌ Unknown parameter: $1"
@@ -372,7 +373,7 @@ echo
 # Execute based on mode
 case $MODE in
     full)
-        info "Installing: Hardware fixes + Power tools + GUI"
+        info "Installing: Hardware fixes + Command Center + GUI"
         echo
         install_fixes
         echo
@@ -385,8 +386,8 @@ case $MODE in
         echo
         install_fixes
         ;;
-    tools)
-        info "Installing: Power tools + GUI (no kernel patches)"
+    cc)
+        info "Installing: Command Center + GUI (no kernel patches)"
         echo
         install_tools
         ;;
@@ -399,7 +400,7 @@ success "GZ302 Linux Setup has been installed successfully!"
 echo
 info "What's next?"
 case $MODE in
-    full|tools)
+    full|cc)
         echo "  1. Reboot your system"
         echo "  2. Look for 'GZ302 Command Center' in your system tray"
         echo "  3. Try these commands:"
@@ -410,8 +411,8 @@ case $MODE in
     minimal)
         echo "  1. Reboot your system"
         echo "  2. Your hardware should now work properly"
-        echo "  3. To install power tools later, run:"
-        echo "     sudo ./install.sh --tools"
+        echo "  3. To install Command Center later, run:"
+        echo "     sudo ./install.sh --cc"
         ;;
 esac
 echo

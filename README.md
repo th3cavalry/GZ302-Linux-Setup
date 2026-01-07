@@ -19,8 +19,8 @@ curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/inst
 chmod +x install.sh
 
 # Run the setup
-sudo ./install.sh --full      # Recommended: Full setup (Fixes + Tools + GUI)
-sudo ./install.sh --tools     # Tools only (No kernel patches)
+sudo ./install.sh --full      # Recommended: Full setup (Fixes + Command Center + GUI)
+sudo ./install.sh --cc        # Command Center only (No kernel patches)
 sudo ./install.sh --minimal   # Fixes only (Server/Purist mode)
 ```
 
