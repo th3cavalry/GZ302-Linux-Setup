@@ -5,6 +5,27 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.2] - 2025-01-08
+
+### Fixed
+
+- **Fedora 43 Power Profile Compatibility**: Fixed package conflict with tuned-ppd
+  - Fedora 43+ uses `tuned-ppd` instead of `power-profiles-daemon` as the default power profile daemon
+  - Added detection logic to check if `tuned-ppd` is already installed before attempting to install `power-profiles-daemon`
+  - Installation now gracefully handles both implementations:
+    - If `tuned-ppd` is present (Fedora 43+), use it as-is
+    - If not present, try installing `power-profiles-daemon` (Fedora < 43)
+    - Fall back to `tuned-ppd` if `power-profiles-daemon` fails
+  - Updated service enablement to work with both `power-profiles-daemon` and `tuned` services
+  - Both implementations provide compatible `powerprofilesctl` command interface - no code changes needed
+
+### Technical Notes
+
+- `tuned-ppd` is a drop-in replacement for `power-profiles-daemon` that provides the same D-Bus API
+- The power-manager library already uses `powerprofilesctl`, which works with both implementations
+- This fix resolves the package conflict error: "tuned-ppd conflicts with ppd-service provided by power-profiles-daemon"
+- References: [Fedora Change Proposal](https://fedoraproject.org/wiki/Changes/TunedAsTheDefaultPowerProfileManagementDaemon)
+
 ## [3.0.3] - 2025-12-15
 
 ### Fixed
