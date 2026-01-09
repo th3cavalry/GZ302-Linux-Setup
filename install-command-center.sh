@@ -152,7 +152,25 @@ install_system_daemon() {
             
         fedora)
             echo "Installing packages for Fedora..."
-            dnf install -y power-profiles-daemon switcheroo-control
+            
+            # Fedora 43+ uses tuned-ppd instead of power-profiles-daemon
+            # tuned-ppd provides the same ppd-service and powerprofilesctl interface
+            if rpm -q tuned-ppd >/dev/null 2>&1; then
+                echo "tuned-ppd already installed (Fedora 43+ default)"
+                echo "tuned-ppd provides compatible power profile management"
+            else
+                # Fedora < 43 or if tuned-ppd was removed
+                if dnf install -y power-profiles-daemon 2>/dev/null; then
+                    echo "power-profiles-daemon installed"
+                else
+                    # Try tuned-ppd as fallback
+                    echo "Installing tuned-ppd (compatible replacement)..."
+                    dnf install -y tuned-ppd || echo "Warning: Failed to install power profile daemon"
+                fi
+            fi
+            
+            # Install switcheroo-control
+            dnf install -y switcheroo-control 2>/dev/null || echo "Warning: switcheroo-control install failed"
             
             # Install asusctl (COPR)
             if command -v dnf >/dev/null 2>&1; then
@@ -176,8 +194,18 @@ install_system_daemon() {
             ;;
     esac
     
-    # Enable PPD service
-    systemctl enable --now power-profiles-daemon || echo "Warning: Failed to enable power-profiles-daemon"
+    # Enable PPD service (power-profiles-daemon or tuned-ppd)
+    # Try power-profiles-daemon first (traditional PPD)
+    if systemctl enable --now power-profiles-daemon 2>/dev/null; then
+        echo "power-profiles-daemon service enabled"
+    elif systemctl enable --now tuned 2>/dev/null; then
+        # Fedora 43+ with tuned-ppd: enable tuned service
+        echo "tuned service enabled (provides power profile management via tuned-ppd)"
+    else
+        echo "Warning: Failed to enable power profile daemon service"
+    fi
+    
+    # Enable asusctl daemon
     systemctl enable --now asusd 2>/dev/null || true
     
     completed_item "System Daemons installed (PPD, asusctl)"
