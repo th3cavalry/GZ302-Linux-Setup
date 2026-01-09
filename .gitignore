@@ -51,19 +51,7 @@ MANIFEST
 .idea/
 *.swp
 *.swo
-*~
 
-# Logs
-*.log
-
-# Editor files
-*.swp
-*.swo
-*~
-.vscode/
-.idea/
-
-# Build artifacts (if any)
-build/
-dist/
+# Build artifacts
+*.o
 gz302-rgb.CHANGELOG.md

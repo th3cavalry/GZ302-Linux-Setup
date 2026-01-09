@@ -391,7 +391,7 @@ echo
 if [[ $kernel_ver -ge 617 ]]; then
     echo "ℹ️  Your kernel (6.17+) has native GZ302 support"
     echo "   This script applied only essential optimizations"
-    echo "   Learn more: Info/KERNEL_COMPATIBILITY.md"
+    echo "   Learn more: docs/kernel-support.md"
     echo
 fi
 

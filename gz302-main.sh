@@ -213,7 +213,7 @@ check_kernel_version() {
         echo "  - MediaTek MT7925 WiFi driver (WiFi 7 support)"
         echo "  - AMD P-State driver with Strix Halo optimizations"
         echo
-        error "Installation cancelled. Kernel 6.12+ is required.\nUpgrade options:\n  1. Use your distribution's kernel update mechanism\n  2. Install a mainline kernel from kernel.org\n  3. (Arch only) Install linux-g14 kernel: Optional/gz302-g14-kernel.sh\n  4. Check Info/kernel_changelog.md for version details\nIf you cannot upgrade, please create an issue on GitHub:\n  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
+        error "Installation cancelled. Kernel 6.12+ is required.\nUpgrade options:\n  1. Use your distribution's kernel update mechanism\n  2. Install a mainline kernel from kernel.org\n  3. (Arch only) Install linux-g14 kernel: Optional/gz302-g14-kernel.sh\n  4. Check docs/kernel-support.md for version details\nIf you cannot upgrade, please create an issue on GitHub:\n  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
     elif [[ $version_num -lt $recommended_version ]]; then
         warning "Your kernel version ($kernel_version) meets minimum requirements (6.12+) but lacks improvements"
         info "For stability, consider upgrading to kernel 6.17+ which includes:"
@@ -227,7 +227,7 @@ check_kernel_version() {
             info "  - RDNA 3.5 shader compiler optimizations"
             info "  - Strix Halo power efficiency enhancements"
         fi
-        info "See Info/kernel_changelog.md for detailed version comparison"
+        info "See docs/kernel-support.md for detailed version comparison"
         echo
     elif [[ $version_num -lt $optimal_version ]]; then
         success "Kernel version ($kernel_version) is current and well-supported"
@@ -248,11 +248,11 @@ check_kernel_version() {
 
 # --- Hardware Fixes for All Distributions ---
 # Updated based on latest kernel support and community research (October 2025)
-# Sources: Info/kernel_changelog.md, Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs,
+# Sources: docs/kernel-support.md, Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs,
 #          asus-linux.org, Strix Halo HomeLab, Phoronix community
 # GZ302EA-XS99: AMD Ryzen AI MAX+ 395 with AMD Radeon 8060S integrated graphics (100% AMD)
 # REQUIRED: Kernel 6.14+ minimum (6.17+ strongly recommended)
-# See Info/kernel_changelog.md for detailed kernel version comparison
+# See docs/kernel-support.md for detailed kernel version comparison
 
 # --- Configure Early KMS ---
 configure_early_kms() {
@@ -412,7 +412,7 @@ apply_hardware_fixes() {
     fi
     
     # Wi-Fi fixes for MediaTek MT7925
-    # See Info/kernel_changelog.md for detailed kernel version WiFi improvements
+    # See docs/kernel-support.md for detailed kernel version WiFi improvements
     # Kernel 6.14: Basic driver integration with known stability issues
     # Kernel 6.15-6.16: Improved stability and performance
     # Kernel 6.17: Optimized with regression fixes and enhanced performance

@@ -107,14 +107,15 @@ GZ302-Linux-Setup/
 ├── modules/                   # 📦 Optional feature packs (Gaming, AI, etc.)
 ├── scripts/                   # 🛠️ Standalone binaries & helpers (RGB, Restore)
 ├── gz302-lib/                 # 📚 Shared core libraries (Power, Display, Utils)
-└── tray-icon/                 # 🖼️ Python/Qt6 GUI Application
+├── tray-icon/                 # 🖼️ Python/Qt6 GUI Application
+└── docs/                      # 📄 Documentation & hardware research
 ```
 
 ---
 
 ## 🤝 Contributing & Support
 
-*   **Documentation:** Check the [Info/](Info/) directory for detailed hardware research.
+*   **Documentation:** Check the [docs/](docs/) directory for detailed hardware research.
 *   **Issues:** Please report bugs on the [Issues page](https://github.com/th3cavalry/GZ302-Linux-Setup/issues).
 *   **Development:** See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
