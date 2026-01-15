@@ -351,7 +351,7 @@ apply_hardware_fixes() {
                         dracut --regenerate-all -f || true
                     fi
                     ;;
-                ubuntu)
+                debian|ubuntu)
                     if command -v update-initramfs >/dev/null 2>&1; then
                         update-initramfs -u -k all || true
                     elif command -v dracut >/dev/null 2>&1; then
@@ -755,7 +755,7 @@ install_sof_firmware() {
                 warning "SOF firmware installation failed - audio may not work optimally"
             fi
             ;;
-        ubuntu)
+        debian|ubuntu)
             # Install SOF firmware from Ubuntu repos
             if apt-get install -y sof-firmware alsa-ucm-conf 2>/dev/null; then
                 success "SOF firmware installed"

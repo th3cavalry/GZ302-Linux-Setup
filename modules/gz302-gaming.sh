@@ -88,7 +88,7 @@ install_gaming_stack() {
             fi
             ;;
             
-        debian)
+        debian|ubuntu)
             info "Installing Gaming packages for Debian/Ubuntu..."
             # Enable 32-bit architecture
             dpkg --add-architecture i386

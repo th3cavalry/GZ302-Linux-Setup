@@ -43,14 +43,14 @@ info "message"; success "done"; error "fail"  # Use logging helpers
 print_section "Title"; print_step 1 5 "Desc"  # Use visual formatters
 ```
 
-**Distribution detection:** Use `detect_distribution()` → returns `arch|debian|fedora|opensuse`
+**Distribution detection:** Use `detect_distribution()` → returns `arch|debian|ubuntu|fedora|opensuse`
 
 ## Package Installation Pattern
 
 ```bash
 case "$DISTRO" in
     arch)   sudo pacman -S --noconfirm pkg || install_with_yay pkg ;;
-    debian) sudo apt install -y pkg ;;
+    debian|ubuntu) sudo apt install -y pkg ;;
     fedora) sudo dnf install -y pkg ;;
     opensuse) sudo zypper install -y pkg ;;
 esac

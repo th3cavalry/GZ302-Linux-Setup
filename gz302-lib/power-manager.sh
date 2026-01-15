@@ -851,7 +851,7 @@ power_install_ryzenadj_source() {
 }
 
 # Install ryzenadj (auto-detect distro)
-# Args: $1 = distro (arch|debian|fedora|opensuse) - optional
+# Args: $1 = distro (arch|debian|ubuntu|fedora|opensuse) - optional
 # Returns: 0 on success, 1 on failure
 power_install_ryzenadj() {
     local distro="${1:-}"
@@ -884,7 +884,7 @@ power_install_ryzenadj() {
     
     case "$distro" in
         arch)    power_install_ryzenadj_arch ;;
-        debian)  power_install_ryzenadj_debian ;;
+        debian|ubuntu)  power_install_ryzenadj_debian ;;
         fedora)  power_install_ryzenadj_fedora ;;
         opensuse) power_install_ryzenadj_opensuse ;;
         *)       power_install_ryzenadj_source ;;

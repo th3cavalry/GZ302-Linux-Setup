@@ -62,30 +62,6 @@ fi
 # Use BIN_DIR from utils if available, else default
 BINARY_PATH="${BIN_DIR:-/usr/local/bin}/gz302-rgb"
 
-# --- Detect distribution ---
-detect_distribution() {
-    if [[ -f /etc/os-release ]]; then
-        ID_LIKE=""
-        ID=""
-        . /etc/os-release
-        if [[ "${ID_LIKE:-}" =~ arch ]] || [[ "${ID:-}" == "arch" ]]; then
-            echo "arch"
-        elif [[ "${ID_LIKE:-}" =~ debian ]] || [[ "${ID:-}" == "debian" ]]; then
-            echo "debian"
-        elif [[ "${ID_LIKE:-}" =~ fedora ]] || [[ "${ID:-}" == "fedora" ]]; then
-            echo "fedora"
-        elif [[ "${ID_LIKE:-}" =~ suse ]] || [[ "${ID:-}" =~ opensuse ]]; then
-            echo "opensuse"
-        elif [[ "${ID:-}" == "ubuntu" ]]; then
-            echo "debian"
-        else
-            echo "unknown"
-        fi
-    else
-        echo "unknown"
-    fi
-}
-
 # --- Check if gz302-rgb is already installed ---
 check_rgb_installed() {
     if [[ -f "$BINARY_PATH" ]]; then
@@ -245,7 +221,7 @@ main() {
         arch)
             install_rgb_arch
             ;;
-        debian)
+        debian|ubuntu)
             install_rgb_debian
             ;;
         fedora)

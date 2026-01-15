@@ -70,7 +70,7 @@ install_dependencies() {
                 echo "Note: 'ryzenadj' will be built from source if not found in AUR"
             fi
             ;;
-        debian)
+        debian|ubuntu)
             echo "Installing dependencies for Debian/Ubuntu..."
             apt-get update
             apt-get install -y python3-pyqt6 python3-psutil libusb-1.0-0-dev \
@@ -130,7 +130,7 @@ install_system_daemon() {
             fi
             ;;
             
-        debian)
+        debian|ubuntu)
             echo "Installing packages for Debian/Ubuntu..."
             apt-get install -y power-profiles-daemon switcheroo-control
             
