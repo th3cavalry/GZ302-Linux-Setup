@@ -240,7 +240,7 @@ install_docker_if_needed() {
     
     case "$distro" in
         arch)   pacman -S --noconfirm docker docker-compose ;;
-        debian) apt-get update && apt-get install -y docker.io docker-compose ;;
+        debian|ubuntu) apt-get update && apt-get install -y docker.io docker-compose ;;
         fedora) dnf install -y docker docker-compose ;;
         opensuse) zypper install -y docker docker-compose ;;
     esac

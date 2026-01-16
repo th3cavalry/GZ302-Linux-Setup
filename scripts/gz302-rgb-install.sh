@@ -71,28 +71,6 @@ SUDOERS_PATH="${SUDOERS_DIR}/gz302-rgb"
 RESTORE_SCRIPT_PATH="${BIN_DIR}/gz302-rgb-restore"
 SERVICE_PATH="${SYSTEMD_DIR}/gz302-rgb-restore.service"
 
-# --- Detect distribution ---
-detect_distribution() {
-    if [[ -f /etc/os-release ]]; then
-        ID_LIKE=""
-        ID=""
-        . /etc/os-release
-        if [[ "${ID_LIKE:-}" =~ arch ]] || [[ "${ID:-}" == "arch" ]] || [[ "${ID:-}" == "cachyos" ]]; then
-            echo "arch"
-        elif [[ "${ID_LIKE:-}" =~ debian ]] || [[ "${ID:-}" == "debian" ]] || [[ "${ID:-}" == "ubuntu" ]]; then
-            echo "debian"
-        elif [[ "${ID_LIKE:-}" =~ fedora ]] || [[ "${ID:-}" == "fedora" ]]; then
-            echo "fedora"
-        elif [[ "${ID_LIKE:-}" =~ suse ]] || [[ "${ID:-}" =~ opensuse ]]; then
-            echo "opensuse"
-        else
-            echo "unknown"
-        fi
-    else
-        echo "unknown"
-    fi
-}
-
 # --- Install udev rules for both RGB devices ---
 install_udev_rules() {
     print_subsection "Installing udev Rules"
@@ -495,11 +473,11 @@ main() {
     # Step 1: Install keyboard RGB binary
     print_section "Step 1: Keyboard RGB Control"
     case "$distro" in
-        arch)     install_keyboard_rgb_arch ;;
-        debian)   install_keyboard_rgb_debian ;;
-        fedora)   install_keyboard_rgb_fedora ;;
-        opensuse) install_keyboard_rgb_opensuse ;;
-        *)        error "Unsupported distribution: $distro" ;;
+        arch)          install_keyboard_rgb_arch ;;
+        debian|ubuntu) install_keyboard_rgb_debian ;;
+        fedora)        install_keyboard_rgb_fedora ;;
+        opensuse)      install_keyboard_rgb_opensuse ;;
+        *)             error "Unsupported distribution: $distro" ;;
     esac
     
     # Step 2: Install rear window RGB

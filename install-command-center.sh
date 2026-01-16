@@ -70,7 +70,7 @@ install_dependencies() {
                 echo "Note: 'ryzenadj' will be built from source if not found in AUR"
             fi
             ;;
-        debian)
+        debian|ubuntu)
             echo "Installing dependencies for Debian/Ubuntu..."
             apt-get update
             apt-get install -y python3-pyqt6 python3-psutil libusb-1.0-0-dev \
@@ -130,22 +130,24 @@ install_system_daemon() {
             fi
             ;;
             
-        debian)
+        debian|ubuntu)
             echo "Installing packages for Debian/Ubuntu..."
             apt-get install -y power-profiles-daemon switcheroo-control
             
             # Install asusctl (PPA)
-            if command -v add-apt-repository >/dev/null 2>&1; then
-                add-apt-repository -y ppa:mitchellaugustin/asusctl 2>/dev/null || true
-                apt-get update
-                if apt-get install -y rog-control-center; then
-                    echo "asusctl installed from PPA"
-                else
-                    echo "PPA install failed, attempting source build..."
-                    build_asusctl_from_source
+            if [[ "$(lsb_release -sc)" == "oracular" ]]; then
+                if command -v add-apt-repository >/dev/null 2>&1; then
+                    add-apt-repository -y ppa:mitchellaugustin/asusctl 2>/dev/null || true
+                    apt-get update
+                    if apt-get install -y rog-control-center; then
+                        echo "asusctl installed from PPA"
+                    else
+                        echo "PPA install failed, attempting source build..."
+                        build_asusctl_from_source
+                    fi
                 fi
             else
-                echo "add-apt-repository not found, attempting source build..."
+                echo "Not Ubuntu Oracular, attempting source build..."
                 build_asusctl_from_source
             fi
             ;;

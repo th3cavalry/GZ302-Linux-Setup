@@ -74,7 +74,7 @@ install_kvm_stack() {
                 libguestfs
             ;;
             
-        debian)
+        debian|ubuntu)
             info "Installing KVM packages for Debian/Ubuntu..."
             apt-get install -y \
                 qemu-system \

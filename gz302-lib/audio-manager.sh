@@ -240,7 +240,7 @@ audio_install_sof_firmware() {
                 return 1
             fi
             ;;
-        ubuntu)
+        debian|ubuntu)
             # Install SOF firmware from Ubuntu repos
             if apt-get install -y sof-firmware alsa-ucm-conf 2>/dev/null; then
                 echo "SOF firmware installed"
