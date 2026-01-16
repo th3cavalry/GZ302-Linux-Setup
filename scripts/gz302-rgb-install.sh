@@ -327,45 +327,43 @@ install_suspend_hook() {
     
     cat > "$hook_path" << 'EOF'
 #!/bin/bash
-# GZ302 Resume Reset Hook
+# GZ302 Resume Reset Hook (Optimized)
 # Resets keyboard and lightbar USB devices on resume to fix touchpad and RGB
+# v2.0 - Single loop, faster sleeps to minimize resume delay
 
 case "$1" in
     post)
-        # 1. Reset Keyboard/Touchpad (0b05:1a30)
-        # This fixes the touchpad not working after sleep
+        # Single pass through USB devices - reset both keyboard and lightbar
+        # Product IDs: 1a30 = Keyboard/Touchpad, 18c6 = Lightbar
         for dev in /sys/bus/usb/devices/*; do
-            if [[ -f "$dev/idVendor" && -f "$dev/idProduct" ]]; then
-                vid=$(cat "$dev/idVendor")
-                pid=$(cat "$dev/idProduct")
-                if [[ "$vid" == "0b05" && "$pid" == "1a30" ]]; then
-                    echo "Resetting Keyboard/Touchpad ($dev)..."
+            [[ -f "$dev/idVendor" && -f "$dev/idProduct" ]] || continue
+            vid=$(<"$dev/idVendor")
+            pid=$(<"$dev/idProduct")
+            
+            # Only process ASUS devices (0b05)
+            [[ "$vid" == "0b05" ]] || continue
+            
+            case "$pid" in
+                1a30)
+                    # Keyboard/Touchpad - fixes touchpad not working after sleep
                     echo 0 > "$dev/authorized"
-                    sleep 0.5
+                    sleep 0.1
                     echo 1 > "$dev/authorized"
-                fi
-            fi
+                    ;;
+                18c6)
+                    # Lightbar - ensures RGB commands work
+                    echo 0 > "$dev/authorized"
+                    sleep 0.1
+                    echo 1 > "$dev/authorized"
+                    ;;
+            esac
         done
         
-        # 2. Reset Lightbar (0b05:18c6)
-        # This ensures the lightbar is ready for commands
-        for dev in /sys/bus/usb/devices/*; do
-            if [[ -f "$dev/idVendor" && -f "$dev/idProduct" ]]; then
-                vid=$(cat "$dev/idVendor")
-                pid=$(cat "$dev/idProduct")
-                if [[ "$vid" == "0b05" && "$pid" == "18c6" ]]; then
-                    echo "Resetting Lightbar ($dev)..."
-                    echo 0 > "$dev/authorized"
-                    sleep 0.5
-                    echo 1 > "$dev/authorized"
-                fi
-            fi
-        done
-        
-        # 3. Restore RGB settings
-        # Wait a moment for devices to reappear
-        sleep 2
-        systemctl restart gz302-rgb-restore.service
+        # Restore RGB settings in background (non-blocking)
+        {
+            sleep 0.5
+            systemctl restart gz302-rgb-restore.service 2>/dev/null
+        } &
         ;;
 esac
 exit 0
