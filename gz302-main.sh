@@ -154,6 +154,15 @@ load_library() {
 info "Loading libraries..."
 load_library "power-manager.sh" || warning "Failed to load power-manager.sh"
 load_library "display-manager.sh" || warning "Failed to load display-manager.sh"
+load_library "wifi-manager.sh" || warning "Failed to load wifi-manager.sh"
+load_library "gpu-manager.sh" || warning "Failed to load gpu-manager.sh"
+load_library "input-manager.sh" || warning "Failed to load input-manager.sh"
+load_library "rgb-manager.sh" || warning "Failed to load rgb-manager.sh"
+load_library "kernel-compat.sh" || warning "Failed to load kernel-compat.sh"
+load_library "state-manager.sh" || warning "Failed to load state-manager.sh"
+
+# Initialize state manager
+state_init >/dev/null 2>&1 || true
 
 # --- Common helper functions ---
 
@@ -187,74 +196,108 @@ check_network() {
 
 # --- Check Kernel Version ---
 check_kernel_version() {
-    local kernel_version
-    kernel_version=$(uname -r | cut -d. -f1,2)
-    local major minor
-    major=$(echo "$kernel_version" | cut -d. -f1)
-    minor=$(echo "$kernel_version" | cut -d. -f2)
-    
-    # Convert to comparable format (e.g., 6.14 -> 614)
-    local version_num=$((major * 100 + minor))
-    local min_version=614  # 6.14 - Strix Halo working support (RDNA 3.5 GPU, Zen 5)
-    local recommended_version=617  # 6.17+ - Full stability and WiFi improvements
-    local optimal_version=618  # 6.18+ - Latest fixes and optimizations (Dec 2025)
-    
-    info "Detected kernel version: $(uname -r)"
-    
-    if [[ $version_num -lt $min_version ]]; then
-        echo
-        echo "❌ UNSUPPORTED KERNEL VERSION ❌"
-        echo "Your kernel version ($kernel_version) is below the absolute minimum (6.14)."
-        echo
-        echo "Kernel 6.14+ is REQUIRED for GZ302EA because it includes:"
-        echo "  - Strix Halo (Zen 5) CPU architecture support"
-        echo "  - RDNA 3.5 GPU driver (Radeon 8060S integrated graphics)"
-        echo "  - AMD XDNA NPU driver (essential for Ryzen AI MAX+ 395)"
-        echo "  - MediaTek MT7925 WiFi driver (WiFi 7 support)"
-        echo "  - AMD P-State driver with Strix Halo optimizations"
-        echo
-        error "Installation cancelled. Kernel 6.14+ is required.\nUpgrade options:\n  1. Use your distribution's kernel update mechanism\n  2. Install a mainline kernel from kernel.org\n  3. (Arch only) Install linux-g14 kernel: Optional/gz302-g14-kernel.sh\n  4. Check docs/kernel-support.md for version details\nIf you cannot upgrade, please create an issue on GitHub:\n  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
-    elif [[ $version_num -lt $recommended_version ]]; then
-        warning "Your kernel version ($kernel_version) meets minimum requirements (6.14+) but lacks improvements"
-        info "For stability, consider upgrading to kernel 6.17+ which includes:"
-        info "  - MediaTek MT7925 WiFi: Full MLO support and ASPM fixes"
-        info "  - AMD GPU: Display Core (DC) stabilization fixes"
-        info "  - Power management: Refined amd_pstate=guided for Strix Halo"
-        echo
-        if [[ $version_num -lt $optimal_version ]]; then
-            info "Kernel 6.18+ (Dec 2025) includes additional improvements:"
-            info "  - Wayland/KWin pageflip timeout fixes"
-            info "  - RDNA 3.5 shader compiler optimizations"
-            info "  - Strix Halo power efficiency enhancements"
+    # Use library function if available, otherwise fallback
+    if declare -f kernel_check_version >/dev/null; then
+        local kver
+        kver=$(kernel_get_version_num)
+        info "Detected kernel version: $(uname -r)"
+        
+        if ! kernel_meets_minimum; then
+             echo
+             echo "❌ UNSUPPORTED KERNEL VERSION ❌"
+             error "Kernel 6.14+ is required. Please upgrade."
         fi
-        info "See docs/kernel-support.md for detailed version comparison"
-        echo
-    elif [[ $version_num -lt $optimal_version ]]; then
-        success "Kernel version ($kernel_version) is current and well-supported"
-        info "For the latest optimizations, consider upgrading to kernel 6.18+"
-        echo
+        
+        if [[ $kver -ge 618 ]]; then
+            success "Kernel version is at the cutting edge (6.18+)"
+        elif [[ $kver -ge 617 ]]; then
+             success "Kernel version meets recommended requirements (6.17+)"
+        else
+             warning "Kernel version meets minimum (6.14+) but < 6.17. Some features require workarounds."
+        fi
+        echo "$kver"
     else
-        success "Kernel version ($kernel_version) is at the cutting edge (6.18+)"
-        success "You have all latest fixes and optimizations for GZ302EA"
-        echo
+        # Fallback to legacy check if lib failed to load
+        local kernel_version
+        kernel_version=$(uname -r | cut -d. -f1,2)
+        local major minor
+        major=$(echo "$kernel_version" | cut -d. -f1)
+        minor=$(echo "$kernel_version" | cut -d. -f2)
+        local version_num=$((major * 100 + minor))
+        echo "$version_num"
     fi
-    
-    # Return the version number for conditional logic
-    echo "$version_num"
 }
 
 # --- Distribution Detection ---
 # (Moved to gz302-lib/utils.sh)
 
-# --- Hardware Fixes for All Distributions ---
-# Updated based on latest kernel support and community research (October 2025)
-# Sources: docs/kernel-support.md, Shahzebqazi/Asus-Z13-Flow-2025-PCMR, Level1Techs,
-#          asus-linux.org, Strix Halo HomeLab, Phoronix community
-# GZ302EA-XS99: AMD Ryzen AI MAX+ 395 with AMD Radeon 8060S integrated graphics (100% AMD)
-# REQUIRED: Kernel 6.14+ minimum (6.17+ strongly recommended)
-# See docs/kernel-support.md for detailed kernel version comparison
+# --- Hardware Fixes ---
+apply_hardware_fixes() {
+    info "Applying GZ302 hardware fixes using modular libraries..."
+    
+    local kver
+    kver=$(check_kernel_version)
+    
+    # 1. WiFi Configuration
+    info "Configuring WiFi (MediaTek MT7925)..."
+    if wifi_detect_hardware >/dev/null 2>&1; then
+        if wifi_apply_configuration; then
+            success "WiFi configuration applied"
+        else
+            warning "WiFi configuration reported issues"
+        fi
+    else
+        info "WiFi hardware not detected, skipping."
+    fi
 
-# --- Configure Early KMS ---
+    # 2. GPU Configuration
+    info "Configuring GPU (AMD Radeon 8060S)..."
+    if gpu_detect_hardware >/dev/null 2>&1; then
+        if gpu_apply_configuration; then
+            success "GPU configuration applied"
+        else
+             warning "GPU configuration reported issues"
+        fi
+    else
+        info "GPU hardware not detected, skipping."
+    fi
+
+    # 3. Input Configuration (Keyboard/Touchpad)
+    info "Configuring Input Devices..."
+    if input_detect_hid_devices >/dev/null 2>&1; then
+        if input_apply_configuration "$kver"; then
+             success "Input configuration applied"
+        else
+             warning "Input configuration reported issues"
+        fi
+    else
+         info "Input devices not detected, skipping."
+    fi
+
+    # 4. RGB Configuration (Lightbar/Window + Keyboard Rules)
+    info "Configuring RGB Devices (Keyboard & Lightbar)..."
+    if rgb_install_udev_rules; then
+        success "RGB udev rules installed"
+    else
+        warning "Failed to install RGB udev rules"
+    fi
+
+    # 5. Early KMS (Legacy support for Arch)
+    # Check if this is handled in gpu-manager now? If not, keep local helper.
+    # We will keep the local configure_early_kms function defined below for now.
+    configure_early_kms
+
+    # 5. Keyboard Backlight Restore (Legacy inline logic - eventually move to rgb-manager)
+    # For now, we'll keep the rgb-manager call if it exists or use the existing logic?
+    # The original script had inline logic for this. Let's preserve it for safety 
+    # but acknowledge it should be in a lib.
+    configure_keyboard_backlight_restore
+
+    success "Hardware fixes applied via libraries"
+}
+
+# --- Legacy Inline Functions (Preserved for specific logic not yet in libs) ---
+
 configure_early_kms() {
     # Only applies to Arch-based distros using mkinitcpio
     if [[ -f /etc/mkinitcpio.conf ]]; then
@@ -269,9 +312,7 @@ configure_early_kms() {
             cp /etc/mkinitcpio.conf /etc/mkinitcpio.conf.bak
             
             # Add amdgpu to MODULES. Robustly handles () or (module1 module2)
-            # Remove the closing parenthesis, append ' amdgpu)', and handle double spaces
             sed -i -E 's/^MODULES=\((.*)\)/MODULES=(\1 amdgpu)/' /etc/mkinitcpio.conf
-            # Cleanup leading space if list was empty "()" -> "( amdgpu)"
             sed -i 's/MODULES=( amdgpu)/MODULES=(amdgpu)/' /etc/mkinitcpio.conf
             
             info "Regenerating initramfs..."
@@ -286,295 +327,23 @@ configure_early_kms() {
     fi
 }
 
-apply_hardware_fixes() {
-    info "Applying GZ302 hardware fixes for all distributions..."
-    
-    # Get kernel version for conditional workarounds
-    local kernel_ver
-    kernel_ver=$(uname -r | cut -d. -f1,2)
-    local major minor
-    major=$(echo "$kernel_ver" | cut -d. -f1)
-    minor=$(echo "$kernel_ver" | cut -d. -f2)
-    local version_num=$((major * 100 + minor))
-    
-    # Kernel parameters for AMD Ryzen AI MAX+ 395 (Strix Halo) and Radeon 8060S
-    info "Adding kernel parameters for AMD Strix Halo optimization..."
-    local grub_changed=false
-    local kcmd_changed=false
-    if [ -f /etc/default/grub ]; then
-        # Baseline parameters
-        ensure_grub_kernel_param "amd_pstate=guided" && grub_changed=true || true
-        ensure_grub_kernel_param "amdgpu.ppfeaturemask=0xffffffff" && grub_changed=true || true
-        # Display stability (Wayland/KWin pageflip mitigation)
-        ensure_grub_kernel_param "amdgpu.sg_display=0" && grub_changed=true || true
-        # dcdebugmask options: 0x410 combines 0x400 (disables DMUB Panel Self-Refresh/Replay) and 0x10 (pageflip timeout fix)
-        # This fixes the dmub_replay_enable kernel bug and pageflip timeout that causes system freeze after login
-        ensure_grub_kernel_param "amdgpu.dcdebugmask=0x410" && grub_changed=true || true
-        # Sleep/ACPI behavior
-        ensure_grub_kernel_param "mem_sleep_default=deep" && grub_changed=true || true
-        ensure_grub_kernel_param 'acpi_osi="Windows 2022"' && grub_changed=true || true
-
-        # Regenerate GRUB config once if anything changed
-        if [[ "$grub_changed" == true ]]; then
-            if [ -f /boot/grub/grub.cfg ]; then
-                grub-mkconfig -o /boot/grub/grub.cfg
-            elif command -v update-grub >/dev/null 2>&1; then
-                update-grub
-            fi
-        fi
-    fi
-
-    # systemd-boot (kernel-install) environments
-    if [[ -f /etc/kernel/cmdline ]]; then
-        ensure_kcmdline_param "amd_pstate=guided" && kcmd_changed=true || true
-        ensure_kcmdline_param "amdgpu.ppfeaturemask=0xffffffff" && kcmd_changed=true || true
-        ensure_kcmdline_param "amdgpu.sg_display=0" && kcmd_changed=true || true
-        ensure_kcmdline_param "amdgpu.dcdebugmask=0x410" && kcmd_changed=true || true
-        ensure_kcmdline_param "mem_sleep_default=deep" && kcmd_changed=true || true
-        ensure_kcmdline_param 'acpi_osi="Windows 2022"' && kcmd_changed=true || true
-
-        # If cmdline changed, rebuild boot entries appropriately
-        if [[ "$kcmd_changed" == true ]]; then
-            # Detect distribution to pick rebuild tool
-            local distro_family
-            distro_family=$(detect_distribution)
-            case "$distro_family" in
-                arch)
-                    if command -v mkinitcpio >/dev/null 2>&1; then
-                        mkinitcpio -P || true
-                    elif command -v dracut >/dev/null 2>&1; then
-                        dracut --regenerate-all -f || true
-                    fi
-                    ;;
-                fedora|opensuse)
-                    if command -v dracut >/dev/null 2>&1; then
-                        dracut --regenerate-all -f || true
-                    fi
-                    ;;
-                debian|ubuntu)
-                    if command -v update-initramfs >/dev/null 2>&1; then
-                        update-initramfs -u -k all || true
-                    elif command -v dracut >/dev/null 2>&1; then
-                        dracut --regenerate-all -f || true
-                    fi
-                    ;;
-            esac
-            # Best-effort bootctl update (updates bootloader itself; harmless if N/A)
-            if command -v bootctl >/dev/null 2>&1; then
-                bootctl update || true
-            fi
-        fi
-    fi
-
-    # systemd-boot loader entries fallback (no /etc/kernel/cmdline present)
-    if [[ ! -f /etc/kernel/cmdline && -d /boot/loader/entries ]]; then
-        local loader_changed=false
-        shopt -s nullglob
-        for entry in /boot/loader/entries/*.conf; do
-            ensure_loader_entry_param "$entry" "amd_pstate=guided" && loader_changed=true || true
-            ensure_loader_entry_param "$entry" "amdgpu.ppfeaturemask=0xffffffff" && loader_changed=true || true
-            ensure_loader_entry_param "$entry" "amdgpu.sg_display=0" && loader_changed=true || true
-            ensure_loader_entry_param "$entry" "amdgpu.dcdebugmask=0x410" && loader_changed=true || true
-            ensure_loader_entry_param "$entry" "mem_sleep_default=deep" && loader_changed=true || true
-            ensure_loader_entry_param "$entry" 'acpi_osi="Windows 2022"' && loader_changed=true || true
-        done
-        shopt -u nullglob
-        if [[ "$loader_changed" == true ]] && command -v bootctl >/dev/null 2>&1; then
-            bootctl update || true
-        fi
-    fi
-
-    # Limine bootloader support (/etc/default/limine)
-    # Popular on CachyOS and other Arch-based distros
-    if [[ -f /etc/default/limine ]]; then
-        local limine_changed=false
-        info "Limine bootloader detected, configuring kernel parameters..."
-        ensure_limine_kernel_param "amd_pstate=guided" && limine_changed=true || true
-        ensure_limine_kernel_param "amdgpu.ppfeaturemask=0xffffffff" && limine_changed=true || true
-        ensure_limine_kernel_param "amdgpu.sg_display=0" && limine_changed=true || true
-        ensure_limine_kernel_param "amdgpu.dcdebugmask=0x410" && limine_changed=true || true
-        ensure_limine_kernel_param "mem_sleep_default=deep" && limine_changed=true || true
-        ensure_limine_kernel_param 'acpi_osi="Windows 2022"' && limine_changed=true || true
-
-        # Regenerate Limine entries if changes were made
-        if [[ "$limine_changed" == true ]]; then
-            if command -v limine-mkinitcpio >/dev/null 2>&1; then
-                info "Regenerating Limine boot entries..."
-                limine-mkinitcpio || true
-            elif command -v limine-mkconfig >/dev/null 2>&1; then
-                info "Regenerating Limine configuration..."
-                limine-mkconfig -o /boot/limine.conf || true
-            else
-                warning "Limine config modified but no regeneration tool found."
-                warning "Please run 'limine-mkinitcpio' or equivalent manually."
-            fi
-        fi
-    fi
-    
-    # Wi-Fi fixes for MediaTek MT7925
-    # See docs/kernel-support.md for detailed kernel version WiFi improvements
-    # Kernel 6.14: Basic driver integration with known stability issues
-    # Kernel 6.15-6.16: Improved stability and performance
-    # Kernel 6.17: Optimized with regression fixes and enhanced performance
-    info "Configuring MediaTek MT7925 Wi-Fi..."
-    
-    if [[ $version_num -lt 616 ]]; then
-        info "Kernel < 6.16 detected: Applying ASPM workaround for MT7925 WiFi stability"
-        cat > /etc/modprobe.d/mt7925.conf <<'EOF'
-# MediaTek MT7925 Wi-Fi fixes for GZ302
-# Disable ASPM for stability (fixes disconnection and suspend/resume issues)
-# Required for kernels < 6.16. Kernel 6.16+ has improved native support.
-# Based on community findings from EndeavourOS forums and kernel patches
-options mt7925e disable_aspm=1
-EOF
-    else
-        info "Kernel 6.16+ detected: Using improved native MT7925 WiFi support"
-        info "ASPM workaround not needed with kernel 6.16+"
-        # Create a minimal config noting that workarounds aren't needed
-        cat > /etc/modprobe.d/mt7925.conf <<'EOF'
-# MediaTek MT7925 Wi-Fi configuration for GZ302
-# Kernel 6.16+ includes native improvements - ASPM workaround not needed
-# WiFi 7 MLO support and enhanced stability included natively
-EOF
-    fi
-
-    # Disable NetworkManager Wi-Fi power saving (recommended for all kernel versions)
-    mkdir -p /etc/NetworkManager/conf.d/
-    cat > /etc/NetworkManager/conf.d/wifi-powersave.conf <<'EOF'
-[connection]
-wifi.powersave = 2
-EOF
-
-    # AMD GPU module configuration for Radeon 8060S (integrated)
-    info "Configuring AMD Radeon 8060S GPU (RDNA 3.5)..."
-    cat > /etc/modprobe.d/amdgpu.conf <<'EOF'
-# AMD GPU configuration for Radeon 8060S (RDNA 3.5, integrated)
-# Strix Halo specific: Phoenix/Navi33 equivalent
-# Enable all power features for better performance and efficiency
-# ROCm-compatible for AI/ML workloads
-# ppfeaturemask=0xffffffff enables: PowerPlay, DPM, OverDrive, GFXOFF, etc.
-options amdgpu ppfeaturemask=0xffffffff
-EOF
-
-    # Check for GPU firmware files (validation)
-    info "Verifying AMD GPU firmware files..."
-    local gpu_fw_ok=true
-    for fw_file in gc_11_5_1_pfp.bin gc_11_5_1_me.bin dcn_3_5_1_dmcub.bin; do
-        if [[ -f "/lib/firmware/amdgpu/$fw_file" ]] || [[ -f "/lib/firmware/amdgpu/${fw_file}.zst" ]] || [[ -f "/lib/firmware/amdgpu/${fw_file}.xz" ]]; then
-            info "  ✓ $fw_file"
-        else
-            warning "  ✗ $fw_file (may be loaded from initramfs)"
-            gpu_fw_ok=false
-        fi
-    done
-    if [[ "$gpu_fw_ok" == true ]]; then
-        success "GPU firmware files verified"
-    else
-        warning "Some GPU firmware files not found; check dmesg for firmware loading status"
-    fi
-
-    # ASUS HID (keyboard/touchpad) configuration
-    info "Configuring ASUS keyboard and touchpad..."
-    cat > /etc/modprobe.d/hid-asus.conf <<'EOF'
-# ASUS HID configuration for GZ302
-# fnlock_default=0: F1-F12 keys work as media keys by default
-# Kernel 6.15+ includes mature touchpad gesture support and improved ASUS HID integration
-options hid_asus fnlock_default=0
-EOF
-
-    # Additional HID/i2c stability quirk for certain touchpad firmware
-    # Avoid blacklisting hid_asus; instead, add i2c_hid_acpi quirk used in field fixes
-    info "Applying i2c_hid_acpi quirks for touchpad stability..."
-    cat > /etc/modprobe.d/i2c-hid-acpi-gz302.conf <<'EOF'
-# ASUS GZ302 touchpad stability
-# Some units benefit from enabling i2c_hid_acpi quirk 0x01
-options i2c_hid_acpi quirks=0x01
-EOF
-
-    # Create systemd service to reload hid_asus module for reliable touchpad detection
-    # NOTE: This service runs at graphical.target (not multi-user.target) to avoid
-    # causing input device disconnection during KDE/GNOME/XFCE startup, which can
-    # cause the desktop to appear "frozen" or unresponsive.
-    info "Creating HID module reload service for touchpad detection..."
-    cat > /etc/systemd/system/reload-hid_asus.service <<'EOF'
-[Unit]
-Description=Reload hid_asus module with correct options for GZ302 Touchpad
-# Run after graphical target to avoid disconnecting keyboard/touchpad during desktop startup
-# This prevents the "freeze" issue on KDE and other desktop environments
-After=graphical.target display-manager.service
-Wants=graphical.target
-
-[Service]
-Type=oneshot
-# Add a 3-second delay to ensure the desktop session is stable before reloading
-# This allows KDE/GNOME/XFCE to complete their startup without input device interruption
-ExecStartPre=/bin/sleep 3
-# Reload the module only if it's currently loaded (silent success if not loaded)
-# Using a single command ensures atomic check-and-reload to avoid race conditions
-ExecStart=/bin/bash -c 'if lsmod | grep -q hid_asus; then /usr/sbin/modprobe -r hid_asus && /usr/sbin/modprobe hid_asus; else echo "hid_asus not loaded, skipping reload"; fi'
-RemainAfterExit=yes
-
-[Install]
-WantedBy=graphical.target
-EOF
-
-    # Enable the service
-    systemctl daemon-reload
-    systemctl enable reload-hid_asus.service
-
-    # Reload hardware database and udev
-    systemd-hwdb update 2>/dev/null || true
-    udevadm control --reload 2>/dev/null || true
-
-    # Enable Early KMS for AMDGPU (Fixes Plymouth/Reboot freezing)
-    configure_early_kms
-
-    # GZ302 RGB udev rules for non-root access to HID raw devices
-    info "Configuring udev rules for keyboard and lightbar RGB control..."
-    cat > /etc/udev/rules.d/99-gz302-rgb.rules <<'EOF'
-# GZ302 RGB Control - Allow unprivileged HID raw access for RGB control
-# ASUS ROG Flow Z13 (2025) GZ302EA
-
-# Keyboard RGB (USB 0b05:1a30) - for keyboard color control
-SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1a30", MODE="0666"
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1a30", MODE="0666"
-
-# Lightbar/N-KEY Device (USB 0b05:18c6) - for rear window RGB control
-SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18c6", MODE="0666"
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18c6", MODE="0666"
-
-# Trigger RGB restore service when lightbar connects (boot or wake from suspend)
-ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18c6", TAG+="systemd", ENV{SYSTEMD_WANTS}="gz302-rgb-restore.service"
-EOF
-
-    # Remove old keyboard-only rules if present
-    rm -f /etc/udev/rules.d/99-gz302-keyboard.rules 2>/dev/null || true
-    
-    udevadm control --reload 2>/dev/null || true
-    udevadm trigger 2>/dev/null || true
-    
-        # Set up keyboard backlight restore after suspend/resume
-        info "Configuring keyboard backlight resume restore..."
-        mkdir -p /usr/lib/systemd/system-sleep /var/lib/gz302
-        cat > /usr/lib/systemd/system-sleep/gz302-kbd-backlight <<'EOF'
+configure_keyboard_backlight_restore() {
+    # Set up keyboard backlight restore after suspend/resume
+    info "Configuring keyboard backlight resume restore..."
+    mkdir -p /usr/lib/systemd/system-sleep /var/lib/gz302
+    cat > /usr/lib/systemd/system-sleep/gz302-kbd-backlight <<'EOF'
 #!/bin/bash
 # Restore ASUS keyboard backlight after resume (GZ302)
-# Invoked by systemd: $1 is 'pre' or 'post'
-
 STATE_FILE="/var/lib/gz302/kbd_backlight.brightness"
-
-# Collect all potential keyboard backlight LED devices
 mapfile -t LEDS < <(ls -d /sys/class/leds/*kbd*backlight* 2>/dev/null)
 
 case "$1" in
     pre)
-        # Save current brightness (use the first LED found)
         if [[ ${#LEDS[@]} -gt 0 && -f "${LEDS[0]}/brightness" ]]; then
             cat "${LEDS[0]}/brightness" > "$STATE_FILE" 2>/dev/null || true
         fi
         ;;
     post)
-        # Restore brightness; driver may need a short delay after resume
         for _ in 1 2 3 4 5; do
             if [[ ${#LEDS[@]} -gt 0 ]]; then
                 for led in "${LEDS[@]}"; do
@@ -593,20 +362,17 @@ case "$1" in
             fi
             sleep 0.5
         done
-
-        # Optionally kick asusctl daemon to reapply last profile if available
         if command -v systemctl >/dev/null 2>&1; then
             systemctl try-restart asusd.service 2>/dev/null || true
         fi
         ;;
 esac
-
 exit 0
 EOF
-        chmod +x /usr/lib/systemd/system-sleep/gz302-kbd-backlight
+    chmod +x /usr/lib/systemd/system-sleep/gz302-kbd-backlight
 
-        # Create systemd service to restore keyboard backlight brightness on boot
-        cat > /etc/systemd/system/gz302-kbd-backlight-restore.service <<EOF
+    # Services for boot/shutdown persistence
+    cat > /etc/systemd/system/gz302-kbd-backlight-restore.service <<EOF
 [Unit]
 Description=GZ302 Keyboard Backlight Restore
 After=multi-user.target
@@ -621,8 +387,7 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 
-        # Create systemd service to save keyboard backlight brightness on shutdown
-        cat > /etc/systemd/system/gz302-kbd-backlight-save.service <<EOF
+    cat > /etc/systemd/system/gz302-kbd-backlight-save.service <<EOF
 [Unit]
 Description=GZ302 Keyboard Backlight Save
 DefaultDependencies=no
@@ -637,15 +402,9 @@ RemainAfterExit=yes
 WantedBy=shutdown.target reboot.target halt.target poweroff.target
 EOF
 
-        systemctl daemon-reload 2>/dev/null || true
-        systemctl enable gz302-kbd-backlight-restore.service 2>/dev/null || true
-        systemctl enable gz302-kbd-backlight-save.service 2>/dev/null || true
-
-        # Note about advanced fan/power control
-    info "Note: For advanced fan and power mode control, consider the ec_su_axb35 kernel module"
-    info "See: https://github.com/cmetz/ec-su_axb35-linux for Strix Halo-specific controls"
-    
-    success "Hardware fixes applied"
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable gz302-kbd-backlight-restore.service 2>/dev/null || true
+    systemctl enable gz302-kbd-backlight-save.service 2>/dev/null || true
 }
 
 # --- Distribution-Specific Optimizations Info ---
