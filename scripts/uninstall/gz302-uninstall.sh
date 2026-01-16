@@ -85,8 +85,13 @@ main() {
     disable_service "pwrcfg-monitor.service"
     disable_service "pwrcfg-resume.service"
     
+    # Battery Management
+    disable_service "battery-charge-limit.service"
+
     # RGB Persistence
     disable_service "gz302-rgb-restore.service"
+    disable_service "gz302-kbd-backlight-save.service"
+    disable_service "gz302-lightbar-reset.service"
     
     # Legacy services
     disable_service "reload-hid_asus.service"
@@ -103,7 +108,12 @@ main() {
     remove_file "/usr/local/bin/pwrcfg-monitor"
     remove_file "/usr/local/bin/pwrcfg-restore"
     remove_file "/usr/local/bin/rrcfg"
+    remove_file "/usr/share/icons/hicolor/scalable/apps/gz302-control-center.svg"
+    remove_file "/usr/share/icons/hicolor/scalable/apps/gz302-power-manager.svg"
     
+    # Battery Management
+    remove_file "/usr/local/bin/set-battery-limit.sh"
+
     # RGB Tools
     remove_file "/usr/local/bin/gz302-rgb"
     remove_file "/usr/local/bin/gz302-rgb-bin"
@@ -114,17 +124,21 @@ main() {
     # Legacy/Misc
     remove_file "/usr/local/bin/gz302-folio-resume.sh"
     remove_file "/usr/lib/systemd/system-sleep/gz302-kbd-backlight"
+    remove_file "/usr/lib/systemd/system-sleep/gz302-reset.sh"
     
     echo
     info "Removing Command Center / GUI..."
     remove_dir "/usr/local/share/gz302"
-    remove_file "/usr/share/applications/gz302-command-center.desktop"
+    remove_file "/usr/local/bin/gz302-control-center"
+    remove_file "/usr/share/applications/gz302-control-center.desktop"
+    remove_file "/etc/xdg/autostart/gz302-control-center.desktop"
     remove_file "/usr/share/applications/gz302-tray.desktop"  # Legacy name
     
     # Remove from all users' autostart (best effort)
     for home in /home/*; do
-        remove_file "$home/.config/autostart/gz302-command-center.desktop"
+        remove_file "$home/.config/autostart/gz302-control-center.desktop"
         remove_file "$home/.config/autostart/gz302-tray.desktop"
+        remove_file "$home/.local/share/applications/gz302-tray.desktop"
     done
     
     echo
@@ -132,28 +146,34 @@ main() {
     remove_dir "/etc/gz302"
     remove_dir "/var/lib/gz302"
     remove_dir "/var/log/gz302"
-    
+
     # Remove legacy config dirs
     remove_dir "/etc/gz302-tdp"
     remove_dir "/etc/gz302-refresh"
     remove_dir "/etc/gz302-rgb"
-    
+
     echo
     info "Removing system integration..."
     # Sudoers
     remove_file "/etc/sudoers.d/gz302-pwrcfg"
+    remove_file "/etc/sudoers.d/gz302-rgb"
     remove_file "/etc/sudoers.d/gz302-command-center"
     remove_file "/etc/sudoers.d/pwrcfg" # Legacy
     
     # Udev rules
     remove_file "/etc/udev/rules.d/99-gz302-rgb.rules"
     remove_file "/etc/udev/rules.d/99-gz302-keyboard.rules" # Legacy
+
+    # NetworkManager configuration
+    remove_file "/etc/NetworkManager/conf.d/wifi-powersave.conf"
+
     udevadm control --reload || true
     
     # Modprobe configs
     remove_file "/etc/modprobe.d/mt7925.conf"
     remove_file "/etc/modprobe.d/amdgpu.conf"
     remove_file "/etc/modprobe.d/hid-asus.conf"
+    remove_file "/etc/modprobe.d/i2c-hid-acpi-gz302.conf"
     remove_file "/etc/modprobe.d/cs35l41.conf"
     
     # ASUS Daemon override
