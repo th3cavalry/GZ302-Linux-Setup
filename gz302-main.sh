@@ -195,7 +195,7 @@ check_kernel_version() {
     
     # Convert to comparable format (e.g., 6.14 -> 614)
     local version_num=$((major * 100 + minor))
-    local min_version=612  # 6.12 - Strix Halo minimal support (RDNA 3.5 GPU, Zen 5)
+    local min_version=614  # 6.14 - Strix Halo working support (RDNA 3.5 GPU, Zen 5)
     local recommended_version=617  # 6.17+ - Full stability and WiFi improvements
     local optimal_version=618  # 6.18+ - Latest fixes and optimizations (Dec 2025)
     
@@ -204,18 +204,18 @@ check_kernel_version() {
     if [[ $version_num -lt $min_version ]]; then
         echo
         echo "❌ UNSUPPORTED KERNEL VERSION ❌"
-        echo "Your kernel version ($kernel_version) is below the absolute minimum (6.12)."
+        echo "Your kernel version ($kernel_version) is below the absolute minimum (6.14)."
         echo
-        echo "Kernel 6.12+ is REQUIRED for GZ302EA because it includes:"
+        echo "Kernel 6.14+ is REQUIRED for GZ302EA because it includes:"
         echo "  - Strix Halo (Zen 5) CPU architecture support"
         echo "  - RDNA 3.5 GPU driver (Radeon 8060S integrated graphics)"
         echo "  - AMD XDNA NPU driver (essential for Ryzen AI MAX+ 395)"
         echo "  - MediaTek MT7925 WiFi driver (WiFi 7 support)"
         echo "  - AMD P-State driver with Strix Halo optimizations"
         echo
-        error "Installation cancelled. Kernel 6.12+ is required.\nUpgrade options:\n  1. Use your distribution's kernel update mechanism\n  2. Install a mainline kernel from kernel.org\n  3. (Arch only) Install linux-g14 kernel: Optional/gz302-g14-kernel.sh\n  4. Check docs/kernel-support.md for version details\nIf you cannot upgrade, please create an issue on GitHub:\n  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
+        error "Installation cancelled. Kernel 6.14+ is required.\nUpgrade options:\n  1. Use your distribution's kernel update mechanism\n  2. Install a mainline kernel from kernel.org\n  3. (Arch only) Install linux-g14 kernel: Optional/gz302-g14-kernel.sh\n  4. Check docs/kernel-support.md for version details\nIf you cannot upgrade, please create an issue on GitHub:\n  https://github.com/th3cavalry/GZ302-Linux-Setup/issues"
     elif [[ $version_num -lt $recommended_version ]]; then
-        warning "Your kernel version ($kernel_version) meets minimum requirements (6.12+) but lacks improvements"
+        warning "Your kernel version ($kernel_version) meets minimum requirements (6.14+) but lacks improvements"
         info "For stability, consider upgrading to kernel 6.17+ which includes:"
         info "  - MediaTek MT7925 WiFi: Full MLO support and ASPM fixes"
         info "  - AMD GPU: Display Core (DC) stabilization fixes"

@@ -48,7 +48,7 @@
 set -euo pipefail
 
 # --- Script Configuration ---
-SCRIPT_VERSION="4.0.0-dev"
+SCRIPT_VERSION="4.0.2"
 GITHUB_RAW_URL="https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main"
 
 # --- Parse command-line arguments ---

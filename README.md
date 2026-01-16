@@ -1,6 +1,6 @@
 # 🚀 GZ302 Linux Toolkit
 
-![Version](https://img.shields.io/badge/version-4.0.0-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-4.0.2-blue?style=for-the-badge)
 ![Kernel](https://img.shields.io/badge/Kernel-6.14%2B-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Device-ASUS%20ROG%20Flow%20Z13-red?style=for-the-badge)

@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
 # GZ302 Command Center Installer
-# Version: $(cat "$(dirname "${BASH_SOURCE[0]}")/VERSION" 2>/dev/null || echo "4.0.0")
+# Version: 4.0.2
 #
 # Installs the complete user-facing toolset for ASUS ROG Flow Z13 (GZ302):
 # 1. Power Controls (pwrcfg) - TDP and Power Profile management
@@ -480,7 +480,9 @@ start_tray_for_user() {
         wayland_env="WAYLAND_DISPLAY=wayland-0"
     fi
     
-    local xdg_runtime="XDG_RUNTIME_DIR=/run/user/$(id -u "$real_user")"
+    local user_id
+    user_id=$(id -u "$real_user")
+    local xdg_runtime="XDG_RUNTIME_DIR=/run/user/${user_id}"
     
     info "Starting Control Center for user $real_user..."
     su - "$real_user" -c "$display_env $wayland_env $xdg_runtime setsid /usr/local/bin/gz302-control-center >/tmp/gz302-tray.log 2>&1 &" || true
