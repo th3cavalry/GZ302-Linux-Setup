@@ -4,7 +4,7 @@
 # Minimal Linux Setup Script for ASUS ROG Flow Z13 (GZ302) - v4.0.0
 #
 # Author: th3cavalry using Copilot
-# Version: 4.0.0-dev (Library-First Architecture)
+# Version: 4.0.2
 #
 # This script applies ONLY the essential hardware fixes needed to run Linux
 # properly on the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.

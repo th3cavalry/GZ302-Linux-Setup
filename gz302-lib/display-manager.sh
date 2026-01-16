@@ -115,7 +115,7 @@ display_detect_outputs() {
     
     # Fallback to DRM
     if [[ ${#displays[@]} -eq 0 && -d /sys/class/drm ]]; then
-        mapfile -t displays < <(find /sys/class/drm -maxdepth 1 -name "card*-*" -type l 2>/dev/null | xargs -I{} basename {} | grep -v "Virtual" | head -5)
+        mapfile -t displays < <(find /sys/class/drm -maxdepth 1 -name "card*-*" -type l -exec basename {} \; 2>/dev/null | grep -v "Virtual" | head -5)
     fi
     
     # Default fallback
@@ -332,7 +332,7 @@ display_set_rate_kscreen() {
     local display="$1"
     local rate="$2"
     
-    if kscreen-doctor output."$display".mode."${GZ302_RESOLUTION}@${rate}" 2>/dev/null; then
+    if kscreen-doctor "output.${display}.mode.${GZ302_RESOLUTION}@${rate}" 2>/dev/null; then
         return 0
     fi
     return 1

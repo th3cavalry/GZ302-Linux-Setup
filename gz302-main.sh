@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # Author: th3cavalry using Copilot
-# Version: $(cat "$(dirname "${BASH_SOURCE[0]}")/VERSION" 2>/dev/null || echo "4.0.0")
+# Version: 4.0.2
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)

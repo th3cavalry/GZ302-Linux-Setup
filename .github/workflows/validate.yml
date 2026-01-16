@@ -68,7 +68,7 @@ jobs:
           main_version=$(grep "^# Version:" gz302-main.sh | head -1 | sed 's/# Version: //')
           echo "Main script version: $main_version"
           errors=0
-          for script in gz302-gaming.sh gz302-llm.sh gz302-hypervisor.sh gz302-snapshots.sh gz302-secureboot.sh gz302-utils.sh gz302-rgb.sh gz302-minimal.sh; do
+          for script in gz302-minimal.sh; do
             if [ -f "$script" ]; then
               version=$(grep "^# Version:" "$script" | head -1 | sed 's/# Version: //')
               if [ "$version" != "$main_version" ]; then

@@ -89,8 +89,11 @@ rgb_set_keyboard_color() {
     elif rgb_detect_keyboard_sysfs; then
         # Fallback to sysfs if binary not available
         # Format: echo "mode r g b" > kbd_rgb_mode
-        echo "0 $r $g $b" > /sys/class/leds/aura_keyboard/kbd_rgb_mode 2>/dev/null
-        ret=$?; return $ret
+        if echo "0 $r $g $b" > /sys/class/leds/aura_keyboard/kbd_rgb_mode 2>/dev/null; then
+            return 0
+        else
+            return 1
+        fi
     else
         echo "Keyboard RGB not available" >&2
         return 1
@@ -110,8 +113,11 @@ rgb_set_keyboard_brightness() {
     fi
     
     if rgb_detect_keyboard_sysfs; then
-        echo "$level" > /sys/class/leds/aura_keyboard/brightness 2>/dev/null
-        ret=$?; return $ret
+        if echo "$level" > /sys/class/leds/aura_keyboard/brightness 2>/dev/null; then
+            return 0
+        else
+            return 1
+        fi
     else
         echo "Keyboard brightness control not available" >&2
         return 1
