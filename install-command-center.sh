@@ -135,17 +135,19 @@ install_system_daemon() {
             apt-get install -y power-profiles-daemon switcheroo-control
             
             # Install asusctl (PPA)
-            if command -v add-apt-repository >/dev/null 2>&1; then
-                add-apt-repository -y ppa:mitchellaugustin/asusctl 2>/dev/null || true
-                apt-get update
-                if apt-get install -y rog-control-center; then
-                    echo "asusctl installed from PPA"
-                else
-                    echo "PPA install failed, attempting source build..."
-                    build_asusctl_from_source
+            if [[ "$(lsb_release -sc)" == "oracular" ]]; then
+                if command -v add-apt-repository >/dev/null 2>&1; then
+                    add-apt-repository -y ppa:mitchellaugustin/asusctl 2>/dev/null || true
+                    apt-get update
+                    if apt-get install -y rog-control-center; then
+                        echo "asusctl installed from PPA"
+                    else
+                        echo "PPA install failed, attempting source build..."
+                        build_asusctl_from_source
+                    fi
                 fi
             else
-                echo "add-apt-repository not found, attempting source build..."
+                echo "Not Ubuntu Oracular, attempting source build..."
                 build_asusctl_from_source
             fi
             ;;
