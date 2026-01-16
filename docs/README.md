@@ -50,6 +50,23 @@ GZ302-Linux-Setup/
 └── docs/                  # Documentation (you are here)
 ```
 
+## Updating
+
+To pull the latest fixes and apply them:
+
+```bash
+cd GZ302-Linux-Setup
+git pull
+
+# Re-run the relevant installer to apply updates:
+sudo ./gz302-main.sh              # Hardware fixes
+sudo ./install-command-center.sh  # Power/RGB tools
+sudo ./scripts/gz302-rgb-install.sh  # RGB only
+```
+
+> [!NOTE]
+> Some fixes (like suspend hooks) are installed to system paths and require re-running the installer to update.
+
 ## Getting Help
 
 1. Check [Kernel Support](kernel-support.md) for compatibility issues
