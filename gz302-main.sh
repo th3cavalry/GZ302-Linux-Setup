@@ -109,10 +109,11 @@ if [[ -f "${SCRIPT_DIR}/gz302-lib/utils.sh" ]]; then
     source "${SCRIPT_DIR}/gz302-lib/utils.sh"
 else
     echo "gz302-lib/utils.sh not found. Downloading..."
+    mkdir -p "${SCRIPT_DIR}/gz302-lib"
     if command -v curl >/dev/null 2>&1; then
-        curl -L "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -o "${SCRIPT_DIR}/gz302-lib/utils.sh"
+        curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -o "${SCRIPT_DIR}/gz302-lib/utils.sh"
     elif command -v wget >/dev/null 2>&1; then
-        wget "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -O "${SCRIPT_DIR}/gz302-lib/utils.sh"
+        wget -q "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -O "${SCRIPT_DIR}/gz302-lib/utils.sh"
     else
         echo "Error: curl or wget not found. Cannot download gz302-lib/utils.sh"
         exit 1

@@ -24,6 +24,7 @@ if [[ -f "${SCRIPT_DIR}/gz302-lib/utils.sh" ]]; then
     source "${SCRIPT_DIR}/gz302-lib/utils.sh"
 else
     echo "gz302-lib/utils.sh not found. Downloading..."
+    mkdir -p "${SCRIPT_DIR}/gz302-lib"
     if command -v curl >/dev/null 2>&1; then
         curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -o "${SCRIPT_DIR}/gz302-lib/utils.sh"
         chmod +x "${SCRIPT_DIR}/gz302-lib/utils.sh"
