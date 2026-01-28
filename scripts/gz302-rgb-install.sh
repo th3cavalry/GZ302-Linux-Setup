@@ -71,6 +71,33 @@ SUDOERS_PATH="${SUDOERS_DIR}/gz302-rgb"
 RESTORE_SCRIPT_PATH="${BIN_DIR}/gz302-rgb-restore"
 SERVICE_PATH="${SYSTEMD_DIR}/gz302-rgb-restore.service"
 
+# --- Download required build files if missing ---
+download_build_files() {
+    local files_needed=("Makefile.rgb" "gz302-rgb-cli.c" "gz302-rgb-window.py" "gz302-rgb-restore.sh")
+    local any_missing=false
+    
+    for file in "${files_needed[@]}"; do
+        if [[ ! -f "${SCRIPT_DIR}/${file}" ]]; then
+            any_missing=true
+            break
+        fi
+    done
+    
+    if [[ "$any_missing" == "true" ]]; then
+        echo "Downloading required build files..."
+        for file in "${files_needed[@]}"; do
+            if [[ ! -f "${SCRIPT_DIR}/${file}" ]]; then
+                if command -v curl >/dev/null 2>&1; then
+                    curl -fsSL "${GITHUB_RAW_URL}/scripts/${file}" -o "${SCRIPT_DIR}/${file}"
+                elif command -v wget >/dev/null 2>&1; then
+                    wget -q "${GITHUB_RAW_URL}/scripts/${file}" -O "${SCRIPT_DIR}/${file}"
+                fi
+            fi
+        done
+        completed_item "Build files downloaded"
+    fi
+}
+
 # --- Install udev rules for both RGB devices ---
 install_udev_rules() {
     print_subsection "Installing udev Rules"
@@ -467,6 +494,9 @@ main() {
     print_section "System Information"
     print_keyval "Distribution" "$distro"
     print_keyval "Kernel" "$(uname -r)"
+    
+    # Download required build files if missing (for remote execution)
+    download_build_files
     
     # Step 1: Install keyboard RGB binary
     print_section "Step 1: Keyboard RGB Control"
