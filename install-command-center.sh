@@ -53,6 +53,30 @@ load_library() {
 load_library "power-manager.sh"
 load_library "display-manager.sh"
 
+# System library installation path
+SYSTEM_LIB_PATH="/usr/local/share/gz302/gz302-lib"
+
+# --- Install Libraries to System Path ---
+install_system_libraries() {
+    print_subsection "Installing GZ302 Libraries"
+    
+    mkdir -p "$SYSTEM_LIB_PATH"
+    
+    local libs=("power-manager.sh" "display-manager.sh" "utils.sh")
+    for lib in "${libs[@]}"; do
+        local src="${SCRIPT_DIR}/gz302-lib/${lib}"
+        if [[ -f "$src" ]]; then
+            cp "$src" "$SYSTEM_LIB_PATH/"
+            chmod +x "$SYSTEM_LIB_PATH/$lib"
+        else
+            # Download if not present locally
+            curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/${lib}" -o "$SYSTEM_LIB_PATH/$lib"
+            chmod +x "$SYSTEM_LIB_PATH/$lib"
+        fi
+    done
+    
+    completed_item "Libraries installed to $SYSTEM_LIB_PATH"
+}
 # --- Helper Functions ---
 
 install_dependencies() {
@@ -288,6 +312,9 @@ build_asusctl_from_source() {
 
 install_power_tools() {
     print_section "Step 1: Power Controls (pwrcfg)"
+    
+    # Install libraries to system path first (required by pwrcfg)
+    install_system_libraries
     
     # Install ryzenadj (TDP control backend)
     local distro
