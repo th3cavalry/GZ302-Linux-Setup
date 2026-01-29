@@ -217,7 +217,11 @@ install_restore_service() {
     # This allows the GUI/CLI (running as user) to save settings without sudo
     mkdir -p "$CONFIG_DIR"
     chmod 777 "$CONFIG_DIR"
-    completed_item "Config directory created with user write permissions"
+    
+    # Create config files with user-writable permissions
+    touch "$CONFIG_DIR/rgb-keyboard.conf" "$CONFIG_DIR/rgb-window.conf"
+    chmod 666 "$CONFIG_DIR/rgb-keyboard.conf" "$CONFIG_DIR/rgb-window.conf"
+    completed_item "Config directory and files created with user write permissions"
     
     # Install restore script
     if [[ -f "${SCRIPT_DIR}/gz302-rgb-restore.sh" ]]; then
