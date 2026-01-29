@@ -69,7 +69,10 @@ sleep 2
 migrate_rgb_config
 
 # Enable keyboard brightness so RGB is visible after restoring
-for brightness_path in /sys/class/leds/*::kbd_backlight/brightness; do
+# Set both asus::kbd_backlight and asus::kbd_backlight_1 explicitly
+for brightness_path in /sys/class/leds/asus::kbd_backlight/brightness \
+                       /sys/class/leds/asus::kbd_backlight_1/brightness \
+                       /sys/class/leds/*::kbd_backlight/brightness; do
     if [[ -f "$brightness_path" ]]; then
         echo 3 > "$brightness_path" 2>/dev/null || true
     fi
