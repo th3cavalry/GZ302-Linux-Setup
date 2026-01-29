@@ -413,6 +413,62 @@ RESTORE_EOF
     fi
     
     completed_item "Power controls installed (pwrcfg)"
+    
+    # Configure auto-switching profiles interactively
+    configure_power_auto_switching
+}
+
+# Interactive configuration for power auto-switching
+configure_power_auto_switching() {
+    print_subsection "Power Profile Configuration"
+    
+    local profiles=("emergency" "battery" "efficient" "balanced" "performance" "gaming" "maximum")
+    
+    echo ""
+    echo "Available power profiles:"
+    echo "  1) emergency   - 10W  (minimum power, maximum battery)"
+    echo "  2) battery     - 18W  (power saving)"
+    echo "  3) efficient   - 30W  (light tasks)"
+    echo "  4) balanced    - 40W  (daily use)"
+    echo "  5) performance - 55W  (demanding tasks)"
+    echo "  6) gaming      - 70W  (gaming/creative)"
+    echo "  7) maximum     - 90W  (maximum performance)"
+    echo ""
+    
+    # Ask about auto-switching
+    local enable_auto="y"
+    read -r -p "Enable automatic profile switching based on AC/Battery? [Y/n]: " enable_auto
+    enable_auto="${enable_auto:-y}"
+    
+    if [[ "${enable_auto,,}" =~ ^(y|yes)$ ]]; then
+        # Ask for AC profile
+        local ac_choice=""
+        while [[ ! "$ac_choice" =~ ^[1-7]$ ]]; do
+            read -r -p "Profile when plugged in (AC) [1-7, default=6 gaming]: " ac_choice
+            ac_choice="${ac_choice:-6}"
+        done
+        local ac_profile="${profiles[$((ac_choice - 1))]}"
+        
+        # Ask for Battery profile
+        local battery_choice=""
+        while [[ ! "$battery_choice" =~ ^[1-7]$ ]]; do
+            read -r -p "Profile when on battery [1-7, default=2 battery]: " battery_choice
+            battery_choice="${battery_choice:-2}"
+        done
+        local battery_profile="${profiles[$((battery_choice - 1))]}"
+        
+        # Save configuration
+        power_configure_auto "true" "$ac_profile" "$battery_profile"
+        
+        echo ""
+        success "Auto-switching enabled:"
+        echo "  → AC power: $ac_profile"
+        echo "  → Battery:  $battery_profile"
+    else
+        power_configure_auto "false" "gaming" "battery"
+        echo ""
+        info "Auto-switching disabled. Use 'pwrcfg <profile>' to manually switch."
+    fi
 }
 
 install_display_tools() {
