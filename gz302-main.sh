@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # Author: th3cavalry using Copilot
-# Version: 4.0.2
+# Version: 4.0.3
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)

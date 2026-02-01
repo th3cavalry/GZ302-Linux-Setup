@@ -360,10 +360,12 @@ install_suspend_hook() {
 #!/bin/bash
 # GZ302 Resume Reset Hook (Optimized)
 # Resets keyboard and lightbar USB devices on resume to fix touchpad and RGB
-# v2.0 - Single loop, faster sleeps to minimize resume delay
+# v2.1 - Improved RGB restore timing and logging
 
 case "$1" in
     post)
+        logger -t gz302-reset "Resume detected, resetting USB devices..."
+        
         # Single pass through USB devices - reset both keyboard and lightbar
         # Product IDs: 1a30 = Keyboard/Touchpad, 18c6 = Lightbar
         for dev in /sys/bus/usb/devices/*; do
@@ -377,12 +379,14 @@ case "$1" in
             case "$pid" in
                 1a30)
                     # Keyboard/Touchpad - fixes touchpad not working after sleep
+                    logger -t gz302-reset "Resetting keyboard/touchpad at $dev"
                     echo 0 > "$dev/authorized"
                     sleep 0.1
                     echo 1 > "$dev/authorized"
                     ;;
                 18c6)
                     # Lightbar - ensures RGB commands work
+                    logger -t gz302-reset "Resetting lightbar at $dev"
                     echo 0 > "$dev/authorized"
                     sleep 0.1
                     echo 1 > "$dev/authorized"
@@ -390,11 +394,15 @@ case "$1" in
             esac
         done
         
-        # Restore RGB settings in background (non-blocking)
-        {
-            sleep 0.5
-            systemctl restart gz302-rgb-restore.service 2>/dev/null
-        } &
+        # Wait for USB devices to fully reinitialize, then restore RGB
+        # Run synchronously to ensure it completes before user interaction
+        sleep 1
+        logger -t gz302-reset "Restoring RGB settings..."
+        if /usr/local/bin/gz302-rgb-restore 2>&1 | logger -t gz302-rgb-restore; then
+            logger -t gz302-reset "RGB restore completed"
+        else
+            logger -t gz302-reset "RGB restore failed"
+        fi
         ;;
 esac
 exit 0

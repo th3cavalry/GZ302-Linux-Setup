@@ -90,7 +90,12 @@ if [[ -f "$KEYBOARD_CONFIG" ]]; then
         # KEYBOARD_COMMAND contains the full command string (e.g. "static ff0000")
         # Split into array to avoid eval
         read -r -a CMD_ARGS <<< "$KEYBOARD_COMMAND"
-        "$RGB_BIN" "${CMD_ARGS[@]}" 2>/dev/null || true
+        echo "Restoring keyboard RGB: ${CMD_ARGS[*]}"
+        if "$RGB_BIN" "${CMD_ARGS[@]}" 2>&1; then
+            echo "Keyboard RGB restored successfully"
+        else
+            echo "Warning: Keyboard RGB restore failed" >&2
+        fi
         
     # Handle legacy format (COMMAND + ARG1, ARG2, etc.)
     elif [[ -n "${COMMAND:-}" && -n "${ARGC:-}" ]] && [[ -x "$RGB_BIN" ]]; then
@@ -102,8 +107,15 @@ if [[ -f "$KEYBOARD_CONFIG" ]]; then
                 args+=("$val")
             fi
         done
-        "$RGB_BIN" "${args[@]}" 2>/dev/null || true
+        echo "Restoring keyboard RGB (legacy): ${args[*]}"
+        if "$RGB_BIN" "${args[@]}" 2>&1; then
+            echo "Keyboard RGB restored successfully"
+        else
+            echo "Warning: Keyboard RGB restore failed" >&2
+        fi
     fi
+else
+    echo "No keyboard RGB config found at $KEYBOARD_CONFIG"
 fi
 
 # Restore rear window/lightbar RGB settings
@@ -112,16 +124,20 @@ if [[ -f "$WINDOW_CONFIG" ]]; then
     WINDOW_COLOR=$(get_config_var "$WINDOW_CONFIG" "WINDOW_COLOR")
     
     if [[ -n "${WINDOW_BRIGHTNESS:-}" ]] && [[ -x "$WINDOW_BIN" ]]; then
-        "$WINDOW_BIN" --lightbar "$WINDOW_BRIGHTNESS" 2>/dev/null || true
+        echo "Restoring lightbar brightness: $WINDOW_BRIGHTNESS"
+        "$WINDOW_BIN" --lightbar "$WINDOW_BRIGHTNESS" 2>&1 || echo "Warning: Lightbar brightness restore failed" >&2
     fi
 
     # Restore color if present (format: R,G,B)
     if [[ -n "${WINDOW_COLOR:-}" ]] && [[ -x "$WINDOW_BIN" ]]; then
         IFS=',' read -r R G B <<< "$WINDOW_COLOR"
         if [[ -n "${R:-}" && -n "${G:-}" && -n "${B:-}" ]]; then
-            "$WINDOW_BIN" --color "$R" "$G" "$B" 2>/dev/null || true
+            echo "Restoring lightbar color: R=$R G=$G B=$B"
+            "$WINDOW_BIN" --color "$R" "$G" "$B" 2>&1 || echo "Warning: Lightbar color restore failed" >&2
         fi
     fi
+else
+    echo "No lightbar RGB config found at $WINDOW_CONFIG"
 fi
 
 exit 0

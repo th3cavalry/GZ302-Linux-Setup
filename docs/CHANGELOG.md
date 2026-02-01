@@ -5,6 +5,22 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.3] - 2026-01-31
+
+### Fixed
+
+- **RGB Memory/Restore on Resume**: Fixed keyboard RGB not restoring after sleep/suspend
+  - Increased USB device reinitialization delay from 0.5s to 1s for reliable hidraw access
+  - Changed RGB restore from background to synchronous execution in sleep hook
+  - Added logging to system journal for debugging (`journalctl -t gz302-reset`)
+  - RGB restore script now provides verbose output for both keyboard and lightbar
+  - Fixed silent failures by removing blanket stderr suppression in restore script
+
+### Changed
+
+- Updated `gz302-reset.sh` sleep hook to v2.1 with improved timing and logging
+- RGB restore script now logs success/failure status for troubleshooting
+
 ## [4.0.2] - 2025-01-08
 
 ### Fixed
