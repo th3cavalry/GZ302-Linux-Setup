@@ -1,6 +1,6 @@
 # GZ302 Kernel Support Guide
 
-**Target Hardware:** ASUS ROG Flow Z13 (GZ302EA-XS99/XS64/XS32) with AMD Ryzen AI MAX+ 395  
+**Target Hardware:** ASUS ROG Flow Z13 (GZ302EA-XS99/XS98/XS96) with AMD Ryzen AI MAX+ 395  
 **Last Updated:** January 2026  
 **Kernel Range:** 6.14 - 6.18+
 
@@ -54,12 +54,13 @@ uname -r  # Example: 6.17.7-arch1-1
 | **CachyOS** | 6.18+ | ✅ Excellent |
 | **Fedora 43** | 6.17+ | ✅ Excellent |
 | **OpenSUSE TW** | 6.17+ | ✅ Excellent |
-| **Ubuntu 25.10** | 6.11 | ⚠️ Upgrade to HWE |
+| **Ubuntu 24.04** | 6.14 | ⚠️ Upgrade to HWE |
+| **Ubuntu 25.10** | 6.17 | ✅ Excellent |
 
 ### Ubuntu Kernel Upgrade
 ```bash
-sudo apt update
-sudo apt install linux-generic-hwe-25.10  # Gets 6.14+
+sudo apt-get update
+sudo apt-get install linux-generic-hwe-24.04  # Gets 6.17+
 ```
 
 ---

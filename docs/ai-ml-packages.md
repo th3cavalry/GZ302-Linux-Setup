@@ -1,3 +1,44 @@
+# GZ302 AI/ML Package Support - February 2026
+
+ROSm 7.2 has been released with direct support for `gfx1151` - no need for the `HSA_OVERRIDE_GFX_VERSION` anymore.
+Follow [Linux How to guide - Use ROCm on Ryzen](https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installryz/native_linux/howto_native_linux.html).
+
+However, `ROCm 7.2` requires
+
+1. `kernel >= 6.18.4`
+2. `linux-firmware >= 2026010`
+
+[Explainer video](https://www.youtube.com/watch?v=Hdg7zL3pcIs).
+
+## Tested setup on Ubuntu 24.04
+
+### Linux kernel
+
+1. Install a mainline kernel (tested with 6.18.7)
+2. For secure boot, sign the kernel using [Ubuntu UEFI Secure Boot with Mainline/Custom Kernels](https://github.com/berglh/ubuntu-sb-kernel-signing)
+
+### Linux firmware
+
+1. Download the `.deb` file from [linux-firmware 20260108 for Ubuntu 26.04](https://launchpad.net/ubuntu/resolute/amd64/linux-firmware/20260108.gitd86b47f7-0ubuntu1) or later
+2. Install using `sudo apt-get install ./linux-firmware_20260108.gitd86b47f7-0ubuntu1_all.deb`
+
+### ROCm 7.2
+
+The dkms module fails with the mainline kernel, so we must use the `--no-dkms` parameter, for example
+```bash
+sudo amdgpu-install -y --usecase=graphics,rocm --no-dkms --vulkan=radv
+```
+
+### Ollama
+
+Ollama does not yet work with ROCm 7.2.
+See [Add ROCm 7 support#13000](https://github.com/ollama/ollama/pull/13000).
+You will see the following error
+```
+Error: 500 Internal Server Error: llama runner process has terminated: exit status 2
+```
+
+
 # GZ302 AI/ML Package Support - January 2025
 
 **Date**: January 2025  
@@ -17,7 +58,7 @@ This document details the current state of AI/ML package support for the ASUS RO
 - **MIOpen**: AMD's deep learning primitives library
 - **bitsandbytes**: 8-bit quantization for efficient LLM inference
 - **Transformers & Accelerate**: Hugging Face ecosystem tools
-
+  
 ---
 
 ## gfx1151 (Strix Halo) Optimizations
