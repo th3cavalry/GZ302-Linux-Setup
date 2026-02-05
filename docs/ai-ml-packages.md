@@ -1,6 +1,6 @@
 # GZ302 AI/ML Package Support - February 2026
 
-ROSm 7.2 has been released with direct support for `gfx1151` - no need for the `HSA_OVERRIDE_GFX_VERSION` anymore.
+ROCm 7.2 has been released with direct support for `gfx1151` - no need for the `HSA_OVERRIDE_GFX_VERSION` anymore.
 Follow [Linux How to guide - Use ROCm on Ryzen](https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installryz/native_linux/howto_native_linux.html).
 
 However, `ROCm 7.2` requires
