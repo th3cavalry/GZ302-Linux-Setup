@@ -69,7 +69,6 @@ install_kvm_stack() {
                 virt-viewer \
                 dnsmasq \
                 vde2 \
-                bridge-utils \
                 openbsd-netcat \
                 libguestfs
             ;;
