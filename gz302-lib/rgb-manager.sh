@@ -3,7 +3,7 @@
 
 # ==============================================================================
 # GZ302 RGB Manager Library
-# Version: 4.0.0
+# Version: 4.1.0
 #
 # This library provides RGB lighting control for the ASUS ROG Flow Z13 (GZ302):
 # - Keyboard RGB via gz302-rgb C binary (aura_keyboard sysfs)

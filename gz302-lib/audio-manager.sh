@@ -3,7 +3,7 @@
 
 # ==============================================================================
 # GZ302 Audio Manager Library
-# Version: 3.0.0
+# Version: 4.1.0
 #
 # This library manages audio configuration for the GZ302, including:
 # - Sound Open Firmware (SOF) installation
