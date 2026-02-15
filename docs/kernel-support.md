@@ -55,15 +55,9 @@ uname -r  # Example: 6.19.0-2-cachyos
 | **Arch Linux** | 6.18+ | ✅ Excellent |
 | **CachyOS** | 6.19+ | ✅ Excellent |
 | **Fedora 43** | 6.17+ | ✅ Excellent |
-<<<<<<< HEAD
-| **OpenSUSE TW** | 6.17+ | ✅ Excellent |
-| **Ubuntu 24.04** | 6.14 | ⚠️ Upgrade to HWE |
-| **Ubuntu 25.10** | 6.17 | ✅ Excellent |
-=======
 | **OpenSUSE TW** | 6.18+ | ✅ Excellent |
 | **Ubuntu 24.04.4** | 6.17 (HWE) | ✅ Excellent |
 | **Ubuntu 26.04** | 7.0+ | ✅ Excellent |
->>>>>>> main
 
 ### Ubuntu Kernel Upgrade
 ```bash
