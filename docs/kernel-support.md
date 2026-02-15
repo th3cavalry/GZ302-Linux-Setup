@@ -1,8 +1,8 @@
 # GZ302 Kernel Support Guide
 
 **Target Hardware:** ASUS ROG Flow Z13 (GZ302EA-XS99/XS98/XS96) with AMD Ryzen AI MAX+ 395  
-**Last Updated:** February 2026
-**Kernel Range:** 6.14 - 6.18+
+**Last Updated:** February 2026  
+**Kernel Range:** 6.14 - 7.0+
 
 ---
 
@@ -10,7 +10,7 @@
 
 ### Check Your Kernel
 ```bash
-uname -r  # Example: 6.17.7-arch1-1
+uname -r  # Example: 6.19.0-2-cachyos
 ```
 
 ### Support Level by Version
@@ -20,7 +20,8 @@ uname -r  # Example: 6.17.7-arch1-1
 | < 6.14 | ❌ Unsupported | Upgrade required |
 | 6.14-6.15 | ⚠️ Early | All hardware fixes needed |
 | 6.16 | ⚠️ Maturing | Most fixes needed |
-| 6.17+ | ✅ Production | Audio quirk only + optimizations |
+| 6.17-6.18 | ✅ Production | Audio quirk only |
+| 6.19+ | ✅ Optimal | Minimal fixes, all native |
 
 ---
 
@@ -28,13 +29,14 @@ uname -r  # Example: 6.17.7-arch1-1
 
 ### Hardware Fixes
 
-| Component | 6.14-6.15 | 6.16 | 6.17+ | Notes |
-|-----------|-----------|------|-------|-------|
-| WiFi (MT7925) | ✅ Required | ✅ Required | ❌ Native | ASPM workaround obsolete |
-| Tablet Mode | ✅ Required | ✅ Required | ❌ Native | SW_TABLET_MODE in kernel |
-| Input/Touchpad | ✅ Required | ⚠️ Optional | ❌ Native | hid_asus reliable |
-| Audio (CS35L41) | ✅ Required | ✅ Required | ✅ Required | Quirk not upstream yet |
-| GPU Stability | ✅ Required | ❌ Native | ❌ Native | Stable in 6.16+ |
+| Component | 6.14-6.15 | 6.16 | 6.17-6.18 | 6.19+ | Notes |
+|-----------|-----------|------|-----------|-------|-------|
+| WiFi (MT7925) | ✅ Required | ✅ Required | ❌ Native | ❌ Native | ASPM workaround obsolete |
+| Tablet Mode | ✅ Required | ✅ Required | ❌ Native | ❌ Native | SW_TABLET_MODE in kernel |
+| Input/Touchpad | ✅ Required | ⚠️ Optional | ❌ Native | ❌ Native | hid_asus reliable |
+| Audio (CS35L41) | ✅ Required | ✅ Required | ✅ Required | ❌ Native | Quirk upstreamed in 6.19 |
+| GPU Stability | ✅ Required | ❌ Native | ❌ Native | ❌ Native | Stable in 6.16+ |
+| Suspend/MMC | ⚠️ Issue | ⚠️ Issue | ⚠️ Issue | ⚠️ Issue | See Suspend Fix below |
 
 ### Userspace Tools (All Kernels)
 
@@ -50,12 +52,18 @@ uname -r  # Example: 6.17.7-arch1-1
 
 | Distribution | Kernel | GZ302 Ready |
 |--------------|--------|-------------|
-| **Arch Linux** | 6.17+ | ✅ Excellent |
-| **CachyOS** | 6.18+ | ✅ Excellent |
+| **Arch Linux** | 6.18+ | ✅ Excellent |
+| **CachyOS** | 6.19+ | ✅ Excellent |
 | **Fedora 43** | 6.17+ | ✅ Excellent |
+<<<<<<< HEAD
 | **OpenSUSE TW** | 6.17+ | ✅ Excellent |
 | **Ubuntu 24.04** | 6.14 | ⚠️ Upgrade to HWE |
 | **Ubuntu 25.10** | 6.17 | ✅ Excellent |
+=======
+| **OpenSUSE TW** | 6.18+ | ✅ Excellent |
+| **Ubuntu 24.04.4** | 6.17 (HWE) | ✅ Excellent |
+| **Ubuntu 26.04** | 7.0+ | ✅ Excellent |
+>>>>>>> main
 
 ### Ubuntu Kernel Upgrade
 ```bash
@@ -83,9 +91,32 @@ amdgpu.gttsize=131072 amd_iommu=off
 - ✅ Touchpad/keyboard
 - ✅ GPU stability
 - ✅ Accelerometer orientation
+- ✅ Audio (CS35L41) - Native in 6.19+
 
 ### What Still Needs Fixes
-- ⚠️ Audio (CS35L41 quirk)
+- ⚠️ Suspend/MMC timeout (see fix below)
+- ⚠️ Audio (CS35L41 quirk) - Only for kernel < 6.19
+
+---
+
+## Suspend Fix (MMC Timeout)
+
+The internal eMMC/SD card (mmcblk0) may cause suspend to fail with:
+```
+mmc0: error -110 writing Power Off Notify bit
+```
+
+This is a known kernel MMC driver issue. Apply the fix:
+
+```bash
+# Quick fix
+bash scripts/fix-suspend.sh
+
+# Or reinstall RGB setup (includes updated suspend hook)
+bash scripts/gz302-rgb-install.sh
+```
+
+The fix unbinds the MMC device before suspend and rebinds it on resume.
 
 ---
 
@@ -111,25 +142,28 @@ sudo modprobe -r hid_asus && sudo modprobe hid_asus
 
 ## Troubleshooting
 
-| Symptom | Kernel < 6.17 | Kernel 6.17+ |
-|---------|---------------|--------------|
-| WiFi drops | Apply ASPM workaround | Update linux-firmware |
-| No rotation | Install tablet daemon | Check DE support |
-| No touchpad | Apply input forcing | Reload hid_asus |
-| No audio | Apply audio quirk | Apply audio quirk |
-| GPU crashes | Apply GTT fix | Should be stable |
+| Symptom | Kernel < 6.17 | Kernel 6.17+ | Kernel 6.19+ |
+|---------|---------------|--------------|---------------|
+| WiFi drops | Apply ASPM workaround | Update linux-firmware | Native |
+| No rotation | Install tablet daemon | Check DE support | Native |
+| No touchpad | Apply input forcing | Reload hid_asus | Native |
+| No audio | Apply audio quirk | Apply audio quirk | Native |
+| GPU crashes | Apply GTT fix | Should be stable | Native |
+| Suspend fails | Apply MMC fix | Apply MMC fix | Apply MMC fix |
 
 ---
 
 ## Hardware Feature Support by Kernel
 
-| Feature | 6.14 | 6.15 | 6.16 | 6.17+ |
-|---------|------|------|------|-------|
-| AMD XDNA NPU | Basic | Extended | Enhanced | Optimized |
-| AMD P-State | ✅ | ✅ | ✅ | ✅ |
-| MT7925 WiFi | ⚠️ Workaround | Native | Native | Optimized |
-| Radeon 8060S | Basic | Enhanced | Better | Optimized |
-| Power Mgmt | ✅ | ✅ | ✅ | ✅ Fine-grain |
+| Feature | 6.14 | 6.15 | 6.16 | 6.17 | 6.18 | 6.19+ |
+|---------|------|------|------|------|------|-------|
+| AMD XDNA NPU | Basic | Extended | Enhanced | Optimized | Optimized | Optimized |
+| AMD P-State | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| MT7925 WiFi | ⚠️ Workaround | Native | Native | Optimized | Optimized | Optimized |
+| Radeon 8060S | Basic | Enhanced | Better | Optimized | Optimized | Optimized |
+| Power Mgmt | ✅ | ✅ | ✅ | ✅ Fine-grain | ✅ | ✅ |
+| CS35L41 Audio | ⚠️ Quirks | ⚠️ Quirks | ⚠️ Quirks | ⚠️ Quirks | ⚠️ Quirks | ✅ Native |
+| ROCm 7.2 (gfx1151) | ❌ | ❌ | ❌ | ❌ | ✅ Native | ✅ Native |
 
 ---
 

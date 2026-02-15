@@ -358,13 +358,45 @@ install_suspend_hook() {
     
     cat > "$hook_path" << 'EOF'
 #!/bin/bash
-# GZ302 Resume Reset Hook (Optimized)
-# Resets keyboard and lightbar USB devices on resume to fix touchpad and RGB
-# v2.1 - Improved RGB restore timing and logging
+# GZ302 Suspend/Resume Hook (Optimized)
+# Handles MMC suspend issues, resets USB devices on resume to fix touchpad and RGB
+# v2.2 - Added MMC unbind/rebind to fix suspend timeout
+
+MMC_DRIVER_PATH="/sys/bus/mmc/drivers/mmcblk"
+MMC_STATE_FILE="/run/gz302-mmc-devices"
 
 case "$1" in
+    pre)
+        # Unbind MMC devices before suspend to prevent "Power Off Notify" timeout
+        # This fixes: "mmc0: error -110 writing Power Off Notify bit"
+        logger -t gz302-reset "Preparing for suspend, unbinding MMC devices..."
+        > "$MMC_STATE_FILE"
+        
+        if [[ -d "$MMC_DRIVER_PATH" ]]; then
+            for dev in "$MMC_DRIVER_PATH"/mmc*; do
+                [[ -e "$dev" ]] || continue
+                dev_name=$(basename "$dev")
+                # Check if device is not mounted as root
+                if ! mount | grep -q "^/dev/${dev_name}"; then
+                    logger -t gz302-reset "Unbinding $dev_name"
+                    echo "$dev_name" >> "$MMC_STATE_FILE"
+                    echo "$dev_name" > "$MMC_DRIVER_PATH/unbind" 2>/dev/null || true
+                fi
+            done
+        fi
+        ;;
     post)
-        logger -t gz302-reset "Resume detected, resetting USB devices..."
+        logger -t gz302-reset "Resume detected, rebinding MMC and resetting USB devices..."
+        
+        # Rebind MMC devices that were unbound
+        if [[ -f "$MMC_STATE_FILE" ]]; then
+            while read -r dev_name; do
+                [[ -n "$dev_name" ]] || continue
+                logger -t gz302-reset "Rebinding $dev_name"
+                echo "$dev_name" > "$MMC_DRIVER_PATH/bind" 2>/dev/null || true
+            done < "$MMC_STATE_FILE"
+            rm -f "$MMC_STATE_FILE"
+        fi
         
         # Single pass through USB devices - reset both keyboard and lightbar
         # Product IDs: 1a30 = Keyboard/Touchpad, 18c6 = Lightbar
@@ -398,11 +430,8 @@ case "$1" in
         # Run synchronously to ensure it completes before user interaction
         sleep 1
         logger -t gz302-reset "Restoring RGB settings..."
-        if /usr/local/bin/gz302-rgb-restore 2>&1 | logger -t gz302-rgb-restore; then
-            logger -t gz302-reset "RGB restore completed"
-        else
-            logger -t gz302-reset "RGB restore failed"
-        fi
+        /usr/local/bin/gz302-rgb-restore 2>&1 | logger -t gz302-rgb-restore || true
+        logger -t gz302-reset "Resume hook completed"
         ;;
 esac
 exit 0

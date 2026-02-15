@@ -3,7 +3,7 @@
 
 # ==============================================================================
 # GZ302 Power Manager Library
-# Version: 4.0.0
+# Version: 4.1.0
 #
 # This library provides TDP management and power profile control for the
 # AMD Ryzen AI MAX+ 395 (Strix Halo) in the GZ302.

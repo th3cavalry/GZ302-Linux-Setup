@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
 # GZ302 Command Center Installer
-# Version: 4.0.2
+# Version: 4.1.0
 #
 # Installs the complete user-facing toolset for ASUS ROG Flow Z13 (GZ302):
 # 1. Power Controls (pwrcfg) - TDP and Power Profile management

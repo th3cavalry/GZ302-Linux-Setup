@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 4.0.0
+# Version: 4.1.0
 #
 # This module installs LLM backends for the ASUS ROG Flow Z13 (GZ302)
 # Uses official installation methods - no custom builds
@@ -59,26 +59,78 @@ fi
 
 
 # --- Configuration ---
-LLM_VERSION="4.0.0"
+LLM_VERSION="4.1.0"
 OLLAMA_ENV_FILE="/etc/systemd/system/ollama.service.d/gz302.conf"
 LMSTUDIO_APPIMAGE="${HOME}/Applications/LMStudio.AppImage"
 VLLM_VENV="/opt/gz302-vllm"
 
 # --- AMD Strix Halo GPU Configuration ---
 
+# Detect ROCm version
+# Returns: version string (e.g., "7.2.0") or "unknown"
+get_rocm_version() {
+    if command -v rocminfo &>/dev/null; then
+        rocminfo 2>/dev/null | grep -oP 'ROCm Runtime Version: \K[0-9.]+' | head -1
+    elif [[ -f /opt/rocm/.info/version ]]; then
+        cat /opt/rocm/.info/version 2>/dev/null
+    else
+        echo "unknown"
+    fi
+}
+
+# Check if ROCm version is 7.2 or higher (native gfx1151 support)
+rocm_has_native_gfx1151() {
+    local version
+    version=$(get_rocm_version)
+    
+    if [[ "$version" == "unknown" ]]; then
+        return 1
+    fi
+    
+    local major minor
+    major=$(echo "$version" | cut -d. -f1)
+    minor=$(echo "$version" | cut -d. -f2)
+    
+    # ROCm 7.2+ has native gfx1151 support
+    if [[ $major -gt 7 ]] || { [[ $major -eq 7 ]] && [[ $minor -ge 2 ]]; }; then
+        return 0
+    fi
+    
+    return 1
+}
+
 configure_amd_gpu_env() {
     local env_file="/etc/profile.d/gz302-rocm.sh"
+    local rocm_version
+    rocm_version=$(get_rocm_version)
     
     info "Configuring AMD ROCm environment for Strix Halo (gfx1151)..."
+    info "Detected ROCm version: ${rocm_version:-not installed}"
     
-    cat > "$env_file" << 'EOF'
+    if rocm_has_native_gfx1151; then
+        # ROCm 7.2+ - native gfx1151 support, no HSA override needed
+        info "ROCm 7.2+ detected - using native gfx1151 support (no HSA override)"
+        cat > "$env_file" << 'EOF'
 # GZ302 ROCm Configuration for AMD Radeon 8060S (Strix Halo gfx1151)
+# ROCm 7.2+ has native gfx1151 support - no HSA override needed
+export HIP_VISIBLE_DEVICES=0
+export GPU_MAX_HW_QUEUES=8
+export AMD_SERIALIZE_KERNEL=0
+export AMD_SERIALIZE_COPY=0
+EOF
+    else
+        # ROCm < 7.2 - needs HSA override to emulate gfx1100
+        info "ROCm < 7.2 - using HSA_OVERRIDE_GFX_VERSION for gfx1100 compatibility"
+        cat > "$env_file" << 'EOF'
+# GZ302 ROCm Configuration for AMD Radeon 8060S (Strix Halo gfx1151)
+# Emulate gfx1100 (RDNA3) for ROCm < 7.2 compatibility
 export HSA_OVERRIDE_GFX_VERSION=11.0.0
 export HIP_VISIBLE_DEVICES=0
 export GPU_MAX_HW_QUEUES=8
 export AMD_SERIALIZE_KERNEL=0
 export AMD_SERIALIZE_COPY=0
 EOF
+    fi
     
     chmod 644 "$env_file"
     # shellcheck disable=SC1090
@@ -103,13 +155,27 @@ install_ollama() {
     
     info "Configuring Ollama for AMD Strix Halo GPU..."
     mkdir -p "$(dirname "$OLLAMA_ENV_FILE")"
-    cat > "$OLLAMA_ENV_FILE" << 'EOF'
+    
+    if rocm_has_native_gfx1151; then
+        # ROCm 7.2+ - native gfx1151 support
+        cat > "$OLLAMA_ENV_FILE" << 'EOF'
 [Service]
+# ROCm 7.2+ has native gfx1151 support
+Environment="HIP_VISIBLE_DEVICES=0"
+Environment="GPU_MAX_HW_QUEUES=8"
+Environment="OLLAMA_HOST=0.0.0.0"
+EOF
+    else
+        # ROCm < 7.2 - needs HSA override
+        cat > "$OLLAMA_ENV_FILE" << 'EOF'
+[Service]
+# Emulate gfx1100 for ROCm < 7.2
 Environment="HSA_OVERRIDE_GFX_VERSION=11.0.0"
 Environment="HIP_VISIBLE_DEVICES=0"
 Environment="GPU_MAX_HW_QUEUES=8"
 Environment="OLLAMA_HOST=0.0.0.0"
 EOF
+    fi
     
     systemctl daemon-reload
     systemctl enable --now ollama
@@ -212,13 +278,22 @@ install_vllm() {
     "${VLLM_VENV}/bin/pip" install --upgrade pip
     "${VLLM_VENV}/bin/pip" install vllm
     
-    cat > "${VLLM_VENV}/activate-vllm" << 'EOF'
+    if rocm_has_native_gfx1151; then
+        cat > "${VLLM_VENV}/activate-vllm" << 'EOF'
+#!/bin/bash
+source /opt/gz302-vllm/bin/activate
+export HIP_VISIBLE_DEVICES=0
+echo "vLLM environment activated (native gfx1151)"
+EOF
+    else
+        cat > "${VLLM_VENV}/activate-vllm" << 'EOF'
 #!/bin/bash
 source /opt/gz302-vllm/bin/activate
 export HSA_OVERRIDE_GFX_VERSION=11.0.0
 export HIP_VISIBLE_DEVICES=0
 echo "vLLM environment activated"
 EOF
+    fi
     chmod +x "${VLLM_VENV}/activate-vllm"
     
     success "vLLM installed"
@@ -323,13 +398,22 @@ install_textgenwebui() {
     bash start_linux.sh --install-only || true
     
     # Create launcher script
-    cat > /usr/local/bin/textgen-webui << 'EOF'
+    if rocm_has_native_gfx1151; then
+        cat > /usr/local/bin/textgen-webui << 'EOF'
+#!/bin/bash
+export HIP_VISIBLE_DEVICES=0
+cd /opt/text-generation-webui
+./start_linux.sh "$@"
+EOF
+    else
+        cat > /usr/local/bin/textgen-webui << 'EOF'
 #!/bin/bash
 export HSA_OVERRIDE_GFX_VERSION=11.0.0
 export HIP_VISIBLE_DEVICES=0
 cd /opt/text-generation-webui
 ./start_linux.sh "$@"
 EOF
+    fi
     chmod +x /usr/local/bin/textgen-webui
     
     success "Text Generation WebUI installed"
@@ -399,13 +483,22 @@ install_python_ai_libs() {
         trl \
         einops
     
-    cat > "${venv_path}/activate-ai" << EOF
+    if rocm_has_native_gfx1151; then
+        cat > "${venv_path}/activate-ai" << EOF
+#!/bin/bash
+source ${venv_path}/bin/activate
+export HIP_VISIBLE_DEVICES=0
+echo "Python AI environment activated (native gfx1151)"
+EOF
+    else
+        cat > "${venv_path}/activate-ai" << EOF
 #!/bin/bash
 source ${venv_path}/bin/activate
 export HSA_OVERRIDE_GFX_VERSION=11.0.0
 export HIP_VISIBLE_DEVICES=0
 echo "Python AI environment activated"
 EOF
+    fi
     chmod +x "${venv_path}/activate-ai"
     
     success "Python AI libraries installed"

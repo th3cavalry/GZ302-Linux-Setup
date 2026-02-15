@@ -1,45 +1,74 @@
-# GZ302 AI/ML Package Support - February 2026
+# GZ302 AI/ML Package Support
 
-ROCm 7.2 has been released with direct support for `gfx1151` - no need for the `HSA_OVERRIDE_GFX_VERSION` anymore.
+**Last Updated**: February 2026  
+**Version**: 0.5.0  
+**Focus**: ROCm, PyTorch, MIOpen, and bitsandbytes support for AMD Radeon 8060S (gfx1151)
+
+---
+
+## ROCm 7.2 - Native gfx1151 Support (February 2026)
+
+**ROCm 7.2** has been released with **direct support for `gfx1151`** - no need for the `HSA_OVERRIDE_GFX_VERSION` workaround anymore!
+
+### Requirements
+
+| Component | Required Version |
+|-----------|-----------------|
+| **Kernel** | ≥ 6.18.4 |
+| **linux-firmware** | ≥ 20260108 |
+| **ROCm** | ≥ 7.2 |
+
+### Installation (Ubuntu 24.04)
+
+#### 1. Kernel (if needed)
+Install a mainline kernel (6.18.4+). For secure boot, sign using [Ubuntu UEFI Secure Boot with Mainline Kernels](https://github.com/berglh/ubuntu-sb-kernel-signing).
+
+#### 2. Linux Firmware
+```bash
+# Download latest firmware .deb from launchpad
+sudo apt-get install ./linux-firmware_20260108*.deb
+```
+
+#### 3. ROCm 7.2
 Follow [Linux How to guide - Use ROCm on Ryzen](https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installryz/native_linux/howto_native_linux.html).
 
-However, `ROCm 7.2` requires
-
-1. `kernel >= 6.18.4`
-2. `linux-firmware >= 2026010`
-
-[Explainer video](https://www.youtube.com/watch?v=Hdg7zL3pcIs).
-
-## Tested setup on Ubuntu 24.04
-
-### Linux kernel
-
-1. Install a mainline kernel (tested with 6.18.7)
-2. For secure boot, sign the kernel using [Ubuntu UEFI Secure Boot with Mainline/Custom Kernels](https://github.com/berglh/ubuntu-sb-kernel-signing)
-
-### Linux firmware
-
-1. Download the `.deb` file from [linux-firmware 20260108 for Ubuntu 26.04](https://launchpad.net/ubuntu/resolute/amd64/linux-firmware/20260108.gitd86b47f7-0ubuntu1) or later
-2. Install using `sudo apt-get install ./linux-firmware_20260108.gitd86b47f7-0ubuntu1_all.deb`
-
-### ROCm 7.2
-
-The dkms module fails with the mainline kernel, so we must use the `--no-dkms` parameter, for example
+The DKMS module may fail with mainline kernels. Use `--no-dkms`:
 ```bash
 sudo amdgpu-install -y --usecase=graphics,rocm --no-dkms --vulkan=radv
 ```
 
-### Ollama
+### Arch/CachyOS Installation
+```bash
+# CachyOS has ROCm 7.2 in repos
+sudo pacman -S rocm-hip-runtime rocm-opencl-runtime
 
-Ollama does not yet work with ROCm 7.2.
-See [Add ROCm 7 support#13000](https://github.com/ollama/ollama/pull/13000).
-You will see the following error
+# For full development
+sudo pacman -S hip-runtime-amd rocm-hip-sdk
+```
+
+### Known Issues
+
+| Software | ROCm 7.2 Status | Notes |
+|----------|-----------------|-------|
+| **Ollama** | ⚠️ Not yet working | See [ollama/ollama#13000](https://github.com/ollama/ollama/pull/13000) |
+| **PyTorch** | ✅ Working | Use ROCm-enabled wheel |
+| **llama.cpp** | ✅ Working | Build with `-DGGML_HIP=ON` |
+
+For Ollama, you may see:
 ```
 Error: 500 Internal Server Error: llama runner process has terminated: exit status 2
 ```
+Use Ollama with ROCm 6.x until the PR is merged, or use llama.cpp directly.
 
+### Automatic Detection
 
-# GZ302 AI/ML Package Support - January 2025
+The `gz302-llm.sh` module now **automatically detects ROCm version** and:
+- **ROCm 7.2+**: Skips `HSA_OVERRIDE_GFX_VERSION` (native gfx1151)
+- **ROCm < 7.2**: Applies `HSA_OVERRIDE_GFX_VERSION=11.0.0` for gfx1100 emulation
+
+---
+
+# GZ302 AI/ML Package Support - January 2025 (Legacy)
 
 **Date**: January 2025  
 **Version**: 0.4.0  

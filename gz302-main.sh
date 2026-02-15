@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # Author: th3cavalry using Copilot
-# Version: 4.0.3
+# Version: 4.1.0
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -198,7 +198,7 @@ check_network() {
 # --- Check Kernel Version ---
 check_kernel_version() {
     # Use library function if available, otherwise fallback
-    if declare -f kernel_check_version >/dev/null; then
+    if declare -f kernel_check_version >/dev/null || declare -f kernel_get_version_num >/dev/null; then
         local kver
         kver=$(kernel_get_version_num)
         info "Detected kernel version: $(uname -r)"
@@ -209,7 +209,11 @@ check_kernel_version() {
              error "Kernel 6.14+ is required. Please upgrade."
         fi
         
-        if [[ $kver -ge 618 ]]; then
+        if [[ $kver -ge 700 ]]; then
+            success "Kernel version is Linux 7.0+ (latest development)"
+        elif [[ $kver -ge 619 ]]; then
+            success "Kernel version is optimal (6.19+) - all hardware native, including audio"
+        elif [[ $kver -ge 618 ]]; then
             success "Kernel version is at the cutting edge (6.18+)"
         elif [[ $kver -ge 617 ]]; then
              success "Kernel version meets recommended requirements (6.17+)"
@@ -548,10 +552,22 @@ install_sof_firmware() {
     info "SOF audio configuration complete"
 
     # Detect Cirrus Logic CS35L41 amplifier on supported units and apply HDA patch config
-    if [[ -r /proc/asound/cards ]] && grep -qi "cs35l41" /proc/asound/cards 2>/dev/null; then
+    # Note: Kernel 6.19+ has native support (quirk 10431fb3 upstreamed), skip for those
+    local kver_audio
+    kver_audio=$(kernel_get_version_num 2>/dev/null || echo 0)
+    
+    if [[ $kver_audio -ge 619 ]]; then
+        info "Kernel 6.19+ detected - CS35L41 audio uses native support (no quirks needed)"
+        # Remove old quirk file if present
+        if [[ -f /etc/modprobe.d/cs35l41.conf ]]; then
+            rm -f /etc/modprobe.d/cs35l41.conf
+            info "Removed obsolete CS35L41 quirk configuration"
+        fi
+    elif [[ -r /proc/asound/cards ]] && grep -qi "cs35l41" /proc/asound/cards 2>/dev/null; then
         info "Detected Cirrus Logic CS35L41 amplifier; applying HDA patch configuration..."
         cat > /etc/modprobe.d/cs35l41.conf <<'EOF'
 # Cirrus Logic CS35L41 amplifier configuration for GZ302
+# Note: This quirk is only needed for kernel < 6.19
 options snd_hda_intel patch=cs35l41-hda
 EOF
     fi

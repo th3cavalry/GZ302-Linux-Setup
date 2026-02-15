@@ -5,6 +5,55 @@ All notable changes to the GZ302 Linux Setup project will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-02-13
+
+### Added
+
+- **Suspend/MMC Fix**: New `fix-suspend.sh` script to fix suspend timeout caused by MMC device
+  - Unbinds internal eMMC/SD card before suspend to prevent "Power Off Notify" timeout
+  - Automatically rebinds on resume
+  - Integrated into `gz302-reset.sh` sleep hook (v2.2)
+  - Fixes: `mmc0: error -110 writing Power Off Notify bit`
+
+- **ROCm 7.2 Native Support**: Updated `gz302-llm.sh` module for ROCm 7.2+
+  - Automatic ROCm version detection
+  - Native `gfx1151` support (no `HSA_OVERRIDE_GFX_VERSION` needed for ROCm 7.2+)
+  - Fallback to gfx1100 emulation for ROCm < 7.2
+  - Updated documentation with installation instructions
+
+- **Kernel 6.19+ Support**: Full support for latest kernel features
+  - Native CS35L41 audio (quirk 10431fb3 upstreamed in 6.19)
+  - Automatic cleanup of obsolete audio quirk files
+  - Linux 7.0 development kernel support
+
+### Changed
+
+- **kernel-compat.sh v3.1.0**: Added `KERNEL_AUDIO_NATIVE=619` constant
+  - New `kernel_has_native_audio()` function
+  - Updated `kernel_requires_audio_quirks()` to return false for 6.19+
+
+- **kernel-support.md**: Comprehensive update
+  - Added 6.19+ column showing native audio support
+  - Updated distribution kernel versions (Ubuntu 24.04.4 now 6.17 HWE)
+  - Added suspend fix documentation section
+  - Updated hardware feature matrix with ROCm 7.2 and audio info
+
+- **ai-ml-packages.md**: Added ROCm 7.2 section
+  - Installation instructions for Ubuntu 24.04 and Arch/CachyOS
+  - Known issues (Ollama not yet compatible)
+  - Kernel and firmware requirements
+
+- **gz302-main.sh**: Kernel-aware audio configuration
+  - Skips CS35L41 quirks on kernel 6.19+ (native support)
+  - Removes obsolete `/etc/modprobe.d/cs35l41.conf` when not needed
+  - Updated version messaging for 6.19+ and 7.0+
+
+### Fixed
+
+- **Suspend Failure**: MMC device timeout blocking suspend on GZ302
+  - Root cause: Internal SD card fails "Power Off Notify" command
+  - Solution: Unbind/rebind MMC device around suspend cycle
+
 ## [4.0.3] - 2026-01-31
 
 ### Fixed

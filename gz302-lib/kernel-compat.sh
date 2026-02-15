@@ -3,7 +3,7 @@
 
 # ==============================================================================
 # GZ302 Kernel Compatibility Library
-# Version: 3.0.0
+# Version: 4.1.0
 #
 # This library provides central kernel version detection and compatibility
 # logic for all other libraries. It determines what workarounds are needed
@@ -14,7 +14,10 @@
 # - 6.14: First recommended version (XDNA NPU, MT7925 WiFi)
 # - 6.16: Improved stability (GPU fixes, WiFi improvements)
 # - 6.17: Production ready (native WiFi ASPM, asus-wmi tablet mode)
-# - 6.19+: Latest optimizations
+# - 6.18: ROCm 7.2 support for gfx1151
+# - 6.19+: CS35L41 audio native, Linux 7.0 development
+#
+# Last Updated: February 2026
 #
 # Usage:
 #   source gz302-lib/kernel-compat.sh
@@ -28,7 +31,8 @@ readonly KERNEL_MIN=612          # 6.12 - Absolute minimum
 readonly KERNEL_RECOMMENDED=614  # 6.14 - First recommended
 readonly KERNEL_STABLE=616       # 6.16 - Stable support
 readonly KERNEL_NATIVE=617       # 6.17 - Native support for most hardware
-readonly KERNEL_OPTIMAL=618      # 6.18+ - Latest optimizations
+readonly KERNEL_OPTIMAL=618      # 6.18 - ROCm 7.2, firmware improvements
+readonly KERNEL_AUDIO_NATIVE=619 # 6.19 - CS35L41 audio native support
 
 # --- Core Version Functions ---
 
@@ -135,11 +139,21 @@ kernel_requires_gpu_workarounds() {
 }
 
 # Check if audio quirks are still required
-# Returns: 0 if quirks needed (always true for now)
-# Note: CS35L41 subsystem ID not yet upstream, always need quirks
+# Returns: 0 if quirks needed, 1 if not needed
+# Note: CS35L41 GZ302 quirk (10431fb3) upstreamed in kernel 6.19
 kernel_requires_audio_quirks() {
-    # Audio quirks always required (CS35L41 not yet fully upstream)
-    return 0
+    local version_num
+    version_num=$(kernel_get_version_num)
+    # Audio quirks needed for kernels < 6.19 (CS35L41 quirk upstreamed in 6.19)
+    [[ $version_num -lt ${KERNEL_AUDIO_NATIVE:-619} ]]
+}
+
+# Check if kernel has CS35L41 native audio support
+# Returns: 0 if native support, 1 if quirks needed
+kernel_has_native_audio() {
+    local version_num
+    version_num=$(kernel_get_version_num)
+    [[ $version_num -ge ${KERNEL_AUDIO_NATIVE:-619} ]]
 }
 
 # --- Kernel Feature Detection ---
@@ -269,6 +283,11 @@ kernel_print_status() {
 kernel_list_obsolete_workarounds() {
     local version_num
     version_num=$(kernel_get_version_num)
+    
+    if [[ $version_num -ge $KERNEL_AUDIO_NATIVE ]]; then
+        # Kernel 6.19+ - CS35L41 audio quirk upstreamed
+        echo "cs35l41_audio_quirks"
+    fi
     
     if [[ $version_num -ge $KERNEL_NATIVE ]]; then
         # Kernel 6.17+ - these are obsolete
