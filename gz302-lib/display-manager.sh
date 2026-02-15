@@ -91,6 +91,12 @@ display_has_wlr_randr() {
     command -v wlr-randr >/dev/null 2>&1
 }
 
+# Check if gdctl is available (mutter >= 47)
+# Returns: 0 if available, 1 otherwise
+display_has_gdctl() {
+    command -v gdctl >/dev/null 2>&1
+}
+
 # Check if KDE kscreen tools are available
 # Returns: 0 if available, 1 otherwise
 display_has_kscreen() {
@@ -462,7 +468,7 @@ display_print_status() {
     primary=$(display_get_primary)
     
     echo "Display Status:"
-    echo "  Environment: $(display_is_x11 && echo "X11" || echo "Wayland")"
+    echo "  Environments: $(display_is_x11 && echo "X11") $(display_is_wayland && echo "Wayland")"
     echo "  Primary Display: $primary"
     echo "  Current Refresh: $(display_get_current_refresh "$primary")Hz"
     echo "  Current Profile: $(display_get_current_profile)"
@@ -488,6 +494,7 @@ display_print_status() {
     echo "Available Tools:"
     display_is_x11 && command -v xrandr >/dev/null && echo "  ✓ xrandr (X11)"
     display_has_wlr_randr && echo "  ✓ wlr-randr (Wayland)"
+    display_has_gdctl && echo "  ✓ gdctl (Mutter/Wayland)"
     display_has_kscreen && echo "  ✓ kscreen-doctor (KDE)"
 }
 
