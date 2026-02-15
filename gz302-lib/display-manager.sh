@@ -91,7 +91,8 @@ display_has_wlr_randr() {
     command -v wlr-randr >/dev/null 2>&1
 }
 
-# Check if gdctl is available (mutter >= 47)
+# Check if gdctl is available (GNOME >= 48, X11/Wayland)
+# https://gitlab.gnome.org/GNOME/mutter/-/blob/main/doc/man/gdctl.rst
 # Returns: 0 if available, 1 otherwise
 display_has_gdctl() {
     command -v gdctl >/dev/null 2>&1
@@ -494,7 +495,7 @@ display_print_status() {
     echo "Available Tools:"
     display_is_x11 && command -v xrandr >/dev/null && echo "  ✓ xrandr (X11)"
     display_has_wlr_randr && echo "  ✓ wlr-randr (Wayland)"
-    display_has_gdctl && echo "  ✓ gdctl (Mutter/Wayland)"
+    display_has_gdctl && echo "  ✓ gdctl (GNOME >= 48, X11/Wayland)"
     display_has_kscreen && echo "  ✓ kscreen-doctor (KDE)"
 }
 
