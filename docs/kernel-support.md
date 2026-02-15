@@ -1,6 +1,6 @@
 # GZ302 Kernel Support Guide
 
-**Target Hardware:** ASUS ROG Flow Z13 (GZ302EA-XS99/XS64/XS32) with AMD Ryzen AI MAX+ 395  
+**Target Hardware:** ASUS ROG Flow Z13 (GZ302EA-XS99/XS98/XS96) with AMD Ryzen AI MAX+ 395  
 **Last Updated:** February 2026  
 **Kernel Range:** 6.14 - 7.0+
 

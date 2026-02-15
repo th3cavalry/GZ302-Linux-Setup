@@ -231,27 +231,31 @@ install_llamacpp() {
     info "Fetching latest llama.cpp release..."
     
     local version
-    version=$(curl -fsSL https://api.github.com/repos/ggerganov/llama.cpp/releases/latest | grep -oP '"tag_name": "\K[^"]+' || echo "b4467")
+    version=$(curl -fsSL https://api.github.com/repos/ggerganov/llama.cpp/releases/latest | grep -oP '"tag_name": "\K[^"]+' || echo "b8043")
     
-    local rocm_url="https://github.com/ggerganov/llama.cpp/releases/download/${version}/llama-${version}-bin-ubuntu-x64-rocm-6.2.zip"
-    local fallback_url="https://github.com/ggerganov/llama.cpp/releases/download/${version}/llama-${version}-bin-ubuntu-x64.zip"
+    # Linux releases are .tar.gz; Vulkan build supports AMD GPUs via Vulkan compute
+    local vulkan_url="https://github.com/ggerganov/llama.cpp/releases/download/${version}/llama-${version}-bin-ubuntu-vulkan-x64.tar.gz"
+    local fallback_url="https://github.com/ggerganov/llama.cpp/releases/download/${version}/llama-${version}-bin-ubuntu-x64.tar.gz"
     
     local tmpdir
     tmpdir=$(mktemp -d)
     
     info "Downloading llama.cpp ${version}..."
-    if curl -fsSL "$rocm_url" -o "${tmpdir}/llama.zip" 2>/dev/null; then
-        info "Using ROCm-enabled build"
-    elif curl -fsSL "$fallback_url" -o "${tmpdir}/llama.zip" 2>/dev/null; then
-        warning "ROCm build not available, using CPU build"
+    if curl -fsSL "$vulkan_url" -o "${tmpdir}/llama.tar.gz" 2>/dev/null; then
+        info "Using Vulkan-enabled build (AMD GPU acceleration)"
+    elif curl -fsSL "$fallback_url" -o "${tmpdir}/llama.tar.gz" 2>/dev/null; then
+        warning "Vulkan build not available, using CPU build"
     else
         error "Failed to download llama.cpp binaries"
         rm -rf "$tmpdir"
         return 1
     fi
     
-    unzip -q "${tmpdir}/llama.zip" -d "${tmpdir}"
-    find "${tmpdir}" -type f -executable -name "llama-*" -exec install -m 755 {} /usr/local/bin/ \;
+    tar -xzf "${tmpdir}/llama.tar.gz" -C "${tmpdir}"
+    find "${tmpdir}" -type f -name "llama-*" -exec install -m 755 {} /usr/local/bin/ \;
+    # Also install shared libraries if present (needed for Vulkan build)
+    find "${tmpdir}" -type f -name "*.so*" -exec install -m 644 {} /usr/local/lib/ \; 2>/dev/null || true
+    ldconfig 2>/dev/null || true
     rm -rf "$tmpdir"
     
     success "llama.cpp installed"

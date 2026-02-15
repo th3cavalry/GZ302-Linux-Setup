@@ -6,8 +6,8 @@
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
-# - GZ302EA-XS64 (64GB RAM)
-# - GZ302EA-XS32 (32GB RAM)
+# - GZ302EA-XS98 (64GB RAM)
+# - GZ302EA-XS96 (32GB RAM)
 #
 # This script automatically detects your Linux distribution and applies
 # the appropriate hardware fixes for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.
@@ -135,6 +135,7 @@ load_library() {
     local lib_path="${SCRIPT_DIR}/gz302-lib/${lib_name}"
     
     if [[ -f "$lib_path" ]]; then
+        # shellcheck source=/dev/null
         source "$lib_path"
         return 0
     else
@@ -144,6 +145,7 @@ load_library() {
             mkdir -p "${SCRIPT_DIR}/gz302-lib"
             curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/${lib_name}" -o "$lib_path" || return 1
             chmod +x "$lib_path"
+            # shellcheck source=/dev/null
             source "$lib_path"
             return 0
         else

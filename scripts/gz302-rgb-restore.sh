@@ -55,11 +55,10 @@ migrate_rgb_config() {
     fi
     
     # Clean up old directories
-    for old_dir in /etc/gz302-rgb; do
-        if [[ -d "$old_dir" ]] && [[ -z "$(ls -A "$old_dir" 2>/dev/null)" ]]; then
-            rm -rf "$old_dir"
-        fi
-    done
+    local old_dir="/etc/gz302-rgb"
+    if [[ -d "$old_dir" ]] && [[ -z "$(ls -A "$old_dir" 2>/dev/null)" ]]; then
+        rm -rf "$old_dir"
+    fi
 }
 
 # Wait for hardware to be ready

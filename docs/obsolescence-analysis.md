@@ -6,7 +6,7 @@ This document analyzes the obsolescence status of GZ302-Linux-Setup components a
 
 **Last Updated:** December 8, 2025  
 **Analysis Period:** Early 2025 (Kernel 6.14) → Late 2025 (Kernel 6.18)  
-**Target Hardware:** ASUS ROG Flow Z13 (GZ302EA-XS99/XS64/XS32)
+**Target Hardware:** ASUS ROG Flow Z13 (GZ302EA-XS99/XS98/XS96)
 
 ---
 
