@@ -30,6 +30,8 @@ sudo apt-get install ./linux-firmware_20260108*.deb
 ```
 
 #### 3. ROCm 7.2
+Follow [Linux How to guide - Use ROCm on Ryzen](https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installryz/native_linux/howto_native_linux.html).
+
 The DKMS module may fail with mainline kernels. Use `--no-dkms`:
 ```bash
 sudo amdgpu-install -y --usecase=graphics,rocm --no-dkms --vulkan=radv
@@ -85,7 +87,7 @@ This document details the current state of AI/ML package support for the ASUS RO
 - **MIOpen**: AMD's deep learning primitives library
 - **bitsandbytes**: 8-bit quantization for efficient LLM inference
 - **Transformers & Accelerate**: Hugging Face ecosystem tools
-
+  
 ---
 
 ## gfx1151 (Strix Halo) Optimizations
