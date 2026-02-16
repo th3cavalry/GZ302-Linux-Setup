@@ -40,12 +40,14 @@ load_library() {
     local lib_name="$1"
     local lib_path="${SCRIPT_DIR}/gz302-lib/${lib_name}"
     if [[ -f "$lib_path" ]]; then
+        # shellcheck source=/dev/null
         source "$lib_path"
     else
         echo "Downloading ${lib_name}..."
         mkdir -p "${SCRIPT_DIR}/gz302-lib"
         curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/${lib_name}" -o "$lib_path"
         chmod +x "$lib_path"
+        # shellcheck source=/dev/null
         source "$lib_path"
     fi
 }
