@@ -3,7 +3,7 @@
 
 # ==============================================================================
 # GZ302 Input Manager Library
-# Version: 3.0.0
+# Version: 3.1.0
 #
 # This library manages ASUS HID devices (keyboard, touchpad) and tablet mode
 # functionality for the GZ302.
@@ -11,7 +11,7 @@
 # Key Features:
 # - HID hardware detection
 # - Touchpad configuration
-# - Keyboard configuration (fnlock, RGB)
+# - Keyboard configuration (fnlock, RGB, remapping of "<COPILOT>" key to "<SHIFT>+<INS>")
 # - Tablet mode detection and handling
 # - Kernel-aware workaround application
 #
@@ -106,6 +106,16 @@ input_get_tablet_mode() {
     return 1
 }
 
+# Check for keyboard remapping hwdb
+# Returns: 0 if present, 1 if not
+input_keyboard_remapped() {
+    # Check if copilot key remapping hwdb is present
+    if [[ -f /etc/udev/hwdb.d/90-gz302-remap.hwdb ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
 # --- Configuration State Detection ---
 
 # Check if HID configuration is applied
@@ -167,6 +177,7 @@ input_get_state() {
     local reload_service_enabled="false"
     local tablet_daemon_running="false"
     local tablet_mode_available="false"
+    local keyboard_remapped="false"
     
     if input_detect_hid_devices >/dev/null 2>&1; then
         hid_detected="true"
@@ -208,6 +219,9 @@ input_get_state() {
         tablet_mode_available="true"
     fi
     
+    if input_keyboard_remapped; then
+        keyboard_remapped="true"
+    fi
     cat <<EOF
 {
     "hid_devices_detected": "$hid_detected",
@@ -219,7 +233,8 @@ input_get_state() {
     "i2c_quirk_applied": "$i2c_quirk_applied",
     "reload_service_enabled": "$reload_service_enabled",
     "tablet_daemon_running": "$tablet_daemon_running",
-    "tablet_mode_available": "$tablet_mode_available"
+    "tablet_mode_available": "$tablet_mode_available",
+    "keyboard_remapped": "$keyboard_remapped"
 }
 EOF
 }
@@ -421,10 +436,39 @@ input_apply_configuration() {
         echo "Native input support configured"
     fi
     
+    if ! input_create_keyboard_remap; then
+        echo "WARNING: Failed to create keyboard remapping hwdb file"
+    fi
+
     # Reload udev
     systemd-hwdb update 2>/dev/null || true
     udevadm control --reload 2>/dev/null || true
     
+    return 0
+}
+
+# Create keyboard remapping hwdb file (idempotent)
+# This remaps the "copilot" key to "shift insert" for the ASUS HID keyboard
+# Returns: 0 if created
+input_create_keyboard_remap() {
+    cat > /etc/udev/hwdb.d/90-gz302-remap.hwdb <<'EOF'
+# Format evdev:input:b<bus_id>v<vendor_id>p<product_id>
+
+# ** Note **
+# The line evdev:input:b0003v0B05p1866* may vary on your ASUS Laptop.
+# Modify the <vendor_id> and <product_id> based on the output of this command to ensure remaps work:
+# $ lsusb | grep 'ASUSTek Computer, Inc. N-KEY Device' | awk -F'[: ]' '{print $7" "$8}' | tr '[:lower:]' '[:upper:]'
+# 0B05 18C6
+evdev:input:b0003v0B05p18C6:*
+  KEYBOARD_KEY_70072=ins
+EOF
+    return 0
+}
+
+# Remove keyboard remapping hwdb file (idempotent)
+# Returns: 0 if removed
+input_remove_keyboard_remap() {
+    rm -f /etc/udev/hwdb.d/90-gz302-remap.hwdb
     return 0
 }
 
@@ -482,6 +526,7 @@ input_print_status() {
     local touchpad_forcing
     local reload_service
     local tablet_daemon
+    local keyboard_remapped
     
     hid_detected=$(echo "$state" | grep "hid_devices_detected" | cut -d'"' -f4)
     touchpad_detected=$(echo "$state" | grep "touchpad_detected" | cut -d'"' -f4)
@@ -490,6 +535,7 @@ input_print_status() {
     touchpad_forcing=$(echo "$state" | grep "touchpad_forcing_applied" | cut -d'"' -f4)
     reload_service=$(echo "$state" | grep "reload_service_enabled" | cut -d'"' -f4)
     tablet_daemon=$(echo "$state" | grep "tablet_daemon_running" | cut -d'"' -f4)
+    keyboard_remapped=$(echo "$state" | grep "keyboard_remapped" | cut -d'"' -f4)
     
     echo "Input Status (ASUS HID Devices):"
     echo "  HID Devices:         $hid_detected"
@@ -499,6 +545,7 @@ input_print_status() {
     echo "  Touchpad Forcing:    $touchpad_forcing"
     echo "  Reload Service:      $reload_service"
     echo "  Tablet Daemon:       $tablet_daemon"
+    echo "  Keyboard remapped:   $keyboard_remapped"
     
     # Check for obsolete workarounds on kernel 6.17+
     local kernel_ver
@@ -524,12 +571,12 @@ input_print_status() {
 # --- Library Information ---
 
 input_lib_version() {
-    echo "3.0.0"
+    echo "3.1.0"
 }
 
 input_lib_help() {
     cat <<'HELP'
-GZ302 Input Manager Library v3.0.0
+GZ302 Input Manager Library v3.1.0
 
 Detection Functions (read-only):
   input_detect_hid_devices          - Check if ASUS HID devices present
@@ -538,6 +585,7 @@ Detection Functions (read-only):
   input_hid_asus_loaded             - Check if hid_asus module loaded
   input_tablet_mode_switch_available - Check if tablet mode switch present
   input_get_tablet_mode             - Get current tablet mode state
+  input_keyboard_remapped           - Check if keyboard remapped
 
 State Check Functions:
   input_hid_config_applied          - Check if HID config applied
@@ -556,6 +604,8 @@ Configuration Functions (idempotent):
   input_remove_reload_service       - Remove HID reload service
   input_apply_rgb_udev_rule         - Apply keyboard RGB udev rule
   input_apply_configuration [ver]   - Apply kernel-appropriate config
+  input_create_keyboard_remap       - Create keyboard hwdb remap file
+  input_remove_keyboard_remap       - Remove keyboard hwdb remap file
 
 Verification Functions:
   input_verify_working              - Verify input devices working
