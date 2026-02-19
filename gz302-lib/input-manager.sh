@@ -443,7 +443,7 @@ input_apply_configuration() {
     # Reload udev
     systemd-hwdb update 2>/dev/null || true
     udevadm control --reload 2>/dev/null || true
-    
+    udevadm trigger 2>/dev/null || true
     return 0
 }
 
@@ -452,15 +452,15 @@ input_apply_configuration() {
 # Returns: 0 if created
 input_create_keyboard_remap() {
     cat > /etc/udev/hwdb.d/90-gz302-remap.hwdb <<'EOF'
-# Format evdev:input:b<bus_id>v<vendor_id>p<product_id>
+# Format evdev:input:b<bus_id>v<vendor_id>p<product_id>*
 
 # ** Note **
-# The line evdev:input:b0003v0B05p1866* may vary on your ASUS Laptop.
+# The line evdev:input:b0003v0B05p1A30* may vary on your ASUS Laptop.
 # Modify the <vendor_id> and <product_id> based on the output of this command to ensure remaps work:
-# $ lsusb | grep 'ASUSTek Computer, Inc. N-KEY Device' | awk -F'[: ]' '{print $7" "$8}' | tr '[:lower:]' '[:upper:]'
-# 0B05 18C6
-evdev:input:b0003v0B05p18C6:*
-  KEYBOARD_KEY_70072=ins
+# lsusb | grep 'GZ302EA-Keyboard'
+# Bus 003 Device 004: ID 0b05:1a30 ASUSTek Computer, Inc. GZ302EA-Keyboard
+evdev:input:b0003v0B05p1A30*
+  KEYBOARD_KEY_70072=insert
 EOF
     return 0
 }
