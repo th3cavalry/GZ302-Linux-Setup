@@ -90,7 +90,7 @@ install_dependencies() {
     case "$distro" in
         arch)
             echo "Installing dependencies for Arch Linux..."
-            pacman -S --noconfirm --needed python-pyqt6 python-psutil libusb \
+            pacman -S --noconfirm --needed python python-pip python-pyqt6 python-psutil libusb \
                 libnotify base-devel git cmake 2>/dev/null || true
             # Check for AUR helpers for ryzenadj
             if ! command -v ryzenadj >/dev/null 2>&1; then
@@ -100,17 +100,17 @@ install_dependencies() {
         debian|ubuntu)
             echo "Installing dependencies for Debian/Ubuntu..."
             apt-get update
-            apt-get install -y python3-pyqt6 python3-psutil libusb-1.0-0-dev \
+            apt-get install -y python3 python3-pip python3-pyqt6 python3-psutil libusb-1.0-0-dev \
                 libnotify-bin build-essential git cmake libpci-dev
             ;;
         fedora)
             echo "Installing dependencies for Fedora..."
-            dnf install -y python3-pyqt6 python3-psutil libusb1-devel \
+            dnf install -y python3 python3-pip python3-pyqt6 python3-psutil libusb1-devel \
                 libnotify gcc gcc-c++ git cmake pciutils-devel
             ;;
         opensuse)
             echo "Installing dependencies for OpenSUSE..."
-            zypper install -y python3-qt6 python3-psutil libusb-1_0-devel \
+            zypper install -y python3 python3-pip python3-qt6 python3-psutil libusb-1_0-devel \
                 libnotify-tools gcc gcc-c++ git cmake pciutils-devel
             ;;
         *)
@@ -727,7 +727,6 @@ main() {
     # Stop running tray before update
     stop_running_tray
     
-    # Install in order
     # Install in order
     install_dependencies
     install_system_daemon

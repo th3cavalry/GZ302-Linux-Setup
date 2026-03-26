@@ -304,6 +304,41 @@ EOF
     info "Activate: source ${VLLM_VENV}/activate-vllm"
 }
 
+install_lemonade() {
+    print_section "Installing Lemonade SDK"
+    
+    if command -v lemonade-server &>/dev/null; then
+        info "Lemonade SDK already installed"
+        return 0
+    fi
+    
+    info "Installing Lemonade SDK via AUR..."
+    # Check for AUR helpers
+    local aur_helper=""
+    if command -v paru &>/dev/null; then
+        aur_helper="paru"
+    elif command -v yay &>/dev/null; then
+        aur_helper="yay"
+    fi
+    
+    if [[ -n "$aur_helper" ]]; then
+        $aur_helper -S --needed --noconfirm lemonade-desktop lemonade-server fastflowlm
+    else
+        warning "No AUR helper found. Cannot install lemonade-desktop automatically."
+        return 1
+    fi
+    
+    # Configure NPU access
+    info "Configuring NPU memory limits..."
+    mkdir -p /etc/security/limits.d
+    echo -e "* soft memlock unlimited\n* hard memlock unlimited" | tee /etc/security/limits.d/99-xrt.conf
+    
+    # Enable and start service
+    systemctl enable --now lemonade-server
+    
+    success "Lemonade SDK installed and configured for NPU"
+}
+
 # =============================================================================
 # FRONTEND INSTALLATIONS
 # =============================================================================
@@ -518,32 +553,35 @@ ask_backends() {
     print_section "Step 1: LLM Backends"
     echo
     echo "Select backend(s) to install:"
-    echo "  1) Ollama        - Easy model management (recommended)"
-    echo "  2) LM Studio     - GUI application, user-friendly"
-    echo "  3) llama.cpp     - Fast CLI inference"
-    echo "  4) vLLM          - Production server, OpenAI-compatible"
-    echo "  5) All backends"
-    echo "  6) Skip"
+    echo "  1) Lemonade SDK  - NPU-optimized, OpenAI-compatible (recommended)"
+    echo "  2) Ollama        - Easy model management"
+    echo "  3) LM Studio     - GUI application, user-friendly"
+    echo "  4) llama.cpp     - Fast CLI inference"
+    echo "  5) vLLM          - Production server, OpenAI-compatible"
+    echo "  6) All backends"
+    echo "  7) Skip"
     echo
-    read -r -p "Choice (comma-separated, e.g., 1,2 or 6 to skip): " choice || choice="6"
+    read -r -p "Choice (comma-separated, e.g., 1,2 or 7 to skip): " choice || choice="7"
     
-    [[ "$choice" == "6" || -z "$choice" ]] && return
+    [[ "$choice" == "7" || -z "$choice" ]] && return
     
     IFS=',' read -ra choices <<< "$choice"
     for c in "${choices[@]}"; do
         c=$(echo "$c" | tr -d ' ')
         case "$c" in
-            1) install_ollama ;;
-            2) install_lmstudio ;;
-            3) install_llamacpp ;;
-            4) install_vllm ;;
-            5)
+            1) install_lemonade ;;
+            2) install_ollama ;;
+            3) install_lmstudio ;;
+            4) install_llamacpp ;;
+            5) install_vllm ;;
+            6)
+                install_lemonade
                 install_ollama
                 install_lmstudio
                 install_llamacpp
                 install_vllm
                 ;;
-            6) return ;;
+            7) return ;;
         esac
     done
 }
@@ -607,6 +645,7 @@ show_summary() {
     info "Installed Components:"
     
     # Backends
+    command -v lemonade-server &>/dev/null && echo "  ✓ Lemonade SDK: lemonade-desktop"
     command -v ollama &>/dev/null && echo "  ✓ Ollama: ollama run llama3.2"
     [[ -f "$LMSTUDIO_APPIMAGE" ]] && echo "  ✓ LM Studio: $LMSTUDIO_APPIMAGE"
     command -v llama-cli &>/dev/null && echo "  ✓ llama.cpp: llama-cli / llama-server"

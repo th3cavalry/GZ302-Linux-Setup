@@ -79,11 +79,11 @@ class GZ302TrayApp(QSystemTrayIcon):
         # Display/Refresh Rate
         display_menu = self.menu.addMenu("🖥️ Display")
         for name, rate in [
-            ("30 Hz (Battery)", "30"),
-            ("60 Hz (Efficient)", "60"),
-            ("90 Hz (Balanced)", "90"),
-            ("120 Hz (Performance)", "120"),
-            ("180 Hz (Gaming)", "180")
+            ("30 Hz (Battery)", "battery"),
+            ("60 Hz (Efficient)", "efficient"),
+            ("90 Hz (Balanced)", "balanced"),
+            ("120 Hz (Performance)", "performance"),
+            ("180 Hz (Gaming)", "gaming")
         ]:
             action = QAction(name, self)
             action.triggered.connect(lambda _, r=rate: self.set_refresh_rate(r))
@@ -193,7 +193,7 @@ class GZ302TrayApp(QSystemTrayIcon):
                 capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
-                self.notifier.notify("Display", f"Refresh rate set to {rate}Hz", "success", 2000)
+                self.notifier.notify("Display", f"Refresh profile set to {rate}", "success", 2000)
             else:
                 self.notifier.notify("Display", f"Failed: {result.stderr.strip()}", "error", 3000)
         except FileNotFoundError:
