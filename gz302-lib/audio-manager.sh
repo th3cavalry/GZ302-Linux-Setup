@@ -333,8 +333,19 @@ audio_apply_configuration() {
         fi
     fi
     
-    # Apply CS35L41 config if detected
-    if audio_detect_cs35l41; then
+    # Check kernel version for CS35L41 native support
+    local kver=0
+    if declare -f kernel_get_version_num >/dev/null; then
+        kver=$(kernel_get_version_num)
+    fi
+
+    if [[ $kver -ge 619 ]]; then
+        echo "Kernel 6.19+ detected: Using native CS35L41 support"
+        if [[ -f /etc/modprobe.d/cs35l41.conf ]]; then
+            rm -f /etc/modprobe.d/cs35l41.conf
+            echo "Removed obsolete CS35L41 quirk configuration"
+        fi
+    elif audio_detect_cs35l41; then
         echo "Cirrus Logic CS35L41 amplifier detected"
         if ! audio_apply_cs35l41_config; then
             echo "ERROR: Failed to apply CS35L41 configuration"

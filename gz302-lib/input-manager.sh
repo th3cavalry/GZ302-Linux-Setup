@@ -448,18 +448,20 @@ input_apply_configuration() {
 }
 
 # Create keyboard remapping hwdb file (idempotent)
-# This remaps the "copilot" key to "shift insert" for the ASUS HID keyboard
+# This remaps the "copilot" key to "insert" for the ASUS HID keyboard
 # Returns: 0 if created
 input_create_keyboard_remap() {
-    cat > /etc/udev/hwdb.d/90-gz302-remap.hwdb <<'EOF'
-# Format evdev:input:b<bus_id>v<vendor_id>p<product_id>*
+    # Detect the keyboard product ID (standard is 1a30, but some variants differ)
+    local product_id
+    product_id=$(lsusb | grep -i "ASUS.*Keyboard" | grep -oP '0b05:[\da-f]{4}' | head -1 | cut -d: -f2 | tr '[:lower:]' '[:upper:]')
+    
+    # Fallback to standard GZ302EA product ID if not detected
+    [[ -z "$product_id" ]] && product_id="1A30"
 
-# ** Note **
-# The line evdev:input:b0003v0B05p1A30* may vary on your ASUS Laptop.
-# Modify the <vendor_id> and <product_id> based on the output of this command to ensure remaps work:
-# lsusb | grep 'GZ302EA-Keyboard'
-# Bus 003 Device 004: ID 0b05:1a30 ASUSTek Computer, Inc. GZ302EA-Keyboard
-evdev:input:b0003v0B05p1A30*
+    cat > /etc/udev/hwdb.d/90-gz302-remap.hwdb <<EOF
+# GZ302 Keyboard Remapping (Copilot -> Insert)
+# Detected Product ID: $product_id
+evdev:input:b0003v0B05p${product_id}*
   KEYBOARD_KEY_70072=insert
 EOF
     return 0

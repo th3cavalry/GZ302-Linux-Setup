@@ -89,25 +89,44 @@ gpu_firmware_exists() {
 # Output: Status of each firmware file
 gpu_verify_firmware() {
     local all_present=true
+    local gc_ver="11_5_1"
     
-    # RDNA 3.5 / GC 11.5 firmware files for Radeon 8060S
+    # Try to detect actual GC version from dmesg or debugfs
+    if dmesg | grep -q "gc_11_5_2"; then
+        gc_ver="11_5_2"
+    elif dmesg | grep -q "gc_12_0_1"; then
+        gc_ver="12_0_1"
+    elif [[ -f /sys/kernel/debug/dri/0/amdgpu_firmware_info ]]; then
+        local detected
+        detected=$(grep -oP "gc_\d+_\d+_\d+" /sys/kernel/debug/dri/0/amdgpu_firmware_info | head -1 | sed 's/gc_//')
+        [[ -n "$detected" ]] && gc_ver="$detected"
+    fi
+
+    echo "GPU Firmware Verification (GC $gc_ver):"
+    
+    # Core graphics firmware components
     local required_files=(
-        "gc_11_5_1_pfp.bin"          # Graphics Command Processor - Prefetch
-        "gc_11_5_1_me.bin"           # Graphics Command Processor - Microengine
-        "gc_11_5_1_rlc.bin"          # RunList Controller
-        "gc_11_5_1_mec.bin"          # MicroEngine Compute
-        "dcn_3_5_1_dmcub.bin"        # Display Core Next - DMCU microcode
-        "psp_14_0_4_ta.bin"          # Platform Security Processor - Trusted Apps
-        "psp_14_0_4_toc.bin"         # PSP Table of Contents
-        "sdma_6_1_0.bin"             # System DMA Engine
+        "gc_${gc_ver}_pfp.bin"
+        "gc_${gc_ver}_me.bin"
+        "gc_${gc_ver}_rlc.bin"
+        "gc_${gc_ver}_mec.bin"
     )
     
-    echo "GPU Firmware Verification:"
+    # Add common IP block firmware
+    required_files+=("sdma_6_1_0.bin" "psp_14_0_4_ta.bin")
+    
+    # DCN version might vary
+    if gpu_firmware_exists "dcn_3_5_1_dmcub.bin"; then
+        required_files+=("dcn_3_5_1_dmcub.bin")
+    else
+        required_files+=("dcn_3_5_0_dmcub.bin")
+    fi
+
     for fw_file in "${required_files[@]}"; do
         if gpu_firmware_exists "$fw_file"; then
             echo "  ✓ $fw_file"
         else
-            echo "  ✗ $fw_file (missing or may be in initramfs)"
+            echo "  ✗ $fw_file (missing)"
             all_present=false
         fi
     done
