@@ -250,6 +250,9 @@ gpu_apply_configuration() {
         return 1
     fi
     
+    # Configure Early KMS for Arch-based distros
+    gpu_configure_early_kms
+    
     if gpu_ppfeaturemask_configured; then
         echo "GPU ppfeaturemask configured successfully"
     else
@@ -258,6 +261,47 @@ gpu_apply_configuration() {
     fi
     
     return 0
+}
+
+# Configure Early KMS for Arch-based distros using mkinitcpio
+# Returns: 0 if configured, 1 if already configured, 2 if not Arch-based
+gpu_configure_early_kms() {
+    # Only applies to Arch-based distros using mkinitcpio
+    if [[ ! -f /etc/mkinitcpio.conf ]]; then
+        return 2
+    fi
+
+    echo "Checking Early KMS configuration..."
+    # Read the MODULES line
+    local modules_line
+    modules_line=$(grep "^MODULES=" /etc/mkinitcpio.conf)
+    
+    if [[ "$modules_line" != *"amdgpu"* ]]; then
+        echo "Enabling Early KMS for amdgpu (fixes boot/reboot freeze)..."
+        # Backup
+        cp /etc/mkinitcpio.conf /etc/mkinitcpio.conf.bak
+        
+        # Add amdgpu to MODULES. Robustly handles () or (module1 module2)
+        sed -i -E 's/^MODULES=\((.*)\)/MODULES=(\1 amdgpu)/' /etc/mkinitcpio.conf
+        sed -i 's/MODULES=( amdgpu)/MODULES=(amdgpu)/' /etc/mkinitcpio.conf
+        
+        echo "Regenerating initramfs..."
+        if command -v mkinitcpio >/dev/null 2>&1; then
+            if mkinitcpio -P; then
+                echo "Early KMS enabled"
+                return 0
+            else
+                echo "WARNING: Failed to regenerate initramfs. Please run 'sudo mkinitcpio -P' manually."
+                return 1
+            fi
+        else
+             echo "WARNING: mkinitcpio not found. Please regenerate initramfs manually."
+             return 1
+        fi
+    else
+        echo "Early KMS already enabled"
+        return 1
+    fi
 }
 
 # --- Verification Functions ---

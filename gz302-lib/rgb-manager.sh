@@ -495,6 +495,96 @@ rgb_install_udev_rules() {
     return 0
 }
 
+# Configure keyboard backlight restore after suspend/resume and on boot
+# Returns: 0 on success, 1 on failure
+rgb_configure_backlight_restore() {
+    if [[ $EUID -ne 0 ]]; then
+        echo "Configuring backlight restore requires root" >&2
+        return 1
+    fi
+
+    echo "Configuring keyboard backlight resume restore..."
+    mkdir -p /usr/lib/systemd/system-sleep /var/lib/gz302
+    cat > /usr/lib/systemd/system-sleep/gz302-kbd-backlight <<'EOF'
+#!/bin/bash
+# Restore ASUS keyboard backlight after resume (GZ302)
+STATE_FILE="/var/lib/gz302/kbd_backlight.brightness"
+mapfile -t LEDS < <(ls -d /sys/class/leds/*kbd*backlight* 2>/dev/null)
+
+case "$1" in
+    pre)
+        if [[ ${#LEDS[@]} -gt 0 && -f "${LEDS[0]}/brightness" ]]; then
+            cat "${LEDS[0]}/brightness" > "$STATE_FILE" 2>/dev/null || true
+        fi
+        ;;
+    post)
+        for _ in 1 2 3 4 5; do
+            if [[ ${#LEDS[@]} -gt 0 ]]; then
+                for led in "${LEDS[@]}"; do
+                    if [[ -f "$led/brightness" ]]; then
+                        if [[ -s "$STATE_FILE" ]]; then
+                            BR=$(cat "$STATE_FILE" 2>/dev/null)
+                        else
+                            MAX=$(cat "$led/max_brightness" 2>/dev/null || echo 3)
+                            BR=$((MAX/2))
+                            [[ $BR -lt 1 ]] && BR=1
+                        fi
+                        echo "$BR" > "$led/brightness" 2>/dev/null || true
+                    fi
+                done
+                break
+            fi
+            sleep 0.5
+        done
+        if command -v systemctl >/dev/null 2>&1; then
+            systemctl try-restart asusd.service 2>/dev/null || true
+        fi
+        ;;
+esac
+exit 0
+EOF
+    chmod +x /usr/lib/systemd/system-sleep/gz302-kbd-backlight
+
+    # Services for boot/shutdown persistence
+    cat > /etc/systemd/system/gz302-kbd-backlight-restore.service <<EOF
+[Unit]
+Description=GZ302 Keyboard Backlight Restore
+After=multi-user.target
+ConditionPathExists=/var/lib/gz302/kbd_backlight.brightness
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'for led in /sys/class/leds/*kbd*backlight*; do [[ -f \$led/brightness ]] && cat /var/lib/gz302/kbd_backlight.brightness > \$led/brightness 2>/dev/null || true; done'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    cat > /etc/systemd/system/gz302-kbd-backlight-save.service <<EOF
+[Unit]
+Description=GZ302 Keyboard Backlight Save
+DefaultDependencies=no
+Before=shutdown.target reboot.target halt.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'for led in /sys/class/leds/*kbd*backlight*; do [[ -f \$led/brightness ]] && cat \$led/brightness > /var/lib/gz302/kbd_backlight.brightness 2>/dev/null || true; break; done'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=shutdown.target reboot.target halt.target
+EOF
+
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl daemon-reload
+        systemctl enable gz302-kbd-backlight-restore.service 2>/dev/null || true
+        systemctl enable gz302-kbd-backlight-save.service 2>/dev/null || true
+    fi
+
+    return 0
+}
+
 # Initialize RGB configuration directory
 rgb_init_config() {
     mkdir -p "$RGB_CONFIG_DIR"

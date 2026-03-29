@@ -890,3 +890,59 @@ power_install_ryzenadj() {
         *)       power_install_ryzenadj_source ;;
     esac
 }
+
+# --- Battery Limit Fallback Service ---
+# Configures a systemd service to set battery charge limit to 80%
+# Returns: 0 on success, 1 on failure
+power_setup_battery_limit_service() {
+    if [[ $EUID -ne 0 ]]; then
+        echo "Configuring battery limit requires root" >&2
+        return 1
+    fi
+
+    echo "Setting up battery charge limit service (80%)"
+
+    # Create script to set battery charge limit
+    local script_path="/usr/local/bin/set-battery-limit.sh"
+    cat > "$script_path" << 'EOS'
+#!/bin/sh
+if [[ -f /sys/class/power_supply/BAT0/charge_control_end_threshold ]]; then
+    echo 80 > /sys/class/power_supply/BAT0/charge_control_end_threshold
+fi
+EOS
+    chmod 755 "$script_path"
+    chown root:root "$script_path"
+
+    # Create systemd service for battery charge limit
+    cat > /etc/systemd/system/battery-charge-limit.service << EOF
+[Unit]
+Description=Set battery charge limit to 80%
+After=multi-user.target
+ConditionPathExists=/sys/class/power_supply/BAT0/charge_control_end_threshold
+
+[Service]
+Type=oneshot
+ExecStart=$script_path
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Reload systemd and enable service
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl daemon-reload
+        systemctl enable --now battery-charge-limit.service 2>/dev/null || true
+    fi
+
+    # Verify the setting was applied
+    local limit
+    limit=$(cat /sys/class/power_supply/BAT0/charge_control_end_threshold 2>/dev/null || echo "0")
+    if [[ "$limit" == "80" ]]; then
+        echo "Battery charge limit set to 80%"
+        return 0
+    else
+        echo "WARNING: Failed to set battery charge limit - may not be supported by hardware/kernel"
+        return 1
+    fi
+}

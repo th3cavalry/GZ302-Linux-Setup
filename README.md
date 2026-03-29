@@ -1,6 +1,6 @@
 # 🚀 GZ302 Linux Toolkit
 
-![Version](https://img.shields.io/badge/version-4.0.2-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-4.2.0-blue?style=for-the-badge)
 ![Kernel](https://img.shields.io/badge/Kernel-6.14%2B-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Device-ASUS%20ROG%20Flow%20Z13-red?style=for-the-badge)
@@ -14,18 +14,27 @@ Transform your device into a powerhouse with kernel-aware hardware fixes, intell
 
 ### ❓ Which script should I use?
 
-| Feature | 1. Command Center | 2. Full Setup | 3. Minimal |
+| Feature | 1. Full Setup | 2. Command Center | 3. Minimal |
 | :--- | :---: | :---: | :---: |
-| **Best For** | **Existing Users / Power Users** | **Fresh Installations** | **Purists / Servers** |
-| **Hardware Fixes** | ❌ (Assumes native/fixed) | ✅ (Kernel-aware) | ✅ (Kernel-aware) |
+| **Best For** | **Fresh Installations** | **Existing Users / Power Users** | **Purists / Servers** |
+| **Hardware Fixes** | ✅ (Modular) | ❌ (Assumes native/fixed) | ✅ (Kernel-aware) |
 | **Power/Fan Control** | ✅ | ✅ | ❌ |
 | **RGB Control** | ✅ | ✅ | ❌ |
 | **GUI / Tray App** | ✅ | ✅ | ❌ |
-| **Optional Modules** | ❌ | ✅ | ❌ |
+| **Optional Modules** | ✅ | ❌ | ❌ |
 
 ---
 
-### 1. Command Center Installer (Recommended)
+### 1. Full Setup (Fresh Install - Recommended)
+**Installs:** Essential hardware fixes (WiFi, GPU, Input) and the complete Command Center toolset. Now refactored for maximum efficiency.
+
+```bash
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-main.sh -o gz302-main.sh
+chmod +x gz302-main.sh
+sudo ./gz302-main.sh
+```
+
+### 2. Command Center Installer
 **Installs:** Power profiles, Fan curves, RGB control, Refresh rate manager, and the System Tray App.
 *Does NOT touch kernel parameters or hardware drivers.*
 
@@ -33,15 +42,6 @@ Transform your device into a powerhouse with kernel-aware hardware fixes, intell
 curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/install-command-center.sh -o install-command-center.sh
 chmod +x install-command-center.sh
 sudo ./install-command-center.sh
-```
-
-### 2. Full Setup (Fresh Install)
-**Installs:** Everything in Command Center **PLUS** essential hardware fixes (WiFi, GPU, Input) tailored to your kernel version.
-
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-main.sh -o gz302-main.sh
-chmod +x gz302-main.sh
-sudo ./gz302-main.sh
 ```
 
 ### 3. Minimal Setup (Fixes Only)
@@ -90,25 +90,27 @@ The **Full Setup** script includes an optional module manager:
 The scripts automatically detect your kernel and adapt the strategy:
 
 *   **Kernel < 6.14:** ❌ **Unsupported.** Please upgrade.
-*   **Kernel 6.14 - 6.16:** ✅ **Essential.** Applies heavy patching for WiFi (MT7925), Touchpad, and Tablet mode.
-*   **Kernel 6.17+:** ✨ **Native Mode.** Most hardware works out of the box. The script cleans up obsolete fixes and focuses on performance tuning.
+*   **Kernel 6.14 - 6.16:** ✅ **Legacy Mode.** Applies essential workarounds for WiFi (MT7925), Touchpad, and Tablet mode.
+*   **Kernel 6.17+:** ✨ **Native Mode.** Most hardware works out of the box. The toolkit cleans up obsolete fixes and focuses on performance tuning.
 
 ---
 
 ## 📂 Repository Structure
 
-The project uses a **Library-First Architecture** for stability and modularity.
+The project uses a **Modular Library-First Architecture** for stability and maintainability.
 
 ```
 GZ302-Linux-Setup/
-├── gz302-main.sh              # 🟢 Entry Point: Full Setup
+├── gz302-main.sh              # 🟢 Entry Point: Full Setup (Orchestrator)
 ├── install-command-center.sh  # 🟢 Entry Point: Tools Only
 ├── gz302-minimal.sh           # 🟢 Entry Point: Minimal Fixes
+├── gz302-lib/                 # 📚 Refactored Core Libraries (Manager-based)
+│   ├── distro-manager.sh      # 🚀 NEW: Distribution setup orchestrator
+│   ├── power-manager.sh       # ⚡ TDP & Battery management
+│   ├── gpu-manager.sh         # 🎮 GPU & KMS configuration
+│   └── ...                    # (Audio, WiFi, Input, RGB, etc.)
 ├── modules/                   # 📦 Optional feature packs (Gaming, AI, etc.)
-├── scripts/                   # 🛠️ Standalone binaries & helpers (RGB, Restore)
-├── gz302-lib/                 # 📚 Shared core libraries (Power, Display, Utils)
-├── tray-icon/                 # 🖼️ Python/Qt6 GUI Application
-└── docs/                      # 📄 Documentation & hardware research
+└── tray-icon/                 # 🖼️ Python/Qt6 GUI Application
 ```
 
 ---
