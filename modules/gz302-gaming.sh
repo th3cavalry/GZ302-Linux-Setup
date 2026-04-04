@@ -73,7 +73,7 @@ install_gaming_stack() {
                 # Enable multilib if not enabled
                 if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
                     info "Enabling multilib repository..."
-                    echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" >> /etc/pacman.conf
+                    printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >> /etc/pacman.conf
                     pacman -Sy
                 fi
                 

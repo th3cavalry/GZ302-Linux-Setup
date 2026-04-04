@@ -332,7 +332,7 @@ install_lemonade() {
     # Configure NPU access
     info "Configuring NPU memory limits..."
     mkdir -p /etc/security/limits.d
-    echo -e "* soft memlock unlimited\n* hard memlock unlimited" | tee /etc/security/limits.d/99-xrt.conf
+    printf '* soft memlock unlimited\n* hard memlock unlimited\n' | tee /etc/security/limits.d/99-xrt.conf
     
     # Enable and start service
     systemctl enable --now lemonade-server

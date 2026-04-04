@@ -193,6 +193,56 @@ prompt_section() {
 }
 
 # ==============================================================================
+# Legacy Cleanup (v3/v4 → v5 migration)
+# ==============================================================================
+
+cleanup_legacy_install() {
+    local found_legacy=false
+
+    # Remove v3/v4 systemd services
+    local svc
+    for svc in gz302-rgb-restore.service pwrcfg-auto.service gz302-lightbar.service; do
+        if systemctl list-unit-files "$svc" >/dev/null 2>&1 && \
+           systemctl is-enabled "$svc" >/dev/null 2>&1; then
+            systemctl disable --now "$svc" 2>/dev/null || true
+            rm -f "/etc/systemd/system/$svc"
+            found_legacy=true
+        fi
+    done
+
+    # Remove old sudoers fragments
+    local f
+    for f in /etc/sudoers.d/gz302-pwrcfg /etc/sudoers.d/gz302-rgb; do
+        if [[ -f "$f" ]]; then
+            rm -f "$f"
+            found_legacy=true
+        fi
+    done
+
+    # Remove old udev rules
+    for f in /etc/udev/rules.d/99-gz302-rgb.rules /etc/udev/rules.d/99-gz302-lightbar.rules; do
+        if [[ -f "$f" ]]; then
+            rm -f "$f"
+            found_legacy=true
+        fi
+    done
+
+    # Remove old binaries replaced by z13ctl wrappers
+    for f in /usr/local/bin/gz302-rgb-restore /usr/local/bin/gz302-rgb-window /usr/local/bin/gz302-rgb-wrapper; do
+        if [[ -f "$f" ]]; then
+            rm -f "$f"
+            found_legacy=true
+        fi
+    done
+
+    if [[ "$found_legacy" == "true" ]]; then
+        systemctl daemon-reload 2>/dev/null || true
+        udevadm control --reload 2>/dev/null || true
+        info "Cleaned up legacy v3/v4 installation artifacts"
+    fi
+}
+
+# ==============================================================================
 # Section 1: Hardware Fixes
 # ==============================================================================
 
@@ -276,7 +326,8 @@ install_suspend_fix() {
         bash "$fix_script" && success "Suspend fix installed" || warning "Suspend fix issues"
     else
         info "Suspend fix script not found, downloading..."
-        local tmp="/tmp/fix-suspend.sh"
+        local tmp
+        tmp=$(mktemp /tmp/gz302-fix-suspend.XXXXXX)
         if curl -fsSL "${GITHUB_RAW_URL}/scripts/fix-suspend.sh" -o "$tmp" 2>/dev/null; then
             bash "$tmp" && success "Suspend fix installed" || warning "Suspend fix issues"
             rm -f "$tmp"
@@ -332,7 +383,8 @@ install_z13ctl() {
             local deb_url
             deb_url=$(z13ctl_get_release_url ".deb")
             if [[ -n "$deb_url" ]]; then
-                local tmp_deb="/tmp/z13ctl.deb"
+                local tmp_deb
+                tmp_deb=$(mktemp /tmp/z13ctl-XXXXXX.deb)
                 curl -fsSL "$deb_url" -o "$tmp_deb"
                 apt install -y "$tmp_deb"
                 rm -f "$tmp_deb"
@@ -387,8 +439,8 @@ z13ctl_install_from_release() {
         warning "Could not find z13ctl release URL"
         return 1
     fi
-    local tmp_dir="/tmp/z13ctl-install"
-    mkdir -p "$tmp_dir"
+    local tmp_dir
+    tmp_dir=$(mktemp -d /tmp/z13ctl-install.XXXXXX)
     curl -fsSL "$tar_url" -o "$tmp_dir/z13ctl.tar.gz"
     tar xzf "$tmp_dir/z13ctl.tar.gz" -C "$tmp_dir"
     install -Dm755 "$tmp_dir/z13ctl" /usr/local/bin/z13ctl
@@ -449,6 +501,9 @@ Type=notify
 ExecStart=/usr/local/bin/z13ctl daemon
 Restart=on-failure
 RestartSec=5
+ProtectHome=yes
+NoNewPrivileges=yes
+PrivateTmp=yes
 
 [Install]
 WantedBy=default.target
@@ -575,14 +630,26 @@ RGBWRAP
     # Sudoers for wrappers (passwordless for the real user)
     local real_user
     real_user=$(get_real_user)
+    # Clean up old sudoers fragments from v3/v4
+    rm -f /etc/sudoers.d/gz302-pwrcfg /etc/sudoers.d/gz302-rgb 2>/dev/null || true
+
+    # Write sudoers atomically with validation
     local sudoers_file="/etc/sudoers.d/gz302"
-    cat > "$sudoers_file" << EOF
+    local sudoers_tmp
+    sudoers_tmp=$(mktemp /tmp/gz302-sudoers.XXXXXX)
+    cat > "$sudoers_tmp" << EOF
 # GZ302 Linux Setup — passwordless access for hardware control
 ${real_user} ALL=(ALL) NOPASSWD: /usr/local/bin/pwrcfg
 ${real_user} ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
 ${real_user} ALL=(ALL) NOPASSWD: /usr/local/bin/z13ctl
 EOF
-    chmod 440 "$sudoers_file"
+    if visudo -c -f "$sudoers_tmp" >/dev/null 2>&1; then
+        mv "$sudoers_tmp" "$sudoers_file"
+        chmod 440 "$sudoers_file"
+    else
+        rm -f "$sudoers_tmp"
+        warning "Sudoers validation failed — skipping"
+    fi
 
     success "CLI wrappers installed: pwrcfg, gz302-rgb"
 }
@@ -599,8 +666,13 @@ install_display_tools() {
 
     # Refresh rate control (rrcfg)
     info "Installing refresh rate control (rrcfg)..."
-    if declare -f display_generate_rrcfg >/dev/null 2>&1; then
-        display_generate_rrcfg && success "rrcfg installed" || warning "rrcfg generation failed"
+    if declare -f display_get_rrcfg_script >/dev/null 2>&1; then
+        local lib_dest="/usr/local/share/gz302/gz302-lib"
+        mkdir -p "$lib_dest"
+        install -Dm644 "${SCRIPT_DIR}/gz302-lib/display-manager.sh" "${lib_dest}/display-manager.sh"
+        display_get_rrcfg_script > /usr/local/bin/rrcfg
+        chmod 755 /usr/local/bin/rrcfg
+        success "rrcfg installed"
     else
         warning "display-manager library not loaded — skipping rrcfg"
     fi
@@ -697,7 +769,8 @@ download_and_execute_module() {
         return $?
     fi
 
-    local tmp="/tmp/${module_name}.sh"
+    local tmp
+    tmp=$(mktemp /tmp/gz302-module-XXXXXX.sh)
     info "Downloading ${module_name}..."
     if curl -fsSL "${GITHUB_RAW_URL}/modules/${module_name}.sh" -o "$tmp" 2>/dev/null; then
         chmod +x "$tmp"
@@ -775,6 +848,9 @@ main() {
     print_keyval "Kernel" "$(uname -r)"
     print_keyval "z13ctl" "$(command -v z13ctl >/dev/null 2>&1 && z13ctl --version 2>/dev/null || echo 'not installed')"
     echo
+
+    # Pre-flight: clean legacy v3/v4 artifacts
+    cleanup_legacy_install
 
     # Update system
     if prompt_section "Update system and install base packages? (Y/n): " Y; then

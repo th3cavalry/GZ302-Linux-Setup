@@ -6,7 +6,7 @@
 #   - Touchpad/RGB not working after resume
 # v3.0 - Comprehensive s2idle fix for AMD Strix Halo
 
-set -e
+set -euo pipefail
 
 HOOK_PATH="/usr/lib/systemd/system-sleep/gz302-reset.sh"
 

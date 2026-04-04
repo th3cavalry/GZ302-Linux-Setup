@@ -358,7 +358,7 @@ input_apply_rgb_udev_rule() {
     cat > /etc/udev/rules.d/99-gz302-keyboard.rules <<'EOF'
 # GZ302 Keyboard RGB Control - Allow unprivileged USB access
 # ASUS ROG Flow Z13 keyboard (USB 0b05:1a30)
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1a30", MODE="0666"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1a30", TAG+="uaccess"
 EOF
     
     udevadm control --reload 2>/dev/null || true

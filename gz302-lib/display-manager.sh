@@ -195,7 +195,7 @@ display_get_supported_rates() {
     
     # Fallback: Common GZ302 rates
     if [[ -z "$rates" ]]; then
-        echo -e "30\n48\n60\n90\n120\n180"
+        printf '%s\n' 30 48 60 90 120 180
         return
     fi
     

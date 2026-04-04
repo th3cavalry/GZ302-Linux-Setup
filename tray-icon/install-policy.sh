@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Configure sudoers to allow z13ctl and wrapper commands without password
 
 if [[ $EUID -ne 0 ]]; then

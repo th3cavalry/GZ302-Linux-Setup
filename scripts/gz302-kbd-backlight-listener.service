@@ -12,6 +12,11 @@ Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
+ProtectSystem=strict
+ProtectHome=yes
+NoNewPrivileges=yes
+PrivateTmp=yes
+ReadWritePaths=/sys/class/leds
 
 [Install]
 WantedBy=graphical-session.target
