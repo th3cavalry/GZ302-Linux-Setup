@@ -1,7 +1,7 @@
 # GZ302 AI/ML Package Support
 
-**Last Updated**: February 2026  
-**Version**: 0.5.0  
+**Last Updated**: February 2026 
+**Version**: 0.5.0 
 **Focus**: ROCm, PyTorch, MIOpen, and bitsandbytes support for AMD Radeon 8060S (gfx1151)
 
 ---
@@ -70,8 +70,8 @@ The `gz302-llm.sh` module now **automatically detects ROCm version** and:
 
 # GZ302 AI/ML Package Support - January 2025 (Legacy)
 
-**Date**: January 2025  
-**Version**: 0.4.0  
+**Date**: January 2025 
+**Version**: 0.4.0 
 **Focus**: ROCm, PyTorch, MIOpen, and bitsandbytes support for AMD Radeon 8060S (gfx1151)
 
 ---
@@ -87,7 +87,7 @@ This document details the current state of AI/ML package support for the ASUS RO
 - **MIOpen**: AMD's deep learning primitives library
 - **bitsandbytes**: 8-bit quantization for efficient LLM inference
 - **Transformers & Accelerate**: Hugging Face ecosystem tools
-  
+ 
 ---
 
 ## gfx1151 (Strix Halo) Optimizations
@@ -645,35 +645,35 @@ sudo apt update
 ## Known Limitations and Workarounds
 
 ### 1. Limited gfx1151 Support
-**Issue**: ROCm support for gfx1151 is in preview stage  
-**Workaround**: 
+**Issue**: ROCm support for gfx1151 is in preview stage 
+**Workaround**:
 - Use ROCm 6.4+ or newer
 - Monitor AMD ROCm GitHub for updates
 - Community patches may be needed for some features
 
 ### 2. Python Version Compatibility
-**Issue**: ROCm wheels may not be available for Python 3.12+  
-**Workaround**: 
+**Issue**: ROCm wheels may not be available for Python 3.12+ 
+**Workaround**:
 - Use Python 3.10 via conda/miniforge
 - Script automatically falls back to conda if needed
 
 ### 3. MIOpen Kernel Compilation
-**Issue**: First run may be slow due to kernel JIT compilation  
-**Workaround**: 
+**Issue**: First run may be slow due to kernel JIT compilation 
+**Workaround**:
 - Install precompiled kernels if available
 - Accept slower first run (kernels are cached)
 - Monitor AMD repositories for gfx1151 kernel packages
 
 ### 4. bitsandbytes ROCm Support
-**Issue**: ROCm backend is experimental for consumer GPUs  
-**Workaround**: 
+**Issue**: ROCm backend is experimental for consumer GPUs 
+**Workaround**:
 - Use development wheels from GitHub releases
 - Build from source if needed
 - Test quantization before production use
 
 ### 5. Multi-GPU Systems
-**Issue**: Some systems may hang with default IOMMU settings  
-**Workaround**: 
+**Issue**: Some systems may hang with default IOMMU settings 
+**Workaround**:
 - Add `iommu=pt` to kernel boot parameters
 - Not applicable to GZ302 (single integrated GPU)
 
@@ -793,12 +793,12 @@ python -m bitsandbytes
 
 The GZ302 now has comprehensive AI/ML support through the updated `gz302-llm.sh` module. While ROCm support for gfx1151 is in preview stage, the installation includes:
 
-✅ **Ollama** - Local LLM server  
-✅ **ROCm** - AMD GPU acceleration  
-✅ **PyTorch** - Deep learning framework  
-✅ **MIOpen** - Optimized deep learning primitives  
-✅ **bitsandbytes** - 8-bit quantization (experimental)  
-✅ **Transformers** - Hugging Face ecosystem  
+✅ **Ollama** - Local LLM server 
+✅ **ROCm** - AMD GPU acceleration 
+✅ **PyTorch** - Deep learning framework 
+✅ **MIOpen** - Optimized deep learning primitives 
+✅ **bitsandbytes** - 8-bit quantization (experimental) 
+✅ **Transformers** - Hugging Face ecosystem 
 
 **Users should expect**:
 - Preview-quality support (not production-ready for all features)
@@ -814,7 +814,7 @@ The GZ302 now has comprehensive AI/ML support through the updated `gz302-llm.sh`
 
 ---
 
-**Document Version**: 1.0  
-**Created**: November 7, 2025  
-**Maintainer**: th3cavalry  
+**Document Version**: 1.0 
+**Created**: November 7, 2025 
+**Maintainer**: th3cavalry 
 **License**: Same as parent repository

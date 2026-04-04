@@ -1,5 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC2034,SC2059
+set -euo pipefail
 
 # ==============================================================================
 # GZ302 State Manager Library
@@ -22,7 +23,7 @@
 # ==============================================================================
 
 # --- State Directory Paths ---
-readonly STATE_DIR="/var/lib/gz302/state"
+readonly STATE_STORE_DIR="/var/lib/gz302/state"
 readonly BACKUP_DIR="/var/backups/gz302"
 readonly LOG_DIR="/var/log/gz302"
 readonly STATE_VERSION="1.0"
@@ -33,9 +34,9 @@ readonly STATE_VERSION="1.0"
 # Returns: 0 on success, 1 on failure
 state_init() {
     # Create state directory
-    if [[ ! -d "$STATE_DIR" ]]; then
-        mkdir -p "$STATE_DIR" 2>/dev/null || {
-            echo "ERROR: Failed to create state directory: $STATE_DIR"
+    if [[ ! -d "$STATE_STORE_DIR" ]]; then
+        mkdir -p "$STATE_STORE_DIR" 2>/dev/null || {
+            echo "ERROR: Failed to create state directory: $STATE_STORE_DIR"
             return 1
         }
     fi
@@ -55,8 +56,11 @@ state_init() {
     fi
     
     # Create version file if it doesn't exist
-    if [[ ! -f "$STATE_DIR/version" ]]; then
-        echo "$STATE_VERSION" > "$STATE_DIR/version"
+    if [[ ! -f "$STATE_STORE_DIR/version" ]]; then
+        local tmp_ver
+        tmp_ver=$(mktemp "${STATE_STORE_DIR}/version.XXXXXX")
+        echo "$STATE_VERSION" > "$tmp_ver"
+        mv "$tmp_ver" "${STATE_STORE_DIR}/version"
     fi
     
     return 0
@@ -65,7 +69,7 @@ state_init() {
 # Check if state management is initialized
 # Returns: 0 if initialized, 1 if not
 state_is_initialized() {
-    [[ -d "$STATE_DIR" ]] && [[ -f "$STATE_DIR/version" ]]
+    [[ -d "$STATE_STORE_DIR" ]] && [[ -f "$STATE_STORE_DIR/version" ]]
 }
 
 # --- Component State Management ---
@@ -75,7 +79,7 @@ state_is_initialized() {
 # Returns: Path to state file
 state_get_component_file() {
     local component="$1"
-    echo "$STATE_DIR/${component}.state"
+    echo "$STATE_STORE_DIR/${component}.state"
 }
 
 # Mark a fix as applied for a component
@@ -106,14 +110,14 @@ state_mark_applied() {
     # Format: fix_name|timestamp|metadata
     local entry="${fix_name}|${timestamp}|${metadata}"
     
-    # Remove old entry if exists
+    # Write atomically via mktemp + mv
+    local tmp_file
+    tmp_file=$(mktemp "${state_file}.XXXXXX")
     if [[ -f "$state_file" ]]; then
-        grep -v "^${fix_name}|" "$state_file" > "${state_file}.tmp" 2>/dev/null || true
-        mv "${state_file}.tmp" "$state_file"
+        grep -v "^${fix_name}|" "$state_file" > "$tmp_file" 2>/dev/null || true
     fi
-    
-    # Add new entry
-    echo "$entry" >> "$state_file"
+    echo "$entry" >> "$tmp_file"
+    mv "$tmp_file" "$state_file"
     
     return 0
 }
@@ -166,9 +170,11 @@ state_mark_removed() {
         return 0  # Nothing to remove
     fi
     
-    # Remove entry
-    grep -v "^${fix_name}|" "$state_file" > "${state_file}.tmp" 2>/dev/null || true
-    mv "${state_file}.tmp" "$state_file"
+    # Remove entry atomically via mktemp + mv
+    local tmp_file
+    tmp_file=$(mktemp "${state_file}.XXXXXX")
+    grep -v "^${fix_name}|" "$state_file" > "$tmp_file" 2>/dev/null || true
+    mv "$tmp_file" "$state_file"
     
     return 0
 }
@@ -281,7 +287,7 @@ state_get_system_state() {
     echo "  \"components\": {"
     
     local first=true
-    for state_file in "$STATE_DIR"/*.state; do
+    for state_file in "$STATE_STORE_DIR"/*.state; do
         if [[ ! -f "$state_file" ]]; then
             continue
         fi
@@ -431,14 +437,14 @@ state_print_status() {
     fi
     
     echo "Status: Initialized"
-    echo "State Directory: $STATE_DIR"
+    echo "State Directory: $STATE_STORE_DIR"
     echo "Backup Directory: $BACKUP_DIR"
     echo "Log Directory: $LOG_DIR"
     echo "Version: $STATE_VERSION"
     echo
     
     echo "Component States:"
-    for state_file in "$STATE_DIR"/*.state; do
+    for state_file in "$STATE_STORE_DIR"/*.state; do
         if [[ ! -f "$state_file" ]]; then
             echo "  No components configured yet"
             break
@@ -484,8 +490,8 @@ state_clear_all() {
     echo "WARNING: This will clear all state tracking"
     echo "Backups and logs will be preserved"
     
-    if [[ -d "$STATE_DIR" ]]; then
-        rm -f "$STATE_DIR"/*.state 2>/dev/null || {
+    if [[ -d "$STATE_STORE_DIR" ]]; then
+        rm -f "$STATE_STORE_DIR"/*.state 2>/dev/null || {
             echo "ERROR: Failed to clear state"
             return 1
         }

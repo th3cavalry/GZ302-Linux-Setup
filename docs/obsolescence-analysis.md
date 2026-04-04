@@ -1,11 +1,11 @@
-# GZ302 Component Obsolescence Analysis (December 2025)
+# GZ302 Component Obsolescence Analysis (April 2026)
 
 ## Executive Summary
 
-This document analyzes the obsolescence status of GZ302-Linux-Setup components as of December 2025, based on upstream Linux kernel support evolution (6.14-6.18). The repository has transitioned from a **hardware enablement tool** (fixing broken hardware) to a **performance optimization toolkit** (tuning working hardware).
+This document analyzes the obsolescence status of GZ302-Linux-Setup components as of April 2026, based on upstream Linux kernel support evolution (6.14-6.19+). The repository has fully transitioned from a **hardware enablement tool** (fixing broken hardware) to a **performance optimization toolkit** (tuning working hardware).
 
-**Last Updated:** December 8, 2025  
-**Analysis Period:** Early 2025 (Kernel 6.14) → Late 2025 (Kernel 6.18)  
+**Last Updated:** April 4, 2026 
+**Analysis Period:** Early 2025 (Kernel 6.14) → April 2026 (Kernel 6.19+) 
 **Target Hardware:** ASUS ROG Flow Z13 (GZ302EA-XS99/XS98/XS96)
 
 ---
@@ -31,6 +31,11 @@ This document analyzes the obsolescence status of GZ302-Linux-Setup components a
 - **Status:** Enhanced hardware monitoring
 - **Features:** asus-ec-sensors support, improved thermal management
 - **Repository Role:** **OPTIMIZATION ONLY** - Focus on performance tuning
+
+### Linux 6.19 (Q1 2026)
+- **Status:** Native CS35L41 amplifier support merged
+- **Features:** GZ302 subsystem ID (`1043:1fb3`) native quirk upstreamed; cs35l41_hda bridge driver auto-loads without manual `softdep`
+- **Repository Role:** **OPTIMIZATION ONLY** - All hardware workarounds fully obsolete
 
 ---
 
@@ -58,7 +63,7 @@ options mt7925e disable_aspm=1
 
 **Verdict:** **OBSOLETE for Kernel 6.17+** | **HARMFUL if applied unnecessarily**
 
-**Recommendation:** 
+**Recommendation:**
 - Conditional application based on kernel version detection
 - Ensure latest `linux-firmware` package installed (September 2025+)
 
@@ -95,24 +100,27 @@ options mt7925e disable_aspm=1
 ### 3. Audio (Cirrus Logic CS35L41)
 
 #### Repository Implementation
-- ACPI DSDT patching for GPIO mappings
-- Firmware quirk injection for subsystem ID `1043:1fb3`
+```bash
+# /etc/modprobe.d/cs35l41.conf
+# cs35l41_hda is the ASoC bridge driver for these amps via ACPI/I2C.
+# Ensures the HDA bus (snd_hda_intel) is ready before the amp driver loads.
+softdep snd_hda_intel post: cs35l41_hda
+```
 
 #### Upstream Status
 | Kernel | Status | Native Support | Action Required |
 |--------|--------|----------------|-----------------|
-| 6.14-6.18 | Missing quirk | ❌ No | **Apply patch** |
-| Future | Pending upstream | ⚠️ TBD | Monitor kernel commits |
+| 6.14-6.18 | Missing quirk | ❌ No | **Apply softdep patch** |
+| 6.19+ | Native support | ✅ Yes | **Remove config** |
 
 **Analysis:**
-- **All Current Kernels:** GZ302 subsystem ID (`1043:1fb3`) missing from upstream quirk list
-- **Symptom:** "Failed to sync masks" errors, no audio output
-- **Upstream Status:** Generic CS35L41 support exists, but device-specific quirks not merged
-- **Distribution Impact:** Affects Fedora 43, Ubuntu 25.10, standard Arch kernels
+- **Kernels 6.14-6.18:** GZ302 subsystem ID (`1043:1fb3`) missing from upstream quirk list; `softdep snd_hda_intel post: cs35l41_hda` required
+- **Kernel 6.19+:** GZ302 CS35L41 quirk merged upstream — `gz302-setup.sh` auto-removes the modprobe config when detected
+- **Distribution Impact:** Fedora 44+, Ubuntu 26.04+, Arch rolling (post-April 2026) ship 6.19+
 
-**Verdict:** **VALID (REQUIRED)** | **Still necessary as of December 2025**
+**Verdict:** **OBSOLETE for Kernel 6.19+** | **Auto-removed by gz302-setup.sh**
 
-**Note:** CachyOS with `linux-g14` patchset may include this quirk already
+**Note:** CachyOS with `linux-g14` patchset included this quirk earlier (6.17+)
 
 ---
 
@@ -206,9 +214,10 @@ amd_iommu=off          # Disable IOMMU for lower latency
 
 ---
 
-### Arch Linux / CachyOS (Kernel 6.18+)
+### Arch Linux / CachyOS (Kernel 6.19+)
 **Obsolete Components:**
-- ✅ All hardware fixes (rolling release has latest)
+- ✅ All hardware workarounds (rolling release ships 6.19+)
+- ✅ Audio quirks (native CS35L41 support in 6.19+)
 
 **CachyOS Specific:**
 - `linux-g14` or `linux-cachyos` kernels likely include audio quirks
@@ -239,13 +248,13 @@ amd_iommu=off          # Disable IOMMU for lower latency
    ```bash
    # Remove WiFi ASPM workaround
    sudo rm -f /etc/modprobe.d/mt7925.conf
-   
+  
    # Disable tablet mode daemon (if installed)
    sudo systemctl disable --now gz302-tablet.service
-   
+  
    # Remove input forcing
    sudo sed -i '/enable_touchpad=1/d' /etc/modprobe.d/hid-asus.conf
-   
+  
    # Reload modules
    sudo modprobe -r mt7925e && sudo modprobe mt7925e
    sudo modprobe -r hid_asus && sudo modprobe hid_asus
@@ -261,7 +270,7 @@ amd_iommu=off          # Disable IOMMU for lower latency
 
 ---
 
-### Fresh Installation (December 2025+)
+### Fresh Installation (April 2026+)
 
 **Use kernel-aware installation:**
 
@@ -269,8 +278,9 @@ The updated `gz302-setup.sh` script now detects your kernel version and applies 
 
 **What happens automatically:**
 - Kernel < 6.17: Full hardware workarounds applied
-- Kernel >= 6.17: Only audio quirks + optimizations
-- User choice: Toolkit utilities (pwrcfg, rrcfg, RGB)
+- Kernel 6.17-6.18: Only audio quirks + optimizations
+- Kernel 6.19+: **No hardware workarounds needed** — all obsolete configs auto-removed
+- User choice: Toolkit utilities (pwrcfg, rrcfg, RGB via z13ctl)
 
 ---
 
@@ -290,11 +300,11 @@ The updated `gz302-setup.sh` script now detects your kernel version and applies 
 
 ### Remaining Value Propositions
 
-1. **Audio Quirks:** Until upstream merges GZ302 CS35L41 quirk
-2. **Power Management:** GZ302-specific TDP profiles (10W-90W range)
-3. **AI/LLM Optimization:** Strix Halo memory tuning for large models
-4. **RGB Control:** Keyboard backlight convenience
-5. **Distribution Parity:** Equal support across Arch/Debian/Fedora/OpenSUSE
+1. **Power Management:** GZ302-specific TDP profiles (10W-90W range) via z13ctl
+2. **AI/LLM Optimization:** Strix Halo memory tuning for large models
+3. **RGB Control:** Keyboard backlight convenience via z13ctl
+4. **Distribution Parity:** Equal support across Arch/Debian/Fedora/OpenSUSE
+5. **AMD P-State:** Automated `amd_pstate=guided` bootloader configuration (GRUB, systemd-boot, Limine v4/v5)
 
 ### Obsolescence as Success
 
@@ -339,10 +349,10 @@ Changes:
 
 | Distribution | Kernel Version | Release Date | GZ302 Status |
 |--------------|----------------|--------------|--------------|
-| Arch Linux | 6.17.4 | Oct 19, 2025 | ✅ Full support |
-| Fedora 43 | 6.17.x | Dec 2025 | ✅ Full support |
-| Ubuntu 25.10 | 6.17.0 | Oct 10, 2025 | ✅ Full support |
-| OpenSUSE TW | 6.18.x | Nov 2025 | ✅ Full support |
+| Arch Linux | 6.19.x | April 2026 | ✅ Full native support |
+| Fedora 44 | 6.19.x | Q2 2026 | ✅ Full native support |
+| Ubuntu 26.04 | 6.19.x | April 2026 | ✅ Full native support |
+| OpenSUSE TW | 6.19.x | April 2026 | ✅ Full native support |
 
 ---
 
@@ -380,12 +390,12 @@ speaker-test -t wav -c 2
 
 ## Glossary
 
-**ASPM:** Active State Power Management - PCIe link power saving  
-**GTT:** Graphics Translation Table - GPU memory address mapping  
-**SW_TABLET_MODE:** Kernel input event for 2-in-1 convertible state  
-**CS35L41:** Cirrus Logic audio amplifier chip  
-**DSDT:** Differentiated System Description Table (ACPI firmware table)  
-**asus-wmi:** ASUS Windows Management Instrumentation driver (Linux)  
+**ASPM:** Active State Power Management - PCIe link power saving 
+**GTT:** Graphics Translation Table - GPU memory address mapping 
+**SW_TABLET_MODE:** Kernel input event for 2-in-1 convertible state 
+**CS35L41:** Cirrus Logic audio amplifier chip 
+**DSDT:** Differentiated System Description Table (ACPI firmware table) 
+**asus-wmi:** ASUS Windows Management Instrumentation driver (Linux) 
 **Strix Halo:** AMD codename for Ryzen AI MAX+ 395 APU architecture
 
 ---
@@ -406,4 +416,4 @@ speaker-test -t wav -c 2
 - Distribution kernel versions significantly change
 - New hardware workarounds are discovered/deprecated
 
-**Version:** 3.0.0 (December 8, 2025)
+**Version:** 4.0.0 (April 4, 2026)

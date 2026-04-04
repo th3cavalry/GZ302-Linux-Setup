@@ -47,12 +47,12 @@ sudo zypper install ShellCheck
 2. **Quote all variables** to prevent word splitting: `"$variable"`
 3. **Quote command substitutions**: `"$(command)"`
 4. **Use `-r` flag with `read`**: `read -r -p "prompt: " variable`
-5. **Separate variable declarations**: 
+5. **Separate variable declarations**:
    ```bash
    # Good
    local var
    var=$(command)
-   
+  
    # Avoid
    local var=$(command)  # Can mask return values
    ```
@@ -64,7 +64,7 @@ sudo zypper install ShellCheck
    else
        info "Native support available, skipping workaround"
    fi
-   
+  
    # Avoid - applying fixes unconditionally
    apply_workaround  # May harm performance on newer kernels
    ```
@@ -139,7 +139,7 @@ You can use virtual machines or containers for testing.
 4. **Commit with clear messages**:
    ```
    Add support for XYZ feature
-   
+  
    - Specific change 1
    - Specific change 2
    - Tested on: Arch Linux, Ubuntu 24.04
@@ -191,7 +191,7 @@ error() { echo -e "${C_RED}[ERROR]${C_NC} $1"; exit 1; }
 # Main installation function
 install_module() {
     local distro="$1"
-    
+   
     case "$distro" in
         "arch") install_arch ;;
         "debian") install_debian ;;

@@ -3,6 +3,7 @@
 # SC2034: Variables are exported for use in other scripts
 # SC2059: Printf format strings use color variables intentionally
 # SC2086: Word splitting used intentionally in seq commands
+set -euo pipefail
 # SC2329: Functions are invoked indirectly from main script
 # SC2030/SC2031: Subshell variable modification is handled
 

@@ -1,27 +1,34 @@
 from PyQt6.QtWidgets import QSystemTrayIcon
 
-# Optional: Try to import notify2 for better desktop notifications
+# Optional: Try to import dbus for richer desktop notifications via org.freedesktop.Notifications
 try:
-    import notify2
-    NOTIFY2_AVAILABLE = True
+    import dbus
+    _DBUS_AVAILABLE = True
 except ImportError:
-    NOTIFY2_AVAILABLE = False
+    _DBUS_AVAILABLE = False
+
+# DBus urgency levels (org.freedesktop.Notifications spec)
+_URGENCY_LOW = 0
+_URGENCY_NORMAL = 1
+_URGENCY_CRITICAL = 2
+
+
+def _send_dbus_notification(app_name, title, message, urgency_level, timeout_ms):
+    """Send a desktop notification directly via DBus (org.freedesktop.Notifications)."""
+    bus = dbus.SessionBus()
+    obj = bus.get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
+    iface = dbus.Interface(obj, "org.freedesktop.Notifications")
+    hints = {"urgency": dbus.Byte(urgency_level)}
+    iface.Notify(app_name, dbus.UInt32(0), "", title, message, dbus.Array([], signature="s"), hints, timeout_ms)
+
 
 class NotificationManager:
     """Manages desktop notifications with optional sound feedback"""
 
     def __init__(self, tray_icon):
         self.tray = tray_icon
-        self.notify2_initialized = False
+        self.dbus_available = _DBUS_AVAILABLE
         self._app_name = "GZ302 Control Center"
-
-        # Try to initialize notify2 for richer notifications
-        if NOTIFY2_AVAILABLE:
-            try:
-                notify2.init("GZ302 Control Center")
-                self.notify2_initialized = True
-            except Exception:
-                pass
 
     @property
     def app_name(self):
@@ -61,23 +68,21 @@ class NotificationManager:
         # Format message with emoji
         formatted_title = f"{emoji_prefix.get(icon_type, '')} {title}"
 
-        # Try notify2 first for richer notifications
-        if self.notify2_initialized:
+        # Try DBus notification first for richer desktop integration
+        if self.dbus_available:
             try:
-                # Re-init notify2 with current app name in case it changed
-                try:
-                    notify2.init(self.tray.app_name)
-                except Exception:
-                    pass
                 urgency_map = {
-                    "low": notify2.URGENCY_LOW,
-                    "normal": notify2.URGENCY_NORMAL,
-                    "critical": notify2.URGENCY_CRITICAL,
+                    "low": _URGENCY_LOW,
+                    "normal": _URGENCY_NORMAL,
+                    "critical": _URGENCY_CRITICAL,
                 }
-                n = notify2.Notification(formatted_title, message)
-                n.set_urgency(urgency_map.get(urgency, notify2.URGENCY_NORMAL))
-                n.set_timeout(duration)
-                n.show()
+                _send_dbus_notification(
+                    self.app_name,
+                    formatted_title,
+                    message,
+                    urgency_map.get(urgency, _URGENCY_NORMAL),
+                    duration,
+                )
                 return
             except Exception:
                 pass

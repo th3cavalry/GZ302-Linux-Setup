@@ -44,6 +44,8 @@ sudo tee "$HOOK_PATH" > /dev/null << 'HOOKEOF'
 #   - Reset USB keyboard/touchpad/lightbar
 #   - Restore RGB settings
 
+set -euo pipefail
+
 LOG_TAG="gz302-reset"
 MMC_DRIVER_PATH="/sys/bus/mmc/drivers/mmcblk"
 STATE_DIR="/run/gz302-suspend"

@@ -1,5 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC2034,SC2059
+set -euo pipefail
 
 # ==============================================================================
 # GZ302 Distribution Manager Library
@@ -67,273 +68,158 @@ distro_apply_hardware_fixes() {
         fi
     fi
 
-    # 5. Early KMS (Arch-based)
-    if declare -f gpu_configure_early_kms >/dev/null; then
-        gpu_configure_early_kms
-    fi
-
-    # 6. Keyboard Backlight Restore
+    # 5. Keyboard Backlight Restore
     if declare -f rgb_configure_backlight_restore >/dev/null; then
         rgb_configure_backlight_restore
     fi
 
-    # 7. Battery Limit (Optional/Fallback)
+    # 6. Battery Limit (Optional/Fallback)
     if declare -f power_setup_battery_limit_service >/dev/null; then
         power_setup_battery_limit_service
     fi
 
+    # 7. AMD P-State kernel parameter
+    info "Configuring AMD P-State driver..."
+    distro_configure_amd_pstate
+
     success "Hardware fixes applied via libraries"
 }
 
-distro_setup_arch() {
-    local distro="$1"
-    print_subsection "Arch-based System Setup"
+# Configure AMD P-State kernel parameter in the bootloader (idempotent)
+# Supports GRUB, systemd-boot, rEFInd, and Limine. Updates all detected
+# bootloaders so that whichever is currently active picks up the parameter.
+distro_configure_amd_pstate() {
+    local param="amd_pstate=guided"
+    local found_any=false
 
-    # Step 1: Update system
-    print_step 1 7 "Updating system and installing base dependencies..."
-    if ! is_step_completed "arch_update"; then
-        printf '%s' "${C_DIM}"
-        pacman -Syu --noconfirm --needed
-        pacman -S --noconfirm --needed git base-devel wget curl
-        printf '%s' "${C_NC}"
-        complete_step "arch_update"
-    fi
-    completed_item "System updated"
-
-    # Step 2: Install AUR helper
-    print_step 2 7 "Installing AUR helper (yay or paru)..."
-    if ! is_step_completed "aur_helper"; then
-        if ! command -v yay >/dev/null 2>&1 && ! command -v paru >/dev/null 2>&1; then
-            info "Installing yay AUR helper..."
-            local temp_dir
-            temp_dir=$(mktemp -d)
-            sudo -u "$(get_real_user)" git clone https://aur.archlinux.org/yay-bin.git "$temp_dir"
-            (cd "$temp_dir" && sudo -u "$(get_real_user)" makepkg -si --noconfirm)
-            rm -rf "$temp_dir"
-        fi
-        complete_step "aur_helper"
-    fi
-    completed_item "AUR helper installed"
-
-    # Step 3: Install hardware fixes
-    print_step 3 7 "Applying GZ302 hardware fixes..."
-    if ! is_step_completed "hw_fixes"; then
-        distro_apply_hardware_fixes
-        complete_step "hw_fixes"
-    fi
-    completed_item "Hardware fixes applied"
-
-    # Provide distribution-specific optimization information
-    distro_provide_optimization_info "$distro"
-
-    # Step 4: Install SOF firmware
-    print_step 4 7 "Installing Sound Open Firmware (SOF)..."
-    if ! is_step_completed "sof_firmware"; then
-        audio_install_sof_firmware "$distro"
-        complete_step "sof_firmware"
-    fi
-    completed_item "SOF firmware installed"
-
-    # Step 5: Configure Power Management
-    print_step 5 7 "Configuring power management..."
-    if ! is_step_completed "power_mgmt"; then
-        if power_install_tools; then
-            success "Power management tools installed"
+    # --- GRUB ---
+    if [[ -f /etc/default/grub ]]; then
+        found_any=true
+        if grep -q "$param" /etc/default/grub 2>/dev/null; then
+            info "amd_pstate=guided already present in GRUB config"
         else
-            warning "Power management tools reported issues"
+            info "Adding amd_pstate=guided to GRUB configuration..."
+            local grub_backup
+            grub_backup="/etc/default/grub.gz302.bak.$(date +%Y%m%d%H%M%S)"
+            cp /etc/default/grub "$grub_backup"
+            # Append to GRUB_CMDLINE_LINUX_DEFAULT, else GRUB_CMDLINE_LINUX, else create it
+            if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub; then
+                sed -i 's/^\(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*\)"/\1 amd_pstate=guided"/' /etc/default/grub
+            elif grep -q '^GRUB_CMDLINE_LINUX=' /etc/default/grub; then
+                sed -i 's/^\(GRUB_CMDLINE_LINUX="[^"]*\)"/\1 amd_pstate=guided"/' /etc/default/grub
+            else
+                echo 'GRUB_CMDLINE_LINUX="amd_pstate=guided"' >> /etc/default/grub
+            fi
+            # Regenerate GRUB config (handle Fedora's grub2 path as well)
+            if command -v grub-mkconfig >/dev/null 2>&1; then
+                grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null || true
+            elif command -v grub2-mkconfig >/dev/null 2>&1; then
+                grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null || \
+                grub2-mkconfig -o /boot/efi/EFI/fedora/grub.cfg 2>/dev/null || true
+            fi
+            success "GRUB updated: amd_pstate=guided"
         fi
-        complete_step "power_mgmt"
     fi
-    completed_item "Power management configured"
 
-    # Step 6: Configure Display
-    print_step 6 7 "Configuring display settings..."
-    if ! is_step_completed "display_config"; then
-        if display_install_tools; then
-            success "Display tools installed"
+    # --- systemd-boot loader entries ---
+    local loader_dir="/boot/loader/entries"
+    if [[ -d "$loader_dir" ]]; then
+        found_any=true
+        local sd_updated=0
+        local entry
+        for entry in "$loader_dir"/*.conf; do
+            [[ -f "$entry" ]] || continue
+            if grep -q "^options" "$entry" && ! grep -q "$param" "$entry"; then
+                local entry_backup
+                entry_backup="${entry}.gz302.bak.$(date +%Y%m%d%H%M%S)"
+                cp "$entry" "$entry_backup"
+                sed -i "s/^\(options .*\)$/\1 amd_pstate=guided/" "$entry"
+                sd_updated=1
+            fi
+        done
+        if [[ $sd_updated -eq 1 ]]; then
+            success "systemd-boot entries updated: amd_pstate=guided"
         else
-            warning "Display tools reported issues"
+            info "amd_pstate=guided already present in systemd-boot entries"
         fi
-        complete_step "display_config"
     fi
-    completed_item "Display configured"
 
-    # Step 7: Finalize
-    print_step 7 7 "Finalizing Arch-based setup..."
-    completed_item "Setup completed for $distro"
-}
-
-distro_setup_debian() {
-    local distro="$1"
-    print_subsection "Debian/Ubuntu-based System Setup"
-
-    # Step 1: Update system
-    print_step 1 7 "Updating system and installing base dependencies..."
-    if ! is_step_completed "debian_update"; then
-        apt-get update
-        apt-get install -y git build-essential wget curl
-        complete_step "debian_update"
+    # --- rEFInd ---
+    # Per-kernel: /boot/refind_linux.conf — quoted pairs: "label"  "kernel params"
+    # Global options: refind.conf 'options' lines (fallback for manual configs)
+    if [[ -f /boot/refind_linux.conf ]]; then
+        found_any=true
+        if grep -q "$param" /boot/refind_linux.conf 2>/dev/null; then
+            info "amd_pstate=guided already present in refind_linux.conf"
+        else
+            local refind_kl_backup
+            refind_kl_backup="/boot/refind_linux.conf.gz302.bak.$(date +%Y%m%d%H%M%S)"
+            cp /boot/refind_linux.conf "$refind_kl_backup"
+            # Each line: "label"  "params ..."  — append to the last quoted string
+            sed -i -E "s|\"([^\"]+)\"\s*$|\"\\1 ${param}\"|" /boot/refind_linux.conf
+            success "rEFInd per-kernel options updated: amd_pstate=guided"
+        fi
     fi
-    completed_item "System updated"
+    local refind_conf
+    for refind_conf in /boot/EFI/refind/refind.conf /boot/efi/EFI/refind/refind.conf \
+                       /efi/EFI/refind/refind.conf; do
+        [[ -f "$refind_conf" ]] || continue
+        found_any=true
+        if grep -q "$param" "$refind_conf" 2>/dev/null; then
+            info "amd_pstate=guided already present in $(basename "$refind_conf")"
+            continue
+        fi
+        local refind_backup
+        refind_backup="${refind_conf}.gz302.bak.$(date +%Y%m%d%H%M%S)"
+        cp "$refind_conf" "$refind_backup"
+        # Append to every 'options' line (global or stanza-level)
+        sed -i "s|^\(options .*\)$|\1 ${param}|" "$refind_conf"
+        success "rEFInd config updated: amd_pstate=guided"
+    done
 
-    # Step 2: Install hardware fixes
-    print_step 2 7 "Applying GZ302 hardware fixes..."
-    if ! is_step_completed "hw_fixes"; then
-        distro_apply_hardware_fixes
-        complete_step "hw_fixes"
+    # --- Limine ---
+    # Limine v5+ uses /etc/limine/limine.conf; v4 uses /boot/limine.cfg
+    # Both formats are handled: "cmdline:" (v5 TOML-style) and "CMDLINE=" (v4 uppercase)
+    local limine_cfg
+    for limine_cfg in /etc/limine/limine.conf /boot/limine/limine.conf /boot/limine.cfg; do
+        [[ -f "$limine_cfg" ]] || continue
+        found_any=true
+        if grep -q "$param" "$limine_cfg" 2>/dev/null; then
+            info "amd_pstate=guided already present in $(basename "$limine_cfg")"
+            continue
+        fi
+        local limine_backup
+        limine_backup="${limine_cfg}.gz302.bak.$(date +%Y%m%d%H%M%S)"
+        cp "$limine_cfg" "$limine_backup"
+        # v5 TOML-style: "    cmdline: ..." or "cmdline: ..."
+        if grep -qE '^\s*cmdline\s*:' "$limine_cfg"; then
+            sed -i -E "s|^(\s*cmdline\s*:.*)$|\1 ${param}|" "$limine_cfg"
+        # v4 uppercase: "CMDLINE=..."
+        elif grep -q '^CMDLINE=' "$limine_cfg"; then
+            sed -i "s|^\(CMDLINE=.*\)$|\1 ${param}|" "$limine_cfg"
+        else
+            warning "Limine config ${limine_cfg}: no CMDLINE/cmdline entry found — add '${param}' manually"
+            continue
+        fi
+        success "Limine configuration updated: amd_pstate=guided"
+    done
+
+    if [[ "$found_any" == false ]]; then
+        warning "Unknown bootloader: cannot add amd_pstate=guided automatically"
+        info "Manually add 'amd_pstate=guided' to your bootloader kernel parameters"
     fi
-    completed_item "Hardware fixes applied"
-
-    # Provide distribution-specific optimization information
-    distro_provide_optimization_info "$distro"
-
-    # Step 3: Install SOF firmware
-    print_step 3 7 "Installing Sound Open Firmware (SOF)..."
-    if ! is_step_completed "sof_firmware"; then
-        audio_install_sof_firmware "$distro"
-        complete_step "sof_firmware"
-    fi
-    completed_item "SOF firmware installed"
-
-    # Step 4: Configure Power Management
-    print_step 4 7 "Configuring power management..."
-    if ! is_step_completed "power_mgmt"; then
-        power_install_tools
-        complete_step "power_mgmt"
-    fi
-    completed_item "Power management configured"
-
-    # Step 5: Configure Display
-    print_step 5 7 "Configuring display settings..."
-    if ! is_step_completed "display_config"; then
-        display_install_tools
-        complete_step "display_config"
-    fi
-    completed_item "Display configured"
-
-    # Step 6: Finalize
-    print_step 6 7 "Finalizing Debian-based setup..."
-    completed_item "Setup completed for $distro"
-}
-
-distro_setup_fedora() {
-    local distro="$1"
-    print_subsection "Fedora-based System Setup"
-
-    # Step 1: Update system
-    print_step 1 7 "Updating system and installing base dependencies..."
-    if ! is_step_completed "fedora_update"; then
-        dnf update -y
-        dnf install -y git wget curl gcc make
-        complete_step "fedora_update"
-    fi
-    completed_item "System updated"
-
-    # Step 2: Install hardware fixes
-    print_step 2 7 "Applying GZ302 hardware fixes..."
-    if ! is_step_completed "hw_fixes"; then
-        distro_apply_hardware_fixes
-        complete_step "hw_fixes"
-    fi
-    completed_item "Hardware fixes applied"
-
-    # Provide distribution-specific optimization information
-    distro_provide_optimization_info "$distro"
-
-    # Step 3: Install SOF firmware
-    print_step 3 7 "Installing Sound Open Firmware (SOF)..."
-    if ! is_step_completed "sof_firmware"; then
-        audio_install_sof_firmware "$distro"
-        complete_step "sof_firmware"
-    fi
-    completed_item "SOF firmware installed"
-
-    # Step 4: Configure Power Management
-    print_step 4 7 "Configuring power management..."
-    if ! is_step_completed "power_mgmt"; then
-        power_install_tools
-        complete_step "power_mgmt"
-    fi
-    completed_item "Power management configured"
-
-    # Step 5: Configure Display
-    print_step 5 7 "Configuring display settings..."
-    if ! is_step_completed "display_config"; then
-        display_install_tools
-        complete_step "display_config"
-    fi
-    completed_item "Display configured"
-
-    # Step 6: Finalize
-    print_step 6 7 "Finalizing Fedora-based setup..."
-    completed_item "Setup completed for $distro"
-}
-
-distro_setup_opensuse() {
-    local distro="$1"
-    print_subsection "OpenSUSE-based System Setup"
-
-    # Step 1: Update system
-    print_step 1 7 "Updating system and installing base dependencies..."
-    if ! is_step_completed "suse_update"; then
-        zypper refresh
-        zypper update -y
-        zypper install -y git wget curl gcc make
-        complete_step "suse_update"
-    fi
-    completed_item "System updated"
-
-    # Step 2: Install hardware fixes
-    print_step 2 7 "Applying GZ302 hardware fixes..."
-    if ! is_step_completed "hw_fixes"; then
-        distro_apply_hardware_fixes
-        complete_step "hw_fixes"
-    fi
-    completed_item "Hardware fixes applied"
-
-    # Provide distribution-specific optimization information
-    distro_provide_optimization_info "$distro"
-
-    # Step 3: Install SOF firmware
-    print_step 3 7 "Installing Sound Open Firmware (SOF)..."
-    if ! is_step_completed "sof_firmware"; then
-        audio_install_sof_firmware "$distro"
-        complete_step "sof_firmware"
-    fi
-    completed_item "SOF firmware installed"
-
-    # Step 4: Configure Power Management
-    print_step 4 7 "Configuring power management..."
-    if ! is_step_completed "power_mgmt"; then
-        power_install_tools
-        complete_step "power_mgmt"
-    fi
-    completed_item "Power management configured"
-
-    # Step 5: Configure Display
-    print_step 5 7 "Configuring display settings..."
-    if ! is_step_completed "display_config"; then
-        display_install_tools
-        complete_step "display_config"
-    fi
-    completed_item "Display configured"
-
-    # Step 6: Finalize
-    print_step 6 7 "Finalizing OpenSUSE setup..."
-    completed_item "Setup completed for $distro"
 }
 
 # --- Distribution-Specific Optimizations Info ---
 # Provides information about distribution-specific optimizations for Strix Halo
 distro_provide_optimization_info() {
     local distro="$1"
-    
+
     # Detect specific distribution ID for CachyOS
+    # Read ID safely without sourcing (avoids code injection from /etc/os-release)
     local distro_id=""
     if [[ -f /etc/os-release ]]; then
-        # shellcheck disable=SC1091
-        source /etc/os-release
-        distro_id="${ID:-}"
+        distro_id=$(grep -oP '(?<=^ID=)[^\n"]+' /etc/os-release 2>/dev/null | tr -d '"' || true)
     fi
     
     # CachyOS-specific optimizations
@@ -424,10 +310,7 @@ distro_lib_help() {
     echo ""
     echo "Functions:"
     echo "  distro_apply_hardware_fixes     - Orchestrate all hardware fix libraries"
-    echo "  distro_setup_arch               - Full Arch-based setup"
-    echo "  distro_setup_debian             - Full Debian/Ubuntu-based setup"
-    echo "  distro_setup_fedora             - Full Fedora-based setup"
-    echo "  distro_setup_opensuse           - Full OpenSUSE-based setup"
+    echo "  distro_configure_amd_pstate     - Write amd_pstate=guided to all detected bootloader configs"
     echo "  distro_provide_optimization_info - Show distro-specific tuning tips"
     echo "  distro_lib_version              - Show library version"
     echo "  distro_lib_help                 - Show this help"

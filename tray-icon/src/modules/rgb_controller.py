@@ -1,9 +1,6 @@
-import os
 import subprocess
 import threading
 from pathlib import Path
-import time
-import colorsys
 
 # Speed mapping: internal numeric → z13ctl speed names
 _SPEED_MAP = {1: "slow", 2: "normal", 3: "fast"}
@@ -35,7 +32,9 @@ class RGBController:
 
     def set_keyboard_color(self, hex_color):
         if not self.keyboard_available:
-            self.notifier.notify_error("RGB", "z13ctl not installed. Run: sudo ./gz302-setup.sh")
+            self.notifier.notify_error(
+                "RGB", "z13ctl not installed. Run: sudo ./gz302-setup.sh"
+            )
             return
         self._run_bg_command(
             ["sudo", "-n", "z13ctl", "apply", "--mode", "static", "--color", hex_color],
@@ -51,7 +50,9 @@ class RGBController:
         cmd = ["sudo", "-n", "z13ctl", "apply"]
         desc = ""
         if anim_type == "breathing":
-            cmd += ["--mode", "breathe", "--color", c1 or "FFFFFF", "--speed", speed_name]
+            cmd += [
+                "--mode", "breathe", "--color", c1 or "FFFFFF", "--speed", speed_name,
+            ]
             desc = "Breathing"
         elif anim_type == "colorcycle":
             cmd += ["--mode", "cycle", "--speed", speed_name]
@@ -94,20 +95,30 @@ class RGBController:
     def _run_bg_command(self, cmd, success_msg, error_msg, timeout=60):
         def worker():
             try:
-                res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+                res = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=timeout
+                )
                 if res.returncode == 0:
                     self.notifier.notify("RGB", success_msg, "success", 2000)
                 else:
-                    err_detail = res.stderr.strip() or res.stdout.strip() or "Unknown error"
+                    err_detail = (
+                        res.stderr.strip() or res.stdout.strip() or "Unknown error"
+                    )
                     if "permission" in err_detail.lower():
                         hint = "Check sudoers: /etc/sudoers.d/gz302"
                         self.notifier.notify_error("RGB Error", f"{error_msg}\n{hint}")
                     else:
-                        self.notifier.notify_error("RGB Error", f"{error_msg}: {err_detail[:100]}")
+                        self.notifier.notify_error(
+                            "RGB Error", f"{error_msg}: {err_detail[:100]}"
+                        )
             except subprocess.TimeoutExpired:
-                self.notifier.notify_error("RGB Error", f"{error_msg}: Command timed out")
+                self.notifier.notify_error(
+                    "RGB Error", f"{error_msg}: Command timed out"
+                )
             except FileNotFoundError:
-                self.notifier.notify_error("RGB Error", "z13ctl not found. Run gz302-setup.sh")
+                self.notifier.notify_error(
+                    "RGB Error", "z13ctl not found. Run gz302-setup.sh"
+                )
                 self.keyboard_available = False
             except Exception as e:
                 self.notifier.notify_error("RGB Error", str(e)[:100])
@@ -162,7 +173,10 @@ class RGBController:
         # Use z13ctl's built-in animation modes when available
         if anim_type == "rainbow":
             self._run_bg_command(
-                ["sudo", "-n", "z13ctl", "apply", "--mode", "rainbow", "--speed", speed_name],
+                [
+                    "sudo", "-n", "z13ctl", "apply",
+                    "--mode", "rainbow", "--speed", speed_name,
+                ],
                 success_msg="Lightbar: Rainbow",
                 error_msg="Failed to set lightbar animation",
             )
@@ -170,9 +184,14 @@ class RGBController:
         if anim_type == "breathing":
             color = f"{c1[0]:02x}{c1[1]:02x}{c1[2]:02x}" if c1 else "FFFFFF"
             self._run_bg_command(
-                ["sudo", "-n", "z13ctl", "apply", "--mode", "breathe", "--color", color, "--speed", speed_name],
+                [
+                    "sudo", "-n", "z13ctl", "apply",
+                    "--mode", "breathe", "--color", color, "--speed", speed_name,
+                ],
                 success_msg="Lightbar: Breathing",
                 error_msg="Failed to set lightbar animation",
             )
             return
-        self.notifier.notify("Lightbar", f"Animation: {anim_type.title()}", "success", 2000)
+        self.notifier.notify(
+            "Lightbar", f"Animation: {anim_type.title()}", "success", 2000
+        )

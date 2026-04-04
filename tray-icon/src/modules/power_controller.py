@@ -87,7 +87,9 @@ class PowerController:
                 capture_output=True, text=True, timeout=10,
             )
             if result.returncode == 0:
-                self.notifier.notify("Battery", f"Charge limit set to {limit}%", "success", 2000)
+                self.notifier.notify(
+                    "Battery", f"Charge limit set to {limit}%", "success", 2000
+                )
                 return True
             else:
                 self.notifier.notify_error("Charge Limit Failed", result.stderr.strip())
@@ -113,7 +115,11 @@ class PowerController:
                     status = (sup / "status").read_text().strip().lower()
                     if (sup / "capacity").exists():
                         pct = int((sup / "capacity").read_text().strip())
-                        return {"percent": pct, "plugged": status != "discharging", "status": status}
+                        return {
+                            "percent": pct,
+                            "plugged": status != "discharging",
+                            "status": status,
+                        }
         except Exception:
             pass
         return {"percent": None, "plugged": None, "status": "unknown"}

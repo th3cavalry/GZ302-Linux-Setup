@@ -219,6 +219,23 @@ cleanup_legacy_install() {
         fi
     done
 
+    # Remove v2 monolithic modprobe config (pre-library architecture)
+    for f in /etc/modprobe.d/gz302.conf /etc/modprobe.d/gz302-rdna.conf \
+              /etc/modprobe.d/gz302-audio.conf /etc/modprobe.d/gz302-suspend.conf; do
+        if [[ -f "$f" ]]; then
+            rm -f "$f"
+            found_legacy=true
+        fi
+    done
+
+    # Remove v3/v4 modprobe configurations (replaced by gz302-lib modular configs)
+    for f in /etc/modprobe.d/gz302-wifi.conf /etc/modprobe.d/gz302-gpu.conf /etc/modprobe.d/gz302-input.conf; do
+        if [[ -f "$f" ]]; then
+            rm -f "$f"
+            found_legacy=true
+        fi
+    done
+
     # Remove old udev rules
     for f in /etc/udev/rules.d/99-gz302-rgb.rules /etc/udev/rules.d/99-gz302-lightbar.rules; do
         if [[ -f "$f" ]]; then
@@ -250,73 +267,38 @@ apply_hardware_fixes() {
     print_section "Section 1: Hardware Fixes"
     info "Applying kernel-level fixes for GZ302 hardware..."
 
-    local kver
-    kver=$(check_kernel_version)
-
-    # 1. WiFi (MediaTek MT7925)
-    info "Configuring WiFi (MediaTek MT7925)..."
-    if wifi_detect_hardware >/dev/null 2>&1; then
-        wifi_apply_configuration && success "WiFi configured" || warning "WiFi issues detected"
-    else
-        info "WiFi hardware not detected, skipping."
-    fi
-
-    # 2. GPU (AMD Radeon 8060S)
-    info "Configuring GPU (AMD Radeon 8060S)..."
-    if gpu_detect_hardware >/dev/null 2>&1; then
-        gpu_apply_configuration && success "GPU configured" || warning "GPU issues detected"
-    else
-        info "GPU hardware not detected, skipping."
-    fi
-
-    # 3. Input Devices (Keyboard/Touchpad)
-    info "Configuring Input Devices..."
-    if input_detect_hid_devices >/dev/null 2>&1; then
-        input_apply_configuration "$kver" && success "Input configured" || warning "Input issues detected"
-    else
-        info "Input devices not detected, skipping."
-    fi
-
-    # 4. Audio (SOF Firmware + CS35L41)
-    info "Installing audio firmware..."
     local distro
     distro=$(detect_distribution)
-    if declare -f audio_install_sof_firmware >/dev/null 2>&1; then
-        audio_install_sof_firmware "$distro" && success "Audio firmware installed" || warning "Audio issues detected"
+
+    # Delegate modular hardware configuration to the library orchestrator.
+    # Covers: WiFi, GPU (incl. Early KMS via gpu_configure_early_kms),
+    #         Input, RGB, backlight restore, battery limit, amd_pstate.
+    distro_apply_hardware_fixes
+
+    # Audio: SOF firmware + CS35L41 ASoC configuration.
+    info "Configuring audio..."
+    if declare -f audio_apply_configuration >/dev/null 2>&1; then
+        audio_apply_configuration "$distro" && success "Audio configured" || warning "Audio configuration had issues"
     fi
 
-    # 5. Display (PSR-SU OLED fix)
+    # Display: PSR-SU OLED scrolling artifact fix.
     info "Checking OLED display PSR-SU configuration..."
-    if display_psr_su_enabled 2>/dev/null; then
+    if declare -f display_psr_su_enabled >/dev/null 2>&1 && display_psr_su_enabled 2>/dev/null; then
         info "PSR-SU is enabled — applying fix for scrolling artifacts..."
         display_apply_psr_su_fix && success "PSR-SU fix applied" || warning "PSR-SU fix issues"
     else
         success "PSR-SU already disabled"
     fi
 
-    # 6. Early KMS (Arch only)
-    configure_early_kms
-
-    # 7. Suspend Fix
+    # Suspend Fix
     install_suspend_fix
 
-    success "Hardware fixes complete"
-}
-
-configure_early_kms() {
-    [[ -f /etc/mkinitcpio.conf ]] || return 0
-    info "Checking Early KMS configuration..."
-    local modules_line
-    modules_line=$(grep "^MODULES=" /etc/mkinitcpio.conf || true)
-    if [[ "$modules_line" != *"amdgpu"* ]]; then
-        info "Enabling Early KMS for amdgpu..."
-        cp /etc/mkinitcpio.conf /etc/mkinitcpio.conf.bak
-        sed -i -E 's/^MODULES=\((.*)\)/MODULES=(\1 amdgpu)/' /etc/mkinitcpio.conf
-        sed -i 's/MODULES=( amdgpu)/MODULES=(amdgpu)/' /etc/mkinitcpio.conf
-        mkinitcpio -P && success "Early KMS enabled" || warning "Failed to regenerate initramfs"
-    else
-        success "Early KMS already enabled"
+    # Show distribution-specific tuning tips.
+    if declare -f distro_provide_optimization_info >/dev/null 2>&1; then
+        distro_provide_optimization_info "$distro"
     fi
+
+    success "Hardware fixes complete"
 }
 
 install_suspend_fix() {
@@ -704,13 +686,16 @@ install_tray_app() {
     # Install Python dependencies
     case "$distro" in
         arch)
-            pacman -S --noconfirm --needed python-pyqt6 python-psutil python-notify2 2>/dev/null || true
+            pacman -S --noconfirm --needed python-pyqt6 python-psutil python-dbus 2>/dev/null || true
             ;;
         debian|ubuntu)
-            apt install -y python3-pyqt6 python3-psutil python3-notify2 2>/dev/null || true
+            apt install -y python3-pyqt6 python3-psutil python3-dbus 2>/dev/null || true
             ;;
         fedora)
-            dnf install -y python3-pyqt6 python3-psutil python3-notify2 2>/dev/null || true
+            dnf install -y python3-pyqt6 python3-psutil python3-dbus 2>/dev/null || true
+            ;;
+        opensuse)
+            zypper install -y python3-pyqt6 python3-psutil python3-dbus-python 2>/dev/null || true
             ;;
     esac
 

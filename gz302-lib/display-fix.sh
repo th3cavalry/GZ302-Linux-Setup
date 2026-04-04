@@ -1,5 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC2034,SC2059
+set -euo pipefail
 
 # ==============================================================================
 # GZ302 Display Fix Library
@@ -87,7 +88,33 @@ display_psr_su_enabled() {
             return 1  # PSR-SU disabled
         fi
     fi
-    
+
+    # Check Limine bootloader configs
+    local limine_cfg
+    for limine_cfg in /etc/limine/limine.conf /boot/limine/limine.conf /boot/limine.cfg; do
+        if [[ -f "$limine_cfg" ]]; then
+            if display_has_psr_su_disable_bit "$limine_cfg"; then
+                return 1  # PSR-SU disabled
+            fi
+        fi
+    done
+
+    # Check rEFInd per-kernel and global configs
+    if [[ -f /boot/refind_linux.conf ]]; then
+        if display_has_psr_su_disable_bit /boot/refind_linux.conf; then
+            return 1  # PSR-SU disabled
+        fi
+    fi
+    local refind_cfg
+    for refind_cfg in /boot/EFI/refind/refind.conf /boot/efi/EFI/refind/refind.conf \
+                      /efi/EFI/refind/refind.conf; do
+        if [[ -f "$refind_cfg" ]]; then
+            if display_has_psr_su_disable_bit "$refind_cfg"; then
+                return 1  # PSR-SU disabled
+            fi
+        fi
+    done
+
     # PSR-SU is enabled by default (no PSR-disable dcdebugmask bits)
     return 0
 }
@@ -147,9 +174,10 @@ display_apply_psr_su_fix() {
                 echo "amdgpu.dcdebugmask=0x200" > /etc/kernel/cmdline
             fi
 
-            # Regenerate boot entries
-            if command -v mkinitcpio >/dev/null 2>&1; then
+            # Regenerate boot entries (only if mkinitcpio hasn't run yet this session)
+            if command -v mkinitcpio >/dev/null 2>&1 && [[ "${GZ302_MKINITCPIO_DONE:-false}" != "true" ]]; then
                 mkinitcpio -P 2>/dev/null || true
+                export GZ302_MKINITCPIO_DONE=true
             elif command -v dracut >/dev/null 2>&1; then
                 dracut --regenerate-all -f 2>/dev/null || true
             fi
@@ -176,6 +204,51 @@ display_apply_psr_su_fix() {
             fi
         done
     fi
+
+    # --- Limine ---
+    local limine_cfg
+    for limine_cfg in /etc/limine/limine.conf /boot/limine/limine.conf /boot/limine.cfg; do
+        [[ -f "$limine_cfg" ]] || continue
+        if grep -q "amdgpu.dcdebugmask=" "$limine_cfg" 2>/dev/null; then
+            info "Merging PSR-SU bit into existing Limine dcdebugmask..."
+            display_merge_dcdebugmask_file "$limine_cfg" || true
+        else
+            info "Adding amdgpu.dcdebugmask=0x200 to Limine config: $(basename "$limine_cfg")"
+            # v5 TOML-style: "    cmdline: ..."
+            if grep -qE '^\s*cmdline\s*:' "$limine_cfg"; then
+                sed -i -E 's|(^\s*cmdline\s*:.*)$|\1 amdgpu.dcdebugmask=0x200|' "$limine_cfg"
+            # v4 uppercase: "CMDLINE=..."
+            elif grep -q '^CMDLINE=' "$limine_cfg"; then
+                sed -i 's|^\(CMDLINE=.*\)$|\1 amdgpu.dcdebugmask=0x200|' "$limine_cfg"
+            else
+                warning "Limine config $(basename "$limine_cfg"): no CMDLINE/cmdline entry — add 'amdgpu.dcdebugmask=0x200' manually"
+            fi
+        fi
+    done
+
+    # --- rEFInd ---
+    if [[ -f /boot/refind_linux.conf ]]; then
+        if grep -q "amdgpu.dcdebugmask=" /boot/refind_linux.conf 2>/dev/null; then
+            info "Merging PSR-SU bit into existing rEFInd per-kernel dcdebugmask..."
+            display_merge_dcdebugmask_file /boot/refind_linux.conf || true
+        else
+            info "Adding amdgpu.dcdebugmask=0x200 to refind_linux.conf..."
+            # Each line: "label"  "params ..." — append to the last quoted string
+            sed -i -E 's|"([^"]+)"\s*$|"\1 amdgpu.dcdebugmask=0x200"|' /boot/refind_linux.conf
+        fi
+    fi
+    local refind_cfg
+    for refind_cfg in /boot/EFI/refind/refind.conf /boot/efi/EFI/refind/refind.conf \
+                      /efi/EFI/refind/refind.conf; do
+        [[ -f "$refind_cfg" ]] || continue
+        if grep -q "amdgpu.dcdebugmask=" "$refind_cfg" 2>/dev/null; then
+            info "Merging PSR-SU bit into existing rEFInd global dcdebugmask..."
+            display_merge_dcdebugmask_file "$refind_cfg" || true
+        else
+            info "Adding amdgpu.dcdebugmask=0x200 to $(basename "$refind_cfg")..."
+            sed -i 's|^\(options .*\)$|\1 amdgpu.dcdebugmask=0x200|' "$refind_cfg"
+        fi
+    done
     
     # Apply runtime fix (if possible)
     if [[ -d /sys/kernel/debug/dri ]]; then

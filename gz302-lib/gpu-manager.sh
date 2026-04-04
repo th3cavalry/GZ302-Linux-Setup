@@ -1,5 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC2034,SC2059
+set -euo pipefail
 
 # ==============================================================================
 # GZ302 GPU Manager Library
@@ -144,7 +145,7 @@ gpu_verify_firmware() {
 # Returns: 0 if configured, 1 if not configured
 gpu_ppfeaturemask_configured() {
     if [[ -f /etc/modprobe.d/amdgpu.conf ]]; then
-        if grep -q "ppfeaturemask=0xffffffff" /etc/modprobe.d/amdgpu.conf 2>/dev/null; then
+        if grep -q "ppfeaturemask=0xffff7fff" /etc/modprobe.d/amdgpu.conf 2>/dev/null; then
             return 0
         fi
     fi
@@ -169,18 +170,40 @@ gpu_kernel_params_set() {
     
     # Check GRUB
     if [[ -f /etc/default/grub ]]; then
-        if grep -q "amdgpu.ppfeaturemask=0xffffffff" /etc/default/grub 2>/dev/null; then
+        if grep -q "amdgpu.ppfeaturemask=0xffff7fff" /etc/default/grub 2>/dev/null; then
             grub_set=true
         fi
     fi
     
     # Check kernel cmdline (systemd-boot)
     if [[ -f /etc/kernel/cmdline ]]; then
-        if grep -q "amdgpu.ppfeaturemask=0xffffffff" /etc/kernel/cmdline 2>/dev/null; then
+        if grep -q "amdgpu.ppfeaturemask=0xffff7fff" /etc/kernel/cmdline 2>/dev/null; then
             cmdline_set=true
         fi
     fi
-    
+
+    # Check Limine bootloader configs
+    local limine_cfg
+    for limine_cfg in /etc/limine/limine.conf /boot/limine/limine.conf /boot/limine.cfg; do
+        if [[ -f "$limine_cfg" ]] && grep -q "amdgpu.ppfeaturemask=0xffff7fff" "$limine_cfg" 2>/dev/null; then
+            cmdline_set=true
+        fi
+    done
+
+    # Check rEFInd per-kernel and global configs
+    if [[ -f /boot/refind_linux.conf ]] && \
+       grep -q "amdgpu.ppfeaturemask=0xffff7fff" /boot/refind_linux.conf 2>/dev/null; then
+        cmdline_set=true
+    fi
+    local refind_cfg
+    for refind_cfg in /boot/EFI/refind/refind.conf /boot/efi/EFI/refind/refind.conf \
+                      /efi/EFI/refind/refind.conf; do
+        if [[ -f "$refind_cfg" ]] && \
+           grep -q "amdgpu.ppfeaturemask=0xffff7fff" "$refind_cfg" 2>/dev/null; then
+            cmdline_set=true
+        fi
+    done
+
     # Return true if either is set
     [[ "$grub_set" == true ]] || [[ "$cmdline_set" == true ]]
 }
@@ -245,8 +268,9 @@ gpu_apply_modprobe_config() {
 # Strix Halo specific: Phoenix/Navi33 equivalent
 # Enable all power features for better performance and efficiency
 # ROCm-compatible for AI/ML workloads
-# ppfeaturemask=0xffffffff enables: PowerPlay, DPM, OverDrive, GFXOFF, etc.
-options amdgpu ppfeaturemask=0xffffffff
+# 0xffff7fff: all bits enabled except bit 15 (GFXOFF) — de-risks RDNA 3.5
+# GFXOFF causes hangs under rapid power-state transitions on Strix Halo iGPU.
+options amdgpu ppfeaturemask=0xffff7fff
 EOF
     
     # Verify creation
@@ -307,6 +331,7 @@ gpu_configure_early_kms() {
         echo "Regenerating initramfs..."
         if command -v mkinitcpio >/dev/null 2>&1; then
             if mkinitcpio -P; then
+                export GZ302_MKINITCPIO_DONE=true
                 echo "Early KMS enabled"
                 return 0
             else

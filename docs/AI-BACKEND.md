@@ -58,7 +58,7 @@ lemonade models
 from lemonade.api import from_pretrained
 
 model, tokenizer = from_pretrained(
-    "amd/Llama-3.2-1B-Instruct-awq-g128-int4-asym-fp16-onnx-hybrid", 
+    "amd/Llama-3.2-1B-Instruct-awq-g128-int4-asym-fp16-onnx-hybrid",
     recipe="oga-hybrid"
 )
 

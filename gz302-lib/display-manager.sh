@@ -1,5 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC2034,SC2059
+set -euo pipefail
 
 # ==============================================================================
 # GZ302 Display Manager Library

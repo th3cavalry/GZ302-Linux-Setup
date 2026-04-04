@@ -1,5 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC2034,SC2059
+set -euo pipefail
 
 # ==============================================================================
 # GZ302 Input Manager Library
@@ -316,12 +317,12 @@ input_create_reload_service() {
     cat > /etc/systemd/system/reload-hid_asus.service <<'EOF'
 [Unit]
 Description=Reload hid_asus module for GZ302 touchpad
-After=graphical.target display-manager.service
+After=graphical.target display-manager.service udev.service
 Wants=graphical.target
 
 [Service]
 Type=oneshot
-ExecStartPre=/usr/bin/sleep 3
+ExecStartPre=/usr/bin/udevadm settle --timeout=10
 ExecStart=/usr/bin/bash -c 'if /usr/bin/lsmod | /usr/bin/grep -q hid_asus; then /usr/sbin/modprobe -r hid_asus && /usr/sbin/modprobe hid_asus; fi'
 RemainAfterExit=yes
 

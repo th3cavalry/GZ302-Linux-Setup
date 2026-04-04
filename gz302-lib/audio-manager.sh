@@ -1,5 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC2034,SC2059
+set -euo pipefail
 
 # ==============================================================================
 # GZ302 Audio Manager Library
@@ -131,7 +132,7 @@ audio_ucm_installed() {
 # Returns: 0 if applied, 1 if not
 audio_cs35l41_config_applied() {
     if [[ -f /etc/modprobe.d/cs35l41.conf ]]; then
-        if grep -q "cs35l41-hda" /etc/modprobe.d/cs35l41.conf 2>/dev/null; then
+        if grep -q "softdep snd_hda_intel" /etc/modprobe.d/cs35l41.conf 2>/dev/null; then
             return 0
         fi
     fi
@@ -295,9 +296,11 @@ audio_apply_cs35l41_config() {
     
     # Apply configuration
     cat > /etc/modprobe.d/cs35l41.conf <<'EOF'
-# Cirrus Logic CS35L41 amplifier configuration for GZ302
-# Subsystem ID: 1043:1fb3 (ASUS ROG Flow Z13)
-options snd_hda_intel patch=cs35l41-hda
+# Cirrus Logic CS35L41 amplifiers - ASUS ROG Flow Z13 GZ302
+# Subsystem ID: 1043:1fb3
+# The cs35l41_hda ASoC bridge driver manages these amps via ACPI/I2C.
+# Load cs35l41_hda after snd_hda_intel so the HDA bus is ready.
+softdep snd_hda_intel post: cs35l41_hda
 EOF
     
     return 0

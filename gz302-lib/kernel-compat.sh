@@ -1,5 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC2034
+set -euo pipefail
 
 # ==============================================================================
 # GZ302 Kernel Compatibility Library
