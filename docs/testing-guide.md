@@ -167,26 +167,26 @@ echo "Integration test complete"
 
 ```bash
 # Test 1: Syntax
-bash -n gz302-minimal-v4.sh && echo "✓ Syntax OK"
+bash -n gz302-setup.sh && echo "✓ Syntax OK"
 
 # Test 2: Help mode (no root needed)
-./gz302-minimal-v4.sh --help
+./gz302-setup.sh --help
 
 # Test 3: Status mode (requires root)
-sudo ./gz302-minimal-v4.sh --status
+sudo ./gz302-setup.sh --status
 
 # Test 4: Dry-run (check what would be done)
 # Note: Script doesn't have dry-run yet, use status mode
 
 # Test 5: Actual run (first time)
-sudo ./gz302-minimal-v4.sh
+sudo ./gz302-setup.sh
 
 # Test 6: Idempotency (second run should be faster)
-time sudo ./gz302-minimal-v4.sh
+time sudo ./gz302-setup.sh
 # Should complete in ~5 seconds (vs ~30 seconds first run)
 
 # Test 7: Force mode
-sudo ./gz302-minimal-v4.sh --force
+sudo ./gz302-setup.sh --force
 # Should re-apply everything
 ```
 
@@ -194,13 +194,13 @@ sudo ./gz302-minimal-v4.sh --force
 
 ```bash
 # Test 1: Syntax
-bash -n gz302-main-v4.sh && echo "✓ Syntax OK"
+bash -n gz302-setup.sh && echo "✓ Syntax OK"
 
 # Test 2: Status mode
-sudo ./gz302-main-v4.sh --status
+sudo ./gz302-setup.sh --status
 
 # Test 3: Actual run
-sudo ./gz302-main-v4.sh
+sudo ./gz302-setup.sh
 
 # Note: v4.0.0-dev main script is incomplete
 # Use v3.0.0 for full functionality testing
@@ -210,8 +210,8 @@ sudo ./gz302-main-v4.sh
 
 ```bash
 # Ensure v3 still works
-sudo ./gz302-main.sh
-sudo ./gz302-minimal.sh
+sudo ./gz302-setup.sh
+sudo ./gz302-setup.sh
 
 # v3 and v4 should not interfere
 ```
@@ -239,7 +239,7 @@ ping -c 4 8.8.8.8
 dmesg | grep -i "mt7925\|wifi" | tail -20
 
 # Library status
-sudo ./gz302-minimal-v4.sh --status | grep -A 10 "WiFi"
+sudo ./gz302-setup.sh --status | grep -A 10 "WiFi"
 ```
 
 ### GPU Testing
@@ -258,7 +258,7 @@ ls /lib/firmware/amdgpu/gc_11_5*
 glxinfo | grep -i "renderer\|version"
 
 # Library status
-sudo ./gz302-minimal-v4.sh --status | grep -A 10 "GPU"
+sudo ./gz302-setup.sh --status | grep -A 10 "GPU"
 ```
 
 ### Input Device Testing
@@ -274,7 +274,7 @@ libinput list-devices | grep -i keyboard
 # Try swiping, pinching, etc.
 
 # Library status
-sudo ./gz302-minimal-v4.sh --status | grep -A 10 "Input"
+sudo ./gz302-setup.sh --status | grep -A 10 "Input"
 ```
 
 ### Audio Testing
@@ -290,7 +290,7 @@ dmesg | grep -i cs35l41
 speaker-test -c 2 -t wav
 
 # Library status
-sudo ./gz302-minimal-v4.sh --status | grep -A 10 "Audio"
+sudo ./gz302-setup.sh --status | grep -A 10 "Audio"
 ```
 
 ---
@@ -327,10 +327,10 @@ tail /var/log/gz302/state.log
 ```bash
 # Run script twice, measure time difference
 echo "First run:"
-time sudo ./gz302-minimal-v4.sh
+time sudo ./gz302-setup.sh
 
 echo "Second run (should be much faster):"
-time sudo ./gz302-minimal-v4.sh
+time sudo ./gz302-setup.sh
 
 # First run: ~30 seconds
 # Second run: ~5 seconds (6x faster)
@@ -344,7 +344,7 @@ time sudo ./gz302-minimal-v4.sh
 
 ```bash
 # Measure script execution time
-time sudo ./gz302-minimal-v4.sh
+time sudo ./gz302-setup.sh
 
 # Expected times:
 # - First run: 20-40 seconds
@@ -359,7 +359,7 @@ time sudo ./gz302-minimal-v4.sh
 watch -n 1 'ps aux | grep gz302'
 
 # Check memory usage
-/usr/bin/time -v sudo ./gz302-minimal-v4.sh 2>&1 | grep -i "maximum resident"
+/usr/bin/time -v sudo ./gz302-setup.sh 2>&1 | grep -i "maximum resident"
 
 # Typical: < 50MB RAM usage
 ```
@@ -381,19 +381,19 @@ watch -n 1 'ps aux | grep gz302'
 
 ```bash
 # Arch-based
-sudo ./gz302-minimal-v4.sh  # Should detect "arch"
+sudo ./gz302-setup.sh  # Should detect "arch"
 
 # Ubuntu-based
-sudo ./gz302-minimal-v4.sh  # Should detect "ubuntu"
+sudo ./gz302-setup.sh  # Should detect "ubuntu"
 
 # Fedora-based
-sudo ./gz302-minimal-v4.sh  # Should detect "fedora"
+sudo ./gz302-setup.sh  # Should detect "fedora"
 
 # OpenSUSE-based
-sudo ./gz302-minimal-v4.sh  # Should detect "opensuse"
+sudo ./gz302-setup.sh  # Should detect "opensuse"
 
 # Check detection
-sudo ./gz302-minimal-v4.sh --status | grep "Detected"
+sudo ./gz302-setup.sh --status | grep "Detected"
 ```
 
 ---
@@ -404,8 +404,8 @@ sudo ./gz302-minimal-v4.sh --status | grep "Detected"
 
 ```bash
 # v3.0.0 scripts should be unaffected by v4 development
-sudo ./gz302-main.sh
-sudo ./gz302-minimal.sh
+sudo ./gz302-setup.sh
+sudo ./gz302-setup.sh
 
 # Check TDP control (v3 only)
 pwrcfg list
@@ -420,9 +420,9 @@ rrcfg balanced
 
 ```bash
 # v4 should not break v3 configurations
-sudo ./gz302-main.sh       # Apply v3
-sudo ./gz302-minimal-v4.sh # Apply v4
-sudo ./gz302-main.sh       # Re-apply v3
+sudo ./gz302-setup.sh       # Apply v3
+sudo ./gz302-setup.sh # Apply v4
+sudo ./gz302-setup.sh       # Re-apply v3
 
 # All should work without conflicts
 ```
@@ -495,8 +495,8 @@ jobs:
 ### Tests Performed
 
 1. **Syntax Validation**
-   - gz302-main-v4.sh: ✅ Pass
-   - gz302-minimal-v4.sh: ✅ Pass
+   - gz302-setup.sh: ✅ Pass
+   - gz302-setup.sh: ✅ Pass
    - All libraries: ✅ Pass
 
 2. **Shellcheck**
@@ -542,7 +542,7 @@ tail /var/log/gz302/state.log
 **Issue: Permission denied**
 ```bash
 # Ensure running as root
-sudo ./gz302-minimal-v4.sh
+sudo ./gz302-setup.sh
 ```
 
 **Issue: Libraries not found**

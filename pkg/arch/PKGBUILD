@@ -1,34 +1,48 @@
 # Maintainer: th3cavalry <github.com/th3cavalry>
-pkgname=gz302-control-center
-pkgver=4.0.0
+pkgname=gz302-linux-setup
+pkgver=5.0.0
 pkgrel=1
-pkgdesc="Linux optimization suite and control center for ASUS ROG Flow Z13 (GZ302)"
+pkgdesc="Linux optimization suite for ASUS ROG Flow Z13 (GZ302) — z13ctl backend"
 arch=('any')
 url="https://github.com/th3cavalry/GZ302-Linux-Setup"
 license=('MIT')
-depends=('python' 'python-pyqt6' 'python-psutil' 'libusb' 'libnotify' 'ryzenadj')
-optdepends=('steam: Gaming support' 'ollama: AI support')
+depends=('bash' 'curl')
+optdepends=(
+    'python-pyqt6: System tray control center'
+    'python-psutil: Battery monitoring in tray app'
+    'z13ctl: Hardware control backend (installed by setup)'
+    'steam: Gaming support (optional module)'
+    'ollama: AI support (optional module)'
+)
 source=("${url}/archive/refs/heads/main.zip")
 sha256sums=('SKIP')
 
 package() {
     cd "$srcdir/GZ302-Linux-Setup-main"
-    
-    # Install binaries
-    install -Dm755 scripts/gz302-rgb.sh "$pkgdir/usr/local/bin/gz302-rgb"
-    install -Dm755 scripts/gz302-rgb-window.py "$pkgdir/usr/local/bin/gz302-rgb-window"
-    
-    # Install libs
-    install -d "$pkgdir/usr/local/share/gz302/lib"
-    cp -r gz302-lib/* "$pkgdir/usr/local/share/gz302/lib/"
-    
-    # Install Tray App
+
+    # Install main setup script
+    install -Dm755 gz302-setup.sh "$pkgdir/usr/local/bin/gz302-setup"
+
+    # Install libraries
+    install -d "$pkgdir/usr/local/share/gz302/gz302-lib"
+    install -Dm644 gz302-lib/*.sh "$pkgdir/usr/local/share/gz302/gz302-lib/"
+    install -Dm644 VERSION "$pkgdir/usr/local/share/gz302/VERSION"
+
+    # Install optional modules
+    install -d "$pkgdir/usr/local/share/gz302/modules"
+    install -Dm644 modules/*.sh "$pkgdir/usr/local/share/gz302/modules/"
+
+    # Install tray app
     install -d "$pkgdir/usr/local/share/gz302/tray-icon"
     cp -r tray-icon/* "$pkgdir/usr/local/share/gz302/tray-icon/"
-    
-    # Install udev rules
-    install -Dm644 scripts/99-gz302-rgb.rules "$pkgdir/etc/udev/rules.d/99-gz302-rgb.rules" # Needs to be created
-    
-    # Install desktop file
-    install -Dm644 tray-icon/gz302-tray.desktop "$pkgdir/usr/share/applications/gz302-control-center.desktop"
+
+    # Install scripts
+    install -d "$pkgdir/usr/local/share/gz302/scripts"
+    install -Dm755 scripts/fix-suspend.sh "$pkgdir/usr/local/share/gz302/scripts/"
+    install -d "$pkgdir/usr/local/share/gz302/scripts/uninstall"
+    install -Dm755 scripts/uninstall/gz302-uninstall.sh "$pkgdir/usr/local/share/gz302/scripts/uninstall/"
+
+    # Install keyboard backlight listener
+    install -Dm755 scripts/gz302-kbd-backlight-listener.py "$pkgdir/usr/local/bin/gz302-kbd-backlight-listener"
+    install -Dm644 scripts/gz302-kbd-backlight-listener.service "$pkgdir/usr/lib/systemd/system/gz302-kbd-backlight-listener.service"
 }

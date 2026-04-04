@@ -65,18 +65,27 @@ jobs:
       - name: Check version consistency
         run: |
           echo "Checking version consistency..."
-          main_version=$(grep "^# Version:" gz302-main.sh | head -1 | sed 's/# Version: //')
+          main_version=$(grep "^# Version:" gz302-setup.sh | head -1 | sed 's/# Version: //')
+          version_file=$(cat VERSION)
           echo "Main script version: $main_version"
+          echo "VERSION file: $version_file"
           errors=0
-          for script in gz302-minimal.sh; do
+
+          if [ "$main_version" != "$version_file" ]; then
+            echo "Version mismatch: VERSION file has $version_file (expected $main_version)"
+            errors=$((errors + 1))
+          fi
+
+          for script in gz302-lib/*.sh modules/*.sh; do
             if [ -f "$script" ]; then
               version=$(grep "^# Version:" "$script" | head -1 | sed 's/# Version: //')
-              if [ "$version" != "$main_version" ]; then
+              if [ -n "$version" ] && [ "$version" != "$main_version" ]; then
                 echo "Version mismatch: $script has $version (expected $main_version)"
                 errors=$((errors + 1))
               fi
             fi
           done
+
           if [ $errors -gt 0 ]; then
             echo "Found $errors version mismatch(es)"
             exit 1

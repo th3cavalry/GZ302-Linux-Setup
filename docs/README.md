@@ -9,7 +9,6 @@ Documentation for the ASUS ROG Flow Z13 (GZ302) Linux Setup project.
 | [Kernel Support](kernel-support.md) | Kernel compatibility matrix, troubleshooting |
 | [AI/ML Packages](ai-ml-packages.md) | ROCm, Ollama, PyTorch setup |
 | [ROCm Support](rocm-support.md) | ROCm 7.1.1 configuration |
-| [RGB Lightbar](rgb-lightbar.md) | Rear window RGB control |
 | [Testing Guide](testing-guide.md) | How to test changes |
 | [Changelog](CHANGELOG.md) | Version history |
 | [Obsolescence Analysis](obsolescence-analysis.md) | Component lifecycle status |
@@ -38,15 +37,13 @@ Documentation for the ASUS ROG Flow Z13 (GZ302) Linux Setup project.
 
 ```
 GZ302-Linux-Setup/
-├── gz302-main.sh          # Main installer
-├── gz302-minimal.sh       # Minimal hardware fixes
-├── install-command-center.sh  # GUI tools installer
+├── gz302-setup.sh         # Unified installer (v5.0.0)
 ├── gz302-lib/             # Shared bash libraries
-├── modules/               # Optional modules (gaming, AI)
+├── modules/               # Optional modules (gaming, AI, hypervisor)
 ├── scripts/               # Standalone tools & utilities
-│   ├── gz302-rgb*         # RGB control scripts
 │   └── uninstall/         # Cleanup scripts
 ├── tray-icon/             # Python/Qt6 system tray app
+├── pkg/arch/              # Arch Linux PKGBUILD
 └── docs/                  # Documentation (you are here)
 ```
 
@@ -57,11 +54,7 @@ To pull the latest fixes and apply them:
 ```bash
 cd GZ302-Linux-Setup
 git pull
-
-# Re-run the relevant installer to apply updates:
-sudo ./gz302-main.sh              # Hardware fixes
-sudo ./install-command-center.sh  # Power/RGB tools
-sudo ./scripts/gz302-rgb-install.sh  # RGB only
+sudo bash gz302-setup.sh
 ```
 
 > [!NOTE]

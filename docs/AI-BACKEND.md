@@ -95,13 +95,13 @@ Set `AI_BACKEND` before running the installer:
 
 ```bash
 # Use Lemonade (default)
-sudo AI_BACKEND=lemonade ./install-command-center.sh
+sudo AI_BACKEND=lemonade bash gz302-setup.sh
 
 # Use ROCm
-sudo AI_BACKEND=rocm ./install-command-center.sh
+sudo AI_BACKEND=rocm bash gz302-setup.sh
 
 # Use CPU only
-sudo AI_BACKEND=cpu ./install-command-center.sh
+sudo AI_BACKEND=cpu bash gz302-setup.sh
 ```
 
 ### Supported Backends

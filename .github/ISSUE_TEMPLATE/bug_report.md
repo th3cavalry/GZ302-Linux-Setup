@@ -12,7 +12,7 @@ assignees: ''
 ## System Information
 **Distribution:** <!-- e.g., Arch Linux, Ubuntu 24.04, Fedora 40 -->
 **Kernel Version:** <!-- Output of: uname -r -->
-**Script Version:** <!-- Check header of gz302-main.sh -->
+**Script Version:** <!-- Check header of gz302-setup.sh or run: grep 'Version:' gz302-setup.sh -->
 
 **Hardware:**
 ```

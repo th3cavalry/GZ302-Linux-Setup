@@ -38,7 +38,7 @@ This document analyzes the obsolescence status of GZ302-Linux-Setup components a
 
 ### 1. WiFi (MediaTek MT7925)
 
-#### Repository Implementation (gz302-minimal.sh)
+#### Repository Implementation (gz302-setup.sh)
 ```bash
 # Applies modprobe configuration
 options mt7925e disable_aspm=1
@@ -265,7 +265,7 @@ amd_iommu=off          # Disable IOMMU for lower latency
 
 **Use kernel-aware installation:**
 
-The updated `gz302-minimal.sh` and `gz302-main.sh` scripts now detect your kernel version and apply **only necessary fixes**.
+The updated `gz302-setup.sh` script now detects your kernel version and applies **only necessary fixes**.
 
 **What happens automatically:**
 - Kernel < 6.17: Full hardware workarounds applied
