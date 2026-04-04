@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # ==============================================================================
-# Minimal Linux Setup Script for ASUS ROG Flow Z13 (GZ302) - v4.0.0
+# Minimal Linux Setup Script for ASUS ROG Flow Z13 (GZ302) - v4.2.1
 #
 # Author: th3cavalry using Copilot
-# Version: 4.1.0
+# Version: 4.2.1
 #
 # This script applies ONLY the essential hardware fixes needed to run Linux
 # properly on the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.
@@ -36,9 +36,9 @@
 # - OpenSUSE (Tumbleweed, Leap)
 #
 # USAGE:
-#   curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-minimal-v4.sh -o gz302-minimal-v4.sh
-#   chmod +x gz302-minimal-v4.sh
-#   sudo ./gz302-minimal-v4.sh [--status] [--force]
+#   curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-minimal.sh -o gz302-minimal.sh
+#   chmod +x gz302-minimal.sh
+#   sudo ./gz302-minimal.sh [--status] [--force]
 #
 # OPTIONS:
 #   --status    Show current system status and exit
@@ -48,7 +48,7 @@
 set -euo pipefail
 
 # --- Script Configuration ---
-SCRIPT_VERSION="4.1.0"
+SCRIPT_VERSION="4.2.1"
 GITHUB_RAW_URL="https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main"
 
 # --- Parse command-line arguments ---
@@ -66,10 +66,10 @@ for arg in "$@"; do
             ;;
         --help|-h)
             cat <<'HELP'
-GZ302 Minimal Setup Script v4.0.0-dev
+GZ302 Minimal Setup Script v4.2.1
 
 Usage:
-    sudo ./gz302-minimal-v4.sh [OPTIONS]
+    sudo ./gz302-minimal.sh [OPTIONS]
 
 Options:
     --status    Show current system status and exit
@@ -78,13 +78,13 @@ Options:
 
 Examples:
     # Normal installation (idempotent)
-    sudo ./gz302-minimal-v4.sh
+    sudo ./gz302-minimal.sh
 
     # Check status
-    sudo ./gz302-minimal-v4.sh --status
+    sudo ./gz302-minimal.sh --status
 
     # Force re-apply all fixes
-    sudo ./gz302-minimal-v4.sh --force
+    sudo ./gz302-minimal.sh --force
 
 Features:
     - Kernel-aware hardware fixes
@@ -166,7 +166,7 @@ echo
 check_root() {
     if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
         echo "ERROR: This script must be run as root"
-        echo "Usage: sudo ./gz302-minimal-v4.sh"
+        echo "Usage: sudo ./gz302-minimal.sh"
         exit 1
     fi
 }
@@ -384,7 +384,7 @@ echo "  Logs: /var/log/gz302/"
 echo
 echo "Next Steps:"
 echo "  1. Reboot your system for changes to take effect"
-echo "  2. Check status: sudo ./gz302-minimal-v4.sh --status"
+echo "  2. Check status: sudo ./gz302-minimal.sh --status"
 echo "  3. For full features: sudo ./gz302-main.sh"
 echo
 

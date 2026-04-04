@@ -3,7 +3,7 @@
 
 # ==============================================================================
 # GZ302 Kernel Compatibility Library
-# Version: 4.1.0
+# Version: 4.2.1
 #
 # This library provides central kernel version detection and compatibility
 # logic for all other libraries. It determines what workarounds are needed
@@ -17,7 +17,7 @@
 # - 6.18: ROCm 7.2 support for gfx1151
 # - 6.19+: CS35L41 audio native, Linux 7.0 development
 #
-# Last Updated: February 2026
+# Last Updated: April 2026
 #
 # Usage:
 #   source gz302-lib/kernel-compat.sh
@@ -180,6 +180,40 @@ kernel_has_amdgpu_dc_fixes() {
     local version_num
     version_num=$(kernel_get_version_num)
     [[ $version_num -ge $KERNEL_STABLE ]]
+}
+
+# Check if kernel has PSR-SU fixes (eDP panels)
+# Returns: 0 if has fixes, 1 if not (PSR-SU disabled on eDP)
+# Note: PSR-SU disabled on eDP panels in kernel 6.12+ (commit e8863f8b0316d8ee1e7e5291e8f2f72c91ac967d)
+kernel_has_psr_su_fixes() {
+    local version_num
+    version_num=$(kernel_get_version_num)
+    [[ $version_num -ge 612 ]]
+}
+
+# Check if PSR-SU workaround is required (kernel < 6.12 or specific OLED panels)
+# Returns: 0 if workaround needed, 1 if not needed
+kernel_requires_psr_su_workaround() {
+    local version_num
+    version_num=$(kernel_get_version_num)
+    # PSR-SU workaround needed for kernels < 6.12
+    [[ $version_num -lt 612 ]]
+}
+
+# Get PSR-SU kernel parameter for current kernel
+# Returns: Kernel parameter string for PSR-SU
+kernel_get_psr_su_parameter() {
+    local version_num
+    version_num=$(kernel_get_version_num)
+    
+    # For kernels < 6.12, recommend dcdebugmask=0x200 to disable PSR-SU
+    if [[ $version_num -lt 612 ]]; then
+        echo "amdgpu.dcdebugmask=0x200"
+    else
+        # For kernels >= 6.12, PSR-SU is already disabled on eDP panels
+        # But add parameter as safety measure for OLED panels
+        echo "amdgpu.dcdebugmask=0x200"
+    fi
 }
 
 # --- Status and Information Functions ---

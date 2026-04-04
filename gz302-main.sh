@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # Author: th3cavalry using Copilot
-# Version: 4.2.0 (Refactored)
+# Version: 4.2.1
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -123,6 +123,7 @@ load_library "gpu-manager.sh" || warning "Failed to load gpu-manager.sh"
 load_library "audio-manager.sh" || warning "Failed to load audio-manager.sh"
 load_library "input-manager.sh" || warning "Failed to load input-manager.sh"
 load_library "rgb-manager.sh" || warning "Failed to load rgb-manager.sh"
+load_library "display-fix.sh" || warning "Failed to load display-fix.sh"
 load_library "kernel-compat.sh" || warning "Failed to load kernel-compat.sh"
 load_library "state-manager.sh" || warning "Failed to load state-manager.sh"
 load_library "distro-manager.sh" || warning "Failed to load distro-manager.sh"
@@ -183,7 +184,346 @@ check_kernel_version() {
     fi
 }
 
+# --- Hardware Fixes ---
+apply_hardware_fixes() {
+    info "Applying GZ302 hardware fixes using modular libraries..."
+    
+    local kver
+    kver=$(check_kernel_version)
+    
+    # 1. WiFi Configuration
+    info "Configuring WiFi (MediaTek MT7925)..."
+    if wifi_detect_hardware >/dev/null 2>&1; then
+        if wifi_apply_configuration; then
+            success "WiFi configuration applied"
+        else
+            warning "WiFi configuration reported issues"
+        fi
+    else
+        info "WiFi hardware not detected, skipping."
+    fi
 
+    # 2. GPU Configuration
+    info "Configuring GPU (AMD Radeon 8060S)..."
+    if gpu_detect_hardware >/dev/null 2>&1; then
+        if gpu_apply_configuration; then
+            success "GPU configuration applied"
+        else
+             warning "GPU configuration reported issues"
+        fi
+    else
+        info "GPU hardware not detected, skipping."
+    fi
+
+    # 3. Input Configuration (Keyboard/Touchpad)
+    info "Configuring Input Devices..."
+    if input_detect_hid_devices >/dev/null 2>&1; then
+        if input_apply_configuration "$kver"; then
+             success "Input configuration applied"
+        else
+             warning "Input configuration reported issues"
+        fi
+    else
+         info "Input devices not detected, skipping."
+    fi
+
+    # 4. RGB Configuration (Lightbar/Window + Keyboard Rules)
+    info "Configuring RGB Devices (Keyboard & Lightbar)..."
+    if rgb_install_udev_rules; then
+        success "RGB udev rules installed"
+    else
+        warning "Failed to install RGB udev rules"
+    fi
+
+    # 5. Early KMS (Arch mkinitcpio only)
+    configure_early_kms
+
+    # 6. Keyboard Backlight Restore on suspend/resume
+    configure_keyboard_backlight_restore
+
+    # 7. OLED Display PSR-SU Fix
+    info "Checking OLED display PSR-SU configuration..."
+    if display_psr_su_enabled 2>/dev/null; then
+        info "PSR-SU is enabled — applying fix to prevent scrolling artifacts..."
+        if display_apply_psr_su_fix; then
+            success "OLED PSR-SU fix applied"
+        else
+            warning "PSR-SU fix reported issues"
+        fi
+    else
+        success "OLED PSR-SU already disabled"
+    fi
+
+    success "Hardware fixes applied via libraries"
+}
+
+# --- Legacy Inline Functions (Preserved for specific logic not yet in libs) ---
+
+configure_early_kms() {
+    # Only applies to Arch-based distros using mkinitcpio
+    if [[ -f /etc/mkinitcpio.conf ]]; then
+        info "Checking Early KMS configuration..."
+        # Read the MODULES line
+        local modules_line
+        modules_line=$(grep "^MODULES=" /etc/mkinitcpio.conf)
+        
+        if [[ "$modules_line" != *"amdgpu"* ]]; then
+            info "Enabling Early KMS for amdgpu (fixes boot/reboot freeze)..."
+            # Backup
+            cp /etc/mkinitcpio.conf /etc/mkinitcpio.conf.bak
+            
+            # Add amdgpu to MODULES. Robustly handles () or (module1 module2)
+            sed -i -E 's/^MODULES=\((.*)\)/MODULES=(\1 amdgpu)/' /etc/mkinitcpio.conf
+            sed -i 's/MODULES=( amdgpu)/MODULES=(amdgpu)/' /etc/mkinitcpio.conf
+            
+            info "Regenerating initramfs..."
+            if mkinitcpio -P; then
+                success "Early KMS enabled"
+            else
+                warning "Failed to regenerate initramfs. Please run 'sudo mkinitcpio -P' manually."
+            fi
+        else
+            success "Early KMS already enabled"
+        fi
+    fi
+}
+
+configure_keyboard_backlight_restore() {
+    # Set up keyboard backlight restore after suspend/resume
+    info "Configuring keyboard backlight resume restore..."
+    mkdir -p /usr/lib/systemd/system-sleep /var/lib/gz302
+    cat > /usr/lib/systemd/system-sleep/gz302-kbd-backlight <<'EOF'
+#!/bin/bash
+# Restore ASUS keyboard backlight after resume (GZ302)
+STATE_FILE="/var/lib/gz302/kbd_backlight.brightness"
+mapfile -t LEDS < <(ls -d /sys/class/leds/*kbd*backlight* 2>/dev/null)
+
+case "$1" in
+    pre)
+        if [[ ${#LEDS[@]} -gt 0 && -f "${LEDS[0]}/brightness" ]]; then
+            cat "${LEDS[0]}/brightness" > "$STATE_FILE" 2>/dev/null || true
+        fi
+        ;;
+    post)
+        for _ in 1 2 3 4 5; do
+            if [[ ${#LEDS[@]} -gt 0 ]]; then
+                for led in "${LEDS[@]}"; do
+                    if [[ -f "$led/brightness" ]]; then
+                        if [[ -s "$STATE_FILE" ]]; then
+                            BR=$(cat "$STATE_FILE" 2>/dev/null)
+                        else
+                            MAX=$(cat "$led/max_brightness" 2>/dev/null || echo 3)
+                            BR=$((MAX/2))
+                            [[ $BR -lt 1 ]] && BR=1
+                        fi
+                        echo "$BR" > "$led/brightness" 2>/dev/null || true
+                    fi
+                done
+                break
+            fi
+            sleep 0.5
+        done
+        if command -v systemctl >/dev/null 2>&1; then
+            systemctl try-restart asusd.service 2>/dev/null || true
+        fi
+        ;;
+esac
+exit 0
+EOF
+    chmod +x /usr/lib/systemd/system-sleep/gz302-kbd-backlight
+
+    # Services for boot/shutdown persistence
+    cat > /etc/systemd/system/gz302-kbd-backlight-restore.service <<EOF
+[Unit]
+Description=GZ302 Keyboard Backlight Restore
+After=multi-user.target
+ConditionPathExists=/var/lib/gz302/kbd_backlight.brightness
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'for led in /sys/class/leds/*kbd*backlight*; do [[ -f \$led/brightness ]] && cat /var/lib/gz302/kbd_backlight.brightness > \$led/brightness 2>/dev/null || true; done'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    cat > /etc/systemd/system/gz302-kbd-backlight-save.service <<EOF
+[Unit]
+Description=GZ302 Keyboard Backlight Save
+DefaultDependencies=no
+Before=shutdown.target reboot.target halt.target poweroff.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'for led in /sys/class/leds/*kbd*backlight*; do [[ -f \$led/brightness ]] && cat \$led/brightness > /var/lib/gz302/kbd_backlight.brightness 2>/dev/null || true; break; done'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=shutdown.target reboot.target halt.target poweroff.target
+EOF
+
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable gz302-kbd-backlight-restore.service 2>/dev/null || true
+    systemctl enable gz302-kbd-backlight-save.service 2>/dev/null || true
+}
+
+# --- Distribution-Specific Optimizations Info ---
+# Provides information about distribution-specific optimizations for Strix Halo
+provide_distro_optimization_info() {
+    local distro="$1"
+    
+    # Detect specific distribution ID for CachyOS
+    local distro_id=""
+    if [[ -f /etc/os-release ]]; then
+        # shellcheck disable=SC1091
+        source /etc/os-release
+        distro_id="${ID:-}"
+    fi
+    
+    # CachyOS-specific optimizations
+    if [[ "$distro_id" == "cachyos" ]]; then
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info "CachyOS Detected - Performance Optimizations Available"
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info ""
+        info "CachyOS provides excellent out-of-the-box performance for Strix Halo:"
+        info ""
+        info "✓ Optimized kernel with BORE scheduler (better gaming/interactive performance)"
+        info "✓ Packages compiled with x86-64-v3/v4 optimizations (5-20% performance boost)"
+        info "✓ LTO/PGO optimizations for better binary performance"
+        info "✓ AMD P-State driver enhancements built-in"
+        info ""
+        info "Additional Optimizations Available:"
+        info "1. Consider using 'amd_pstate=active' for better battery life:"
+        info "   - Edit /etc/default/grub and change amd_pstate=guided to amd_pstate=active"
+        info "   - Run: grub-mkconfig -o /boot/grub/grub.cfg"
+        info "   - Active mode lets hardware autonomously choose optimal frequencies"
+        info ""
+        info "2. Use CachyOS kernel manager to select optimized kernel:"
+        info "   - linux-cachyos-bore (recommended for gaming/desktop)"
+        info "   - linux-cachyos-rt-bore (for real-time workloads)"
+        info "   - linux-cachyos-lts (for stability)"
+        info ""
+        info "3. Performance tuning via /sys/devices/system/cpu/amd_pstate/:"
+        info "   - Set performance governor: for cpu in /sys/devices/system/cpu/cpu[0-9]*; do"
+        info "     echo 'performance' > \$cpu/cpufreq/scaling_governor 2>/dev/null; done"
+        info "   - Or use 'powersave' governor with energy_performance_preference"
+        info ""
+        info "Reference: https://wiki.cachyos.org/configuration/general_system_tweaks/"
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info ""
+    fi
+    
+    # General AMD P-State information for all Arch-based distributions
+    if [[ "$distro" == "arch" ]] && [[ "$distro_id" != "cachyos" ]]; then
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info "Arch Linux Performance Tuning for Strix Halo"
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info ""
+        info "AMD P-State Mode: Currently using 'guided' (good for consistent performance)"
+        info ""
+        info "Alternative: Switch to 'active' mode for better battery life:"
+        info "  1. Edit /etc/default/grub"
+        info "  2. Change: amd_pstate=guided → amd_pstate=active"
+        info "  3. Run: grub-mkconfig -o /boot/grub/grub.cfg"
+        info "  4. Reboot"
+        info ""
+        info "Active mode pros: Better power efficiency, hardware makes smart decisions"
+        info "Guided mode pros: More predictable performance, better for gaming/heavy loads"
+        info ""
+        info "Performance tip: Install CachyOS repositories for optimized packages:"
+        info "  - 5-20% performance improvement from x86-64-v3/v4 optimized builds"
+        info "  - https://wiki.cachyos.org/features/optimized_repos/"
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info ""
+    fi
+    
+    # Information for other distributions
+    if [[ "$distro" != "arch" ]]; then
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info "AMD P-State Driver Information"
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info ""
+        info "Current mode: 'guided' (balanced performance and power efficiency)"
+        info ""
+        info "For better battery life, consider switching to 'active' mode:"
+        info "  - Hardware autonomously manages frequencies based on workload"
+        info "  - Better power efficiency with good performance"
+        info ""
+        info "To switch modes, edit your bootloader configuration and change:"
+        info "  amd_pstate=guided → amd_pstate=active"
+        info ""
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        info ""
+    fi
+}
+
+
+# --- Sound Open Firmware (SOF) Configuration ---
+# Delegates to audio-manager library for SOF firmware and CS35L41 amplifier setup
+install_sof_firmware() {
+    local distro="$1"
+    if declare -f audio_install_sof_firmware >/dev/null 2>&1; then
+        audio_install_sof_firmware "$distro"
+    else
+        warning "audio-manager library not loaded - cannot install SOF firmware"
+    fi
+}
+
+
+
+# --- Battery Limit Fallback Service ---
+setup_battery_limit_service() {
+    info "Setting up battery charge limit service (80%)"
+
+    # Create script to set battery charge limit
+    local script_path="/usr/local/bin/set-battery-limit.sh"
+    cat > "$script_path" << 'EOS'
+#!/bin/sh
+echo 80 > /sys/class/power_supply/BAT0/charge_control_end_threshold
+EOS
+    chmod 755 "$script_path"
+    chown root:root "$script_path"
+
+    # Create systemd service for battery charge limit
+    cat > /etc/systemd/system/battery-charge-limit.service << EOF
+[Unit]
+Description=Set battery charge limit to 80%
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=$script_path
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Reload systemd and enable service
+    systemctl daemon-reload
+    systemctl enable --now battery-charge-limit.service 2>/dev/null || warning "Failed to enable battery charge limit service"
+
+    # Verify the setting was applied
+    local limit
+    limit=$(cat /sys/class/power_supply/BAT0/charge_control_end_threshold 2>/dev/null || echo "0")
+    if [[ "$limit" == "80" ]]; then
+        success "Battery charge limit set to 80%"
+        info "Battery will stop charging at 80% to preserve battery health"
+        return 0
+    else
+        warning "Failed to set battery charge limit - may require asusctl for this hardware"
+        return 1
+    fi
+}
+
+# --- Command Center Installation Delegation ---
+
+
+
+
+# --- Command Center Installation Delegation ---
 offer_command_center_install() {
     local distro="$1"
     echo
@@ -221,6 +561,7 @@ install_command_center() {
     fi
 }
 
+# --- Module Download and Execution ---
 download_and_execute_module() {
     local module_name="$1"
     local distro="$2"
@@ -247,7 +588,183 @@ download_and_execute_module() {
         return 1
     fi
 }
+# --- Distribution-Specific Setup Functions ---
+setup_arch_based() {
+    local distro="$1"
+    print_subsection "Arch-based System Setup"
+    
+    # Step 1: Update system
+    print_step 1 4 "Updating system and installing base dependencies..."
+    if ! is_step_completed "arch_update"; then
+        printf '%s' "${C_DIM}"
+        pacman -Syu --noconfirm --needed
+        pacman -S --noconfirm --needed git base-devel wget curl
+        printf '%s' "${C_NC}"
+        complete_step "arch_update"
+    fi
+    completed_item "System updated"
+    
+    # Step 2: Install AUR helper
+    print_step 2 4 "Setting up AUR helper..."
+    if ! is_step_completed "arch_aur"; then
+        if [[ "$distro" == "arch" ]] && ! command -v yay >/dev/null 2>&1; then
+            info "Installing yay AUR helper..."
+            local primary_user
+            primary_user=$(get_real_user)
+            printf '%s' "${C_DIM}"
+            sudo -u "$primary_user" -H bash << 'EOFYAY'
+cd /tmp
+git clone https://aur.archlinux.org/yay.git
+cd yay
+makepkg -si --noconfirm
+EOFYAY
+            printf '%s' "${C_NC}"
+        fi
+        complete_step "arch_aur"
+    fi
+    completed_item "AUR helper ready"
+    
+    # Step 3: Apply hardware fixes
+    print_step 3 4 "Applying hardware fixes..."
+    if ! is_step_completed "arch_hardware"; then
+        apply_hardware_fixes
+        complete_step "arch_hardware"
+    fi
+    completed_item "Hardware fixes applied"
+    
+    # Provide distribution-specific optimization information
+    provide_distro_optimization_info "$distro"
+    
+    # Step 4: Install ASUS-specific packages
+    # (Delegated to Command Center)
 
+    
+    # Step 4: Install SOF firmware for audio support
+    print_step 4 4 "Installing audio firmware..."
+    if ! is_step_completed "arch_audio"; then
+        printf '%s' "${C_DIM}"
+        install_sof_firmware "arch"
+        printf '%s' "${C_NC}"
+        complete_step "arch_audio"
+    fi
+    completed_item "Audio firmware installed"
+}
+
+setup_debian_based() {
+    local distro="$1"
+    print_subsection "Debian-based System Setup"
+    
+    # Step 1: Update system
+    print_step 1 3 "Updating system and installing base dependencies..."
+    if ! is_step_completed "debian_update"; then
+        printf '%s' "${C_DIM}"
+        apt update
+        apt upgrade -y
+        apt install -y curl wget git build-essential \
+            apt-transport-https ca-certificates gnupg lsb-release
+        printf '%s' "${C_NC}"
+        complete_step "debian_update"
+    fi
+    completed_item "System updated"
+    
+    # Step 2: Apply hardware fixes
+    print_step 2 3 "Applying hardware fixes..."
+    if ! is_step_completed "debian_hardware"; then
+        apply_hardware_fixes
+        complete_step "debian_hardware"
+    fi
+    completed_item "Hardware fixes applied"
+    
+    # Provide distribution-specific optimization information
+    provide_distro_optimization_info "$distro"
+    
+    # Step 3: Install SOF firmware for audio support
+    print_step 3 3 "Installing audio firmware..."
+    if ! is_step_completed "debian_audio"; then
+        printf '%s' "${C_DIM}"
+        install_sof_firmware "ubuntu"
+        printf '%s' "${C_NC}"
+        complete_step "debian_audio"
+    fi
+    completed_item "Audio firmware installed"
+}
+
+setup_fedora_based() {
+    local distro="$1"
+    print_subsection "Fedora-based System Setup"
+    
+    # Step 1: Update system
+    print_step 1 3 "Updating system and installing base dependencies..."
+    if ! is_step_completed "fedora_update"; then
+        printf '%s' "${C_DIM}"
+        dnf upgrade -y
+        dnf install -y curl wget git gcc make kernel-devel
+        printf '%s' "${C_NC}"
+        complete_step "fedora_update"
+    fi
+    completed_item "System updated"
+    
+    # Step 2: Apply hardware fixes
+    print_step 2 3 "Applying hardware fixes..."
+    if ! is_step_completed "fedora_hardware"; then
+        apply_hardware_fixes
+        complete_step "fedora_hardware"
+    fi
+    completed_item "Hardware fixes applied"
+    
+    # Provide distribution-specific optimization information
+    provide_distro_optimization_info "$distro"
+    
+    # Step 3: Install SOF firmware for audio support
+    print_step 3 3 "Installing audio firmware..."
+    if ! is_step_completed "fedora_audio"; then
+        printf '%s' "${C_DIM}"
+        install_sof_firmware "fedora"
+        printf '%s' "${C_NC}"
+        complete_step "fedora_audio"
+    fi
+    completed_item "Audio firmware installed"
+}
+
+setup_opensuse() {
+    local distro="$1"
+    print_subsection "OpenSUSE System Setup"
+    
+    # Step 1: Update system
+    print_step 1 3 "Updating system and installing base dependencies..."
+    if ! is_step_completed "opensuse_update"; then
+        printf '%s' "${C_DIM}"
+        zypper refresh
+        zypper update -y
+        zypper install -y curl wget git gcc make kernel-devel
+        printf '%s' "${C_NC}"
+        complete_step "opensuse_update"
+    fi
+    completed_item "System updated"
+    
+    # Step 2: Apply hardware fixes
+    print_step 2 3 "Applying hardware fixes..."
+    if ! is_step_completed "opensuse_hardware"; then
+        apply_hardware_fixes
+        complete_step "opensuse_hardware"
+    fi
+    completed_item "Hardware fixes applied"
+    
+    # Provide distribution-specific optimization information
+    provide_distro_optimization_info "$distro"
+    
+    # Step 3: Install SOF firmware for audio support
+    print_step 3 3 "Installing audio firmware..."
+    if ! is_step_completed "opensuse_audio"; then
+        printf '%s' "${C_DIM}"
+        install_sof_firmware "opensuse"
+        printf '%s' "${C_NC}"
+        complete_step "opensuse_audio"
+    fi
+    completed_item "Audio firmware installed"
+}
+
+# --- Optional Module Installation ---
 offer_optional_modules() {
     local distro="$1"
     echo
@@ -320,7 +837,7 @@ main() {
     fi
     
     print_banner
-    print_section "GZ302 Linux Setup v4.2.0"
+    print_section "GZ302 Linux Setup v$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null || echo '4.2.1')"
     
     if check_resume "main"; then
         if prompt_resume "main"; then
@@ -377,6 +894,15 @@ main() {
     
         echo
         print_section "Setup Complete"
+        
+        print_subsection "Applied Hardware Fixes"
+        completed_item "Wi-Fi stability (MediaTek MT7925e)"
+        completed_item "Touchpad detection and functionality"
+        completed_item "Audio support (SOF firmware)"
+        completed_item "GPU and thermal optimizations"
+        echo
+        
+        # Offer Command Center installation (User Tools)
         offer_command_center_install "$detected_distro"
         offer_optional_modules "$detected_distro"
     fi

@@ -1,6 +1,6 @@
 # 🚀 GZ302 Linux Toolkit
 
-![Version](https://img.shields.io/badge/version-4.2.0-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-4.2.1-blue?style=for-the-badge)
 ![Kernel](https://img.shields.io/badge/Kernel-6.14%2B-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Device-ASUS%20ROG%20Flow%20Z13-red?style=for-the-badge)
@@ -90,8 +90,33 @@ The **Full Setup** script includes an optional module manager:
 The scripts automatically detect your kernel and adapt the strategy:
 
 *   **Kernel < 6.14:** ❌ **Unsupported.** Please upgrade.
-*   **Kernel 6.14 - 6.16:** ✅ **Legacy Mode.** Applies essential workarounds for WiFi (MT7925), Touchpad, and Tablet mode.
-*   **Kernel 6.17+:** ✨ **Native Mode.** Most hardware works out of the box. The toolkit cleans up obsolete fixes and focuses on performance tuning.
+*   **Kernel 6.14 - 6.16:** ✅ **Essential.** Applies heavy patching for WiFi (MT7925), Touchpad, and Tablet mode.
+*   **Kernel 6.17+:** ✨ **Native Mode.** Most hardware works out of the box. The script cleans up obsolete fixes and focuses on performance tuning.
+
+---
+
+## 🖥️ Display Fixes
+
+### OLED Scrolling Artifacts Fix
+
+**Issue:** Purple/green color artifacts and digital/QR-code-like patterns visible during scrolling on the OLED display.
+
+**Cause:** PSR-SU (Power Save Refresh - Sub-Viewport Update) can cause visual artifacts on OLED panels, especially during scrolling.
+
+**Fix Applied:** `amdgpu.dcdebugmask=0x200` disables PSR-SU.
+
+**Automatic Fix:** The full setup scripts (`gz302-main.sh`, `gz302-minimal.sh`) automatically apply this fix during installation.
+
+**Manual Fix:** If you need to apply the fix manually:
+
+```bash
+# Add to GRUB (replace /boot/grub/grub.cfg with your GRUB config path)
+sudo sed -i 's/\(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*\)"/\1 amdgpu.dcdebugmask=0x200"/' /etc/default/grub
+sudo update-grub
+
+# Or add to systemd-boot kernel cmdline
+echo "amdgpu.dcdebugmask=0x200" | sudo tee -a /etc/kernel/cmdline
+```
 
 ---
 
@@ -123,3 +148,4 @@ GZ302-Linux-Setup/
 
 **License:** MIT  
 **Maintained by:** th3cavalry
+

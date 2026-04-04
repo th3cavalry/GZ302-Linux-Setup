@@ -5,7 +5,7 @@
 # GZ302 RGB Control Installation Script
 #
 # Author: th3cavalry using Copilot
-# Version: 3.1.0
+# Version: 4.2.1
 #
 # Unified installation script for both RGB control zones on the GZ302:
 # 1. Keyboard RGB (USB 0x0b05:0x1a30) - C binary compiled from gz302-rgb-cli.c
@@ -213,14 +213,16 @@ install_window_rgb() {
 install_restore_service() {
     print_subsection "Installing RGB Restore Service"
     
-    # Create config directory with permissive permissions
-    # This allows the GUI/CLI (running as user) to save settings without sudo
+    # Create config directory with group-writable permissions
+    # The tray GUI (running as user) needs to save settings; using 775/664 with users group
     mkdir -p "$CONFIG_DIR"
-    chmod 777 "$CONFIG_DIR"
+    chgrp users "$CONFIG_DIR" 2>/dev/null || true
+    chmod 775 "$CONFIG_DIR"
     
-    # Create config files with user-writable permissions
+    # Create config files with group-writable permissions
     touch "$CONFIG_DIR/rgb-keyboard.conf" "$CONFIG_DIR/rgb-window.conf"
-    chmod 666 "$CONFIG_DIR/rgb-keyboard.conf" "$CONFIG_DIR/rgb-window.conf"
+    chgrp users "$CONFIG_DIR/rgb-keyboard.conf" "$CONFIG_DIR/rgb-window.conf" 2>/dev/null || true
+    chmod 664 "$CONFIG_DIR/rgb-keyboard.conf" "$CONFIG_DIR/rgb-window.conf"
     completed_item "Config directory and files created with user write permissions"
     
     # Install restore script
@@ -240,9 +242,10 @@ WIN_CONFIG="/etc/gz302/rgb-window.conf"
 KEYBOARD_RGB="/usr/local/bin/gz302-rgb"
 WINDOW_RGB="/usr/local/bin/gz302-rgb-window"
 
-# Ensure config files are user-writable if they exist
+# Ensure config files are group-writable if they exist
 touch "$KBD_CONFIG" "$WIN_CONFIG" 2>/dev/null || true
-chmod 666 "$KBD_CONFIG" "$WIN_CONFIG" 2>/dev/null || true
+chgrp users "$KBD_CONFIG" "$WIN_CONFIG" 2>/dev/null || true
+chmod 664 "$KBD_CONFIG" "$WIN_CONFIG" 2>/dev/null || true
 
 # Wait for hardware to be ready
 sleep 2

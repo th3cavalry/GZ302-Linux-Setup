@@ -3,7 +3,7 @@
 
 # ==============================================================================
 # GZ302 State Manager Library
-# Version: 3.0.0
+# Version: 4.2.1
 #
 # This library provides persistent state tracking for the GZ302 toolkit.
 # It tracks what fixes have been applied, when they were applied, and provides

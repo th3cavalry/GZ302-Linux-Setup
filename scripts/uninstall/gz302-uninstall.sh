@@ -4,7 +4,7 @@
 # Uninstall Script for ASUS ROG Flow Z13 (GZ302) Setup
 #
 # Author: th3cavalry using Copilot
-# Version: 4.0.0
+# Version: 4.2.1
 #
 # This script completely removes:
 # - Hardware fixes (kernel parameters, modprobe configs)

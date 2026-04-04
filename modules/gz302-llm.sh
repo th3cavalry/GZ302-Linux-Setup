@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 4.1.0
+# Version: 4.2.1
 #
 # This module installs LLM backends for the ASUS ROG Flow Z13 (GZ302)
 # Uses official installation methods - no custom builds
@@ -59,7 +59,7 @@ fi
 
 
 # --- Configuration ---
-LLM_VERSION="4.1.0"
+LLM_VERSION="4.2.1"
 OLLAMA_ENV_FILE="/etc/systemd/system/ollama.service.d/gz302.conf"
 LMSTUDIO_APPIMAGE="${HOME}/Applications/LMStudio.AppImage"
 VLLM_VENV="/opt/gz302-vllm"
@@ -195,9 +195,10 @@ install_lmstudio() {
     info "Downloading LM Studio AppImage..."
     mkdir -p "$(dirname "$LMSTUDIO_APPIMAGE")"
     
-    local download_url="https://installers.lmstudio.ai/linux/x64/LM-Studio-0.3.6-x86_64.AppImage"
+    # Fetch latest version dynamically; fall back to manual download
+    local download_url="https://lmstudio.ai/download/linux"
     
-    if ! curl -fsSL "$download_url" -o "$LMSTUDIO_APPIMAGE"; then
+    if ! curl -fsSL -o "$LMSTUDIO_APPIMAGE" "$download_url"; then
         warning "Could not download LM Studio automatically"
         info "Please download manually from: https://lmstudio.ai/download"
         return 1
@@ -507,7 +508,7 @@ install_python_ai_libs() {
     
     info "Installing PyTorch with ROCm support..."
     "${venv_path}/bin/pip" install --upgrade pip
-    "${venv_path}/bin/pip" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2
+    "${venv_path}/bin/pip" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm7.2
     
     info "Installing AI/ML libraries..."
     "${venv_path}/bin/pip" install \

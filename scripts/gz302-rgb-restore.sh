@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 RGB Restore Script
-# Version: 3.0.4
+# Version: 4.2.1
 #
 # Restores the last used RGB setting on system boot and after resume.
 # Called by systemd service: gz302-rgb-restore.service

@@ -8,12 +8,13 @@ Hardware optimization toolkit for ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MA
 |-----------|---------|
 | `gz302-main.sh` | Core script: hardware fixes, power/display management, distro detection |
 | `gz302-minimal.sh` | Minimal essential fixes only |
-| `gz302-utils.sh` | Shared utilities: colors, logging, checkpoints, backups |
+| `gz302-lib/utils.sh` | Shared utilities: colors, logging, checkpoints, backups |
 | `gz302-lib/` | Library-first modules (v4 architecture): wifi, gpu, input, audio managers |
-| `gz302-{gaming,llm,rgb,hypervisor,snapshots,secureboot}.sh` | Optional modules (downloaded on demand) |
+| `modules/` | Optional modules (downloaded on demand): gaming, llm, hypervisor |
+| `scripts/` | RGB install, udev rules, uninstall, suspend hooks |
 | `tray-icon/` | PyQt6 system tray for power profile switching |
 
-**Key design:** Scripts are **kernel-aware**—kernel 6.17+ needs fewer workarounds than 6.14-6.16. See `Info/OBSOLESCENCE.md`.
+**Key design:** Scripts are **kernel-aware**—kernel 6.17+ needs fewer workarounds than 6.14-6.16. See `docs/obsolescence-analysis.md`.
 
 ## Validation (Required Before Commits)
 
@@ -26,11 +27,11 @@ CI runs: syntax check, ShellCheck (warning severity), version consistency across
 
 ## Version Management
 
-**Current version: 3.0.3** (line 5 of `gz302-main.sh`)
+**Current version: 4.2.1** (line 5 of `gz302-main.sh`)
 
 All module scripts must match. On any change:
 1. Increment version in `gz302-main.sh` (PATCH/MINOR/MAJOR)
-2. Update matching scripts: `gz302-{utils,minimal,gaming,llm,rgb,...}.sh`
+2. Update `VERSION` file and matching scripts in `gz302-lib/`, `modules/`, `scripts/`
 3. CI will fail if versions mismatch
 
 ## Bash Conventions
