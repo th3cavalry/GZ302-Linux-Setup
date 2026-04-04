@@ -107,18 +107,36 @@ else
 fi
 
 # --- Load Libraries ---
+# Expected version for all library files (must match # Version: line)
+GZ302_LIB_VERSION="5.0.0"
+
 load_library() {
     local lib_name="$1"
     local lib_path="${SCRIPT_DIR}/gz302-lib/${lib_name}"
+
+    # If the file exists locally, validate its version before using it.
+    # Stale libraries from a prior major version are re-downloaded.
     if [[ -f "$lib_path" ]]; then
-        # shellcheck source=/dev/null
-        source "$lib_path"
-        return 0
+        local local_ver
+        local_ver=$(grep -m1 '^# Version:' "$lib_path" 2>/dev/null | awk '{print $3}' || true)
+        if [[ "$local_ver" == "$GZ302_LIB_VERSION" ]]; then
+            # shellcheck source=/dev/null
+            source "$lib_path"
+            return 0
+        fi
+        info "Stale library ${lib_name} (found ${local_ver:-unknown}, need ${GZ302_LIB_VERSION}) — refreshing..."
+        rm -f "$lib_path"
     fi
+
     info "Downloading ${lib_name}..."
     mkdir -p "${SCRIPT_DIR}/gz302-lib"
     if command -v curl >/dev/null 2>&1; then
         curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/${lib_name}" -o "$lib_path" || return 1
+        # shellcheck source=/dev/null
+        source "$lib_path"
+        return 0
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q "${GITHUB_RAW_URL}/gz302-lib/${lib_name}" -O "$lib_path" || return 1
         # shellcheck source=/dev/null
         source "$lib_path"
         return 0
