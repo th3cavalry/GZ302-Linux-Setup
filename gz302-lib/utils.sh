@@ -8,10 +8,10 @@
 
 # ==============================================================================
 # GZ302 Shared Utilities Library
-# Version: 4.2.1
+# Version: 5.0.0
 #
 # This library contains shared functions for the GZ302 Linux Setup scripts.
-# It is sourced by gz302-main.sh and all optional modules.
+# It is sourced by gz302-setup.sh and all optional modules.
 # ==============================================================================
 
 # --- System Paths (Single Source of Truth) ---

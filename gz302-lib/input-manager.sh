@@ -3,7 +3,7 @@
 
 # ==============================================================================
 # GZ302 Input Manager Library
-# Version: 4.2.1
+# Version: 5.0.0
 #
 # This library manages ASUS HID devices (keyboard, touchpad) and tablet mode
 # functionality for the GZ302.

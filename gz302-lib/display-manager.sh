@@ -3,7 +3,7 @@
 
 # ==============================================================================
 # GZ302 Display Manager Library
-# Version: 4.2.1
+# Version: 5.0.0
 #
 # This library provides refresh rate management and display control for the
 # ASUS ROG Flow Z13 (GZ302) with its 180Hz display.
@@ -611,4 +611,23 @@ display_init_config() {
     if [[ ! -f "$DISPLAY_VRR_ENABLED_FILE" ]]; then
         echo "false" > "$DISPLAY_VRR_ENABLED_FILE"
     fi
+}
+
+# --- Library Info ---
+display_lib_version() {
+    echo "5.0.0"
+}
+
+display_lib_help() {
+    echo "GZ302 Display Manager Library"
+    echo ""
+    echo "Functions:"
+    echo "  display_detect_outputs      - Detect connected displays"
+    echo "  display_get_current_refresh  - Get current refresh rate"
+    echo "  display_apply_profile        - Apply a refresh rate profile"
+    echo "  display_vrr_enable/disable   - Control Variable Refresh Rate"
+    echo "  display_print_status         - Show current display state"
+    echo "  display_list_profiles        - List available profiles"
+    echo "  display_lib_version          - Show library version"
+    echo "  display_lib_help             - Show this help"
 }

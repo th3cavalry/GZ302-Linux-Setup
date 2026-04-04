@@ -7,7 +7,7 @@
 # This module installs hypervisor software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Full KVM/QEMU stack, VirtualBox
 #
-# This script is designed to be called by gz302-main.sh
+# This script is designed to be called by gz302-setup.sh
 # ==============================================================================
 
 set -euo pipefail

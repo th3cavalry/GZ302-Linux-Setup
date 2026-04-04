@@ -3,7 +3,7 @@
 
 # ==============================================================================
 # GZ302 Display Fix Library
-# Version: 4.2.1
+# Version: 5.0.0
 #
 # This library provides display-specific fixes for OLED panels on GZ302.
 # Focuses on PSR-SU (Power Save Refresh - Sub-Viewport Update) fixes to

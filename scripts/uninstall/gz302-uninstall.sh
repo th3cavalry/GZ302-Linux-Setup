@@ -4,12 +4,13 @@
 # Uninstall Script for ASUS ROG Flow Z13 (GZ302) Setup
 #
 # Author: th3cavalry using Copilot
-# Version: 4.2.1
+# Version: 5.0.0
 #
 # This script completely removes:
+# - z13ctl daemon, binary, and systemd units
 # - Hardware fixes (kernel parameters, modprobe configs)
-# - Power/Display management tools (pwrcfg, rrcfg)
-# - RGB control tools (gz302-rgb)
+# - Power/Display management tools (pwrcfg, rrcfg wrappers)
+# - RGB control wrappers (gz302-rgb)
 # - Command Center (Tray Icon)
 # - Systemd services and udev rules
 # - Configuration files and logs
@@ -102,6 +103,26 @@ main() {
     systemctl daemon-reload
     
     echo
+    info "Removing z13ctl..."
+    # Stop and disable z13ctl user daemon for all users
+    for home in /home/*; do
+        local user
+        user=$(basename "$home")
+        sudo -u "$user" systemctl --user stop z13ctl.service z13ctl.socket 2>/dev/null || true
+        sudo -u "$user" systemctl --user disable z13ctl.service z13ctl.socket 2>/dev/null || true
+        remove_file "$home/.config/systemd/user/z13ctl.service"
+        remove_file "$home/.config/systemd/user/z13ctl.socket"
+    done
+    # Remove z13ctl binary (only if installed manually, not via package manager)
+    if [[ -f /usr/local/bin/z13ctl ]]; then
+        remove_file "/usr/local/bin/z13ctl"
+    else
+        info "z13ctl installed via package manager — use your package manager to remove it"
+    fi
+    # z13ctl system-level permissions service
+    disable_service "z13ctl-perms.service"
+
+    echo
     info "Removing binaries and scripts..."
     # Power/Display Tools
     remove_file "/usr/local/bin/pwrcfg"
@@ -158,6 +179,8 @@ main() {
     remove_file "/etc/sudoers.d/gz302-pwrcfg"
     remove_file "/etc/sudoers.d/gz302-rgb"
     remove_file "/etc/sudoers.d/gz302-command-center"
+    remove_file "/etc/sudoers.d/gz302"
+    remove_file "/etc/sudoers.d/z13ctl"
     remove_file "/etc/sudoers.d/pwrcfg" # Legacy
     
     # Udev rules

@@ -3,7 +3,7 @@
 
 # ==============================================================================
 # GZ302 WiFi Manager Library
-# Version: 4.2.1
+# Version: 5.0.0
 #
 # This library provides hardware detection, configuration, and management
 # functions for the MediaTek MT7925e WiFi controller in the GZ302.

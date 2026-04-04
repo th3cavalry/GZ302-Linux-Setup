@@ -227,11 +227,13 @@ case "$1" in
         fi
 
         # ---------------------------------------------------------------
-        # 6. Restore RGB settings
+        # 6. Restore RGB settings (via z13ctl if available)
         # ---------------------------------------------------------------
         sleep 0.5
-        log "Restoring RGB settings..."
-        /usr/local/bin/gz302-rgb-restore 2>&1 | logger -t gz302-rgb-restore || true
+        if command -v z13ctl >/dev/null 2>&1; then
+            log "Restoring RGB settings via z13ctl..."
+            z13ctl apply 2>&1 | logger -t gz302-rgb-restore || true
+        fi
 
         # Clean up state dir
         rm -rf "$STATE_DIR"

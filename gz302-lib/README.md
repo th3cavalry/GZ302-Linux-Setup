@@ -54,13 +54,13 @@ All libraries are **complete and tested**. They follow the same pattern:
 | `input-manager.sh` | Touchpad, keyboard, tablet mode | ✅ Complete |
 | `audio-manager.sh` | CS35L41 speakers, SOF audio | ✅ Complete |
 
-### Feature Libraries (v4.0.0)
+### Feature Libraries (v5.0.0)
 
 | Library | Purpose | Status |
 |---------|---------|--------|
-| `power-manager.sh` | TDP profiles, power management (pwrcfg) | ✅ Complete |
 | `display-manager.sh` | Refresh rate profiles, VRR (rrcfg) | ✅ Complete |
-| `rgb-manager.sh` | Keyboard & lightbar RGB control | ✅ Complete |
+
+> **Note:** Power and RGB control are now handled by [z13ctl](https://github.com/dahui/z13ctl). The old `power-manager.sh` and `rgb-manager.sh` have been removed.
 
 ## Library Usage
 
@@ -74,29 +74,7 @@ Manages the MediaTek MT7925e WiFi controller.
 - `wifi_verify_working()` - Verify WiFi is functional
 - `wifi_print_status()` - Display formatted status
 
-### power-manager.sh (NEW)
-Manages TDP power profiles for AMD Ryzen AI MAX+ 395.
-
-**Key Functions:**
-- `power_detect_hardware()` - Detect Strix Halo CPU
-- `power_apply_profile()` - Apply power profile (emergency→maximum)
-- `power_get_source()` - Get AC/Battery status
-- `power_verify_settings()` - Verify TDP matches profile
-- `power_print_status()` - Display power status
-- `power_get_pwrcfg_script()` - Get pwrcfg CLI script content
-
-**Power Profiles:**
-| Profile | SPL/sPPT/fPPT | Use Case |
-|---------|---------------|----------|
-| emergency | 10/12/12W | Emergency battery |
-| battery | 18/20/20W | Maximum battery life |
-| efficient | 30/35/35W | Light workloads |
-| balanced | 40/45/45W | Default |
-| performance | 55/60/60W | Heavy tasks |
-| gaming | 70/80/80W | Gaming (AC) |
-| maximum | 90/90/90W | Maximum (AC only) |
-
-### display-manager.sh (NEW)
+### display-manager.sh
 Manages display refresh rates and VRR.
 
 **Key Functions:**
@@ -108,22 +86,6 @@ Manages display refresh rates and VRR.
 - `display_get_rrcfg_script()` - Get rrcfg CLI script content
 
 **Supports:** X11 (xrandr), Wayland (wlr-randr), KDE (kscreen-doctor)
-
-### rgb-manager.sh (NEW)
-Controls keyboard and lightbar RGB lighting.
-
-**Key Functions:**
-- `rgb_detect_keyboard_sysfs()` - Check aura_keyboard present
-- `rgb_detect_lightbar()` - Check lightbar HID device
-- `rgb_set_keyboard_color()` - Set keyboard RGB
-- `rgb_set_lightbar_color()` - Set lightbar RGB
-- `rgb_lightbar_on/off()` - Power control
-- `rgb_restore_all()` - Restore from saved config
-- `rgb_print_status()` - Display RGB status
-
-**Devices:**
-- Keyboard: `/sys/class/leds/aura_keyboard` or gz302-rgb binary
-- Lightbar: `/dev/hidrawX` (USB 0b05:18c6, N-KEY Device)
 
 ## Benefits of Library-First Design
 
@@ -165,17 +127,13 @@ Controls keyboard and lightbar RGB lighting.
 ✅ Integrate state checks into all libraries
 
 ### Phase 4: Feature Libraries ✅ Complete
-✅ Create power-manager.sh for TDP profiles
 ✅ Create display-manager.sh for refresh rate control
-✅ Create rgb-manager.sh for RGB lighting
-✅ Integrate into gz302-main-v4.sh
+✅ Power & RGB migrated to z13ctl (external backend)
 
-### Phase 5: Integration (Current)
-- [x] gz302-minimal-v4.sh uses core libraries
-- [x] gz302-main-v4.sh uses all libraries
-- [ ] Migrate optional modules to use libraries
-- [ ] Comprehensive testing on all distros
-- [ ] v4.0.0 stable release
+### Phase 5: Unified Installer ✅ Complete
+✅ gz302-setup.sh replaces all old entry points
+✅ z13ctl installed as hardware control backend
+✅ All libraries integrated into gz302-setup.sh
 
 ## Usage Examples
 
@@ -189,27 +147,12 @@ if wifi_detect_hardware >/dev/null 2>&1; then
 fi
 ```
 
-### Apply Power Profile
+### Power & RGB (via z13ctl)
 ```bash
-source gz302-lib/power-manager.sh
-
-# Apply balanced power profile
-power_apply_profile "balanced"
-
-# Check current status
-power_print_status
-```
-
-### RGB Control
-```bash
-source gz302-lib/rgb-manager.sh
-
-# Set keyboard to red
-rgb_set_keyboard_color 255 0 0
-
-# Set lightbar to blue
-rgb_lightbar_on
-rgb_set_lightbar_color 0 0 255
+# Power and RGB are now controlled via z13ctl:
+z13ctl profile --set balanced
+z13ctl apply --color red --mode static
+z13ctl off
 ```
 
 ### Apply Configuration

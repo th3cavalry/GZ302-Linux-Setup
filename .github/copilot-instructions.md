@@ -6,31 +6,31 @@ Hardware optimization toolkit for ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MA
 
 | Component | Purpose |
 |-----------|---------|
-| `gz302-main.sh` | Core script: hardware fixes, power/display management, distro detection |
-| `gz302-minimal.sh` | Minimal essential fixes only |
+| `gz302-setup.sh` | Unified installer: hardware fixes, z13ctl, display tools, optional modules |
 | `gz302-lib/utils.sh` | Shared utilities: colors, logging, checkpoints, backups |
-| `gz302-lib/` | Library-first modules (v4 architecture): wifi, gpu, input, audio managers |
+| `gz302-lib/` | Library-first modules (v5 architecture): wifi, gpu, input, audio, display, state managers |
 | `modules/` | Optional modules (downloaded on demand): gaming, llm, hypervisor |
-| `scripts/` | RGB install, udev rules, uninstall, suspend hooks |
-| `tray-icon/` | PyQt6 system tray for power profile switching |
+| `scripts/` | Uninstall, suspend hooks |
+| `tray-icon/` | PyQt6 system tray for power profile switching (z13ctl backend) |
 
-**Key design:** Scripts are **kernel-aware**—kernel 6.17+ needs fewer workarounds than 6.14-6.16. See `docs/obsolescence-analysis.md`.
+**Key design:** Scripts are **kernel-aware**—kernel 6.17+ needs fewer workarounds than 6.14-6.16. See `docs/obsolescence-analysis.md`.  
+**Hardware control:** Powered by [z13ctl](https://github.com/dahui/z13ctl) for RGB, power profiles, TDP, fan curves, and battery limit.
 
 ## Validation (Required Before Commits)
 
 ```bash
-bash -n gz302-main.sh && shellcheck gz302-main.sh   # Syntax + lint
-grep "^# Version:" gz302-*.sh                        # Check version sync
+bash -n gz302-setup.sh && shellcheck gz302-setup.sh   # Syntax + lint
+grep "^# Version:" gz302-*.sh                          # Check version sync
 ```
 
 CI runs: syntax check, ShellCheck (warning severity), version consistency across all modules.
 
 ## Version Management
 
-**Current version: 4.2.1** (line 5 of `gz302-main.sh`)
+**Current version: 5.0.0** (line 6 of `gz302-setup.sh`)
 
 All module scripts must match. On any change:
-1. Increment version in `gz302-main.sh` (PATCH/MINOR/MAJOR)
+1. Increment version in `gz302-setup.sh` (PATCH/MINOR/MAJOR)
 2. Update `VERSION` file and matching scripts in `gz302-lib/`, `modules/`, `scripts/`
 3. CI will fail if versions mismatch
 
@@ -68,17 +68,21 @@ For AUR packages on Arch: use `install_arch_packages_with_yay()` helper.
 
 ## Custom Commands (Created by Scripts)
 
-- `pwrcfg [profile|status|auto]` — Power management (7 profiles: 10W-90W)
+- `z13ctl apply --color X --mode Y` — RGB lighting (z13ctl native)
+- `z13ctl profile --set X` — Power profile switching (quiet, balanced, performance)
+- `z13ctl tdp --set X` — TDP control in watts
+- `z13ctl batterylimit --set X` — Battery charge limit
+- `z13ctl fancurve --set "..."` — Custom fan curves
+- `pwrcfg [profile|status|auto|tdp|fan|battery]` — Wrapper for z13ctl (backward compat)
+- `gz302-rgb [mode] [color]` — Wrapper for z13ctl apply (backward compat)
 - `rrcfg [profile|status|auto]` — Refresh rate control (30Hz-180Hz)
-- `gz302-rgb [color|effect]` — Keyboard RGB control (C binary)
-- `gz302-rgb-window --lightbar [0-3]` — Rear window RGB control (Python)
 
 ## RGB Control Architecture
 
-Both keyboard and rear window RGB are installed via `gz302-rgb-install.sh`:
-- **udev rules:** `/etc/udev/rules.d/99-gz302-rgb.rules` (unified for both devices)
-- **Config files:** `/etc/gz302/rgb-keyboard.conf`, `/etc/gz302/rgb-window.conf`
-- **Restore service:** `gz302-rgb-restore.service` (restores both on boot/resume)
+RGB control is handled by [z13ctl](https://github.com/dahui/z13ctl):
+- `z13ctl apply --color X --mode Y` — Set color and animation mode
+- `z13ctl off` — Turn off all RGB
+- Settings restored on boot/resume by z13ctl's own daemon
 
 ## Key Files
 

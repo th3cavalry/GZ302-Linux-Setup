@@ -3,7 +3,7 @@
 
 # ==============================================================================
 # GZ302 GPU Manager Library
-# Version: 4.2.1
+# Version: 5.0.0
 #
 # This library manages AMD Radeon 8060S (RDNA 3.5) integrated GPU configuration
 # for the GZ302 (Strix Halo platform).

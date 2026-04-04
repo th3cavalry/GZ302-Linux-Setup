@@ -93,10 +93,10 @@ error "Error message (exits script)"
 **Required before committing:**
 ```bash
 # Test individual script
-bash -n gz302-main.sh
+bash -n gz302-setup.sh
 
 # Test all scripts
-for script in gz302-*.sh; do
+for script in gz302-setup.sh gz302-lib/*.sh; do
     bash -n "$script" && echo "✓ $script" || echo "✗ $script FAILED"
 done
 ```
@@ -106,10 +106,10 @@ done
 **Required before committing:**
 ```bash
 # Lint individual script
-shellcheck gz302-main.sh
+shellcheck gz302-setup.sh
 
 # Lint all scripts
-for script in gz302-*.sh; do
+for script in gz302-setup.sh gz302-lib/*.sh; do
     echo "=== $script ==="
     shellcheck "$script"
 done

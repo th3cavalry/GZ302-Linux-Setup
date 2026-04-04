@@ -1,0 +1,847 @@
+#!/bin/bash
+
+# ==============================================================================
+# GZ302 Linux Setup — Unified Installer
+# Author: th3cavalry using Copilot
+# Version: 5.0.0
+#
+# Supported Models:
+# - GZ302EA-XS99 (128GB RAM)
+# - GZ302EA-XS98 (64GB RAM)
+# - GZ302EA-XS96 (32GB RAM)
+#
+# Single unified installer for the ASUS ROG Flow Z13 (GZ302) with
+# AMD Ryzen AI MAX+ 395. Replaces gz302-main.sh, gz302-minimal.sh,
+# and install-command-center.sh.
+#
+# Hardware control backend: z13ctl (https://github.com/dahui/z13ctl)
+# Protocol reference: g-helper (https://github.com/seerge/g-helper)
+# GUI inspiration: Strix-Halo-Control (https://github.com/TechnoDaimon/Strix-Halo-Control)
+#
+# REQUIRED: Linux kernel 6.14+ minimum (6.17+ strongly recommended)
+# ==============================================================================
+
+set -euo pipefail
+
+# --- CLI Flags ---
+ASSUME_YES="${ASSUME_YES:-false}"
+SKIP_FIXES=false
+SKIP_Z13CTL=false
+SKIP_TOOLS=false
+SKIP_MODULES=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -y|--assume-yes) ASSUME_YES=true; shift ;;
+        --fixes-only)    SKIP_Z13CTL=true; SKIP_TOOLS=true; SKIP_MODULES=true; shift ;;
+        --tools-only)    SKIP_FIXES=true; SKIP_MODULES=true; shift ;;
+        --no-fixes)      SKIP_FIXES=true; shift ;;
+        --no-z13ctl)     SKIP_Z13CTL=true; shift ;;
+        --no-tools)      SKIP_TOOLS=true; shift ;;
+        --no-modules)    SKIP_MODULES=true; shift ;;
+        -h|--help)
+            cat << 'EOF'
+GZ302 Linux Setup — Unified Installer v5.0.0
+
+Usage: sudo ./gz302-setup.sh [OPTIONS]
+
+Options:
+  -y, --assume-yes   Accept all defaults (non-interactive)
+  --fixes-only       Apply hardware fixes only (skip z13ctl, tools, modules)
+  --tools-only       Install tools only (skip hardware fixes and modules)
+  --no-fixes         Skip hardware fixes
+  --no-z13ctl        Skip z13ctl installation
+  --no-tools         Skip display tools and tray app
+  --no-modules       Skip optional modules
+  -h, --help         Show this help message
+
+Sections (each prompted with Y/n):
+  1. Hardware Fixes    WiFi, GPU, Input, Audio, Display, Suspend
+  2. z13ctl           RGB, power profiles, TDP, fan curves, battery
+  3. Display & Tools   Refresh rate control, system tray app
+  4. Optional Modules  Gaming, AI/LLM, Hypervisor
+
+Hardware control powered by z13ctl: https://github.com/dahui/z13ctl
+EOF
+            exit 0
+            ;;
+        --) shift; break ;;
+        -*) echo "Unknown option: $1"; exit 1 ;;
+        *)  break ;;
+    esac
+done
+
+# --- GitHub base URL ---
+GITHUB_RAW_URL="https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main"
+
+# --- Script directory detection ---
+resolve_script_dir() {
+    local source="${BASH_SOURCE[0]}"
+    while [[ -L "$source" ]]; do
+        local dir
+        dir=$(cd -P "$(dirname "$source")" && pwd)
+        source=$(readlink "$source")
+        [[ $source != /* ]] && source="${dir}/${source}"
+    done
+    cd -P "$(dirname "$source")" && pwd
+}
+SCRIPT_DIR="${SCRIPT_DIR:-$(resolve_script_dir)}"
+
+# --- Load Shared Utilities ---
+if [[ -f "${SCRIPT_DIR}/gz302-lib/utils.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "${SCRIPT_DIR}/gz302-lib/utils.sh"
+else
+    echo "gz302-lib/utils.sh not found. Downloading..."
+    mkdir -p "${SCRIPT_DIR}/gz302-lib"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -o "${SCRIPT_DIR}/gz302-lib/utils.sh"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q "${GITHUB_RAW_URL}/gz302-lib/utils.sh" -O "${SCRIPT_DIR}/gz302-lib/utils.sh"
+    else
+        echo "Error: curl or wget not found."
+        exit 1
+    fi
+    # shellcheck disable=SC1091
+    source "${SCRIPT_DIR}/gz302-lib/utils.sh"
+fi
+
+# --- Load Libraries ---
+load_library() {
+    local lib_name="$1"
+    local lib_path="${SCRIPT_DIR}/gz302-lib/${lib_name}"
+    if [[ -f "$lib_path" ]]; then
+        # shellcheck source=/dev/null
+        source "$lib_path"
+        return 0
+    fi
+    info "Downloading ${lib_name}..."
+    mkdir -p "${SCRIPT_DIR}/gz302-lib"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/${lib_name}" -o "$lib_path" || return 1
+        # shellcheck source=/dev/null
+        source "$lib_path"
+        return 0
+    fi
+    return 1
+}
+
+info "Loading libraries..."
+load_library "kernel-compat.sh" || warning "Failed to load kernel-compat.sh"
+load_library "state-manager.sh" || warning "Failed to load state-manager.sh"
+load_library "wifi-manager.sh"  || warning "Failed to load wifi-manager.sh"
+load_library "gpu-manager.sh"   || warning "Failed to load gpu-manager.sh"
+load_library "input-manager.sh" || warning "Failed to load input-manager.sh"
+load_library "audio-manager.sh" || warning "Failed to load audio-manager.sh"
+load_library "display-fix.sh"   || warning "Failed to load display-fix.sh"
+load_library "display-manager.sh" || warning "Failed to load display-manager.sh"
+
+state_init >/dev/null 2>&1 || true
+
+# ==============================================================================
+# Helper Functions
+# ==============================================================================
+
+check_root() {
+    if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
+        error "This script must be run as root. Please run: sudo ./gz302-setup.sh"
+    fi
+}
+
+check_network() {
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSIL --max-time 5 "https://github.com" >/dev/null 2>&1 && return 0
+    fi
+    if command -v ping >/dev/null 2>&1; then
+        ping -c1 -W2 1.1.1.1 >/dev/null 2>&1 && return 0
+    fi
+    return 1
+}
+
+check_kernel_version() {
+    if declare -f kernel_get_version_num >/dev/null 2>&1; then
+        local kver
+        kver=$(kernel_get_version_num)
+        info "Detected kernel version: $(uname -r)"
+        if ! kernel_meets_minimum 2>/dev/null; then
+            error "Kernel 6.14+ is required. Please upgrade."
+        fi
+        if [[ $kver -ge 619 ]]; then
+            success "Kernel 6.19+ — all hardware natively supported"
+        elif [[ $kver -ge 617 ]]; then
+            success "Kernel 6.17+ — recommended (WiFi/Input native)"
+        else
+            warning "Kernel 6.14–6.16 — some workarounds will be applied"
+        fi
+        echo "$kver"
+    else
+        local major minor
+        major=$(uname -r | cut -d. -f1)
+        minor=$(uname -r | cut -d. -f2)
+        echo $((major * 100 + minor))
+    fi
+}
+
+# Prompt helper — returns 0 for yes, 1 for no
+prompt_section() {
+    local prompt="$1"
+    local default="${2:-Y}"
+    if [[ "$ASSUME_YES" == "true" ]]; then
+        return 0
+    fi
+    ask_yes_no "$prompt" "$default"
+}
+
+# ==============================================================================
+# Section 1: Hardware Fixes
+# ==============================================================================
+
+apply_hardware_fixes() {
+    print_section "Section 1: Hardware Fixes"
+    info "Applying kernel-level fixes for GZ302 hardware..."
+
+    local kver
+    kver=$(check_kernel_version)
+
+    # 1. WiFi (MediaTek MT7925)
+    info "Configuring WiFi (MediaTek MT7925)..."
+    if wifi_detect_hardware >/dev/null 2>&1; then
+        wifi_apply_configuration && success "WiFi configured" || warning "WiFi issues detected"
+    else
+        info "WiFi hardware not detected, skipping."
+    fi
+
+    # 2. GPU (AMD Radeon 8060S)
+    info "Configuring GPU (AMD Radeon 8060S)..."
+    if gpu_detect_hardware >/dev/null 2>&1; then
+        gpu_apply_configuration && success "GPU configured" || warning "GPU issues detected"
+    else
+        info "GPU hardware not detected, skipping."
+    fi
+
+    # 3. Input Devices (Keyboard/Touchpad)
+    info "Configuring Input Devices..."
+    if input_detect_hid_devices >/dev/null 2>&1; then
+        input_apply_configuration "$kver" && success "Input configured" || warning "Input issues detected"
+    else
+        info "Input devices not detected, skipping."
+    fi
+
+    # 4. Audio (SOF Firmware + CS35L41)
+    info "Installing audio firmware..."
+    local distro
+    distro=$(detect_distribution)
+    if declare -f audio_install_sof_firmware >/dev/null 2>&1; then
+        audio_install_sof_firmware "$distro" && success "Audio firmware installed" || warning "Audio issues detected"
+    fi
+
+    # 5. Display (PSR-SU OLED fix)
+    info "Checking OLED display PSR-SU configuration..."
+    if display_psr_su_enabled 2>/dev/null; then
+        info "PSR-SU is enabled — applying fix for scrolling artifacts..."
+        display_apply_psr_su_fix && success "PSR-SU fix applied" || warning "PSR-SU fix issues"
+    else
+        success "PSR-SU already disabled"
+    fi
+
+    # 6. Early KMS (Arch only)
+    configure_early_kms
+
+    # 7. Suspend Fix
+    install_suspend_fix
+
+    success "Hardware fixes complete"
+}
+
+configure_early_kms() {
+    [[ -f /etc/mkinitcpio.conf ]] || return 0
+    info "Checking Early KMS configuration..."
+    local modules_line
+    modules_line=$(grep "^MODULES=" /etc/mkinitcpio.conf || true)
+    if [[ "$modules_line" != *"amdgpu"* ]]; then
+        info "Enabling Early KMS for amdgpu..."
+        cp /etc/mkinitcpio.conf /etc/mkinitcpio.conf.bak
+        sed -i -E 's/^MODULES=\((.*)\)/MODULES=(\1 amdgpu)/' /etc/mkinitcpio.conf
+        sed -i 's/MODULES=( amdgpu)/MODULES=(amdgpu)/' /etc/mkinitcpio.conf
+        mkinitcpio -P && success "Early KMS enabled" || warning "Failed to regenerate initramfs"
+    else
+        success "Early KMS already enabled"
+    fi
+}
+
+install_suspend_fix() {
+    info "Installing suspend/resume fix..."
+    local fix_script="${SCRIPT_DIR}/scripts/fix-suspend.sh"
+    if [[ -f "$fix_script" ]]; then
+        bash "$fix_script" && success "Suspend fix installed" || warning "Suspend fix issues"
+    else
+        info "Suspend fix script not found, downloading..."
+        local tmp="/tmp/fix-suspend.sh"
+        if curl -fsSL "${GITHUB_RAW_URL}/scripts/fix-suspend.sh" -o "$tmp" 2>/dev/null; then
+            bash "$tmp" && success "Suspend fix installed" || warning "Suspend fix issues"
+            rm -f "$tmp"
+        else
+            warning "Could not download suspend fix"
+        fi
+    fi
+}
+
+# ==============================================================================
+# Section 2: z13ctl — Hardware Control Backend
+# ==============================================================================
+
+install_z13ctl() {
+    print_section "Section 2: z13ctl — Hardware Control"
+    info "z13ctl provides RGB lighting, power profiles, TDP, fan curves,"
+    info "battery charge limit, undervolt, and sleep/resume recovery."
+    info "Project: https://github.com/dahui/z13ctl"
+    echo
+
+    local distro
+    distro=$(detect_distribution)
+
+    # Check if already installed
+    if command -v z13ctl >/dev/null 2>&1; then
+        local installed_ver
+        installed_ver=$(z13ctl --version 2>/dev/null || echo "unknown")
+        success "z13ctl already installed (${installed_ver})"
+        info "Ensuring setup and daemon are configured..."
+        z13ctl_setup_permissions
+        z13ctl_enable_daemon
+        z13ctl_generate_wrappers
+        return 0
+    fi
+
+    # Install per distribution
+    case "$distro" in
+        arch)
+            info "Installing z13ctl from AUR..."
+            local real_user
+            real_user=$(get_real_user)
+            if command -v yay >/dev/null 2>&1; then
+                sudo -u "$real_user" yay -S --noconfirm z13ctl-bin
+            elif command -v paru >/dev/null 2>&1; then
+                sudo -u "$real_user" paru -S --noconfirm z13ctl-bin
+            else
+                warning "No AUR helper found. Installing from release tarball..."
+                z13ctl_install_from_release
+            fi
+            ;;
+        debian|ubuntu)
+            info "Installing z13ctl from .deb package..."
+            local deb_url
+            deb_url=$(z13ctl_get_release_url ".deb")
+            if [[ -n "$deb_url" ]]; then
+                local tmp_deb="/tmp/z13ctl.deb"
+                curl -fsSL "$deb_url" -o "$tmp_deb"
+                apt install -y "$tmp_deb"
+                rm -f "$tmp_deb"
+            else
+                z13ctl_install_from_release
+            fi
+            ;;
+        fedora)
+            info "Installing z13ctl from .rpm package..."
+            local rpm_url
+            rpm_url=$(z13ctl_get_release_url ".rpm")
+            if [[ -n "$rpm_url" ]]; then
+                dnf install -y "$rpm_url"
+            else
+                z13ctl_install_from_release
+            fi
+            ;;
+        *)
+            z13ctl_install_from_release
+            ;;
+    esac
+
+    if ! command -v z13ctl >/dev/null 2>&1; then
+        warning "z13ctl installation failed. RGB and power control will not be available."
+        return 1
+    fi
+
+    success "z13ctl installed successfully"
+
+    z13ctl_setup_permissions
+    z13ctl_enable_daemon
+    z13ctl_generate_wrappers
+
+    success "z13ctl setup complete — RGB, power, TDP, fan curves ready"
+}
+
+z13ctl_get_release_url() {
+    local suffix="$1"
+    local api_url="https://api.github.com/repos/dahui/z13ctl/releases/latest"
+    curl -fsSL "$api_url" 2>/dev/null \
+        | grep -o "\"browser_download_url\": *\"[^\"]*${suffix}\"" \
+        | head -1 \
+        | sed 's/"browser_download_url": *"//' \
+        | tr -d '"'
+}
+
+z13ctl_install_from_release() {
+    info "Installing z13ctl from release tarball..."
+    local tar_url
+    tar_url=$(z13ctl_get_release_url "_linux_amd64.tar.gz")
+    if [[ -z "$tar_url" ]]; then
+        warning "Could not find z13ctl release URL"
+        return 1
+    fi
+    local tmp_dir="/tmp/z13ctl-install"
+    mkdir -p "$tmp_dir"
+    curl -fsSL "$tar_url" -o "$tmp_dir/z13ctl.tar.gz"
+    tar xzf "$tmp_dir/z13ctl.tar.gz" -C "$tmp_dir"
+    install -Dm755 "$tmp_dir/z13ctl" /usr/local/bin/z13ctl
+    rm -rf "$tmp_dir"
+}
+
+z13ctl_setup_permissions() {
+    info "Running z13ctl setup (udev rules + permissions)..."
+    z13ctl setup 2>/dev/null || warning "z13ctl setup reported issues"
+}
+
+z13ctl_enable_daemon() {
+    info "Enabling z13ctl user daemon..."
+    local real_user
+    real_user=$(get_real_user)
+    local real_home
+    real_home=$(eval echo "~${real_user}")
+
+    # Install systemd user units if not present
+    local user_systemd="${real_home}/.config/systemd/user"
+    if [[ ! -f "${user_systemd}/z13ctl.socket" ]]; then
+        mkdir -p "$user_systemd"
+
+        # Try to find contrib files from package install
+        local contrib_socket=""
+        for path in /usr/share/z13ctl/systemd/user/z13ctl.socket \
+                    /usr/lib/systemd/user/z13ctl.socket; do
+            if [[ -f "$path" ]]; then
+                contrib_socket="$(dirname "$path")"
+                break
+            fi
+        done
+
+        if [[ -n "$contrib_socket" ]]; then
+            install -Dm644 "${contrib_socket}/z13ctl.socket" "${user_systemd}/z13ctl.socket"
+            install -Dm644 "${contrib_socket}/z13ctl.service" "${user_systemd}/z13ctl.service"
+        else
+            # Create minimal units
+            cat > "${user_systemd}/z13ctl.socket" << 'EOF'
+[Unit]
+Description=z13ctl socket
+
+[Socket]
+ListenStream=%t/z13ctl/z13ctl.sock
+SocketMode=0660
+
+[Install]
+WantedBy=sockets.target
+EOF
+            cat > "${user_systemd}/z13ctl.service" << 'EOF'
+[Unit]
+Description=z13ctl daemon
+Requires=z13ctl.socket
+After=z13ctl.socket
+
+[Service]
+Type=notify
+ExecStart=/usr/local/bin/z13ctl daemon
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+        fi
+        chown -R "${real_user}:" "$user_systemd"
+    fi
+
+    # Enable and start as the real user
+    sudo -u "$real_user" systemctl --user daemon-reload 2>/dev/null || true
+    sudo -u "$real_user" systemctl --user enable --now z13ctl.socket z13ctl.service 2>/dev/null \
+        && success "z13ctl daemon enabled" \
+        || warning "z13ctl daemon setup may need manual enable after login"
+}
+
+z13ctl_generate_wrappers() {
+    info "Generating backward-compatible CLI wrappers..."
+
+    # pwrcfg — maps legacy profile names to z13ctl
+    cat > /usr/local/bin/pwrcfg << 'PWRCFG'
+#!/bin/bash
+# pwrcfg — Power profile wrapper for z13ctl
+# Generated by GZ302 Linux Setup
+
+case "${1:-status}" in
+    silent|quiet)     z13ctl profile --set quiet ;;
+    balanced)         z13ctl profile --set balanced ;;
+    performance)      z13ctl profile --set performance ;;
+    gaming|turbo|max) z13ctl profile --set performance ;;
+    custom)           z13ctl profile --set custom ;;
+    status)           z13ctl status ;;
+    auto)
+        if [[ -d /sys/class/power_supply/AC0 ]] && \
+           [[ "$(cat /sys/class/power_supply/AC0/online 2>/dev/null)" == "1" ]]; then
+            z13ctl profile --set balanced
+        else
+            z13ctl profile --set quiet
+        fi
+        ;;
+    tdp)
+        shift
+        z13ctl tdp "$@"
+        ;;
+    fan|fancurve)
+        shift
+        z13ctl fancurve "$@"
+        ;;
+    battery)
+        shift
+        z13ctl batterylimit "$@"
+        ;;
+    *)
+        echo "Usage: pwrcfg [silent|balanced|performance|gaming|turbo|max|custom|status|auto|tdp|fan|battery]"
+        echo ""
+        echo "Advanced (via z13ctl):"
+        echo "  pwrcfg tdp --set 50        Set TDP to 50W"
+        echo "  pwrcfg fan --get           Show current fan curve"
+        echo "  pwrcfg battery --set 80    Set battery charge limit"
+        echo ""
+        echo "Powered by z13ctl: https://github.com/dahui/z13ctl"
+        ;;
+esac
+PWRCFG
+    chmod 755 /usr/local/bin/pwrcfg
+
+    # gz302-rgb — maps to z13ctl apply
+    cat > /usr/local/bin/gz302-rgb << 'RGBWRAP'
+#!/bin/bash
+# gz302-rgb — RGB control wrapper for z13ctl
+# Generated by GZ302 Linux Setup
+
+case "${1:-help}" in
+    static)
+        z13ctl apply --mode static --color "${2:-white}" --brightness "${3:-high}"
+        ;;
+    breathe|breathing)
+        z13ctl apply --mode breathe --color "${2:-cyan}" --color2 "${3:-blue}" --speed "${4:-normal}"
+        ;;
+    cycle)
+        z13ctl apply --mode cycle --speed "${2:-normal}"
+        ;;
+    rainbow)
+        z13ctl apply --mode rainbow --speed "${2:-normal}"
+        ;;
+    strobe)
+        z13ctl apply --mode strobe --color "${2:-white}" --speed "${3:-normal}"
+        ;;
+    off)
+        z13ctl off
+        ;;
+    brightness)
+        z13ctl brightness "${2:-high}"
+        ;;
+    status)
+        z13ctl status
+        ;;
+    list|colors)
+        z13ctl apply --list-colors
+        ;;
+    *)
+        echo "Usage: gz302-rgb <mode> [color] [options]"
+        echo ""
+        echo "Modes:"
+        echo "  static <color>              Solid color (e.g., static red)"
+        echo "  breathe <color1> <color2>   Pulsing between two colors"
+        echo "  cycle [speed]               Cycle through spectrum"
+        echo "  rainbow [speed]             Rainbow wave"
+        echo "  strobe <color> [speed]      Rapid flash"
+        echo "  off                         Turn off all lighting"
+        echo "  brightness <level>          off|low|medium|high"
+        echo "  status                      Show current status"
+        echo "  colors                      List named colors"
+        echo ""
+        echo "Speed: slow|normal|fast"
+        echo "Colors: red, blue, cyan, green, purple, hotpink, white, etc."
+        echo "        Or any 6-digit hex value (e.g., FF00FF)"
+        echo ""
+        echo "Powered by z13ctl: https://github.com/dahui/z13ctl"
+        ;;
+esac
+RGBWRAP
+    chmod 755 /usr/local/bin/gz302-rgb
+
+    # Sudoers for wrappers (passwordless for the real user)
+    local real_user
+    real_user=$(get_real_user)
+    local sudoers_file="/etc/sudoers.d/gz302"
+    cat > "$sudoers_file" << EOF
+# GZ302 Linux Setup — passwordless access for hardware control
+${real_user} ALL=(ALL) NOPASSWD: /usr/local/bin/pwrcfg
+${real_user} ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
+${real_user} ALL=(ALL) NOPASSWD: /usr/local/bin/z13ctl
+EOF
+    chmod 440 "$sudoers_file"
+
+    success "CLI wrappers installed: pwrcfg, gz302-rgb"
+}
+
+# ==============================================================================
+# Section 3: Display Tools & System Tray
+# ==============================================================================
+
+install_display_tools() {
+    print_section "Section 3: Display & Tools"
+
+    local distro
+    distro=$(detect_distribution)
+
+    # Refresh rate control (rrcfg)
+    info "Installing refresh rate control (rrcfg)..."
+    if declare -f display_generate_rrcfg >/dev/null 2>&1; then
+        display_generate_rrcfg && success "rrcfg installed" || warning "rrcfg generation failed"
+    else
+        warning "display-manager library not loaded — skipping rrcfg"
+    fi
+
+    # System tray application
+    install_tray_app "$distro"
+
+    success "Display tools installed"
+}
+
+install_tray_app() {
+    local distro="$1"
+    info "Installing GZ302 Command Center tray app..."
+
+    local tray_dir="${SCRIPT_DIR}/tray-icon"
+    if [[ ! -d "$tray_dir" ]]; then
+        info "Downloading tray app..."
+        mkdir -p "$tray_dir"
+        for f in install-tray.sh requirements.txt VERSION; do
+            curl -fsSL "${GITHUB_RAW_URL}/tray-icon/${f}" -o "${tray_dir}/${f}" 2>/dev/null || true
+        done
+        mkdir -p "${tray_dir}/src/modules"
+        for f in gz302_tray.py modules/__init__.py modules/config.py modules/notifications.py \
+                 modules/power_controller.py modules/rgb_controller.py; do
+            curl -fsSL "${GITHUB_RAW_URL}/tray-icon/src/${f}" -o "${tray_dir}/src/${f}" 2>/dev/null || true
+        done
+    fi
+
+    # Install Python dependencies
+    case "$distro" in
+        arch)
+            pacman -S --noconfirm --needed python-pyqt6 python-psutil python-notify2 2>/dev/null || true
+            ;;
+        debian|ubuntu)
+            apt install -y python3-pyqt6 python3-psutil python3-notify2 2>/dev/null || true
+            ;;
+        fedora)
+            dnf install -y python3-pyqt6 python3-psutil python3-notify2 2>/dev/null || true
+            ;;
+    esac
+
+    # Run the tray installer
+    if [[ -f "${tray_dir}/install-tray.sh" ]]; then
+        bash "${tray_dir}/install-tray.sh"
+    fi
+
+    success "Tray app installed"
+}
+
+# ==============================================================================
+# Section 4: Optional Modules
+# ==============================================================================
+
+install_optional_modules() {
+    print_section "Section 4: Optional Modules"
+
+    local distro
+    distro=$(detect_distribution)
+
+    info "Available modules:"
+    info "  1. Gaming    — Steam, Lutris, MangoHUD, GameMode"
+    info "  2. AI / LLM  — Ollama, LM Studio, ROCm, PyTorch"
+    info "  3. Hypervisor — KVM/QEMU, libvirt"
+    info "  4. Skip"
+    echo
+
+    local choice
+    if [[ "$ASSUME_YES" == "true" ]]; then
+        choice="4"
+    else
+        read -r -p "Select modules (e.g., 1,2 or 4 to skip): " choice
+    fi
+
+    IFS=',' read -ra CHOICES <<< "$choice"
+    for c in "${CHOICES[@]}"; do
+        c=$(echo "$c" | tr -d ' ')
+        case "$c" in
+            1) download_and_execute_module "gz302-gaming" "$distro" ;;
+            2) download_and_execute_module "gz302-llm" "$distro" ;;
+            3) download_and_execute_module "gz302-hypervisor" "$distro" ;;
+            4) info "Skipping optional modules" ;;
+        esac
+    done
+}
+
+download_and_execute_module() {
+    local module_name="$1"
+    local distro="$2"
+    local local_module="${SCRIPT_DIR}/modules/${module_name}.sh"
+
+    if [[ -f "$local_module" ]]; then
+        info "Running ${module_name}..."
+        bash "$local_module" "$distro"
+        return $?
+    fi
+
+    local tmp="/tmp/${module_name}.sh"
+    info "Downloading ${module_name}..."
+    if curl -fsSL "${GITHUB_RAW_URL}/modules/${module_name}.sh" -o "$tmp" 2>/dev/null; then
+        chmod +x "$tmp"
+        bash "$tmp" "$distro"
+        local rc=$?
+        rm -f "$tmp"
+        return $rc
+    fi
+    warning "Failed to download ${module_name}"
+    return 1
+}
+
+# ==============================================================================
+# Distribution Setup (system update + base packages)
+# ==============================================================================
+
+setup_distro_base() {
+    local distro="$1"
+    info "Updating system and installing base packages..."
+
+    case "$distro" in
+        arch)
+            pacman -Syu --noconfirm --needed
+            pacman -S --noconfirm --needed git base-devel wget curl
+            # Install AUR helper if missing
+            if ! command -v yay >/dev/null 2>&1 && ! command -v paru >/dev/null 2>&1; then
+                info "Installing yay AUR helper..."
+                local real_user
+                real_user=$(get_real_user)
+                sudo -u "$real_user" -H bash -c '
+                    cd /tmp && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm
+                '
+            fi
+            ;;
+        debian|ubuntu)
+            apt update && apt upgrade -y
+            apt install -y curl wget git build-essential ca-certificates gnupg
+            ;;
+        fedora)
+            dnf upgrade -y
+            dnf install -y curl wget git gcc make kernel-devel
+            ;;
+        opensuse)
+            zypper refresh && zypper update -y
+            zypper install -y curl wget git gcc make kernel-devel
+            ;;
+    esac
+    success "System updated"
+}
+
+# ==============================================================================
+# Main
+# ==============================================================================
+
+main() {
+    check_root
+    print_banner
+    print_section "GZ302 Linux Setup v$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null || echo '5.0.0')"
+    echo
+
+    # System checks
+    print_step 1 3 "Validating system..."
+    check_kernel_version >/dev/null
+
+    print_step 2 3 "Checking network..."
+    check_network || warning "Network connectivity limited — some downloads may fail"
+
+    print_step 3 3 "Detecting distribution..."
+    local distro
+    distro=$(detect_distribution)
+    success "Detected: ${distro}"
+    echo
+
+    print_keyval "Distribution" "$distro"
+    print_keyval "Kernel" "$(uname -r)"
+    print_keyval "z13ctl" "$(command -v z13ctl >/dev/null 2>&1 && z13ctl --version 2>/dev/null || echo 'not installed')"
+    echo
+
+    # Update system
+    if prompt_section "Update system and install base packages? (Y/n): " Y; then
+        setup_distro_base "$distro"
+    fi
+
+    # Section 1: Hardware Fixes
+    if [[ "$SKIP_FIXES" != "true" ]]; then
+        echo
+        if prompt_section "Apply hardware fixes? (WiFi, GPU, Input, Audio, Display) (Y/n): " Y; then
+            apply_hardware_fixes
+        else
+            info "Skipping hardware fixes"
+        fi
+    fi
+
+    # Section 2: z13ctl
+    if [[ "$SKIP_Z13CTL" != "true" ]]; then
+        echo
+        if prompt_section "Install z13ctl? (RGB, power profiles, TDP, fan curves) (Y/n): " Y; then
+            install_z13ctl
+        else
+            info "Skipping z13ctl"
+        fi
+    fi
+
+    # Section 3: Display Tools & Tray
+    if [[ "$SKIP_TOOLS" != "true" ]]; then
+        echo
+        if prompt_section "Install display tools and system tray app? (Y/n): " Y; then
+            install_display_tools
+        else
+            info "Skipping display tools"
+        fi
+    fi
+
+    # Section 4: Optional Modules
+    if [[ "$SKIP_MODULES" != "true" ]]; then
+        echo
+        if prompt_section "Browse optional modules? (Gaming, AI, Hypervisor) (y/N): " N; then
+            install_optional_modules
+        else
+            info "Skipping optional modules"
+        fi
+    fi
+
+    # Done
+    echo
+    print_section "Setup Complete"
+    echo
+    completed_item "Kernel $(uname -r)"
+    completed_item "Distribution: ${distro}"
+    [[ "$SKIP_FIXES" != "true" ]] && completed_item "Hardware fixes applied"
+    command -v z13ctl >/dev/null 2>&1 && completed_item "z13ctl — RGB, power, TDP, fan curves"
+    command -v pwrcfg >/dev/null 2>&1 && completed_item "pwrcfg — power profile switching"
+    command -v gz302-rgb >/dev/null 2>&1 && completed_item "gz302-rgb — RGB lighting control"
+    [[ -f /usr/local/bin/rrcfg ]] && completed_item "rrcfg — refresh rate control"
+    echo
+
+    print_box "🚀 SETUP COMPLETE! 🚀" "$C_BOLD_GREEN"
+    warning "A REBOOT is recommended to apply all changes"
+    echo
+    info "Quick start:"
+    info "  z13ctl apply --color cyan --brightness high"
+    info "  z13ctl profile --set balanced"
+    info "  z13ctl status"
+    echo
+}
+
+main "$@"

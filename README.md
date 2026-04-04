@@ -1,151 +1,169 @@
-# 🚀 GZ302 Linux Toolkit
+# GZ302 Linux Toolkit
 
-![Version](https://img.shields.io/badge/version-4.2.1-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-5.0.0-blue?style=for-the-badge)
 ![Kernel](https://img.shields.io/badge/Kernel-6.14%2B-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Device-ASUS%20ROG%20Flow%20Z13-red?style=for-the-badge)
 
-**The ultimate Linux optimization suite for the ASUS ROG Flow Z13 (GZ302).**
-Transform your device into a powerhouse with kernel-aware hardware fixes, intelligent power management, and a dedicated Command Center.
+**Linux optimization suite for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.**
+
+Hardware fixes, power/TDP management, RGB lighting, fan curves, battery limiting, and a system tray GUI — powered by [z13ctl](https://github.com/dahui/z13ctl).
 
 ---
 
-## 📥 Installation
+## Installation
 
-### ❓ Which script should I use?
-
-| Feature | 1. Full Setup | 2. Command Center | 3. Minimal |
-| :--- | :---: | :---: | :---: |
-| **Best For** | **Fresh Installations** | **Existing Users / Power Users** | **Purists / Servers** |
-| **Hardware Fixes** | ✅ (Modular) | ❌ (Assumes native/fixed) | ✅ (Kernel-aware) |
-| **Power/Fan Control** | ✅ | ✅ | ❌ |
-| **RGB Control** | ✅ | ✅ | ❌ |
-| **GUI / Tray App** | ✅ | ✅ | ❌ |
-| **Optional Modules** | ✅ | ❌ | ❌ |
-
----
-
-### 1. Full Setup (Fresh Install - Recommended)
-**Installs:** Essential hardware fixes (WiFi, GPU, Input) and the complete Command Center toolset. Now refactored for maximum efficiency.
+One script handles everything. Pick which sections to install interactively:
 
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-main.sh -o gz302-main.sh
-chmod +x gz302-main.sh
-sudo ./gz302-main.sh
+curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-setup.sh -o gz302-setup.sh
+chmod +x gz302-setup.sh
+sudo ./gz302-setup.sh
 ```
 
-### 2. Command Center Installer
-**Installs:** Power profiles, Fan curves, RGB control, Refresh rate manager, and the System Tray App.
-*Does NOT touch kernel parameters or hardware drivers.*
+The installer prompts for four sections:
+
+| Section | What it does |
+| :--- | :--- |
+| **1. Hardware Fixes** | WiFi (MT7925), GPU (Radeon 8060S), Input, Audio (SOF/CS35L41), OLED PSR-SU fix, Suspend fix |
+| **2. z13ctl** | RGB lighting, power profiles, TDP, fan curves, battery charge limit, undervolt, sleep recovery |
+| **3. Display & Tools** | Refresh rate control (rrcfg), system tray app |
+| **4. Optional Modules** | Gaming (Steam, Lutris, MangoHUD), AI/LLM (Ollama, ROCm), Hypervisor (KVM/QEMU) |
+
+### CLI Flags
 
 ```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/install-command-center.sh -o install-command-center.sh
-chmod +x install-command-center.sh
-sudo ./install-command-center.sh
-```
-
-### 3. Minimal Setup (Fixes Only)
-**Installs:** Only the bare minimum kernel patches and configuration files to make the hardware function. No extra tools.
-
-```bash
-curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-minimal.sh -o gz302-minimal.sh
-chmod +x gz302-minimal.sh
-sudo ./gz302-minimal.sh
+sudo ./gz302-setup.sh -y              # Accept all defaults (non-interactive)
+sudo ./gz302-setup.sh --fixes-only    # Hardware fixes only
+sudo ./gz302-setup.sh --no-z13ctl     # Skip z13ctl installation
+sudo ./gz302-setup.sh --help          # Show all options
 ```
 
 ---
 
-## 🎛️ Features & Usage
-
-### 🖥️ Command Center GUI
-After installation, look for **"GZ302 Command Center"** in your application menu or system tray.
-* **Right-click:** Quick profile switching (Silent, Balanced, Turbo).
-* **Middle-click:** Toggle RGB on/off.
-* **Hover:** See real-time power draw and battery health.
-
-### ⌨️ CLI Tools
-Control your device entirely from the terminal.
-
-| Command | Usage | Description |
-| :--- | :--- | :--- |
-| **`pwrcfg`** | `pwrcfg gaming` | Switch power/fan profiles (silent, balanced, gaming, max) |
-| **`rrcfg`** | `rrcfg 120` | Set refresh rate (30, 60, 120, 144, 165) or VRR mode |
-| **`gz302-rgb`** | `gz302-rgb static ff0000` | Control Keyboard and Rear Window RGB lighting |
-
-> **Note:** RGB settings persist across reboots automatically.
-
----
-
-## 🧩 Optional Modules
-The **Full Setup** script includes an optional module manager:
-
-*   🎮 **Gaming:** Installs Steam, Lutris, MangoHUD, GameMode, and optimized Wine builds.
-*   🤖 **AI / LLM:** Sets up a local AI stack (Ollama, LM Studio, ROCm) optimized for the Strix Halo NPU/GPU.
-*   💻 **Hypervisor:** Configures KVM/QEMU for maximum performance VM passthrough.
-
----
-
-## ⚠️ Kernel Compatibility
-
-The scripts automatically detect your kernel and adapt the strategy:
-
-*   **Kernel < 6.14:** ❌ **Unsupported.** Please upgrade.
-*   **Kernel 6.14 - 6.16:** ✅ **Essential.** Applies heavy patching for WiFi (MT7925), Touchpad, and Tablet mode.
-*   **Kernel 6.17+:** ✨ **Native Mode.** Most hardware works out of the box. The script cleans up obsolete fixes and focuses on performance tuning.
-
----
-
-## 🖥️ Display Fixes
-
-### OLED Scrolling Artifacts Fix
-
-**Issue:** Purple/green color artifacts and digital/QR-code-like patterns visible during scrolling on the OLED display.
-
-**Cause:** PSR-SU (Power Save Refresh - Sub-Viewport Update) can cause visual artifacts on OLED panels, especially during scrolling.
-
-**Fix Applied:** `amdgpu.dcdebugmask=0x200` disables PSR-SU.
-
-**Automatic Fix:** The full setup scripts (`gz302-main.sh`, `gz302-minimal.sh`) automatically apply this fix during installation.
-
-**Manual Fix:** If you need to apply the fix manually:
+## Quick Start (after installation)
 
 ```bash
-# Add to GRUB (replace /boot/grub/grub.cfg with your GRUB config path)
-sudo sed -i 's/\(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*\)"/\1 amdgpu.dcdebugmask=0x200"/' /etc/default/grub
-sudo update-grub
+# RGB lighting
+z13ctl apply --color cyan --brightness high
+z13ctl apply --mode rainbow --speed normal
+z13ctl off
 
-# Or add to systemd-boot kernel cmdline
-echo "amdgpu.dcdebugmask=0x200" | sudo tee -a /etc/kernel/cmdline
+# Power profiles
+z13ctl profile --set balanced
+z13ctl tdp --set 50
+
+# Battery
+z13ctl batterylimit --set 80
+
+# Fan curves (8-point, temp:pwm pairs)
+z13ctl fancurve --set "48:2,53:22,57:30,60:43,63:56,65:68,70:89,76:102"
+
+# Status
+z13ctl status
 ```
+
+### Backward-Compatible Wrappers
+
+The installer creates `pwrcfg` and `gz302-rgb` wrappers that map to z13ctl:
+
+| Command | Maps to |
+| :--- | :--- |
+| `pwrcfg balanced` | `z13ctl profile --set balanced` |
+| `pwrcfg tdp --set 50` | `z13ctl tdp --set 50` |
+| `gz302-rgb static red` | `z13ctl apply --mode static --color red` |
+| `gz302-rgb rainbow` | `z13ctl apply --mode rainbow` |
 
 ---
 
-## 📂 Repository Structure
+## System Tray App
 
-The project uses a **Modular Library-First Architecture** for stability and maintainability.
+After installation, look for **"GZ302 Control Center"** in your system tray.
+
+- **Right-click:** Quick profile switching (Quiet, Balanced, Performance)
+- **Middle-click:** Toggle RGB on/off
+- **Hover:** Real-time power and battery status
+
+---
+
+## Kernel Compatibility
+
+The scripts automatically detect your kernel and adapt:
+
+| Kernel | Status |
+| :--- | :--- |
+| **< 6.14** | Unsupported — please upgrade |
+| **6.14 – 6.16** | Applies workarounds for WiFi (MT7925), Touchpad, Tablet mode |
+| **6.17+** | Native support — cleans up obsolete fixes, focuses on tuning |
+
+---
+
+## Display Fixes
+
+### OLED Scrolling Artifacts
+
+**Issue:** Purple/green color artifacts during scrolling on the OLED panel.
+**Cause:** PSR-SU (Power Save Refresh - Sub-Viewport Update).
+**Fix:** `amdgpu.dcdebugmask=0x200` — applied automatically by the installer.
+
+---
+
+## Repository Structure
 
 ```
 GZ302-Linux-Setup/
-├── gz302-main.sh              # 🟢 Entry Point: Full Setup (Orchestrator)
-├── install-command-center.sh  # 🟢 Entry Point: Tools Only
-├── gz302-minimal.sh           # 🟢 Entry Point: Minimal Fixes
-├── gz302-lib/                 # 📚 Refactored Core Libraries (Manager-based)
-│   ├── distro-manager.sh      # 🚀 NEW: Distribution setup orchestrator
-│   ├── power-manager.sh       # ⚡ TDP & Battery management
-│   ├── gpu-manager.sh         # 🎮 GPU & KMS configuration
-│   └── ...                    # (Audio, WiFi, Input, RGB, etc.)
-├── modules/                   # 📦 Optional feature packs (Gaming, AI, etc.)
-└── tray-icon/                 # 🖼️ Python/Qt6 GUI Application
+├── gz302-setup.sh             # Unified installer (single entry point)
+├── gz302-lib/                 # Core libraries (manager-based)
+│   ├── utils.sh               # Shared utilities, logging, backups
+│   ├── kernel-compat.sh       # Kernel version detection
+│   ├── wifi-manager.sh        # MediaTek MT7925 configuration
+│   ├── gpu-manager.sh         # AMD Radeon 8060S / amdgpu
+│   ├── audio-manager.sh       # SOF firmware, CS35L41 amp
+│   ├── input-manager.sh       # Keyboard, touchpad, tablet mode
+│   ├── display-fix.sh         # OLED PSR-SU fix
+│   ├── display-manager.sh     # Refresh rate profiles, VRR
+│   ├── distro-manager.sh      # Distribution-specific orchestration
+│   └── state-manager.sh       # Persistent state tracking
+├── modules/                   # Optional feature packs
+│   ├── gz302-gaming.sh        # Steam, Lutris, MangoHUD, GameMode
+│   ├── gz302-llm.sh           # Ollama, ROCm, PyTorch
+│   └── gz302-hypervisor.sh    # KVM/QEMU, libvirt
+├── scripts/                   # System scripts
+│   ├── fix-suspend.sh         # Suspend/resume fix
+│   └── uninstall/             # Cleanup utility
+├── tray-icon/                 # PyQt6 system tray application
+│   └── src/
+│       ├── gz302_tray.py
+│       └── modules/           # power, RGB, config, notifications
+└── docs/                      # Hardware research, changelog
 ```
 
 ---
 
-## 🤝 Contributing & Support
+## Credits
 
-*   **Documentation:** Check the [docs/](docs/) directory for detailed hardware research.
-*   **Issues:** Please report bugs on the [Issues page](https://github.com/th3cavalry/GZ302-Linux-Setup/issues).
-*   **Development:** See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+- **[z13ctl](https://github.com/dahui/z13ctl)** by Jeff Hagadorn — RGB lighting, power profiles, TDP, fan curves, battery limit, and daemon. The hardware control backend that makes this all possible.
+- **[g-helper](https://github.com/seerge/g-helper)** by seerge — Protocol reverse-engineering reference for ASUS HID devices.
+- **[Strix-Halo-Control](https://github.com/TechnoDaimon/Strix-Halo-Control)** by TechnoDaimon — GTK4 GUI inspiration for z13ctl integration.
 
-**License:** MIT  
+---
+
+## Uninstall
+
+```bash
+sudo bash scripts/uninstall/gz302-uninstall.sh
+```
+
+This removes all GZ302 tools, z13ctl daemon/config, systemd services, udev rules, and configuration files.
+
+---
+
+## Contributing & Support
+
+- **Documentation:** See the [docs/](docs/) directory for hardware research and testing guides.
+- **Issues:** Report bugs on the [Issues page](https://github.com/th3cavalry/GZ302-Linux-Setup/issues).
+- **Development:** See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+**License:** MIT
 **Maintained by:** th3cavalry
 

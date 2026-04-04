@@ -1,13 +1,28 @@
 #!/bin/bash
+# shellcheck disable=SC2034,SC2059
+
 # ==============================================================================
 # GZ302 Distribution Manager Library
-# Version: 1.1.0
+# Version: 5.0.0
 #
-# This library contains distribution-specific setup functions.
+# This library provides distribution-specific setup orchestration for the GZ302.
+# It coordinates hardware fixes across all subsystem libraries and manages
+# per-distro package installation and configuration.
+#
+# Library-First Design:
+# - Orchestrator functions (coordinate subsystem libraries)
+# - Per-distro setup functions (package installation, system config)
+# - Distribution-specific optimization information
+#
+# Supported Distributions:
+# - Arch Linux (including CachyOS, EndeavourOS, Manjaro)
+# - Debian / Ubuntu
+# - Fedora
+# - OpenSUSE
 # ==============================================================================
 
 # --- Hardware Fixes (Orchestrator) ---
-apply_hardware_fixes() {
+distro_apply_hardware_fixes() {
     info "Applying GZ302 hardware fixes using modular libraries..."
     
     # Use kernel-compat if available, otherwise manual check
@@ -70,7 +85,7 @@ apply_hardware_fixes() {
     success "Hardware fixes applied via libraries"
 }
 
-setup_arch_based() {
+distro_setup_arch() {
     local distro="$1"
     print_subsection "Arch-based System Setup"
 
@@ -103,13 +118,13 @@ setup_arch_based() {
     # Step 3: Install hardware fixes
     print_step 3 7 "Applying GZ302 hardware fixes..."
     if ! is_step_completed "hw_fixes"; then
-        apply_hardware_fixes
+        distro_apply_hardware_fixes
         complete_step "hw_fixes"
     fi
     completed_item "Hardware fixes applied"
 
     # Provide distribution-specific optimization information
-    provide_distro_optimization_info "$distro"
+    distro_provide_optimization_info "$distro"
 
     # Step 4: Install SOF firmware
     print_step 4 7 "Installing Sound Open Firmware (SOF)..."
@@ -148,7 +163,7 @@ setup_arch_based() {
     completed_item "Setup completed for $distro"
 }
 
-setup_debian_based() {
+distro_setup_debian() {
     local distro="$1"
     print_subsection "Debian/Ubuntu-based System Setup"
 
@@ -164,13 +179,13 @@ setup_debian_based() {
     # Step 2: Install hardware fixes
     print_step 2 7 "Applying GZ302 hardware fixes..."
     if ! is_step_completed "hw_fixes"; then
-        apply_hardware_fixes
+        distro_apply_hardware_fixes
         complete_step "hw_fixes"
     fi
     completed_item "Hardware fixes applied"
 
     # Provide distribution-specific optimization information
-    provide_distro_optimization_info "$distro"
+    distro_provide_optimization_info "$distro"
 
     # Step 3: Install SOF firmware
     print_step 3 7 "Installing Sound Open Firmware (SOF)..."
@@ -201,7 +216,7 @@ setup_debian_based() {
     completed_item "Setup completed for $distro"
 }
 
-setup_fedora_based() {
+distro_setup_fedora() {
     local distro="$1"
     print_subsection "Fedora-based System Setup"
 
@@ -217,13 +232,13 @@ setup_fedora_based() {
     # Step 2: Install hardware fixes
     print_step 2 7 "Applying GZ302 hardware fixes..."
     if ! is_step_completed "hw_fixes"; then
-        apply_hardware_fixes
+        distro_apply_hardware_fixes
         complete_step "hw_fixes"
     fi
     completed_item "Hardware fixes applied"
 
     # Provide distribution-specific optimization information
-    provide_distro_optimization_info "$distro"
+    distro_provide_optimization_info "$distro"
 
     # Step 3: Install SOF firmware
     print_step 3 7 "Installing Sound Open Firmware (SOF)..."
@@ -254,7 +269,7 @@ setup_fedora_based() {
     completed_item "Setup completed for $distro"
 }
 
-setup_opensuse() {
+distro_setup_opensuse() {
     local distro="$1"
     print_subsection "OpenSUSE-based System Setup"
 
@@ -271,13 +286,13 @@ setup_opensuse() {
     # Step 2: Install hardware fixes
     print_step 2 7 "Applying GZ302 hardware fixes..."
     if ! is_step_completed "hw_fixes"; then
-        apply_hardware_fixes
+        distro_apply_hardware_fixes
         complete_step "hw_fixes"
     fi
     completed_item "Hardware fixes applied"
 
     # Provide distribution-specific optimization information
-    provide_distro_optimization_info "$distro"
+    distro_provide_optimization_info "$distro"
 
     # Step 3: Install SOF firmware
     print_step 3 7 "Installing Sound Open Firmware (SOF)..."
@@ -310,7 +325,7 @@ setup_opensuse() {
 
 # --- Distribution-Specific Optimizations Info ---
 # Provides information about distribution-specific optimizations for Strix Halo
-provide_distro_optimization_info() {
+distro_provide_optimization_info() {
     local distro="$1"
     
     # Detect specific distribution ID for CachyOS
@@ -397,4 +412,23 @@ provide_distro_optimization_info() {
         info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         info ""
     fi
+}
+
+# --- Library Info ---
+distro_lib_version() {
+    echo "5.0.0"
+}
+
+distro_lib_help() {
+    echo "GZ302 Distribution Manager Library"
+    echo ""
+    echo "Functions:"
+    echo "  distro_apply_hardware_fixes     - Orchestrate all hardware fix libraries"
+    echo "  distro_setup_arch               - Full Arch-based setup"
+    echo "  distro_setup_debian             - Full Debian/Ubuntu-based setup"
+    echo "  distro_setup_fedora             - Full Fedora-based setup"
+    echo "  distro_setup_opensuse           - Full OpenSUSE-based setup"
+    echo "  distro_provide_optimization_info - Show distro-specific tuning tips"
+    echo "  distro_lib_version              - Show library version"
+    echo "  distro_lib_help                 - Show this help"
 }
