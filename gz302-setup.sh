@@ -127,13 +127,14 @@ load_library() {
 }
 
 info "Loading libraries..."
-load_library "kernel-compat.sh" || warning "Failed to load kernel-compat.sh"
-load_library "state-manager.sh" || warning "Failed to load state-manager.sh"
-load_library "wifi-manager.sh"  || warning "Failed to load wifi-manager.sh"
-load_library "gpu-manager.sh"   || warning "Failed to load gpu-manager.sh"
-load_library "input-manager.sh" || warning "Failed to load input-manager.sh"
-load_library "audio-manager.sh" || warning "Failed to load audio-manager.sh"
-load_library "display-fix.sh"   || warning "Failed to load display-fix.sh"
+load_library "kernel-compat.sh"  || warning "Failed to load kernel-compat.sh"
+load_library "state-manager.sh"  || warning "Failed to load state-manager.sh"
+load_library "distro-manager.sh" || warning "Failed to load distro-manager.sh"
+load_library "wifi-manager.sh"   || warning "Failed to load wifi-manager.sh"
+load_library "gpu-manager.sh"    || warning "Failed to load gpu-manager.sh"
+load_library "input-manager.sh"  || warning "Failed to load input-manager.sh"
+load_library "audio-manager.sh"  || warning "Failed to load audio-manager.sh"
+load_library "display-fix.sh"    || warning "Failed to load display-fix.sh"
 load_library "display-manager.sh" || warning "Failed to load display-manager.sh"
 
 state_init >/dev/null 2>&1 || true
