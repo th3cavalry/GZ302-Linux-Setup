@@ -72,7 +72,9 @@ class GZ302TrayApp(QSystemTrayIcon):
         
         profiles_menu.addSeparator()
         profiles_menu.addAction("📊 Status").triggered.connect(self.show_power_status)
-        profiles_menu.addAction("🔄 Auto (AC/Battery)").triggered.connect(lambda: self.power.set_profile("auto"))
+        profiles_menu.addAction("🔄 Toggle Auto (AC/Battery)").triggered.connect(
+            lambda: self.power.set_auto(not self.power.is_auto_enabled())
+        )
             
         self.menu.addSeparator()
         
@@ -262,9 +264,12 @@ class GZ302TrayApp(QSystemTrayIcon):
                 self.setIcon(QIcon(str(fallback)))
     
     def update_status(self):
+        # Run auto-switch check first (no-op if disabled)
+        self.power.check_auto_switch()
+
         # Refresh current profile from file
         self.power.current_profile = self.power._read_current_profile()
-        
+
         # Get profile TDP details
         profile = self.power.current_profile.capitalize()
         spl, sppt, fppt = self.power.get_profile_details()

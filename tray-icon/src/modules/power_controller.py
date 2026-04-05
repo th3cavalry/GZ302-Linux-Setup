@@ -1,13 +1,22 @@
+import re
 import subprocess
 from pathlib import Path
 
-# z13ctl profile names: quiet, balanced, performance
-# We map our extended profile names to z13ctl profiles + TDP overrides.
+# z13ctl valid profiles: quiet, balanced, performance, custom
+# We map our 7 tray profiles to z13ctl profiles + explicit TDP overrides.
+# tdp=None means let the firmware manage TDP for that stock profile.
 POWER_PROFILES = {
+    "emergency":   {"z13ctl_profile": "quiet",       "tdp": 10},
+    "battery":     {"z13ctl_profile": "quiet",       "tdp": 18},
+    "efficient":   {"z13ctl_profile": "quiet",       "tdp": 30},
     "quiet":       {"z13ctl_profile": "quiet",       "tdp": None},
-    "balanced":    {"z13ctl_profile": "balanced",     "tdp": None},
-    "performance": {"z13ctl_profile": "performance",  "tdp": None},
+    "balanced":    {"z13ctl_profile": "balanced",    "tdp": 40},
+    "performance": {"z13ctl_profile": "performance", "tdp": 55},
+    "gaming":      {"z13ctl_profile": "performance", "tdp": 70},
+    "maximum":     {"z13ctl_profile": "performance", "tdp": 90},
 }
+
+_AUTO_CONFIG_FILE = Path.home() / ".config" / "gz302" / "auto.conf"
 
 
 class PowerController:
@@ -16,6 +25,11 @@ class PowerController:
     def __init__(self, notifier):
         self.notifier = notifier
         self.current_profile = self._read_current_profile()
+        self._auto_enabled = False
+        self._ac_profile = "performance"
+        self._battery_profile = "balanced"
+        self._last_plugged = None
+        self._load_auto_config()
 
     def _read_current_profile(self):
         try:
@@ -32,13 +46,100 @@ class PowerController:
             pass
         return "balanced"
 
+    def _load_auto_config(self):
+        try:
+            if _AUTO_CONFIG_FILE.exists():
+                for line in _AUTO_CONFIG_FILE.read_text().splitlines():
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    if '=' in line:
+                        k, v = line.split('=', 1)
+                        k, v = k.strip(), v.strip().strip('"').strip("'")
+                        if k == 'AUTO_SWITCH':
+                            self._auto_enabled = v in ('1', 'true', 'yes')
+                        elif k == 'AC_PROFILE':
+                            if v in POWER_PROFILES:
+                                self._ac_profile = v
+                        elif k == 'BATTERY_PROFILE':
+                            if v in POWER_PROFILES:
+                                self._battery_profile = v
+        except Exception:
+            pass
+
+    def _save_auto_config(self):
+        try:
+            _AUTO_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            lines = [
+                f'AUTO_SWITCH={"1" if self._auto_enabled else "0"}',
+                f'AC_PROFILE={self._ac_profile}',
+                f'BATTERY_PROFILE={self._battery_profile}',
+            ]
+            _AUTO_CONFIG_FILE.write_text('\n'.join(lines) + '\n')
+        except Exception:
+            pass
+
+    def is_auto_enabled(self):
+        return self._auto_enabled
+
+    def get_ac_profile(self):
+        return self._ac_profile
+
+    def get_battery_profile(self):
+        return self._battery_profile
+
+    def set_auto(self, enabled):
+        self._auto_enabled = enabled
+        self._save_auto_config()
+        if enabled:
+            self._last_plugged = None  # force immediate check
+            self.check_auto_switch()
+        status = "enabled" if enabled else "disabled"
+        self.notifier.notify("Auto Power", f"Auto-switching {status}", "info", 2000)
+
+    def check_auto_switch(self):
+        """Check power source and switch profile automatically if enabled."""
+        if not self._auto_enabled:
+            return
+        batt = self.get_battery_info()
+        plugged = batt.get("plugged")
+        if plugged is None:
+            return
+        if plugged == self._last_plugged:
+            return
+        self._last_plugged = plugged
+        target = self._ac_profile if plugged else self._battery_profile
+        self.set_profile(target)
+
+    def get_profile_details(self):
+        """Return (spl, sppt, fppt) wattages parsed from z13ctl status."""
+        try:
+            result = subprocess.run(
+                ["sudo", "-n", "z13ctl", "status"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    if "tdp" in line.lower() and "pl1" in line.lower():
+                        vals = [int(m) for m in re.findall(r'(\d+)W', line)]
+                        if len(vals) >= 3:
+                            return vals[0], vals[1], vals[2]
+                        if len(vals) == 1:
+                            return vals[0], vals[0], vals[0]
+        except Exception:
+            pass
+        # Fallback: use the profile's configured TDP
+        spec = POWER_PROFILES.get(self.current_profile, {})
+        tdp = spec.get("tdp") or 40
+        return tdp, tdp, tdp
+
     def set_profile(self, profile):
         try:
             spec = POWER_PROFILES.get(profile)
             if spec:
                 z13_profile = spec["z13ctl_profile"]
             else:
-                # Accept raw z13ctl profile names too
+                # Accept raw z13ctl profile names (quiet/balanced/performance/custom)
                 z13_profile = profile
 
             result = subprocess.run(
@@ -50,8 +151,12 @@ class PowerController:
                 self.current_profile = profile
                 # Apply TDP override if specified
                 if spec and spec.get("tdp"):
+                    tdp_val = spec["tdp"]
+                    tdp_cmd = ["sudo", "-n", "z13ctl", "tdp", "--set", str(tdp_val)]
+                    if tdp_val > 75:
+                        tdp_cmd.append("--force")
                     subprocess.run(
-                        ["sudo", "-n", "z13ctl", "tdp", "--set", str(spec["tdp"])],
+                        tdp_cmd,
                         capture_output=True, text=True, timeout=10,
                     )
                 return True

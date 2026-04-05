@@ -77,7 +77,7 @@ class RGBController:
             return
         level_name = {0: "off", 1: "low", 2: "medium", 3: "high"}.get(level, "medium")
         self._run_bg_command(
-            ["sudo", "-n", "z13ctl", "apply", "--brightness", level_name],
+            ["sudo", "-n", "z13ctl", "brightness", level_name],
             success_msg=f"Brightness set to {level_name}",
             error_msg="Failed to set brightness",
             timeout=5,
