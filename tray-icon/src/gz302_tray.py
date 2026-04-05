@@ -6,7 +6,7 @@ import sys
 import os
 import signal
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QWidget
-from PyQt6.QtGui import QIcon, QAction
+from PyQt6.QtGui import QIcon, QAction, QCursor
 from PyQt6.QtCore import QTimer
 from pathlib import Path
 
@@ -31,7 +31,10 @@ class GZ302TrayApp(QSystemTrayIcon):
         # Setup UI
         self.menu = QMenu()
         self.setup_menu()
-        self.setContextMenu(self.menu)
+        # Do NOT use setContextMenu — on KDE Plasma 6 + Wayland the DBusMenu
+        # bridge swallows QAction.triggered signals.  Instead we show the
+        # menu ourselves from the activated signal.
+        self.activated.connect(self._on_activated)
         
         # Set icon
         self.update_icon()
@@ -187,6 +190,14 @@ class GZ302TrayApp(QSystemTrayIcon):
         self.menu.addSeparator()
         self.menu.addAction("ℹ️ About").triggered.connect(self.show_about)
         self.menu.addAction("❌ Quit").triggered.connect(self.app.quit)
+
+    def _on_activated(self, reason):
+        """Show the context menu as a native Qt popup so signals fire on all DEs."""
+        if reason in (
+            QSystemTrayIcon.ActivationReason.Trigger,
+            QSystemTrayIcon.ActivationReason.Context,
+        ):
+            self.menu.popup(QCursor.pos())
     
     def set_refresh_rate(self, rate):
         """Set display refresh rate via rrcfg."""
