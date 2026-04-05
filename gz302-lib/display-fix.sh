@@ -4,21 +4,27 @@ set -euo pipefail
 
 # ==============================================================================
 # GZ302 Display Fix Library
-# Version: 5.0.0
+# Version: 5.0.2
 #
 # This library provides display-specific fixes for OLED panels on GZ302.
-# Focuses on PSR-SU (Power Save Refresh - Sub-Viewport Update) fixes to
-# prevent scrolling artifacts and purple/green color glitches.
+# Focuses on all eDP power-saving features that can cause display artifacts.
 #
 # Key Issues Addressed:
-# - PSR-SU causes scrolling artifacts on OLED panels
-# - Purple/green color shifts during scrolling
-# - Digital/QR-code-like patterns visible during scrolling
-# - Display microstutters during slow scrolling
+# - PSR/PSR-SU causes scrolling artifacts on OLED panels
+# - Panel Replay (PR) causes flicker on OLED eDP panels
+# - IPS (Idle Power States) causes intermittent display instability
+# - DRAM memory stutter causes micro-glitches during display memory fetches
+# - Scatter-gather display causes flicker under memory pressure on APUs
 #
 # Fixes Applied:
-# - amdgpu.dcdebugmask=0x200: Disable PSR-SU (DC_DISABLE_PSR_SU)
-# - PSR-SU disabled by default for OLED panels (kernel 6.12+)
+# - amdgpu.dcdebugmask=0xe12:
+#   DC_DISABLE_STUTTER  (0x002) — DRAM memory stutter off
+#   DC_DISABLE_PSR      (0x010) — PSR v1 + PSR-SU off
+#   DC_DISABLE_PSR_SU   (0x200) — belt-and-suspenders PSR-SU disable
+#   DC_DISABLE_REPLAY   (0x400) — Panel Replay off
+#   DC_DISABLE_IPS      (0x800) — all Idle Power States off
+# - amdgpu.sg_display=0: Scatter-gather display disabled (APU flicker)
+# - amdgpu.abmlevel=0:   ABM disabled for OLED panels (DPCD capability)
 #
 # Usage:
 #   source gz302-lib/display-fix.sh
@@ -37,7 +43,7 @@ display_merge_dcdebugmask_file() {
     fi
 
     current="${current#amdgpu.dcdebugmask=}"
-    printf -v merged "0x%x" $((current | 0x200))
+    printf -v merged "0x%x" $((current | 0xe12))
     sed -i -E "s/amdgpu\.dcdebugmask=0x[0-9A-Fa-f]+/amdgpu.dcdebugmask=${merged}/g" "$file"
     return 0
 }
@@ -51,7 +57,7 @@ display_merge_runtime_debug_mask() {
         current=$(cat "$file" 2>/dev/null || echo "0x0")
     fi
 
-    printf -v merged "0x%x" $((current | 0x200))
+    printf -v merged "0x%x" $((current | 0xe12))
     echo "$merged" > "$file" 2>/dev/null || true
 }
 
@@ -62,7 +68,7 @@ display_has_psr_su_disable_bit() {
 
     while read -r token; do
         value="${token#amdgpu.dcdebugmask=}"
-        if (( (value & 0x200) != 0 || (value & 0x10) != 0 )); then
+        if (( (value & 0xe12) == 0xe12 )); then
             return 0
         fi
     done < <(grep -oE 'amdgpu\.dcdebugmask=0x[0-9A-Fa-f]+' "$file" 2>/dev/null || true)
@@ -75,17 +81,17 @@ display_has_psr_su_disable_bit() {
 # Check if PSR-SU is currently enabled
 # Returns: 0 if enabled, 1 if disabled
 display_psr_su_enabled() {
-    # Check if dcdebugmask has PSR disable bits set (0x200 or 0x10)
+    # Check if dcdebugmask has all required display fix bits set (0xe12)
     if [[ -f /etc/default/grub ]]; then
         if display_has_psr_su_disable_bit /etc/default/grub; then
-            return 1  # PSR-SU disabled
+            return 1  # display fixes disabled
         fi
     fi
     
     # Check kernel cmdline (systemd-boot)
     if [[ -f /etc/kernel/cmdline ]]; then
         if display_has_psr_su_disable_bit /etc/kernel/cmdline; then
-            return 1  # PSR-SU disabled
+            return 1  # display fixes disabled
         fi
     fi
 
@@ -139,12 +145,12 @@ display_apply_psr_su_fix() {
     # Add to GRUB if present
     if [[ -f /etc/default/grub ]]; then
         if grep -q "amdgpu.dcdebugmask=" /etc/default/grub 2>/dev/null; then
-            info "Merging PSR-SU bit into existing GRUB dcdebugmask..."
+            info "Merging display fix bits into existing GRUB dcdebugmask..."
             display_merge_dcdebugmask_file /etc/default/grub || true
         else
-            info "Adding amdgpu.dcdebugmask=0x200 to GRUB..."
+            info "Adding amdgpu.dcdebugmask=0xe12 to GRUB..."
             # Add new parameter (before the closing quote)
-            sed -i 's/\(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*\)"/\1 amdgpu.dcdebugmask=0x200"/' /etc/default/grub 2>/dev/null || true
+            sed -i 's/\(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*\)"/\1 amdgpu.dcdebugmask=0xe12"/' /etc/default/grub 2>/dev/null || true
         fi
 
         # Regenerate GRUB config
@@ -163,15 +169,15 @@ display_apply_psr_su_fix() {
     # Add to systemd-boot if present
     if [[ -f /etc/kernel/cmdline ]]; then
         if grep -q "amdgpu.dcdebugmask=" /etc/kernel/cmdline 2>/dev/null; then
-            info "Merging PSR-SU bit into existing systemd-boot dcdebugmask..."
+            info "Merging display fix bits into existing systemd-boot dcdebugmask..."
             display_merge_dcdebugmask_file /etc/kernel/cmdline || true
         else
-            info "Adding amdgpu.dcdebugmask=0x200 to systemd-boot..."
+            info "Adding amdgpu.dcdebugmask=0xe12 to systemd-boot..."
             # Check if file is empty or needs new line
             if [[ -s /etc/kernel/cmdline ]]; then
-                echo " amdgpu.dcdebugmask=0x200" >> /etc/kernel/cmdline
+                echo " amdgpu.dcdebugmask=0xe12" >> /etc/kernel/cmdline
             else
-                echo "amdgpu.dcdebugmask=0x200" > /etc/kernel/cmdline
+                echo "amdgpu.dcdebugmask=0xe12" > /etc/kernel/cmdline
             fi
 
             # Regenerate boot entries (only if mkinitcpio hasn't run yet this session)
@@ -196,9 +202,9 @@ display_apply_psr_su_fix() {
                     info "Updating bootloader entry: $(basename "$entry")"
                     # Add to options line
                     if grep -q "^options" "$entry"; then
-                        sed -i 's/\(options.*\)$/\1 amdgpu.dcdebugmask=0x200/' "$entry"
+                        sed -i 's/\(options.*\)$/\1 amdgpu.dcdebugmask=0xe12/' "$entry"
                     else
-                        echo "options amdgpu.dcdebugmask=0x200" >> "$entry"
+                        echo "options amdgpu.dcdebugmask=0xe12" >> "$entry"
                     fi
                 fi
             fi
@@ -210,18 +216,18 @@ display_apply_psr_su_fix() {
     for limine_cfg in /etc/limine/limine.conf /boot/limine/limine.conf /boot/limine.cfg; do
         [[ -f "$limine_cfg" ]] || continue
         if grep -q "amdgpu.dcdebugmask=" "$limine_cfg" 2>/dev/null; then
-            info "Merging PSR-SU bit into existing Limine dcdebugmask..."
+            info "Merging display fix bits into existing Limine dcdebugmask..."
             display_merge_dcdebugmask_file "$limine_cfg" || true
         else
-            info "Adding amdgpu.dcdebugmask=0x200 to Limine config: $(basename "$limine_cfg")"
+            info "Adding amdgpu.dcdebugmask=0xe12 to Limine config: $(basename "$limine_cfg")"
             # v5 TOML-style: "    cmdline: ..."
             if grep -qE '^\s*cmdline\s*:' "$limine_cfg"; then
-                sed -i -E 's|(^\s*cmdline\s*:.*)$|\1 amdgpu.dcdebugmask=0x200|' "$limine_cfg"
+                sed -i -E 's|(^\s*cmdline\s*:.*)$|\1 amdgpu.dcdebugmask=0xe12|' "$limine_cfg"
             # v4 uppercase: "CMDLINE=..."
             elif grep -q '^CMDLINE=' "$limine_cfg"; then
-                sed -i 's|^\(CMDLINE=.*\)$|\1 amdgpu.dcdebugmask=0x200|' "$limine_cfg"
+                sed -i 's|^\(CMDLINE=.*\)$|\1 amdgpu.dcdebugmask=0xe12|' "$limine_cfg"
             else
-                warning "Limine config $(basename "$limine_cfg"): no CMDLINE/cmdline entry — add 'amdgpu.dcdebugmask=0x200' manually"
+                warning "Limine config $(basename "$limine_cfg"): no CMDLINE/cmdline entry — add 'amdgpu.dcdebugmask=0xe12' manually"
             fi
         fi
     done
@@ -229,12 +235,12 @@ display_apply_psr_su_fix() {
     # --- rEFInd ---
     if [[ -f /boot/refind_linux.conf ]]; then
         if grep -q "amdgpu.dcdebugmask=" /boot/refind_linux.conf 2>/dev/null; then
-            info "Merging PSR-SU bit into existing rEFInd per-kernel dcdebugmask..."
+            info "Merging display fix bits into existing rEFInd per-kernel dcdebugmask..."
             display_merge_dcdebugmask_file /boot/refind_linux.conf || true
         else
-            info "Adding amdgpu.dcdebugmask=0x200 to refind_linux.conf..."
+            info "Adding amdgpu.dcdebugmask=0xe12 to refind_linux.conf..."
             # Each line: "label"  "params ..." — append to the last quoted string
-            sed -i -E 's|"([^"]+)"\s*$|"\1 amdgpu.dcdebugmask=0x200"|' /boot/refind_linux.conf
+            sed -i -E 's|"([^"]+)"\s*$|"\1 amdgpu.dcdebugmask=0xe12"|' /boot/refind_linux.conf
         fi
     fi
     local refind_cfg
@@ -242,11 +248,11 @@ display_apply_psr_su_fix() {
                       /efi/EFI/refind/refind.conf; do
         [[ -f "$refind_cfg" ]] || continue
         if grep -q "amdgpu.dcdebugmask=" "$refind_cfg" 2>/dev/null; then
-            info "Merging PSR-SU bit into existing rEFInd global dcdebugmask..."
+            info "Merging display fix bits into existing rEFInd global dcdebugmask..."
             display_merge_dcdebugmask_file "$refind_cfg" || true
         else
-            info "Adding amdgpu.dcdebugmask=0x200 to $(basename "$refind_cfg")..."
-            sed -i 's|^\(options .*\)$|\1 amdgpu.dcdebugmask=0x200|' "$refind_cfg"
+            info "Adding amdgpu.dcdebugmask=0xe12 to $(basename "$refind_cfg")..."
+            sed -i 's|^\(options .*\)$|\1 amdgpu.dcdebugmask=0xe12|' "$refind_cfg"
         fi
     done
     
@@ -341,7 +347,8 @@ display_print_psr_su_status() {
     
     echo ""
     echo "Recommended Fix:"
-    echo "  amdgpu.dcdebugmask=0x200 (disables PSR-SU)"
+    echo "  amdgpu.dcdebugmask=0xe12 (disables PSR/PSR-SU/Replay/IPS/stutter)"
+    echo "  amdgpu.sg_display=0 (disables scatter-gather display for APU)"
     echo ""
     echo "To apply fix:"
     echo "  source gz302-lib/display-fix.sh"
@@ -352,49 +359,50 @@ display_print_psr_su_status() {
 # --- Library Information ---
 
 display_fix_lib_version() {
-    echo "4.1.0"
+    echo "5.0.2"
 }
 
 display_fix_lib_help() {
     cat <<'HELP'
-GZ302 Display Fix Library v4.1.0
+GZ302 Display Fix Library v5.0.2
 
-PSR-SU Detection Functions:
-  display_psr_su_enabled        - Check if PSR-SU is currently enabled
-  display_psr_su_fix_applied    - Check if PSR-SU fix has been applied
+PSR/Replay/IPS Detection Functions:
+  display_psr_su_enabled        - Check if display fix bits are set
+  display_psr_su_fix_applied    - Check if fix has been applied
 
-PSR-SU Fix Functions:
-  display_apply_psr_su_fix      - Apply PSR-SU disable fix (idempotent)
+Fix Application Functions:
+  display_apply_psr_su_fix      - Apply display fix (idempotent, all bootloaders)
 
 Verification Functions:
-  display_verify_psr_su_fix     - Verify PSR-SU fix is working
+  display_verify_psr_su_fix     - Verify fix is working
 
 Status Functions:
-  display_print_psr_su_status   - Print PSR-SU status
+  display_print_psr_su_status   - Print current status
 
 Library Information:
   display_fix_lib_version       - Get library version
   display_fix_lib_help          - Show this help
 
-PSR-SU Information:
-  PSR-SU (Power Save Refresh - Sub-Viewport Update) can cause:
-  - Scrolling artifacts on OLED panels
-  - Purple/green color shifts
-  - Digital/QR-code-like patterns
-  - Display microstutters during slow scrolling
+Display Fix Information (dcdebugmask=0xe12):
+  DC_DISABLE_STUTTER (0x002)  - DRAM memory stutter off (APU LCD latency)
+  DC_DISABLE_PSR     (0x010)  - PSR v1 + PSR-SU off
+  DC_DISABLE_PSR_SU  (0x200)  - belt-and-suspenders PSR-SU disable
+  DC_DISABLE_REPLAY  (0x400)  - Panel Replay off (eDP0 flicker)
+  DC_DISABLE_IPS     (0x800)  - all Idle Power States off
 
-    Fix: amdgpu.dcdebugmask=0x200 disables PSR-SU
-  Kernel 6.12+ has native PSR-SU disable on eDP panels
+  Also requires in /etc/modprobe.d/amdgpu.conf:
+    options amdgpu sg_display=0   (APU scatter-gather flicker)
+    options amdgpu abmlevel=0     (OLED ABM disable)
 
 Example Usage:
   source gz302-lib/display-fix.sh
-  
+
   # Check current status
   display_print_psr_su_status
-  
+
   # Apply fix
   display_apply_psr_su_fix
-  
+
   # Verify fix
   display_verify_psr_su_fix
 HELP

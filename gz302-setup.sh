@@ -3,7 +3,7 @@
 # ==============================================================================
 # GZ302 Linux Setup — Unified Installer
 # Author: th3cavalry using Copilot
-# Version: 5.0.0
+# Version: 5.0.2
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -107,18 +107,36 @@ else
 fi
 
 # --- Load Libraries ---
+# Expected version for all library files (must match # Version: line)
+GZ302_LIB_VERSION="5.0.0"
+
 load_library() {
     local lib_name="$1"
     local lib_path="${SCRIPT_DIR}/gz302-lib/${lib_name}"
+
+    # If the file exists locally, validate its version before using it.
+    # Stale libraries from a prior major version are re-downloaded.
     if [[ -f "$lib_path" ]]; then
-        # shellcheck source=/dev/null
-        source "$lib_path"
-        return 0
+        local local_ver
+        local_ver=$(grep -m1 '^# Version:' "$lib_path" 2>/dev/null | awk '{print $3}' || true)
+        if [[ "$local_ver" == "$GZ302_LIB_VERSION" ]]; then
+            # shellcheck source=/dev/null
+            source "$lib_path"
+            return 0
+        fi
+        info "Stale library ${lib_name} (found ${local_ver:-unknown}, need ${GZ302_LIB_VERSION}) — refreshing..."
+        rm -f "$lib_path"
     fi
+
     info "Downloading ${lib_name}..."
     mkdir -p "${SCRIPT_DIR}/gz302-lib"
     if command -v curl >/dev/null 2>&1; then
         curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/${lib_name}" -o "$lib_path" || return 1
+        # shellcheck source=/dev/null
+        source "$lib_path"
+        return 0
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q "${GITHUB_RAW_URL}/gz302-lib/${lib_name}" -O "$lib_path" || return 1
         # shellcheck source=/dev/null
         source "$lib_path"
         return 0
@@ -283,23 +301,16 @@ apply_hardware_fixes() {
     fi
 
     # Display: PSR-SU OLED scrolling artifact fix.
-    # Kernel 6.12+ disables PSR-SU on eDP/OLED panels natively — skip on supported kernels.
     info "Checking OLED display PSR-SU configuration..."
-    if declare -f kernel_requires_psr_su_workaround >/dev/null 2>&1 && ! kernel_requires_psr_su_workaround; then
-        success "PSR-SU natively disabled by kernel 6.12+ — no fix needed"
-    elif declare -f display_psr_su_enabled >/dev/null 2>&1 && display_psr_su_enabled 2>/dev/null; then
+    if declare -f display_psr_su_enabled >/dev/null 2>&1 && display_psr_su_enabled 2>/dev/null; then
         info "PSR-SU is enabled — applying fix for scrolling artifacts..."
         display_apply_psr_su_fix && success "PSR-SU fix applied" || warning "PSR-SU fix issues"
     else
         success "PSR-SU already disabled"
     fi
 
-    # Suspend Fix: s2idle hangs fixed natively in kernel 6.17+
-    if declare -f kernel_requires_suspend_workaround >/dev/null 2>&1 && ! kernel_requires_suspend_workaround; then
-        success "Suspend/resume stable on kernel 6.17+ — no hook needed"
-    else
-        install_suspend_fix
-    fi
+    # Suspend Fix
+    install_suspend_fix
 
     # Show distribution-specific tuning tips.
     if declare -f distro_provide_optimization_info >/dev/null 2>&1; then

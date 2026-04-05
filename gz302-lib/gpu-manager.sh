@@ -4,7 +4,7 @@ set -euo pipefail
 
 # ==============================================================================
 # GZ302 GPU Manager Library
-# Version: 5.0.0
+# Version: 5.0.2
 #
 # This library manages AMD Radeon 8060S (RDNA 3.5) integrated GPU configuration
 # for the GZ302 (Strix Halo platform).
@@ -145,7 +145,9 @@ gpu_verify_firmware() {
 # Returns: 0 if configured, 1 if not configured
 gpu_ppfeaturemask_configured() {
     if [[ -f /etc/modprobe.d/amdgpu.conf ]]; then
-        if grep -q "ppfeaturemask=0xffff7fff" /etc/modprobe.d/amdgpu.conf 2>/dev/null; then
+        if grep -q "ppfeaturemask=0xffff7fff" /etc/modprobe.d/amdgpu.conf 2>/dev/null && \
+           grep -q "abmlevel=0" /etc/modprobe.d/amdgpu.conf 2>/dev/null && \
+           grep -q "sg_display=0" /etc/modprobe.d/amdgpu.conf 2>/dev/null; then
             return 0
         fi
     fi
@@ -271,6 +273,13 @@ gpu_apply_modprobe_config() {
 # 0xffff7fff: all bits enabled except bit 15 (GFXOFF) — de-risks RDNA 3.5
 # GFXOFF causes hangs under rapid power-state transitions on Strix Halo iGPU.
 options amdgpu ppfeaturemask=0xffff7fff
+# abmlevel=0: disable Adaptive Backlight Management — not applicable/safe on OLED
+# (OLED panels report oled=1 in DPCD ext_caps; ABM is skipped by driver anyway)
+options amdgpu abmlevel=0
+# sg_display=0: disable scatter-gather display on this APU.
+# Kernel doc: "Set to 0 to disable if you experience flickering or other
+# issues under memory pressure" — directly applies to GZ302 OLED flicker.
+options amdgpu sg_display=0
 EOF
     
     # Verify creation

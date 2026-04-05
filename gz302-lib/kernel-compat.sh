@@ -4,7 +4,7 @@ set -euo pipefail
 
 # ==============================================================================
 # GZ302 Kernel Compatibility Library
-# Version: 5.0.0
+# Version: 5.0.2
 #
 # This library provides central kernel version detection and compatibility
 # logic for all other libraries. It determines what workarounds are needed
@@ -194,23 +194,11 @@ kernel_has_psr_su_fixes() {
 
 # Check if PSR-SU workaround is required (kernel < 6.12 or specific OLED panels)
 # Returns: 0 if workaround needed, 1 if not needed
-# Note: Kernel 6.12+ disables PSR-SU on eDP/OLED panels natively (commit e8863f8b0316d8ee1e7e5291e8f2f72c91ac967d)
 kernel_requires_psr_su_workaround() {
     local version_num
     version_num=$(kernel_get_version_num)
     # PSR-SU workaround needed for kernels < 6.12
     [[ $version_num -lt 612 ]]
-}
-
-# Check if suspend/resume workaround hook is required
-# Returns: 0 if workaround needed, 1 if not needed
-# Note: s2idle hang fixes for Strix Halo upstreamed in kernel 6.17
-#   (AMD PMC driver, Thunderbolt NHI wakeup, xHCI wakeup, ASUS HID ENOMEM, MMC Power Off Notify)
-kernel_requires_suspend_workaround() {
-    local version_num
-    version_num=$(kernel_get_version_num)
-    # Suspend workaround needed for kernels < 6.17
-    [[ $version_num -lt $KERNEL_NATIVE ]]
 }
 
 # Get PSR-SU kernel parameter for current kernel
@@ -219,13 +207,18 @@ kernel_get_psr_su_parameter() {
     local version_num
     version_num=$(kernel_get_version_num)
     
-    # For kernels < 6.12, recommend dcdebugmask=0x200 to disable PSR-SU
+    # For all kernels: disable PSR/PSR-SU/Replay/IPS/stutter via dcdebugmask
+    # 0xe12 = DC_DISABLE_STUTTER(0x002) | DC_DISABLE_PSR(0x010) |
+    #         DC_DISABLE_PSR_SU(0x200) | DC_DISABLE_REPLAY(0x400) |
+    #         DC_DISABLE_IPS(0x800)
+    # Panel Replay (0x400) is explicitly enabled for DCN 3.5 by the driver
+    # and was not disabled by the old 0x200 mask — causing eDP flicker.
     if [[ $version_num -lt 612 ]]; then
-        echo "amdgpu.dcdebugmask=0x200"
+        echo "amdgpu.dcdebugmask=0xe12"
     else
-        # For kernels >= 6.12, PSR-SU is already disabled on eDP panels
-        # But add parameter as safety measure for OLED panels
-        echo "amdgpu.dcdebugmask=0x200"
+        # Kernel 6.12+ still enables PSR/Replay for DCN 3.5 eDP by default.
+        # All bits remain needed for GZ302 OLED stability.
+        echo "amdgpu.dcdebugmask=0xe12"
     fi
 }
 
@@ -319,13 +312,7 @@ kernel_print_status() {
     if kernel_requires_audio_quirks; then
         echo "  • Audio quirks (CS35L41)"
     fi
-    if kernel_requires_psr_su_workaround; then
-        echo "  • PSR-SU display fix (amdgpu.dcdebugmask)"
-    fi
-    if kernel_requires_suspend_workaround; then
-        echo "  • Suspend/resume hook (s2idle stability)"
-    fi
-
+    
     if kernel_has_native_support; then
         echo "  (Most hardware now native - minimal fixes needed)"
     fi
@@ -347,12 +334,6 @@ kernel_list_obsolete_workarounds() {
         echo "wifi_aspm_workaround"
         echo "input_device_forcing"
         echo "tablet_mode_daemon"
-        echo "suspend_resume_hook"
-    fi
-
-    if [[ $version_num -ge 612 ]]; then
-        # Kernel 6.12+ - PSR-SU natively disabled on eDP/OLED panels
-        echo "psr_su_workaround"
     fi
     
     if [[ $version_num -ge $KERNEL_STABLE ]]; then

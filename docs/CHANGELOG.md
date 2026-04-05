@@ -2,6 +2,51 @@
 
 All notable changes to GZ302-Linux-Setup will be documented in this file.
 
+## [5.0.2] - 2025-04
+
+### Fixed
+- **OLED flickering — Panel Replay** (`DC_DISABLE_REPLAY = 0x400`): Panel Replay was explicitly enabled for DCN 3.5 (Strix Halo) by the amdgpu driver and was never disabled by previous releases. This is the primary cause of persistent flickering on the internal OLED panel.
+- **OLED flickering — DRAM stutter** (`DC_DISABLE_STUTTER = 0x002`): On APU with unified memory, DRAM self-refresh causes display memory access latency spikes visible as brief flicker.
+- **APU scatter-gather display** (`amdgpu.sg_display=0`): Kernel explicitly documents this option for APU flickering under memory pressure (Strix Halo is an APU with unified memory).
+- **Adaptive Backlight Management** (`amdgpu.abmlevel=0`): ABM now set via modprobe option (persistent across boots) rather than only at runtime.
+
+### Changed
+- `dcdebugmask` mask updated from `0xa10` to `0xe12`:
+  - `0x002` = `DC_DISABLE_STUTTER` (new)
+  - `0x010` = `DC_DISABLE_PSR` (PSR v1 + PSR-SU)
+  - `0x200` = `DC_DISABLE_PSR_SU` (belt-and-suspenders)
+  - `0x400` = `DC_DISABLE_REPLAY` (Panel Replay — new, critical)
+  - `0x800` = `DC_DISABLE_IPS` (all Idle Power States)
+- `/etc/modprobe.d/amdgpu.conf` now includes `abmlevel=0` and `sg_display=0` in addition to `ppfeaturemask=0xffff7fff`
+- All `# Version:` headers bumped to 5.0.2 across all scripts
+
+## [5.0.1] - 2025-04
+
+### Fixed
+- **OLED display artifacts** (initial fix): `amdgpu.dcdebugmask=0xa10` targeting PSR, PSR-SU, and IPS; `abmlevel=0` for OLED ABM. Panel Replay not yet addressed (see 5.0.2).
+
+### Changed
+- `gz302-lib/display-fix.sh` updated for all bootloaders (GRUB, systemd-boot, loader entries, Limine, rEFInd)
+- `gz302-lib/gpu-manager.sh` added `abmlevel=0` to modprobe config
+
+## [5.0.0] - 2025-04
+
+### Added
+- **z13ctl integration**: RGB, power profiles, TDP, fan curves, and battery limit now powered by [z13ctl](https://github.com/dahui/z13ctl)
+- `pwrcfg`, `gz302-rgb`, `rrcfg` wrapper commands for backward compatibility
+- PyQt6 system tray (`tray-icon/`) for power profile switching
+- `gz302-lib/` library-first v5 architecture with all hardware as standalone sourced modules
+- `gz302-lib/kernel-compat.sh` for kernel version–aware workarounds (6.14–6.17+)
+- `gz302-lib/state-manager.sh` with atomic file writes and checkpoint system
+- `gz302-lib/display-fix.sh` for OLED PSR/dcdebugmask fixes
+- Optional modules (`modules/`) downloaded on demand: gaming, LLM, hypervisor
+- Multi-distro support: Arch, Debian/Ubuntu, Fedora, OpenSUSE
+
+### Changed
+- Unified installer (`gz302-setup.sh`) replaces previous multi-script approach
+- All hardware control via z13ctl (RGB, power, TDP, fan, battery)
+- FHS-compliant config paths under `/etc/gz302/`, state under `/var/lib/gz302/`
+
 ## [4.2.1] - 2025-04-27
 
 ### Added
