@@ -723,6 +723,16 @@ install_tray_app() {
         bash "${tray_dir}/install-tray.sh"
     fi
 
+    # Sync tray source files to /opt/gz302-control-center if that install exists
+    # (handles the system-level launcher at /usr/local/bin/gz302-control-center)
+    local opt_dir="/opt/gz302-control-center"
+    if [[ -d "$opt_dir" ]]; then
+        info "Updating system-level tray install at $opt_dir ..."
+        cp -a "${tray_dir}/src/"* "$opt_dir/src/"
+        cp -a "${tray_dir}/assets/"* "$opt_dir/assets/" 2>/dev/null || true
+        cp "${tray_dir}/VERSION" "$opt_dir/VERSION" 2>/dev/null || true
+    fi
+
     success "Tray app installed"
 }
 
