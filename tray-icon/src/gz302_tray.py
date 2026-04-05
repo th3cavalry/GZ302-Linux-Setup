@@ -72,9 +72,11 @@ class GZ302TrayApp(QSystemTrayIcon):
         
         profiles_menu.addSeparator()
         profiles_menu.addAction("📊 Status").triggered.connect(self.show_power_status)
-        profiles_menu.addAction("🔄 Toggle Auto (AC/Battery)").triggered.connect(
-            lambda: self.power.set_auto(not self.power.is_auto_enabled())
-        )
+        self.auto_action = QAction("🔄 Auto Switch (AC/Battery)", self)
+        self.auto_action.setCheckable(True)
+        self.auto_action.setChecked(self.power.is_auto_enabled())
+        self.auto_action.triggered.connect(lambda checked: self.power.set_auto(checked))
+        profiles_menu.addAction(self.auto_action)
             
         self.menu.addSeparator()
         
@@ -191,7 +193,7 @@ class GZ302TrayApp(QSystemTrayIcon):
         import subprocess
         try:
             result = subprocess.run(
-                ["sudo", "-n", "/usr/local/bin/rrcfg", rate],
+                ["/usr/local/bin/rrcfg", rate],
                 capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
@@ -235,40 +237,37 @@ class GZ302TrayApp(QSystemTrayIcon):
 
     def update_icon(self):
         """Update tray icon based on current power profile."""
-        # Refresh current profile from file
-        self.power.current_profile = self.power._read_current_profile()
-        
-        # Map profiles to icon suffixes
-        # Icons: profile-b (balanced/battery), profile-e (emergency/efficient), 
-        #        profile-g (gaming), profile-m (maximum), profile-p (performance)
-        profile_icons = {
-            "emergency": "profile-e",
-            "battery": "profile-b",    # Use B for battery mode
-            "efficient": "profile-e",
-            "balanced": "profile-b",
-            "performance": "profile-p",
-            "gaming": "profile-g",
-            "maximum": "profile-m",
-        }
-        
-        icon_name = profile_icons.get(self.power.current_profile, "profile-b")
         assets = Path(__file__).parent.parent / "assets"
+
+        # When auto mode is active show power-source icon (battery vs AC)
+        if self.power.is_auto_enabled():
+            batt_info = self.power.get_battery_info()
+            icon_name = "battery" if batt_info.get("plugged") is False else "ac"
+        else:
+            # Map profiles to icon suffixes
+            profile_icons = {
+                "emergency": "profile-e",
+                "battery": "profile-b",
+                "efficient": "profile-e",
+                "balanced": "profile-b",
+                "performance": "profile-p",
+                "gaming": "profile-g",
+                "maximum": "profile-m",
+            }
+            icon_name = profile_icons.get(self.power.current_profile, "profile-b")
+
         icon_path = assets / f"{icon_name}.svg"
-        
+        if not icon_path.exists():
+            icon_path = assets / "profile-b.svg"
         if icon_path.exists():
             self.setIcon(QIcon(str(icon_path)))
-        else:
-            # Fallback to default
-            fallback = assets / "profile-b.svg"
-            if fallback.exists():
-                self.setIcon(QIcon(str(fallback)))
     
     def update_status(self):
         # Run auto-switch check first (no-op if disabled)
         self.power.check_auto_switch()
 
-        # Refresh current profile from file
-        self.power.current_profile = self.power._read_current_profile()
+        # Sync auto-action checkmark in case state changed externally
+        self.auto_action.setChecked(self.power.is_auto_enabled())
 
         # Get profile TDP details
         profile = self.power.current_profile.capitalize()

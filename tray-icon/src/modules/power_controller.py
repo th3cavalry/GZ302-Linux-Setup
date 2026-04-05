@@ -17,6 +17,7 @@ POWER_PROFILES = {
 }
 
 _AUTO_CONFIG_FILE = Path.home() / ".config" / "gz302" / "auto.conf"
+_PROFILE_CACHE_FILE = Path.home() / ".config" / "gz302" / "tray-profile.conf"
 
 
 class PowerController:
@@ -32,9 +33,18 @@ class PowerController:
         self._load_auto_config()
 
     def _read_current_profile(self):
+        # Check saved tray profile first — preserves 7-tier names like gaming/maximum
+        try:
+            if _PROFILE_CACHE_FILE.exists():
+                val = _PROFILE_CACHE_FILE.read_text().strip()
+                if val in POWER_PROFILES:
+                    return val
+        except Exception:
+            pass
+        # Fall back to z13ctl status (returns 3-tier: quiet/balanced/performance)
         try:
             result = subprocess.run(
-                ["sudo", "-n", "z13ctl", "status"],
+                ["z13ctl", "status"],
                 capture_output=True, text=True, timeout=10,
             )
             if result.returncode == 0:
@@ -115,7 +125,7 @@ class PowerController:
         """Return (spl, sppt, fppt) wattages parsed from z13ctl status."""
         try:
             result = subprocess.run(
-                ["sudo", "-n", "z13ctl", "status"],
+                ["z13ctl", "status"],
                 capture_output=True, text=True, timeout=5,
             )
             if result.returncode == 0:
@@ -143,12 +153,18 @@ class PowerController:
                 z13_profile = profile
 
             result = subprocess.run(
-                ["sudo", "-n", "z13ctl", "profile", "--set", z13_profile],
+                ["z13ctl", "profile", "--set", z13_profile],
                 capture_output=True, text=True, timeout=30,
             )
             if result.returncode == 0:
                 self.notifier.notify_profile_change(profile, result.stdout.strip())
                 self.current_profile = profile
+                # Persist tray-level profile name (survives restarts)
+                try:
+                    _PROFILE_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    _PROFILE_CACHE_FILE.write_text(profile + '\n')
+                except Exception:
+                    pass
                 # Apply TDP override if specified
                 if spec and spec.get("tdp"):
                     tdp_val = spec["tdp"]
@@ -162,8 +178,7 @@ class PowerController:
                 return True
             else:
                 err = result.stderr.strip()
-                hint = "Check sudo permissions" if "permission" in err.lower() else ""
-                self.notifier.notify_error("Profile Change Failed", err, hint)
+                self.notifier.notify_error("Profile Change Failed", err)
                 return False
         except Exception as e:
             self.notifier.notify_error("Profile Change Failed", str(e))
@@ -188,7 +203,7 @@ class PowerController:
     def set_charge_limit(self, limit):
         try:
             result = subprocess.run(
-                ["sudo", "-n", "z13ctl", "batterylimit", "--set", str(limit)],
+                ["z13ctl", "batterylimit", "--set", str(limit)],
                 capture_output=True, text=True, timeout=10,
             )
             if result.returncode == 0:
@@ -206,7 +221,7 @@ class PowerController:
     def get_status(self):
         try:
             result = subprocess.run(
-                ["sudo", "-n", "z13ctl", "status"],
+                ["z13ctl", "status"],
                 capture_output=True, text=True, timeout=10,
             )
             return result.stdout.strip() if result.returncode == 0 else "Unknown"

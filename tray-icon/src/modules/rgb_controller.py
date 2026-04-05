@@ -1,6 +1,7 @@
 import subprocess
 import threading
 from pathlib import Path
+from PyQt6.QtCore import QTimer
 
 # Speed mapping: internal numeric → z13ctl speed names
 _SPEED_MAP = {1: "slow", 2: "normal", 3: "fast"}
@@ -37,7 +38,7 @@ class RGBController:
             )
             return
         self._run_bg_command(
-            ["sudo", "-n", "z13ctl", "apply", "--mode", "static", "--color", hex_color],
+            ["z13ctl", "apply", "--mode", "static", "--color", hex_color],
             success_msg=f"Color set to #{hex_color}",
             error_msg="Failed to set color",
         )
@@ -47,7 +48,7 @@ class RGBController:
             self.notifier.notify_error("RGB", "z13ctl not installed")
             return
         speed_name = _SPEED_MAP.get(speed, "normal")
-        cmd = ["sudo", "-n", "z13ctl", "apply"]
+        cmd = ["z13ctl", "apply"]
         desc = ""
         if anim_type == "breathing":
             cmd += [
@@ -77,7 +78,7 @@ class RGBController:
             return
         level_name = {0: "off", 1: "low", 2: "medium", 3: "high"}.get(level, "medium")
         self._run_bg_command(
-            ["sudo", "-n", "z13ctl", "brightness", level_name],
+            ["z13ctl", "brightness", level_name],
             success_msg=f"Brightness set to {level_name}",
             error_msg="Failed to set brightness",
             timeout=5,
@@ -87,7 +88,7 @@ class RGBController:
         if not self.keyboard_available:
             return
         self._run_bg_command(
-            ["sudo", "-n", "z13ctl", "off"],
+            ["z13ctl", "off"],
             success_msg="Lighting turned off",
             error_msg="Failed to turn off lighting",
         )
@@ -99,29 +100,29 @@ class RGBController:
                     cmd, capture_output=True, text=True, timeout=timeout
                 )
                 if res.returncode == 0:
-                    self.notifier.notify("RGB", success_msg, "success", 2000)
+                    QTimer.singleShot(0, lambda: self.notifier.notify("RGB", success_msg, "success", 2000))
                 else:
                     err_detail = (
                         res.stderr.strip() or res.stdout.strip() or "Unknown error"
                     )
                     if "permission" in err_detail.lower():
-                        hint = "Check sudoers: /etc/sudoers.d/gz302"
-                        self.notifier.notify_error("RGB Error", f"{error_msg}\n{hint}")
+                        hint = "Check z13ctl setup: sudo z13ctl setup"
+                        msg = f"{error_msg}\n{hint}"
+                        QTimer.singleShot(0, lambda m=msg: self.notifier.notify_error("RGB Error", m))
                     else:
-                        self.notifier.notify_error(
-                            "RGB Error", f"{error_msg}: {err_detail[:100]}"
-                        )
+                        msg = f"{error_msg}: {err_detail[:100]}"
+                        QTimer.singleShot(0, lambda m=msg: self.notifier.notify_error("RGB Error", m))
             except subprocess.TimeoutExpired:
-                self.notifier.notify_error(
-                    "RGB Error", f"{error_msg}: Command timed out"
-                )
+                msg = f"{error_msg}: Command timed out"
+                QTimer.singleShot(0, lambda m=msg: self.notifier.notify_error("RGB Error", m))
             except FileNotFoundError:
-                self.notifier.notify_error(
+                QTimer.singleShot(0, lambda: self.notifier.notify_error(
                     "RGB Error", "z13ctl not found. Run gz302-setup.sh"
-                )
+                ))
                 self.keyboard_available = False
             except Exception as e:
-                self.notifier.notify_error("RGB Error", str(e)[:100])
+                msg = str(e)[:100]
+                QTimer.singleShot(0, lambda m=msg: self.notifier.notify_error("RGB Error", m))
         threading.Thread(target=worker, daemon=True).start()
 
     # --- Window / Lightbar ---
@@ -135,14 +136,14 @@ class RGBController:
             return
         if level == 0:
             self._run_bg_command(
-                ["sudo", "-n", "z13ctl", "off"],
+                ["z13ctl", "off"],
                 success_msg="Lightbar turned off",
                 error_msg="Failed to turn off lightbar",
             )
         else:
             level_name = {1: "low", 2: "medium", 3: "high"}.get(level, "medium")
             self._run_bg_command(
-                ["sudo", "-n", "z13ctl", "apply", "--brightness", level_name],
+                ["z13ctl", "apply", "--brightness", level_name],
                 success_msg=f"Lightbar brightness: {level_name}",
                 error_msg="Failed to set lightbar brightness",
             )
@@ -154,7 +155,7 @@ class RGBController:
             return
         hex_color = f"{r:02x}{g:02x}{b:02x}"
         self._run_bg_command(
-            ["sudo", "-n", "z13ctl", "apply", "--mode", "static", "--color", hex_color],
+            ["z13ctl", "apply", "--mode", "static", "--color", hex_color],
             success_msg=f"Lightbar color: RGB({r},{g},{b})",
             error_msg="Failed to set lightbar color",
         )
@@ -174,7 +175,7 @@ class RGBController:
         if anim_type == "rainbow":
             self._run_bg_command(
                 [
-                    "sudo", "-n", "z13ctl", "apply",
+                    "z13ctl", "apply",
                     "--mode", "rainbow", "--speed", speed_name,
                 ],
                 success_msg="Lightbar: Rainbow",
@@ -185,7 +186,7 @@ class RGBController:
             color = f"{c1[0]:02x}{c1[1]:02x}{c1[2]:02x}" if c1 else "FFFFFF"
             self._run_bg_command(
                 [
-                    "sudo", "-n", "z13ctl", "apply",
+                    "z13ctl", "apply",
                     "--mode", "breathe", "--color", color, "--speed", speed_name,
                 ],
                 success_msg="Lightbar: Breathing",
