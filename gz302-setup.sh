@@ -41,7 +41,7 @@ while [[ $# -gt 0 ]]; do
         --no-modules)    SKIP_MODULES=true; shift ;;
         -h|--help)
             cat << 'EOF'
-GZ302 Linux Setup — Unified Installer v5.0.0
+GZ302 Linux Setup — Unified Installer v5.0.2
 
 Usage: sudo ./gz302-setup.sh [OPTIONS]
 

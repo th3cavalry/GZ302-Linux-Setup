@@ -36,8 +36,10 @@ class GZ302TrayApp(QSystemTrayIcon):
         # menu ourselves from the activated signal.
         self.activated.connect(self._on_activated)
         
-        # Set icon
+        # Set icon FIRST (required before setVisible)
         self.update_icon()
+        
+        # Show tray (icon must be set first)
         self.show()
         
         # Timer for status updates
@@ -197,6 +199,7 @@ class GZ302TrayApp(QSystemTrayIcon):
             QSystemTrayIcon.ActivationReason.Trigger,
             QSystemTrayIcon.ActivationReason.Context,
         ):
+            # Show menu at cursor position
             self.menu.popup(QCursor.pos())
     
     def set_refresh_rate(self, rate):

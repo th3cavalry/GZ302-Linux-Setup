@@ -1,10 +1,15 @@
 import subprocess
 import threading
+import queue
 from pathlib import Path
 from PyQt6.QtCore import QTimer
+from os import environ
 
 # Speed mapping: internal numeric → z13ctl speed names
 _SPEED_MAP = {1: "slow", 2: "normal", 3: "fast"}
+
+# z13ctl socket path (XDG_RUNTIME_DIR set by systemd/user session)
+_Z13CTL_SOCKET = f"{environ.get('XDG_RUNTIME_DIR', '/run/user/1000')}/z13ctl/z13ctl.sock"
 
 
 class RGBController:
@@ -14,6 +19,9 @@ class RGBController:
         self.notifier = notifier
         self.window_animation_thread = None
         self.window_animation_stop = None
+        # Command queue for thread-safe serialization
+        self._cmd_queue = queue.Queue()
+        self._queue_worker_started = False
         self._check_installation()
 
     def _check_installation(self):
@@ -22,14 +30,71 @@ class RGBController:
         self.window_available = self.keyboard_available
 
     def check_available(self):
+        """Check if z13ctl binary exists AND daemon is running."""
         try:
+            # Check binary first
             for p in ["/usr/local/bin/z13ctl", "/usr/bin/z13ctl"]:
                 if Path(p).exists():
-                    return True
-            result = subprocess.run(["which", "z13ctl"], capture_output=True, timeout=2)
-            return result.returncode == 0
+                    # Then check daemon socket
+                    if Path(_Z13CTL_SOCKET).exists():
+                        return True
+                    # If socket missing, try one z13ctl command to verify daemon
+                    result = subprocess.run(
+                        ["z13ctl", "status"],
+                        capture_output=True,
+                        timeout=2
+                    )
+                    return result.returncode == 0
+            return False
         except Exception:
             return False
+
+    def _ensure_queue_worker(self):
+        """Start the queue worker thread if not already running."""
+        if not self._queue_worker_started:
+            self._queue_worker_started = True
+            threading.Thread(target=self._process_queue, daemon=True).start()
+
+    def _execute_command(self, cmd, success_msg, error_msg, timeout):
+        """Execute a single RGB command and notify result."""
+        try:
+            res = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=timeout
+            )
+            if res.returncode == 0:
+                QTimer.singleShot(0, lambda: self.notifier.notify("RGB", success_msg, "success", 2000))
+            else:
+                err_detail = (
+                    res.stderr.strip() or res.stdout.strip() or "Unknown error"
+                )
+                if "permission" in err_detail.lower():
+                    hint = "Check z13ctl setup: sudo z13ctl setup"
+                    msg = f"{error_msg}\n{hint}"
+                    QTimer.singleShot(0, lambda m=msg: self.notifier.notify_error("RGB Error", m))
+                else:
+                    msg = f"{error_msg}: {err_detail[:100]}"
+                    QTimer.singleShot(0, lambda m=msg: self.notifier.notify_error("RGB Error", m))
+        except subprocess.TimeoutExpired:
+            msg = f"{error_msg}: Command timed out"
+            QTimer.singleShot(0, lambda m=msg: self.notifier.notify_error("RGB Error", m))
+        except FileNotFoundError:
+            QTimer.singleShot(0, lambda: self.notifier.notify_error(
+                "RGB Error", "z13ctl not found. Run gz302-setup.sh"
+            ))
+            self.keyboard_available = False
+        except Exception as e:
+            msg = str(e)[:100]
+            QTimer.singleShot(0, lambda m=msg: self.notifier.notify_error("RGB Error", m))
+
+    def _process_queue(self):
+        """Process RGB commands from queue sequentially."""
+        while True:
+            try:
+                cmd, success_msg, error_msg, timeout = self._cmd_queue.get()
+                self._execute_command(cmd, success_msg, error_msg, timeout)
+                self._cmd_queue.task_done()
+            except Exception:
+                continue
 
     def set_keyboard_color(self, hex_color):
         if not self.keyboard_available:
@@ -94,36 +159,9 @@ class RGBController:
         )
 
     def _run_bg_command(self, cmd, success_msg, error_msg, timeout=60):
-        def worker():
-            try:
-                res = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=timeout
-                )
-                if res.returncode == 0:
-                    QTimer.singleShot(0, lambda: self.notifier.notify("RGB", success_msg, "success", 2000))
-                else:
-                    err_detail = (
-                        res.stderr.strip() or res.stdout.strip() or "Unknown error"
-                    )
-                    if "permission" in err_detail.lower():
-                        hint = "Check z13ctl setup: sudo z13ctl setup"
-                        msg = f"{error_msg}\n{hint}"
-                        QTimer.singleShot(0, lambda m=msg: self.notifier.notify_error("RGB Error", m))
-                    else:
-                        msg = f"{error_msg}: {err_detail[:100]}"
-                        QTimer.singleShot(0, lambda m=msg: self.notifier.notify_error("RGB Error", m))
-            except subprocess.TimeoutExpired:
-                msg = f"{error_msg}: Command timed out"
-                QTimer.singleShot(0, lambda m=msg: self.notifier.notify_error("RGB Error", m))
-            except FileNotFoundError:
-                QTimer.singleShot(0, lambda: self.notifier.notify_error(
-                    "RGB Error", "z13ctl not found. Run gz302-setup.sh"
-                ))
-                self.keyboard_available = False
-            except Exception as e:
-                msg = str(e)[:100]
-                QTimer.singleShot(0, lambda m=msg: self.notifier.notify_error("RGB Error", m))
-        threading.Thread(target=worker, daemon=True).start()
+        """Enqueue RGB command for sequential processing (thread-safe)."""
+        self._ensure_queue_worker()
+        self._cmd_queue.put((cmd, success_msg, error_msg, timeout))
 
     # --- Window / Lightbar ---
     # z13ctl handles lightbar natively; these methods provide tray-level
