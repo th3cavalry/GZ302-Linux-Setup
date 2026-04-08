@@ -4,7 +4,7 @@ set -euo pipefail
 
 # ==============================================================================
 # GZ302 Input Manager Library
-# Version: 5.0.2
+# Version: 5.0.3
 #
 # This library manages ASUS HID devices (keyboard, touchpad) and tablet mode
 # functionality for the GZ302.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GZ302 Control Center (Modular v4)
+GZ302 Control Center (Modular v5)
 """
 import sys
 import os
@@ -18,9 +18,10 @@ from modules.rgb_controller import RGBController
 from modules.power_controller import PowerController
 
 class GZ302TrayApp(QSystemTrayIcon):
-    def __init__(self, app):
-        super().__init__()
+    def __init__(self, app, parent_widget=None):
+        super().__init__(parent_widget)
         self.app = app
+        self.parent_widget = parent_widget
         
         # Initialize modules
         self.config = ConfigManager()
@@ -29,8 +30,11 @@ class GZ302TrayApp(QSystemTrayIcon):
         self.power = PowerController(self.notifier)
         
         # Setup UI
+        # Use no parent for the menu to avoid Wayland grabbing issues,
+        # but keep a reference so it's not GC'd.
         self.menu = QMenu()
         self.setup_menu()
+        
         # Do NOT use setContextMenu — on KDE Plasma 6 + Wayland the DBusMenu
         # bridge swallows QAction.triggered signals.  Instead we show the
         # menu ourselves from the activated signal.
@@ -199,8 +203,8 @@ class GZ302TrayApp(QSystemTrayIcon):
             QSystemTrayIcon.ActivationReason.Trigger,
             QSystemTrayIcon.ActivationReason.Context,
         ):
-            # Show menu at cursor position
-            self.menu.popup(QCursor.pos())
+            # Use exec() instead of popup() to ensure blocking focus on Wayland
+            self.menu.exec(QCursor.pos())
     
     def set_refresh_rate(self, rate):
         """Set display refresh rate via rrcfg."""
@@ -230,7 +234,7 @@ class GZ302TrayApp(QSystemTrayIcon):
         """Show about information."""
         self.notifier.notify(
             "GZ302 Control Center",
-            "Power, Display & RGB control for\nASUS ROG Flow Z13 (GZ302)\n\nVersion 4.0.0",
+            "Power, Display & RGB control for\nASUS ROG Flow Z13 (GZ302)\n\nVersion 5.0.3",
             "info", 5000
         )
     
@@ -251,7 +255,7 @@ class GZ302TrayApp(QSystemTrayIcon):
 
     def update_icon(self):
         """Update tray icon based on current power profile."""
-        assets = Path(__file__).parent.parent / "assets"
+        assets = Path(__file__).resolve().parent.parent / "assets"
 
         # When auto mode is active show power-source icon (battery vs AC)
         if self.power.is_auto_enabled():
@@ -317,11 +321,17 @@ def main():
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     
-    # Hidden widget for Wayland support
+    # Hidden widget for Wayland support - must be created before tray icon
     w = QWidget()
     w.hide()
     
-    tray = GZ302TrayApp(app)
+    # Keep the hidden widget as parent to the tray icon (SNI requirement)
+    # but not as parent to the menu (Wayland popup requirement).
+    tray = GZ302TrayApp(app, w)
+    
+    # Keep reference to hidden widget
+    tray._hidden_widget = w
+    
     sys.exit(app.exec())
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 # ==============================================================================
 # GZ302 Linux Setup — Unified Installer
 # Author: th3cavalry using Copilot
-# Version: 5.0.2
+# Version: 5.0.3
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)

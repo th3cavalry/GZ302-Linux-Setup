@@ -44,6 +44,25 @@ AUTOSTART_DIR="$USER_HOME/.config/autostart"
 DESKTOP_DIR="$USER_HOME/.local/share/applications"
 mkdir -p "$AUTOSTART_DIR" "$DESKTOP_DIR"
 
+# Cleanup old/conflicting desktop files - be aggressive to fix "2 listings"
+OLD_DESKTOP_FILES=(
+  "/usr/share/applications/gz302-control-center.desktop"
+  "/usr/share/applications/gz302-tray.desktop"
+  "$DESKTOP_DIR/gz302-control-center.desktop"
+  "$DESKTOP_DIR/gz302-tray.desktop"
+  "/etc/xdg/autostart/gz302-control-center.desktop"
+  "/etc/xdg/autostart/gz302-tray.desktop"
+  "$AUTOSTART_DIR/gz302-control-center.desktop"
+  "$AUTOSTART_DIR/gz302-tray.desktop"
+)
+
+for f in "${OLD_DESKTOP_FILES[@]}"; do
+  if [[ -f "$f" ]]; then
+    echo "Removing old/conflicting desktop file: $f"
+    rm -f "$f" 2>/dev/null || sudo rm -f "$f" 2>/dev/null || true
+  fi
+done
+
 # Install icon to system location for proper XDG integration
 ICON_NAME="gz302-power-manager"
 ICON_SRC="$APP_DIR/assets/profile-b.svg"

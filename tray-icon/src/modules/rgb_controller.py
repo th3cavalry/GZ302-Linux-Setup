@@ -1,15 +1,20 @@
+import os
 import subprocess
 import threading
 import queue
 from pathlib import Path
 from PyQt6.QtCore import QTimer
-from os import environ
 
 # Speed mapping: internal numeric → z13ctl speed names
 _SPEED_MAP = {1: "slow", 2: "normal", 3: "fast"}
 
-# z13ctl socket path (XDG_RUNTIME_DIR set by systemd/user session)
-_Z13CTL_SOCKET = f"{environ.get('XDG_RUNTIME_DIR', '/run/user/1000')}/z13ctl/z13ctl.sock"
+# z13ctl socket path
+def get_z13ctl_socket():
+    uid = os.getuid()
+    runtime_dir = os.environ.get('XDG_RUNTIME_DIR', f'/run/user/{uid}')
+    return Path(runtime_dir) / "z13ctl" / "z13ctl.sock"
+
+_Z13CTL_SOCKET = get_z13ctl_socket()
 
 
 class RGBController:
@@ -61,6 +66,14 @@ class RGBController:
             res = subprocess.run(
                 cmd, capture_output=True, text=True, timeout=timeout
             )
+            
+            # Fallback to sudo -n if permission denied
+            if res.returncode != 0 and "permission" in (res.stderr.strip() or res.stdout.strip()).lower():
+                sudo_cmd = ["sudo", "-n"] + cmd
+                res = subprocess.run(
+                    sudo_cmd, capture_output=True, text=True, timeout=timeout
+                )
+
             if res.returncode == 0:
                 QTimer.singleShot(0, lambda: self.notifier.notify("RGB", success_msg, "success", 2000))
             else:

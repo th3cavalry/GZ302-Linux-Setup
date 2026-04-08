@@ -33,15 +33,8 @@ class PowerController:
         self._load_auto_config()
 
     def _read_current_profile(self):
-        # Check saved tray profile first — preserves 7-tier names like gaming/maximum
-        try:
-            if _PROFILE_CACHE_FILE.exists():
-                val = _PROFILE_CACHE_FILE.read_text().strip()
-                if val in POWER_PROFILES:
-                    return val
-        except Exception:
-            pass
         # Fall back to z13ctl status (returns 3-tier: quiet/balanced/performance)
+        hw_profile = "balanced"
         try:
             result = subprocess.run(
                 ["z13ctl", "status"],
@@ -51,10 +44,23 @@ class PowerController:
                 for line in result.stdout.splitlines():
                     low = line.lower()
                     if "profile" in low and ":" in line:
-                        return line.split(":", 1)[1].strip().lower()
+                        hw_profile = line.split(":", 1)[1].strip().lower()
         except Exception:
             pass
-        return "balanced"
+
+        # Check saved tray profile — preserves 7-tier names like gaming/maximum
+        try:
+            if _PROFILE_CACHE_FILE.exists():
+                val = _PROFILE_CACHE_FILE.read_text().strip()
+                if val in POWER_PROFILES:
+                    # Validate that cached 7-tier profile matches HW 3-tier mapping
+                    expected_hw = POWER_PROFILES[val]["z13ctl_profile"]
+                    if expected_hw == hw_profile:
+                        return val
+        except Exception:
+            pass
+            
+        return hw_profile
 
     def _load_auto_config(self):
         try:
@@ -152,8 +158,9 @@ class PowerController:
                 # Accept raw z13ctl profile names (quiet/balanced/performance/custom)
                 z13_profile = profile
 
+            # Use sudo -n to ensure command works even if user daemon has issues
             result = subprocess.run(
-                ["z13ctl", "profile", "--set", z13_profile],
+                ["sudo", "-n", "z13ctl", "profile", "--set", z13_profile],
                 capture_output=True, text=True, timeout=30,
             )
             if result.returncode == 0:
@@ -178,6 +185,16 @@ class PowerController:
                 return True
             else:
                 err = result.stderr.strip()
+                # Fallback to non-sudo if sudo failed (might be missing sudoers entry)
+                result = subprocess.run(
+                    ["z13ctl", "profile", "--set", z13_profile],
+                    capture_output=True, text=True, timeout=30,
+                )
+                if result.returncode == 0:
+                     self.notifier.notify_profile_change(profile, result.stdout.strip())
+                     self.current_profile = profile
+                     return True
+
                 self.notifier.notify_error("Profile Change Failed", err)
                 return False
         except Exception as e:
