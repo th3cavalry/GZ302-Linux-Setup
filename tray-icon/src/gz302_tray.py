@@ -39,7 +39,11 @@ class GZ302TrayApp(QSystemTrayIcon):
         # bridge swallows QAction.triggered signals.  Instead we show the
         # menu ourselves from the activated signal.
         self.activated.connect(self._on_activated)
-        
+
+        # On Wayland, we MUST use setContextMenu. Wayland security prevents background
+        # apps from forcing popups via exec() without a valid input serial.
+        self.setContextMenu(self.menu)       
+
         # Set icon FIRST (required before setVisible)
         self.update_icon()
         
