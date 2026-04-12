@@ -8,7 +8,7 @@ url="https://github.com/th3cavalry/GZ302-Linux-Setup"
 license=('MIT')
 depends=('bash' 'curl')
 optdepends=(
-    'python-pyqt6: System tray control center'
+    'python-pyqt6: System tray command center'
     'python-psutil: Battery monitoring in tray app'
     'z13ctl: Hardware control backend (installed by setup)'
     'steam: Gaming support (optional module)'

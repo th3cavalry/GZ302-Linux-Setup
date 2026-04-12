@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-GZ302 Control Center (Modular v5)
+GZ302 Command Center (Modular v5)
 """
 import sys
 import os
 import signal
-from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QWidget
+from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 from PyQt6.QtGui import QIcon, QAction, QCursor
 from PyQt6.QtCore import QTimer
 from pathlib import Path
@@ -18,10 +18,9 @@ from modules.rgb_controller import RGBController
 from modules.power_controller import PowerController
 
 class GZ302TrayApp(QSystemTrayIcon):
-    def __init__(self, app, parent_widget=None):
-        super().__init__(parent_widget)
+    def __init__(self, app):
+        super().__init__()
         self.app = app
-        self.parent_widget = parent_widget
         
         # Initialize modules
         self.config = ConfigManager()
@@ -30,17 +29,14 @@ class GZ302TrayApp(QSystemTrayIcon):
         self.power = PowerController(self.notifier)
         
         # Setup UI
-        # Use no parent for the menu to avoid Wayland grabbing issues,
-        # but keep a reference so it's not GC'd.
         self.menu = QMenu()
         self.setup_menu()
-        
-        # On Wayland, we MUST use setContextMenu. Wayland security prevents background
-        # apps from forcing popups via exec() without a valid input serial.
-        # This exports the menu via DBus/SNI which the DE renders natively.
+        # Use setContextMenu so KDE/GNOME can render the menu natively via
+        # StatusNotifierItem + dbusmenu.  On Wayland, popup() is blocked by
+        # the compositor (no input serial), so this is the only working path.
         self.setContextMenu(self.menu)
 
-        # Connect to activated for special actions (e.g. middle-click)
+        # Also connect activated for left-click or DEs that emit it
         self.activated.connect(self._on_activated)
         
         # Set icon FIRST (required before setVisible)
@@ -55,7 +51,7 @@ class GZ302TrayApp(QSystemTrayIcon):
         self.timer.start(5000)
         
         # Welcome
-        self.notifier.notify(self.config.get_app_name(), "Control Center Ready", "info", 3000)
+        self.notifier.notify(self.config.get_app_name(), "Command Center Ready", "info", 3000)
 
     def setup_menu(self):
         self.menu.clear()
@@ -201,13 +197,18 @@ class GZ302TrayApp(QSystemTrayIcon):
         self.menu.addAction("❌ Quit").triggered.connect(self.app.quit)
 
     def _on_activated(self, reason):
-        """Handle tray icon activation events."""
-        # Note: With setContextMenu(self.menu) active, the DE/Qt handles 
-        # RightClick and often LeftClick (Context/Trigger) automatically
-        # via DBus/SNI.
-        if reason == QSystemTrayIcon.ActivationReason.MiddleClick:
-            # Quick toggle RGB or similar could go here
-            pass
+        """Handle tray icon activation.
+        
+        Right-click is handled natively by setContextMenu via dbusmenu/SNI.
+        Left-click (Trigger) also shows the menu for convenience.
+        """
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:
+            # Left-click: show the same menu.  On Wayland popup() may fail
+            # silently (no input serial), but setContextMenu covers right-click.
+            try:
+                self.menu.popup(QCursor.pos())
+            except Exception:
+                pass
     
     def set_refresh_rate(self, rate):
         """Set display refresh rate via rrcfg."""
@@ -236,8 +237,8 @@ class GZ302TrayApp(QSystemTrayIcon):
     def show_about(self):
         """Show about information."""
         self.notifier.notify(
-            "GZ302 Control Center",
-            "Power, Display & RGB control for\nASUS ROG Flow Z13 (GZ302)\n\nVersion 5.0.3",
+            "GZ302 Command Center",
+            "Power, Display & RGB control for\nASUS ROG Flow Z13 (GZ302)\n\nVersion 5.0.4",
             "info", 5000
         )
     
@@ -284,57 +285,61 @@ class GZ302TrayApp(QSystemTrayIcon):
             self.setIcon(QIcon(str(icon_path)))
     
     def update_status(self):
-        # Run auto-switch check first (no-op if disabled)
-        self.power.check_auto_switch()
+        try:
+            # Run auto-switch check first (no-op if disabled)
+            self.power.check_auto_switch()
 
-        # Sync auto-action checkmark in case state changed externally
-        self.auto_action.setChecked(self.power.is_auto_enabled())
+            # Sync auto-action checkmark in case state changed externally
+            self.auto_action.setChecked(self.power.is_auto_enabled())
 
-        # Get profile TDP details
-        profile = self.power.current_profile.capitalize()
-        spl, sppt, fppt = self.power.get_profile_details()
-        
-        # Build tooltip with power info
-        tooltip_lines = [
-            "GZ302 Control Center",
-            f"Profile: {profile} ({spl}W)",
-        ]
-        
-        # Show auto-switch status
-        if self.power.is_auto_enabled():
-            ac = self.power.get_ac_profile().capitalize()
-            batt = self.power.get_battery_profile().capitalize()
-            tooltip_lines.append(f"Auto: AC→{ac}, Batt→{batt}")
-        
-        # Battery info
-        batt_info = self.power.get_battery_info()
-        pct = batt_info.get('percent')
-        if pct is not None:
-            status = batt_info.get('status', 'unknown').capitalize()
-            tooltip_lines.append(f"Battery: {pct}% ({status})")
-        else:
-            tooltip_lines.append("Power: AC")
-        
-        self.setToolTip("\n".join(tooltip_lines))
-        
-        # Update icon to match profile
-        self.update_icon()
+            # Get profile TDP details
+            profile = self.power.current_profile.capitalize()
+            spl, sppt, fppt = self.power.get_profile_details()
+            
+            # Build tooltip with power info
+            tooltip_lines = [
+                "GZ302 Command Center",
+                f"Profile: {profile} ({spl}W)",
+            ]
+            
+            # Show auto-switch status
+            if self.power.is_auto_enabled():
+                ac = self.power.get_ac_profile().capitalize()
+                batt = self.power.get_battery_profile().capitalize()
+                tooltip_lines.append(f"Auto: AC→{ac}, Batt→{batt}")
+            
+            # Battery info
+            batt_info = self.power.get_battery_info()
+            pct = batt_info.get('percent')
+            if pct is not None:
+                status = batt_info.get('status', 'unknown').capitalize()
+                tooltip_lines.append(f"Battery: {pct}% ({status})")
+            else:
+                tooltip_lines.append("Power: AC")
+            
+            self.setToolTip("\n".join(tooltip_lines))
+            
+            # Update icon to match profile
+            self.update_icon()
+        except Exception:
+            pass  # keep the QTimer alive; a single failure must not kill polling
 
 def main():
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     
-    # Hidden widget for Wayland support - must be created before tray icon
-    w = QWidget()
-    w.hide()
+    # Wait for system tray to become available (DE may still be loading)
+    if not QSystemTrayIcon.isSystemTrayAvailable():
+        for _ in range(30):
+            import time
+            time.sleep(1)
+            if QSystemTrayIcon.isSystemTrayAvailable():
+                break
+        else:
+            print("ERROR: No system tray available after 30s", file=sys.stderr)
+            sys.exit(1)
     
-    # Keep the hidden widget as parent to the tray icon (SNI requirement)
-    # but not as parent to the menu (Wayland popup requirement).
-    tray = GZ302TrayApp(app, w)
-    
-    # Keep reference to hidden widget
-    tray._hidden_widget = w
-    
+    tray = GZ302TrayApp(app)
     sys.exit(app.exec())
 
 if __name__ == "__main__":

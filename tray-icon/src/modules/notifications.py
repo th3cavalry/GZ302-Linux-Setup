@@ -28,7 +28,7 @@ class NotificationManager:
     def __init__(self, tray_icon):
         self.tray = tray_icon
         self.dbus_available = _DBUS_AVAILABLE
-        self._app_name = "GZ302 Control Center"
+        self._app_name = "GZ302 Command Center"
 
     @property
     def app_name(self):

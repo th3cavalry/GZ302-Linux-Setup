@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Install a Desktop launcher and Autostart entry for the GZ302 Control Center
+# Install a Desktop launcher and Autostart entry for the GZ302 Command Center
 # This script can be run as a regular user for user-specific installation
 # or with sudo for system-wide installation
 
@@ -95,7 +95,7 @@ fi
 
 # Use python3 explicitly in Exec line for better compatibility across desktop environments
 # Respect APP_NAME setting from /etc/gz302/tray.conf if present
-APP_NAME_DEFAULT="GZ302 Control Center"
+APP_NAME_DEFAULT="GZ302 Command Center"
 APP_NAME="$APP_NAME_DEFAULT"
 if [[ -f /etc/gz302/tray.conf ]]; then
   # shellcheck disable=SC1091
@@ -194,7 +194,7 @@ if ! command -v z13ctl >/dev/null 2>&1; then
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "z13ctl Backend Missing"
-    echo "The Control Center requires z13ctl for RGB and power control."
+    echo "The Command Center requires z13ctl for RGB and power control."
     echo "Run gz302-setup.sh first, or install z13ctl manually:"
     echo "  https://github.com/dahui/z13ctl"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

@@ -1,4 +1,4 @@
-# GZ302 Control Center
+# GZ302 Command Center
 
 A system tray application for convenient power profile management on the ASUS ROG Flow Z13 (GZ302).
 
@@ -69,7 +69,7 @@ sudo ./install-policy.sh
 
 This configures sudoers to allow `pwrcfg` to self-elevate without a password. The tray calls `pwrcfg` directly—no sudo needed.
 
-### Step 3: Run the Control Center
+### Step 3: Run the Command Center
 
 ```bash
 cd tray-icon/src
@@ -93,7 +93,7 @@ This creates a launcher in `~/.local/share/applications` and an autostart entry 
 
 ## Usage
 
-1. Launch the Control Center application
+1. Launch the Command Center application
 2. Look for the computer icon in your system tray
 3. Right-click the icon to see the menu
 4. Select a power profile to switch

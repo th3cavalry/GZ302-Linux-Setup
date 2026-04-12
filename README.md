@@ -78,7 +78,7 @@ The installer creates `pwrcfg` and `gz302-rgb` wrappers that map to z13ctl:
 
 ## System Tray App
 
-After installation, look for **"GZ302 Control Center"** in your system tray.
+After installation, look for **"GZ302 Command Center"** in your system tray.
 
 - **Right-click:** Quick profile switching (Quiet, Balanced, Performance)
 - **Middle-click:** Toggle RGB on/off
