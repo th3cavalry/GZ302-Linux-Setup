@@ -35,15 +35,14 @@ class GZ302TrayApp(QSystemTrayIcon):
         self.menu = QMenu()
         self.setup_menu()
         
-        # Do NOT use setContextMenu — on KDE Plasma 6 + Wayland the DBusMenu
-        # bridge swallows QAction.triggered signals.  Instead we show the
-        # menu ourselves from the activated signal.
-        self.activated.connect(self._on_activated)
-
         # On Wayland, we MUST use setContextMenu. Wayland security prevents background
         # apps from forcing popups via exec() without a valid input serial.
-        self.setContextMenu(self.menu)       
+        # This exports the menu via DBus/SNI which the DE renders natively.
+        self.setContextMenu(self.menu)
 
+        # Connect to activated for special actions (e.g. middle-click)
+        self.activated.connect(self._on_activated)
+        
         # Set icon FIRST (required before setVisible)
         self.update_icon()
         
@@ -202,13 +201,13 @@ class GZ302TrayApp(QSystemTrayIcon):
         self.menu.addAction("❌ Quit").triggered.connect(self.app.quit)
 
     def _on_activated(self, reason):
-        """Show the context menu as a native Qt popup so signals fire on all DEs."""
-        if reason in (
-            QSystemTrayIcon.ActivationReason.Trigger,
-            QSystemTrayIcon.ActivationReason.Context,
-        ):
-            # Use exec() instead of popup() to ensure blocking focus on Wayland
-            self.menu.exec(QCursor.pos())
+        """Handle tray icon activation events."""
+        # Note: With setContextMenu(self.menu) active, the DE/Qt handles 
+        # RightClick and often LeftClick (Context/Trigger) automatically
+        # via DBus/SNI.
+        if reason == QSystemTrayIcon.ActivationReason.MiddleClick:
+            # Quick toggle RGB or similar could go here
+            pass
     
     def set_refresh_rate(self, rate):
         """Set display refresh rate via rrcfg."""
