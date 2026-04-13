@@ -2,17 +2,15 @@
 
 All notable changes to GZ302-Linux-Setup will be documented in this file.
 
-## [5.0.3] - 2026-04
+## [5.1.1] - 2026-05
 
-### Fixed
-- **Tray Icon (Wayland/KDE):** Resolved "Failed to create grabbing popup" error by using `menu.exec()` and standardizing parentage. Tray icon now correctly appears and functions on KDE Plasma 6.
-- **Power Profile Sync:** Implemented hardware-to-app profile validation. The tray app now correctly detects and resyncs if the physical profile (e.g., Balanced) differs from the cached UI state.
-- **Backend Permissions:** Added `sudo -n` fallback for TDP and RGB commands to ensure reliability when the user-level daemon lacks direct hardware access.
-- **App Menu Cleanup:** Enhanced installer to aggressively remove legacy desktop entries, fixing the "double listing" issue in application menus.
-- **Asset Discovery:** Standardized absolute path resolution for SVG icons to prevent missing icons when launched from different contexts.
+### Added
+- **Security and UX overhaul**: Implemented comprehensive security hardening and user experience improvements across all modules.
 
-### Changed
-- Standardized all component versions to **5.0.3** for better release tracking.
+## [5.1.0] - 2026-04
+
+### Added
+- Updated all component versions to **5.1.0** for unified release tracking.
 - Updated `install-tray.sh` to remove conflicting launchers from both `/usr/share/applications` and `~/.local/share/applications`.
 
 ## [5.0.2] - 2025-04

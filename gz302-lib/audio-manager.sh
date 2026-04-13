@@ -4,7 +4,7 @@ set -euo pipefail
 
 # ==============================================================================
 # GZ302 Audio Manager Library
-# Version: 5.0.3
+# Version: 5.1.1
 #
 # This library manages audio configuration for the GZ302, including:
 # - Sound Open Firmware (SOF) installation

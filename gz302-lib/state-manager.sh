@@ -4,7 +4,7 @@ set -euo pipefail
 
 # ==============================================================================
 # GZ302 State Manager Library
-# Version: 5.0.3
+# Version: 5.1.1
 #
 # This library provides persistent state tracking for the GZ302 toolkit.
 # It tracks what fixes have been applied, when they were applied, and provides

@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # ==============================================================================
-# GZ302 Linux Setup — Unified Installer
+# ASUS ROG Flow Z13 (GZ302) Linux Setup — Unified Installer
 # Author: th3cavalry using Copilot
-# Version: 5.0.3
+# Version: 5.1.1
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -11,8 +11,8 @@
 # - GZ302EA-XS96 (32GB RAM)
 #
 # Single unified installer for the ASUS ROG Flow Z13 (GZ302) with
-# AMD Ryzen AI MAX+ 395. Replaces gz302-main.sh, gz302-minimal.sh,
-# and install-command-center.sh.
+# AMD Ryzen AI MAX+ 395 (Strix Halo). Replaces gz302-main.sh,
+# gz302-minimal.sh, and install-command-center.sh.
 #
 # Hardware control backend: z13ctl (https://github.com/dahui/z13ctl)
 # Protocol reference: g-helper (https://github.com/seerge/g-helper)
@@ -41,7 +41,7 @@ while [[ $# -gt 0 ]]; do
         --no-modules)    SKIP_MODULES=true; shift ;;
         -h|--help)
             cat << 'EOF'
-GZ302 Linux Setup — Unified Installer v5.0.2
+ASUS ROG Flow Z13 (GZ302) Linux Setup — Unified Installer v5.1.1
 
 Usage: sudo ./gz302-setup.sh [OPTIONS]
 
@@ -108,40 +108,33 @@ fi
 
 # --- Load Libraries ---
 # Expected version for all library files (must match # Version: line)
-GZ302_LIB_VERSION="5.0.0"
 
 load_library() {
     local lib_name="$1"
     local lib_path="${SCRIPT_DIR}/gz302-lib/${lib_name}"
 
-    # If the file exists locally, validate its version before using it.
-    # Stale libraries from a prior major version are re-downloaded.
+    # Only use remote download if the file is missing locally
     if [[ -f "$lib_path" ]]; then
-        local local_ver
-        local_ver=$(grep -m1 '^# Version:' "$lib_path" 2>/dev/null | awk '{print $3}' || true)
-        if [[ "$local_ver" == "$GZ302_LIB_VERSION" ]]; then
-            # shellcheck source=/dev/null
-            source "$lib_path"
-            return 0
-        fi
-        info "Stale library ${lib_name} (found ${local_ver:-unknown}, need ${GZ302_LIB_VERSION}) — refreshing..."
-        rm -f "$lib_path"
+        # shellcheck source=/dev/null
+        source "$lib_path"
+        return 0
     fi
 
-    info "Downloading ${lib_name}..."
+    warning "Library ${lib_name} missing locally. Cloning the repository is recommended."
+    info "Downloading ${lib_name} from GitHub..."
     mkdir -p "${SCRIPT_DIR}/gz302-lib"
     if command -v curl >/dev/null 2>&1; then
         curl -fsSL "${GITHUB_RAW_URL}/gz302-lib/${lib_name}" -o "$lib_path" || return 1
-        # shellcheck source=/dev/null
-        source "$lib_path"
-        return 0
     elif command -v wget >/dev/null 2>&1; then
         wget -q "${GITHUB_RAW_URL}/gz302-lib/${lib_name}" -O "$lib_path" || return 1
-        # shellcheck source=/dev/null
-        source "$lib_path"
-        return 0
+    else
+        error "curl or wget not found."
+        return 1
     fi
-    return 1
+
+    # shellcheck source=/dev/null
+    source "$lib_path"
+    return 0
 }
 
 info "Loading libraries..."
@@ -686,7 +679,7 @@ install_display_tools() {
 
 install_tray_app() {
     local distro="$1"
-    info "Installing GZ302 Command Center tray app..."
+    info "Installing ASUS ROG Flow Z13 (GZ302) Command Center..."
 
     local tray_dir="${SCRIPT_DIR}/tray-icon"
     if [[ ! -d "$tray_dir" ]]; then
@@ -746,30 +739,22 @@ install_optional_modules() {
     local distro
     distro=$(detect_distribution)
 
-    info "Available modules:"
-    info "  1. Gaming    — Steam, Lutris, MangoHUD, GameMode"
-    info "  2. AI / LLM  — Ollama, LM Studio, ROCm, PyTorch"
-    info "  3. Hypervisor — KVM/QEMU, libvirt"
-    info "  4. Skip"
+    info "Optional modules provide additional features like Gaming, AI, or Hypervisor support."
     echo
 
-    local choice
-    if [[ "$ASSUME_YES" == "true" ]]; then
-        choice="4"
-    else
-        read -r -p "Select modules (e.g., 1,2 or 4 to skip): " choice
+    if prompt_section "Install Gaming module? (Steam, Lutris, MangoHUD, GameMode)" N; then
+        download_and_execute_module "gz302-gaming" "$distro"
     fi
 
-    IFS=',' read -ra CHOICES <<< "$choice"
-    for c in "${CHOICES[@]}"; do
-        c=$(echo "$c" | tr -d ' ')
-        case "$c" in
-            1) download_and_execute_module "gz302-gaming" "$distro" ;;
-            2) download_and_execute_module "gz302-llm" "$distro" ;;
-            3) download_and_execute_module "gz302-hypervisor" "$distro" ;;
-            4) info "Skipping optional modules" ;;
-        esac
-    done
+    if prompt_section "Install AI / LLM module? (Ollama, LM Studio, ROCm, PyTorch)" N; then
+        download_and_execute_module "gz302-llm" "$distro"
+    fi
+
+    if prompt_section "Install Hypervisor module? (KVM/QEMU, libvirt)" N; then
+        download_and_execute_module "gz302-hypervisor" "$distro"
+    fi
+
+    success "Optional modules processing complete"
 }
 
 download_and_execute_module() {
@@ -777,8 +762,9 @@ download_and_execute_module() {
     local distro="$2"
     local local_module="${SCRIPT_DIR}/modules/${module_name}.sh"
 
+    # Check for local module first
     if [[ -f "$local_module" ]]; then
-        info "Running ${module_name}..."
+        info "Running local module ${module_name}..."
         bash "$local_module" "$distro"
         return $?
     fi
@@ -786,14 +772,22 @@ download_and_execute_module() {
     local tmp
     tmp=$(mktemp /tmp/gz302-module-XXXXXX.sh)
     info "Downloading ${module_name}..."
-    if curl -fsSL "${GITHUB_RAW_URL}/modules/${module_name}.sh" -o "$tmp" 2>/dev/null; then
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "${GITHUB_RAW_URL}/modules/${module_name}.sh" -o "$tmp" 2>/dev/null
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q "${GITHUB_RAW_URL}/modules/${module_name}.sh" -O "$tmp" 2>/dev/null
+    fi
+
+    if [[ -s "$tmp" ]]; then
         chmod +x "$tmp"
         bash "$tmp" "$distro"
         local rc=$?
         rm -f "$tmp"
         return $rc
     fi
-    warning "Failed to download ${module_name}"
+
+    warning "Failed to download or execute ${module_name}"
+    rm -f "$tmp"
     return 1
 }
 

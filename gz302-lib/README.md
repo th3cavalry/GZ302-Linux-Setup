@@ -54,7 +54,7 @@ All libraries are **complete and tested**. They follow the same pattern:
 | `input-manager.sh` | Touchpad, keyboard, tablet mode | ✅ Complete |
 | `audio-manager.sh` | CS35L41 speakers, SOF audio | ✅ Complete |
 
-### Feature Libraries (v5.0.0)
+### Feature Libraries (v5.1.1)
 
 | Library | Purpose | Status |
 |---------|---------|--------|
@@ -253,7 +253,6 @@ When adding new libraries:
 
 ## References
 
-- [Strategic Refactoring Plan](../Info/STRATEGIC_REFACTORING_PLAN.md)
-- [Kernel Compatibility Matrix](../Info/KERNEL_COMPATIBILITY.md)
-- [Obsolescence Analysis](../Info/OBSOLESCENCE.md)
+- [Kernel Support Details](../docs/technical/kernel-support.md)
+- [Obsolescence Analysis](../docs/technical/obsolescence-analysis.md)
 - [Main README](../README.md)

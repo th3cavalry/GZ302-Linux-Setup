@@ -9,6 +9,10 @@ fi
 
 echo "Configuring sudoers for password-less z13ctl access..."
 
+# Detect the real user invoking the script
+REAL_USER="${SUDO_USER:-$USER}"
+echo "Detected user: $REAL_USER"
+
 # Find z13ctl
 Z13CTL_PATH=$(command -v z13ctl 2>/dev/null || echo "")
 
@@ -30,12 +34,12 @@ TMPFILE=$(mktemp /tmp/gz302-sudoers.XXXXXX)
 
 cat > "$TMPFILE" << EOF
 # GZ302 Linux Setup — password-less access for z13ctl and wrappers
-ALL ALL=NOPASSWD: $Z13CTL_PATH
+$REAL_USER ALL=(root) NOPASSWD: $Z13CTL_PATH
 EOF
 
-[[ -n "$PWRCFG_PATH" ]] && echo "ALL ALL=NOPASSWD: $PWRCFG_PATH" >> "$TMPFILE"
-[[ -n "$GZ302RGB_PATH" ]] && echo "ALL ALL=NOPASSWD: $GZ302RGB_PATH" >> "$TMPFILE"
-[[ -n "$RRCFG_PATH" ]] && echo "ALL ALL=NOPASSWD: $RRCFG_PATH" >> "$TMPFILE"
+[[ -n "$PWRCFG_PATH" ]] && echo "$REAL_USER ALL=(root) NOPASSWD: $PWRCFG_PATH" >> "$TMPFILE"
+[[ -n "$GZ302RGB_PATH" ]] && echo "$REAL_USER ALL=(root) NOPASSWD: $GZ302RGB_PATH" >> "$TMPFILE"
+[[ -n "$RRCFG_PATH" ]] && echo "$REAL_USER ALL=(root) NOPASSWD: $RRCFG_PATH" >> "$TMPFILE"
 
 if visudo -c -f "$TMPFILE"; then
     mv "$TMPFILE" "$SUDOERS_FILE"

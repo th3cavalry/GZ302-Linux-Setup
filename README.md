@@ -1,11 +1,11 @@
-# GZ302 Linux Toolkit
+# ASUS ROG Flow Z13 (GZ302) Linux Toolkit
 
-![Version](https://img.shields.io/badge/version-5.0.2-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-5.1.1-blue?style=for-the-badge)
 ![Kernel](https://img.shields.io/badge/Kernel-6.14%2B-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Device-ASUS%20ROG%20Flow%20Z13-red?style=for-the-badge)
 
-**Linux optimization suite for the ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MAX+ 395.**
+**Linux optimization suite for the ASUS ROG Flow Z13 (GZ302) powered by the AMD Ryzen AI MAX+ 395 (Strix Halo) processor.**
 
 Hardware fixes, power/TDP management, RGB lighting, fan curves, battery limiting, and a system tray GUI — powered by [z13ctl](https://github.com/dahui/z13ctl).
 
@@ -78,7 +78,7 @@ The installer creates `pwrcfg` and `gz302-rgb` wrappers that map to z13ctl:
 
 ## System Tray App
 
-After installation, look for **"GZ302 Command Center"** in your system tray.
+After installation, look for **"ASUS ROG Flow Z13 (GZ302) Command Center"** in your system tray.
 
 - **Right-click:** Quick profile switching (Quiet, Balanced, Performance)
 - **Middle-click:** Toggle RGB on/off
@@ -116,27 +116,21 @@ GZ302-Linux-Setup/
 ├── gz302-lib/                 # Core libraries (manager-based)
 │   ├── utils.sh               # Shared utilities, logging, backups
 │   ├── kernel-compat.sh       # Kernel version detection
-│   ├── wifi-manager.sh        # MediaTek MT7925 configuration
-│   ├── gpu-manager.sh         # AMD Radeon 8060S / amdgpu
-│   ├── audio-manager.sh       # SOF firmware, CS35L41 amp
-│   ├── input-manager.sh       # Keyboard, touchpad, tablet mode
-│   ├── display-fix.sh         # OLED PSR-SU fix
-│   ├── display-manager.sh     # Refresh rate profiles, VRR
-│   ├── distro-manager.sh      # Distribution-specific orchestration
-│   └── state-manager.sh       # Persistent state tracking
-├── modules/                   # Optional feature packs
-│   ├── gz302-gaming.sh        # Steam, Lutris, MangoHUD, GameMode
-│   ├── gz302-llm.sh           # Ollama, ROCm, PyTorch
-│   └── gz302-hypervisor.sh    # KVM/QEMU, libvirt
-├── scripts/                   # System scripts
-│   ├── fix-suspend.sh         # Suspend/resume fix
-│   └── uninstall/             # Cleanup utility
+│   └── ... (wifi, gpu, audio, etc.)
+├── modules/                   # Optional feature packs (gaming, llm, etc.)
+├── scripts/                   # System scripts (fix-suspend, uninstall)
 ├── tray-icon/                 # PyQt6 system tray application
-│   └── src/
-│       ├── gz302_tray.py
-│       └── modules/           # power, RGB, config, notifications
-└── docs/                      # Hardware research, changelog
+├── docs/                      # User guides and changelogs
+│   └── technical/             # Hardware research and obsolescence analysis
+└── legacy/                    # Deprecated and replaced scripts
 ```
+
+---
+
+## AI & Copilot Instructions
+
+**MANDATORY for all AI/LLM interactions and automated code changes.** 
+All AI agents MUST read and follow the strict mandates in [.github/copilot-instructions.md](.github/copilot-instructions.md).
 
 ---
 
@@ -160,7 +154,8 @@ This removes all GZ302 tools, z13ctl daemon/config, systemd services, udev rules
 
 ## Contributing & Support
 
-- **Documentation:** See the [docs/](docs/) directory for hardware research and testing guides.
+- **Documentation:** See the [docs/](docs/) directory for user guides and [docs/technical/](docs/technical/) for hardware research.
+- **AI Guidelines:** Strict rules for LLM/Copilot contributions are in [.github/copilot-instructions.md](.github/copilot-instructions.md).
 - **Issues:** Report bugs on the [Issues page](https://github.com/th3cavalry/GZ302-Linux-Setup/issues).
 - **Development:** See [CONTRIBUTING.md](CONTRIBUTING.md).
 

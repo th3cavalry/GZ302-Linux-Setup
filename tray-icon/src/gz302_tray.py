@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GZ302 Command Center (Modular v5)
+ASUS ROG Flow Z13 (GZ302) Command Center
 """
 import sys
 import os
@@ -237,8 +237,8 @@ class GZ302TrayApp(QSystemTrayIcon):
     def show_about(self):
         """Show about information."""
         self.notifier.notify(
-            "GZ302 Command Center",
-            "Power, Display & RGB control for\nASUS ROG Flow Z13 (GZ302)\n\nVersion 5.0.4",
+            "ASUS ROG Flow Z13 (GZ302)",
+            "Power, Display & RGB control for\nASUS ROG Flow Z13 (GZ302)\n\nVersion 5.1.1",
             "info", 5000
         )
     
@@ -298,7 +298,7 @@ class GZ302TrayApp(QSystemTrayIcon):
             
             # Build tooltip with power info
             tooltip_lines = [
-                "GZ302 Command Center",
+                "ASUS ROG Flow Z13 (GZ302)",
                 f"Profile: {profile} ({spl}W)",
             ]
             

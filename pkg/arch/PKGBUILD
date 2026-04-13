@@ -1,6 +1,6 @@
 # Maintainer: th3cavalry <github.com/th3cavalry>
 pkgname=gz302-linux-setup
-pkgver=5.0.0
+pkgver=5.1.1
 pkgrel=1
 pkgdesc="Linux optimization suite for ASUS ROG Flow Z13 (GZ302) — z13ctl backend"
 arch=('any')
@@ -41,8 +41,4 @@ package() {
     install -Dm755 scripts/fix-suspend.sh "$pkgdir/usr/local/share/gz302/scripts/"
     install -d "$pkgdir/usr/local/share/gz302/scripts/uninstall"
     install -Dm755 scripts/uninstall/gz302-uninstall.sh "$pkgdir/usr/local/share/gz302/scripts/uninstall/"
-
-    # Install keyboard backlight listener
-    install -Dm755 scripts/gz302-kbd-backlight-listener.py "$pkgdir/usr/local/bin/gz302-kbd-backlight-listener"
-    install -Dm644 scripts/gz302-kbd-backlight-listener.service "$pkgdir/usr/lib/systemd/system/gz302-kbd-backlight-listener.service"
 }

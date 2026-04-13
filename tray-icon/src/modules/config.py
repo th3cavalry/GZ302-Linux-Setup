@@ -4,7 +4,7 @@ from pathlib import Path
 class ConfigManager:
     """Manages application configuration loading and persistence."""
     
-    def __init__(self, app_name="GZ302 Command Center"):
+    def __init__(self, app_name="ASUS ROG Flow Z13 (GZ302) Command Center"):
         self.config_dir = Path("/etc/gz302")
         self.config_file = self.config_dir / "tray.conf"
         self.app_name = app_name

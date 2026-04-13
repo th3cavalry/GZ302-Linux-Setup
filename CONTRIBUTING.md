@@ -41,8 +41,12 @@ sudo zypper install ShellCheck
 
 ## 📝 Code Style Guidelines
 
-### Bash Script Standards
+### AI/LLM & Copilot Rules
 
+**MANDATORY for all AI interactions.** If you are using an AI assistant to generate or modify code, you MUST ensure it follows the strict mandates in [.github/copilot-instructions.md](.github/copilot-instructions.md). This includes rules on library-first architecture, versioning, and idempotency.
+
+### Bash Script Standards
+...
 1. **Always use `set -euo pipefail`** at the start of scripts
 2. **Quote all variables** to prevent word splitting: `"$variable"`
 3. **Quote command substitutions**: `"$(command)"`
