@@ -176,7 +176,8 @@ bash -n gz302-setup.sh && echo "✓ Syntax OK"
 sudo ./gz302-setup.sh --status
 
 # Test 4: Dry-run (check what would be done)
-# Note: Script doesn't have dry-run yet, use status mode
+# Use status mode to see what state the system is in
+sudo ./gz302-setup.sh --status
 
 # Test 5: Actual run (first time)
 sudo ./gz302-setup.sh
@@ -201,19 +202,6 @@ sudo ./gz302-setup.sh --status
 
 # Test 3: Actual run
 sudo ./gz302-setup.sh
-
-# Note: v4.0.0-dev main script is incomplete
-# Use v3.0.0 for full functionality testing
-```
-
-### v3.0.0 Scripts (Regression Testing)
-
-```bash
-# Ensure v3 still works
-sudo ./gz302-setup.sh
-sudo ./gz302-setup.sh
-
-# v3 and v4 should not interfere
 ```
 
 ---

@@ -271,23 +271,79 @@ For new features:
 - GUI utilities, system tray integrations
 - The core of the "toolkit" philosophy
 
+## � Versioning (MANDATORY)
+
+**ALL changes require a version bump** following semantic versioning (MAJOR.MINOR.PATCH):
+
+### When to Bump Versions
+
+- **PATCH (X.X.+1)**: Bug fixes, documentation updates, minor improvements, dependency updates, typo fixes
+- **MINOR (X.+1.0)**: New features, new hardware support, module additions, non-breaking enhancements
+- **MAJOR (+1.0.0)**: Breaking changes, major architecture changes, incompatible API changes
+
+### Version Update Workflow
+
+**REQUIRED for EVERY change** - follow this exact order:
+
+1. **Update root `VERSION` file FIRST**
+   ```bash
+   echo "5.1.2" > VERSION
+   ```
+
+2. **Sync to ALL locations** (use search/replace to ensure consistency):
+   - `gz302-setup.sh` — Header: `# Version: 5.1.2` + help text version display
+   - `gz302-lib/*.sh` — All library files: `# Version: 5.1.2`
+   - `modules/*.sh` — All modules: `# Version: 5.1.2`
+   - `tray-icon/VERSION` — `5.1.2`
+   - `tray-icon/src/gz302_tray.py` — Update About dialog version string
+   - `pkg/arch/PKGBUILD` — `pkgver=5.1.2`
+   - `README.md` — Update any version badges or references
+   - `docs/CHANGELOG.md` — Add new version entry with changes
+
+3. **Verify version sync**:
+   ```bash
+   # Check all version headers match
+   grep -rn "Version:" gz302-setup.sh gz302-lib/ modules/ | grep -v "Kernel Version"
+   cat VERSION tray-icon/VERSION
+   grep "pkgver=" pkg/arch/PKGBUILD
+   ```
+
+4. **Commit with version in message**:
+   ```bash
+   git add -A
+   git commit -m "Bump version to 5.1.2: Fix tray icon SVG rendering"
+   ```
+
+### Examples
+
+- Fixed a bug? → PATCH: `5.1.1` → `5.1.2`
+- Added a new module? → MINOR: `5.1.2` → `5.2.0`
+- Changed installer architecture? → MAJOR: `5.2.0` → `6.0.0`
+- Updated documentation only? → PATCH: `5.1.2` → `5.1.3`
+- Fixed typo in comments? → PATCH: `5.1.3` → `5.1.4`
+
+**NO exceptions** - every merged change must increment the version number.
+
 ## 📚 Documentation
 
 When updating documentation:
 
 1. **Keep README.md user-focused**: Installation and usage instructions
-2. **Update version numbers** in both README.md and script headers
+2. **Update version numbers** per the Versioning section above
 3. **Use clear examples**: Show actual commands users would run
 4. **Maintain consistency**: Follow existing formatting and style
 
 ## ✅ Checklist Before Submitting
 
+- [ ] **Version bumped** in root `VERSION` file and synced to all locations
+- [ ] **CHANGELOG.md updated** with version entry and changes
 - [ ] Code passes `bash -n` syntax check
 - [ ] Code passes `shellcheck` with zero warnings
 - [ ] Changes tested on at least one supported distribution
 - [ ] All 4 distributions have equivalent implementation
 - [ ] Documentation updated if needed
 - [ ] Commit messages are clear and descriptive
+- [ ] Commit includes version number: "Bump version to X.Y.Z: Description"
 - [ ] No sensitive data (credentials, personal info) in commits
 
 ## 🤝 Code Review

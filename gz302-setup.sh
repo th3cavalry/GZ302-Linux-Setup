@@ -3,7 +3,7 @@
 # ==============================================================================
 # ASUS ROG Flow Z13 (GZ302) Linux Setup — Unified Installer
 # Author: th3cavalry using Copilot
-# Version: 5.1.1
+# Version: 5.1.2
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -695,19 +695,19 @@ install_tray_app() {
         done
     fi
 
-    # Install Python dependencies
+    # Install Python dependencies (including SVG support for tray icons)
     case "$distro" in
         arch)
-            pacman -S --noconfirm --needed python-pyqt6 python-psutil python-dbus 2>/dev/null || true
+            pacman -S --noconfirm --needed python-pyqt6 python-pyqt6-svg python-psutil python-dbus 2>/dev/null || true
             ;;
         debian|ubuntu)
-            apt install -y python3-pyqt6 python3-psutil python3-dbus 2>/dev/null || true
+            apt install -y python3-pyqt6 python3-pyqt6.qtsvg python3-psutil python3-dbus 2>/dev/null || true
             ;;
         fedora)
-            dnf install -y python3-pyqt6 python3-psutil python3-dbus 2>/dev/null || true
+            dnf install -y python3-pyqt6 python3-qt6-qtsvg python3-psutil python3-dbus 2>/dev/null || true
             ;;
         opensuse)
-            zypper install -y python3-pyqt6 python3-psutil python3-dbus-python 2>/dev/null || true
+            zypper install -y python3-pyqt6 python3-qt6-svg python3-psutil python3-dbus-python 2>/dev/null || true
             ;;
     esac
 

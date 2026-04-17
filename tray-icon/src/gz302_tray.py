@@ -238,7 +238,7 @@ class GZ302TrayApp(QSystemTrayIcon):
         """Show about information."""
         self.notifier.notify(
             "ASUS ROG Flow Z13 (GZ302)",
-            "Power, Display & RGB control for\nASUS ROG Flow Z13 (GZ302)\n\nVersion 5.1.1",
+            "Power, Display & RGB control for\nASUS ROG Flow Z13 (GZ302)\n\nVersion 5.1.2",
             "info", 5000
         )
     

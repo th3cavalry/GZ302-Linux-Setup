@@ -2,6 +2,20 @@
 
 All notable changes to GZ302-Linux-Setup will be documented in this file.
 
+## [5.1.2] - 2026-04-17
+
+### Fixed
+- **Tray icon blank/invisible (Issue #159)**: Added PyQt6-SVG support for all distributions to properly render SVG tray icons on CachyOS and other desktop environments
+
+### Changed
+- **Python dependencies**: Added SVG rendering packages (python-pyqt6-svg, python3-pyqt6.qtsvg, python3-qt6-qtsvg) for Arch, Debian, Fedora, and OpenSUSE
+- **Documentation**: Updated tray-icon installation instructions to include SVG support requirements
+- **Documentation**: Removed outdated testing notes (v4.0.0-dev references, obsolete v3.0.0 regression testing)
+
+### Added
+- **Systematic versioning rules**: Mandatory version bumps for all changes with comprehensive workflow documentation in CONTRIBUTING.md and .github/copilot-instructions.md
+- **Validation commands**: Enhanced version synchronization verification across all project files
+
 ## [5.1.1] - 2026-05
 
 ### Added

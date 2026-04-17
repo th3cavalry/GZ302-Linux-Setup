@@ -47,17 +47,17 @@ This is a standalone GUI utility that provides quick access to `pwrcfg` power pr
 pip install -r requirements.txt
 
 # Or using your distribution's package manager
-# Arch/Manjaro
-sudo pacman -S python-pyqt6
+# Arch/Manjaro (SVG support required for tray icons)
+sudo pacman -S python-pyqt6 python-pyqt6-svg
 
-# Ubuntu/Debian
-sudo apt install python3-pyqt6
+# Ubuntu/Debian (SVG support required for tray icons)
+sudo apt install python3-pyqt6 python3-pyqt6.qtsvg
 
-# Fedora
-sudo dnf install python3-pyqt6
+# Fedora (SVG support required for tray icons)
+sudo dnf install python3-pyqt6 python3-qt6-qtsvg
 
-# OpenSUSE
-sudo zypper install python3-qt6 python3-psutil
+# OpenSUSE (SVG support required for tray icons)
+sudo zypper install python3-qt6 python3-qt6-svg python3-psutil
 ```
 
 ### Step 2: Configure Sudoers (Recommended for no-prompt operation)

@@ -5,7 +5,26 @@ Hardware optimization toolkit for ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MA
 
 ## Core Mandates
 
-1.  **Single Source of Truth (Versioning)**: The root `VERSION` file is the master source. Any change requiring a version bump MUST update the root `VERSION` first, then sync to: `gz302-setup.sh` (header/help), `gz302-lib/*.sh`, `modules/*.sh`, `tray-icon/VERSION`, `pkg/arch/PKGBUILD`, and `README.md`.
+1.  **Systematic Versioning (MANDATORY FOR ALL CHANGES)**: **ANY** code change, bug fix, documentation update, or feature addition REQUIRES a version bump following semantic versioning (MAJOR.MINOR.PATCH):
+    - **PATCH** (X.X.+1): Bug fixes, documentation updates, minor script improvements, dependency updates
+    - **MINOR** (X.+1.0): New features, new hardware support, module additions, non-breaking API changes
+    - **MAJOR** (+1.0.0): Breaking changes, major architecture overhauls, incompatible changes
+    
+    **Version Update Workflow (REQUIRED ORDER)**:
+    1. Update root `VERSION` file FIRST
+    2. Sync to ALL locations:
+       - `gz302-setup.sh` (header comment `# Version:` + help text)
+       - All `gz302-lib/*.sh` files (header comment `# Version:`)
+       - All `modules/*.sh` files (header comment `# Version:`)
+       - `tray-icon/VERSION`
+       - `tray-icon/src/gz302_tray.py` (in About dialog)
+       - `pkg/arch/PKGBUILD` (`pkgver=`)
+       - `README.md` (version badge/references)
+       - `docs/CHANGELOG.md` (add entry describing changes)
+    3. Commit with version in message: `git commit -m "Bump version to X.Y.Z: Brief description"`
+    
+    **NEVER skip versioning** - even trivial changes must be tracked.
+
 2.  **Library-First Architecture**: No complex logic in `gz302-setup.sh`. All core logic MUST be implemented as functions in `gz302-lib/` managers (e.g., `wifi-manager.sh`). `gz302-setup.sh` is for orchestration only.
 3.  **Idempotency**: Every configuration function MUST be idempotent. Check if a change is already applied or if the hardware state is correct before modifying. Use `state-manager.sh` for tracking.
 4.  **Kernel-Aware Logic**: Fixes MUST be kernel-aware. Use: `if [[ $kernel_ver -lt 617 ]]; then apply_fix; else remove_fix_if_exists; fi`. Clean up obsolete workarounds on newer kernels.
@@ -53,5 +72,9 @@ info "msg"; success "done"; error "fail"   # Use logging helpers
 
 ```bash
 bash -n gz302-setup.sh && shellcheck gz302-setup.sh
-grep "^# Version:" gz302-*.sh
+
+# Verify version synchronization across all files
+grep -rn "Version:" gz302-setup.sh gz302-lib/ modules/ | grep -v "Kernel Version"
+cat VERSION tray-icon/VERSION
+grep "pkgver=" pkg/arch/PKGBUILD
 ```
