@@ -54,7 +54,7 @@ All libraries are **complete and tested**. They follow the same pattern:
 | `input-manager.sh` | Touchpad, keyboard, tablet mode | ✅ Complete |
 | `audio-manager.sh` | CS35L41 speakers, SOF audio | ✅ Complete |
 
-### Feature Libraries (v5.1.1)
+### Feature Libraries (v5.1.3)
 
 | Library | Purpose | Status |
 |---------|---------|--------|

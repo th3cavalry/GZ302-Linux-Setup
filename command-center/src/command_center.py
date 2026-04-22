@@ -6,9 +6,14 @@ import sys
 import os
 import signal
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
-from PyQt6.QtGui import QIcon, QAction, QCursor
-from PyQt6.QtCore import QTimer
+from PyQt6.QtGui import QIcon, QAction, QCursor, QColor, QFont, QPainter, QPen, QPixmap
+from PyQt6.QtCore import QTimer, Qt
 from pathlib import Path
+
+try:
+    from PyQt6.QtSvg import QSvgRenderer
+except ImportError:
+    QSvgRenderer = None
 
 # Import our modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -240,7 +245,7 @@ class CommandCenterApp(QSystemTrayIcon):
         """Show about information."""
         self.notifier.notify(
             "ASUS ROG Flow Z13 (GZ302)",
-            "Power, Display & RGB control for\nASUS ROG Flow Z13 (GZ302)\n\nVersion 5.1.2",
+            "Power, Display & RGB control for\nASUS ROG Flow Z13 (GZ302)\n\nVersion 5.1.3",
             "info", 5000
         )
     
@@ -258,6 +263,67 @@ class CommandCenterApp(QSystemTrayIcon):
         """Set all RGB to rainbow animation."""
         self.rgb.set_keyboard_animation("rainbow")
         self.rgb.start_window_animation("rainbow")
+
+    def _build_fallback_icon(self, icon_name):
+        """Build a visible raster fallback for tray backends that fail on SVG."""
+        labels = {
+            "ac": "A",
+            "battery": "B",
+            "profile-e": "E",
+            "profile-b": "B",
+            "profile-p": "P",
+            "profile-g": "G",
+            "profile-m": "M",
+        }
+        colors = {
+            "ac": "#2563EB",
+            "battery": "#16A34A",
+            "profile-e": "#16A34A",
+            "profile-b": "#2563EB",
+            "profile-p": "#EA580C",
+            "profile-g": "#9333EA",
+            "profile-m": "#DC2626",
+        }
+
+        pixmap = QPixmap(64, 64)
+        pixmap.fill(Qt.GlobalColor.transparent)
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(QColor(colors.get(icon_name, "#2563EB")))
+        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        painter.drawEllipse(2, 2, 60, 60)
+
+        font = QFont()
+        font.setBold(True)
+        font.setPointSize(28)
+        painter.setFont(font)
+        painter.setPen(Qt.GlobalColor.white)
+        painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, labels.get(icon_name, "B"))
+        painter.end()
+
+        return QIcon(pixmap)
+
+    def _load_tray_icon(self, icon_path, icon_name):
+        """Render SVG icons to a raster pixmap for Linux tray compatibility."""
+        if icon_path.exists():
+            if QSvgRenderer is not None:
+                renderer = QSvgRenderer(str(icon_path))
+                if renderer.isValid():
+                    pixmap = QPixmap(64, 64)
+                    pixmap.fill(Qt.GlobalColor.transparent)
+                    painter = QPainter(pixmap)
+                    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+                    renderer.render(painter)
+                    painter.end()
+                    if not pixmap.isNull():
+                        return QIcon(pixmap)
+
+            icon = QIcon(str(icon_path))
+            if not icon.isNull() and not icon.pixmap(64, 64).isNull():
+                return icon
+
+        return self._build_fallback_icon(icon_name)
 
     def update_icon(self):
         """Update tray icon based on current power profile."""
@@ -283,8 +349,7 @@ class CommandCenterApp(QSystemTrayIcon):
         icon_path = assets / f"{icon_name}.svg"
         if not icon_path.exists():
             icon_path = assets / "profile-b.svg"
-        if icon_path.exists():
-            self.setIcon(QIcon(str(icon_path)))
+        self.setIcon(self._load_tray_icon(icon_path, icon_name))
     
     def update_status(self):
         try:

@@ -4,7 +4,7 @@ set -euo pipefail
 
 # ==============================================================================
 # GZ302 Distribution Manager Library
-# Version: 5.1.2
+# Version: 5.1.3
 #
 # This library provides distribution-specific setup orchestration for the GZ302.
 # It coordinates hardware fixes across all subsystem libraries and manages
@@ -302,7 +302,7 @@ distro_provide_optimization_info() {
 
 # --- Library Info ---
 distro_lib_version() {
-    echo "5.1.1"
+    echo "5.1.3"
 }
 
 distro_lib_help() {

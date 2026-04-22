@@ -105,6 +105,7 @@ This creates a launcher in `~/.local/share/applications` and an autostart entry 
 ### Blank or Missing Icon
 If the tray icon is missing or appears as a blank space:
 
+- **Current releases**: The tray now rasterizes its bundled SVG assets before handing them to Linux tray backends, which fixes blank icons on Plasma/Wayland and similar environments.
 - **GNOME Users**: You **must** install the "AppIndicator and KStatusNotifierItem Support" extension. GNOME does not support system tray icons natively.
 - **Missing SVG Support**: Ensure you have the SVG library for PyQt6 installed (see [Step 1](#step-1-install-python-dependencies)). Without it, the application cannot render the `.svg` icons and they will appear blank.
 

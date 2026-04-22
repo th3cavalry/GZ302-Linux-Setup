@@ -4,7 +4,7 @@ set -euo pipefail
 
 # ==============================================================================
 # GZ302 Display Manager Library
-# Version: 5.1.2
+# Version: 5.1.3
 #
 # This library provides refresh rate management and display control for the
 # ASUS ROG Flow Z13 (GZ302) with its 180Hz display.
@@ -616,7 +616,7 @@ display_init_config() {
 
 # --- Library Info ---
 display_lib_version() {
-    echo "5.1.1"
+    echo "5.1.3"
 }
 
 display_lib_help() {
