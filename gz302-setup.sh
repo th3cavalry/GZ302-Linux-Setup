@@ -3,7 +3,7 @@
 # ==============================================================================
 # ASUS ROG Flow Z13 (GZ302) Linux Setup — Unified Installer
 # Author: th3cavalry using Copilot
-# Version: 5.1.3
+# Version: 5.1.4
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -41,7 +41,7 @@ while [[ $# -gt 0 ]]; do
         --no-modules)    SKIP_MODULES=true; shift ;;
         -h|--help)
             cat << 'EOF'
-ASUS ROG Flow Z13 (GZ302) Linux Setup — Unified Installer v5.1.3
+ASUS ROG Flow Z13 (GZ302) Linux Setup — Unified Installer v5.1.4
 
 Usage: sudo ./gz302-setup.sh [OPTIONS]
 

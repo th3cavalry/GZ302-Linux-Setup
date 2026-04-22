@@ -4,7 +4,7 @@
 # Uninstall Script for ASUS ROG Flow Z13 (GZ302) Setup
 #
 # Author: th3cavalry using Copilot
-# Version: 5.1.3
+# Version: 5.1.4
 #
 # This script completely removes:
 # - z13ctl daemon, binary, and systemd units

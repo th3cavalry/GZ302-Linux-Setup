@@ -2,6 +2,11 @@
 
 All notable changes to GZ302-Linux-Setup will be documented in this file.
 
+## [5.1.4] - 2026-04-22
+
+### Changed
+- **GPU initramfs regeneration logging**: Switched the new GPU initramfs regeneration path to the shared logging helpers when available and documented its shared mkinitcpio guard usage with the display-fix flow.
+
 ## [5.1.3] - 2026-04-22
 
 ### Fixed

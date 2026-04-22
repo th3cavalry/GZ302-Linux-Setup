@@ -240,7 +240,7 @@ class CommandCenterApp(QSystemTrayIcon):
         """Show about information."""
         self.notifier.notify(
             "ASUS ROG Flow Z13 (GZ302)",
-            "Power, Display & RGB control for\nASUS ROG Flow Z13 (GZ302)\n\nVersion 5.1.3",
+            "Power, Display & RGB control for\nASUS ROG Flow Z13 (GZ302)\n\nVersion 5.1.4",
             "info", 5000
         )
     
