@@ -17,7 +17,7 @@ from modules.notifications import NotificationManager
 from modules.rgb_controller import RGBController
 from modules.power_controller import PowerController
 
-class GZ302TrayApp(QSystemTrayIcon):
+class CommandCenterApp(QSystemTrayIcon):
     def __init__(self, app):
         super().__init__()
         self.app = app
@@ -341,7 +341,7 @@ def main():
             print("ERROR: No system tray available after 30s", file=sys.stderr)
             sys.exit(1)
     
-    tray = GZ302TrayApp(app)
+    tray = CommandCenterApp(app)
     sys.exit(app.exec())
 
 if __name__ == "__main__":

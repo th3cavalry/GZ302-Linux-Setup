@@ -9,7 +9,7 @@ All notable changes to GZ302-Linux-Setup will be documented in this file.
 
 ### Changed
 - **Python dependencies**: Added SVG rendering packages (python-pyqt6-svg, python3-pyqt6.qtsvg, python3-qt6-qtsvg) for Arch, Debian, Fedora, and OpenSUSE
-- **Documentation**: Updated tray-icon installation instructions to include SVG support requirements
+- **Documentation**: Updated command-center installation instructions to include SVG support requirements
 - **Documentation**: Removed outdated testing notes (v4.0.0-dev references, obsolete v3.0.0 regression testing)
 
 ### Added
@@ -57,10 +57,10 @@ All notable changes to GZ302-Linux-Setup will be documented in this file.
 ## [5.0.0] - 2025-04
 
 ### Added
-- **z13ctl integration**: RGB, power profiles, TDP, fan curves, and battery limit now powered by [z13ctl](https://github.com/dahui/z13ctl)
-- `pwrcfg`, `gz302-rgb`, `rrcfg` wrapper commands for backward compatibility
-- PyQt6 system tray (`tray-icon/`) for power profile switching
-- `gz302-lib/` library-first v5 architecture with all hardware as standalone sourced modules
+- z13ctl integration: RGB, power profiles, TDP, fan curves, and battery limit now powered by [z13ctl](https://github.com/dahui/z13ctl)
+- pwrcfg, gz302-rgb, rrcfg wrapper commands for backward compatibility
+- PyQt6 system tray (command-center/) for power profile switching
+- gz302-lib/ library-first v5 architecture with all hardware as standalone sourced modules
 - `gz302-lib/kernel-compat.sh` for kernel version–aware workarounds (6.14–6.17+)
 - `gz302-lib/state-manager.sh` with atomic file writes and checkpoint system
 - `gz302-lib/display-fix.sh` for OLED PSR/dcdebugmask fixes

@@ -681,17 +681,26 @@ install_tray_app() {
     local distro="$1"
     info "Installing ASUS ROG Flow Z13 (GZ302) Command Center..."
 
-    local tray_dir="${SCRIPT_DIR}/tray-icon"
+    # Migration: Handle rename from 'tray-icon' to 'command-center'
+    if [[ -d "${SCRIPT_DIR}/tray-icon" && ! -d "${SCRIPT_DIR}/command-center" ]]; then
+        info "Migrating tray-icon to command-center..."
+        mv "${SCRIPT_DIR}/tray-icon" "${SCRIPT_DIR}/command-center"
+        # Clean up old desktop entries to prevent duplicates
+        rm -f "$HOME/.local/share/applications/gz302-tray.desktop" 2>/dev/null || true
+        rm -f "$HOME/.config/autostart/gz302-tray.desktop" 2>/dev/null || true
+    fi
+
+    local tray_dir="${SCRIPT_DIR}/command-center"
     if [[ ! -d "$tray_dir" ]]; then
         info "Downloading tray app..."
         mkdir -p "$tray_dir"
         for f in install-tray.sh requirements.txt VERSION; do
-            curl -fsSL "${GITHUB_RAW_URL}/tray-icon/${f}" -o "${tray_dir}/${f}" 2>/dev/null || true
+            curl -fsSL "${GITHUB_RAW_URL}/command-center/${f}" -o "${tray_dir}/${f}" 2>/dev/null || true
         done
         mkdir -p "${tray_dir}/src/modules"
-        for f in gz302_tray.py modules/__init__.py modules/config.py modules/notifications.py \
+        for f in command_center.py modules/__init__.py modules/config.py modules/notifications.py \
                  modules/power_controller.py modules/rgb_controller.py; do
-            curl -fsSL "${GITHUB_RAW_URL}/tray-icon/src/${f}" -o "${tray_dir}/src/${f}" 2>/dev/null || true
+            curl -fsSL "${GITHUB_RAW_URL}/command-center/src/${f}" -o "${tray_dir}/src/${f}" 2>/dev/null || true
         done
     fi
 

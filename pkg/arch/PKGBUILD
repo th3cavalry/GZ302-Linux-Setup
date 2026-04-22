@@ -33,8 +33,8 @@ package() {
     install -Dm644 modules/*.sh "$pkgdir/usr/local/share/gz302/modules/"
 
     # Install tray app
-    install -d "$pkgdir/usr/local/share/gz302/tray-icon"
-    cp -r tray-icon/* "$pkgdir/usr/local/share/gz302/tray-icon/"
+    install -d "$pkgdir/usr/local/share/gz302/command-center"
+    cp -r command-center/* "$pkgdir/usr/local/share/gz302/command-center/"
 
     # Install scripts
     install -d "$pkgdir/usr/local/share/gz302/scripts"

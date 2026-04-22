@@ -63,7 +63,7 @@ sudo zypper install python3-qt6 python3-qt6-svg python3-psutil
 ### Step 2: Configure Sudoers (Recommended for no-prompt operation)
 
 ```bash
-cd tray-icon
+cd command-center
 sudo ./install-policy.sh
 ```
 
@@ -72,20 +72,20 @@ This configures sudoers to allow `pwrcfg` to self-elevate without a password. Th
 ### Step 3: Run the Command Center
 
 ```bash
-cd tray-icon/src
-python3 gz302_tray.py
+cd command-center/src
+python3 command_center.py
 ```
 
 Or make it executable and run directly:
 ```bash
-chmod +x src/gz302_tray.py
-./src/gz302_tray.py
+chmod +x src/command_center.py
+./src/command_center.py
 ```
 
 ### Optional: Install Desktop Launcher + Autostart
 
 ```bash
-cd tray-icon
+cd command-center
 ./install-tray.sh
 ```
 
@@ -111,7 +111,7 @@ If the tray icon is missing or appears as a blank space:
 ### Refresh Rate Changes Fail
 If changing the refresh rate from the menu doesn't work:
 - Ensure `rrcfg` is installed.
-- Ensure you have run `sudo ./install-policy.sh` in the `tray-icon` directory to allow password-less execution.
+- Ensure you have run `sudo ./install-policy.sh` in the `command-center` directory to allow password-less execution.
 
 ## Enable Autostart
 
@@ -124,7 +124,7 @@ cat > ~/.config/autostart/gz302-tray.desktop << 'EOF'
 Type=Application
 Name=GZ302 Power Manager
 Comment=System tray power profile manager for GZ302
-Exec=/path/to/GZ302-Linux-Setup/tray-icon/src/gz302_tray.py
+Exec=/path/to/GZ302-Linux-Setup/command-center/src/command_center.py
 Icon=battery
 Terminal=false
 Categories=Utility;System;
@@ -142,7 +142,7 @@ cat > ~/.config/autostart/gz302-tray.desktop << 'EOF'
 Type=Application
 Name=GZ302 Power Manager
 Comment=System tray power profile manager for GZ302
-Exec=/path/to/GZ302-Linux-Setup/tray-icon/src/gz302_tray.py
+Exec=/path/to/GZ302-Linux-Setup/command-center/src/command_center.py
 Icon=battery
 Terminal=false
 Categories=Utility;System;

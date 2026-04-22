@@ -294,8 +294,8 @@ For new features:
    - `gz302-setup.sh` — Header: `# Version: 5.1.2` + help text version display
    - `gz302-lib/*.sh` — All library files: `# Version: 5.1.2`
    - `modules/*.sh` — All modules: `# Version: 5.1.2`
-   - `tray-icon/VERSION` — `5.1.2`
-   - `tray-icon/src/gz302_tray.py` — Update About dialog version string
+   - `command-center/VERSION` — `5.1.2`
+   - `command-center/src/command_center.py` — Update About dialog version string
    - `pkg/arch/PKGBUILD` — `pkgver=5.1.2`
    - `README.md` — Update any version badges or references
    - `docs/CHANGELOG.md` — Add new version entry with changes
@@ -304,7 +304,7 @@ For new features:
    ```bash
    # Check all version headers match
    grep -rn "Version:" gz302-setup.sh gz302-lib/ modules/ | grep -v "Kernel Version"
-   cat VERSION tray-icon/VERSION
+   cat VERSION command-center/VERSION
    grep "pkgver=" pkg/arch/PKGBUILD
    ```
 

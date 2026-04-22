@@ -8,19 +8,19 @@ set -euo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
 # Determine the canonical install location for the tray icon
-# Priority: local script directory > system control-center > legacy tray-icon
+# Priority: local script directory > system control-center > legacy command-center
 # This ensures the script works both when run directly and from the main setup
-if [[ -f "$SCRIPT_DIR/src/gz302_tray.py" ]]; then
+if [[ -f "$SCRIPT_DIR/src/command_center.py" ]]; then
   APP_DIR="$SCRIPT_DIR"
-elif [[ -f "/usr/local/share/gz302/control-center/src/gz302_tray.py" ]]; then
+elif [[ -f "/usr/local/share/gz302/control-center/src/command_center.py" ]]; then
   APP_DIR="/usr/local/share/gz302/control-center"
-elif [[ -f "/usr/local/share/gz302/tray-icon/src/gz302_tray.py" ]]; then
-  APP_DIR="/usr/local/share/gz302/tray-icon"
+elif [[ -f "/usr/local/share/gz302/command-center/src/command_center.py" ]]; then
+  APP_DIR="/usr/local/share/gz302/command-center"
 else
   APP_DIR="$SCRIPT_DIR"
 fi
 
-APP_PY="$APP_DIR/src/gz302_tray.py"
+APP_PY="$APP_DIR/src/command_center.py"
 
 if [[ ! -f "$APP_PY" ]]; then
   echo "ERROR: Tray script not found at $APP_PY" >&2
@@ -204,7 +204,7 @@ fi
 
 # Notify running tray processes using SIGUSR1 so they reload UI strings
 pids=()
-for name in "gz302_tray.py" "gz302_tray" "gz302-tray"; do
+for name in "command_center.py" "gz302_tray" "gz302-tray"; do
   while read -r p; do
     [[ -n "$p" ]] && pids+=("$p")
   done < <(pgrep -f "$name" 2>/dev/null || true)

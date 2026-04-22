@@ -119,7 +119,7 @@ GZ302-Linux-Setup/
 │   └── ... (wifi, gpu, audio, etc.)
 ├── modules/                   # Optional feature packs (gaming, llm, etc.)
 ├── scripts/                   # System scripts (fix-suspend, uninstall)
-├── tray-icon/                 # PyQt6 system tray application
+├── command-center/            # PyQt6 system tray application
 ├── docs/                      # User guides and changelogs
 │   └── technical/             # Hardware research and obsolescence analysis
 └── legacy/                    # Deprecated and replaced scripts

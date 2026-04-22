@@ -42,7 +42,7 @@ GZ302-Linux-Setup/
 ├── modules/               # Optional modules (gaming, AI, hypervisor)
 ├── scripts/               # Standalone tools & utilities
 │   └── uninstall/         # Cleanup scripts
-├── tray-icon/             # Python/Qt6 system tray app
+├── command-center/        # Python/Qt6 system tray app
 ├── pkg/arch/              # Arch Linux PKGBUILD
 └── docs/                  # Documentation (you are here)
 ```
