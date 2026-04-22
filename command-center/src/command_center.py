@@ -22,6 +22,8 @@ from modules.notifications import NotificationManager
 from modules.rgb_controller import RGBController
 from modules.power_controller import PowerController
 
+TRAY_ICON_SIZE = 64
+
 class CommandCenterApp(QSystemTrayIcon):
     def __init__(self, app):
         super().__init__()
@@ -285,14 +287,14 @@ class CommandCenterApp(QSystemTrayIcon):
             "profile-m": "#DC2626",
         }
 
-        pixmap = QPixmap(64, 64)
+        pixmap = QPixmap(TRAY_ICON_SIZE, TRAY_ICON_SIZE)
         pixmap.fill(Qt.GlobalColor.transparent)
 
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setBrush(QColor(colors.get(icon_name, "#2563EB")))
         painter.setPen(QPen(Qt.GlobalColor.black, 2))
-        painter.drawEllipse(2, 2, 60, 60)
+        painter.drawEllipse(2, 2, TRAY_ICON_SIZE - 4, TRAY_ICON_SIZE - 4)
 
         font = QFont()
         font.setBold(True)
@@ -310,7 +312,7 @@ class CommandCenterApp(QSystemTrayIcon):
             if QSvgRenderer is not None:
                 renderer = QSvgRenderer(str(icon_path))
                 if renderer.isValid():
-                    pixmap = QPixmap(64, 64)
+                    pixmap = QPixmap(TRAY_ICON_SIZE, TRAY_ICON_SIZE)
                     pixmap.fill(Qt.GlobalColor.transparent)
                     painter = QPainter(pixmap)
                     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -318,10 +320,6 @@ class CommandCenterApp(QSystemTrayIcon):
                     painter.end()
                     if not pixmap.isNull():
                         return QIcon(pixmap)
-
-            icon = QIcon(str(icon_path))
-            if not icon.isNull() and not icon.pixmap(64, 64).isNull():
-                return icon
 
         return self._build_fallback_icon(icon_name)
 
