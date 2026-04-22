@@ -2,6 +2,13 @@
 
 All notable changes to GZ302-Linux-Setup will be documented in this file.
 
+## [5.1.3] - 2026-04-22
+
+### Fixed
+- **Intermittent graphical artifacts on kernel 7.0 (Issue #161)**: `display-fix.sh` now writes `/etc/kernel/cmdline` as a single normalized line when adding `amdgpu.dcdebugmask=0xe12`, fixing cases where systemd-boot did not reliably consume parameters appended on a new line.
+- **Display fix mask merge robustness**: `display_merge_dcdebugmask_file()` and mask detection now accept both hexadecimal (`0x...`) and decimal `amdgpu.dcdebugmask` values so existing boot parameters are always merged correctly.
+- **GRUB compatibility**: Display fix insertion now supports both `GRUB_CMDLINE_LINUX_DEFAULT` and `GRUB_CMDLINE_LINUX`, with fallback creation when neither key exists.
+
 ## [5.1.2] - 2026-04-17
 
 ### Fixed
@@ -115,4 +122,3 @@ All notable changes to GZ302-Linux-Setup will be documented in this file.
 - Major refactor from monolithic script to modular library architecture
 - Optional modules (gaming, LLM, hypervisor) downloaded on demand
 - RGB control split into keyboard (C binary) and lightbar (Python)
-

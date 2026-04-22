@@ -4,7 +4,7 @@ set -euo pipefail
 
 # ==============================================================================
 # GZ302 Display Fix Library
-# Version: 5.1.2
+# Version: 5.1.3
 #
 # This library provides display-specific fixes for OLED panels on GZ302.
 # Focuses on all eDP power-saving features that can cause display artifacts.
@@ -37,14 +37,14 @@ display_merge_dcdebugmask_file() {
     local current
     local merged
 
-    current=$(grep -oE 'amdgpu\.dcdebugmask=0x[0-9A-Fa-f]+' "$file" 2>/dev/null | head -1 || true)
+    current=$(grep -oE 'amdgpu\.dcdebugmask=(0x[0-9A-Fa-f]+|[0-9]+)' "$file" 2>/dev/null | head -1 || true)
     if [[ -z "$current" ]]; then
         return 1
     fi
 
     current="${current#amdgpu.dcdebugmask=}"
     printf -v merged "0x%x" $((current | 0xe12))
-    sed -i -E "s/amdgpu\.dcdebugmask=0x[0-9A-Fa-f]+/amdgpu.dcdebugmask=${merged}/g" "$file"
+    sed -i -E "s/amdgpu\.dcdebugmask=(0x[0-9A-Fa-f]+|[0-9]+)/amdgpu.dcdebugmask=${merged}/g" "$file"
     return 0
 }
 
@@ -71,7 +71,7 @@ display_has_psr_su_disable_bit() {
         if (( (value & 0xe12) == 0xe12 )); then
             return 0
         fi
-    done < <(grep -oE 'amdgpu\.dcdebugmask=0x[0-9A-Fa-f]+' "$file" 2>/dev/null || true)
+    done < <(grep -oE 'amdgpu\.dcdebugmask=(0x[0-9A-Fa-f]+|[0-9]+)' "$file" 2>/dev/null || true)
 
     return 1
 }
@@ -137,6 +137,26 @@ display_psr_su_fix_applied() {
 
 # --- PSR-SU Fix Application ---
 
+# Append/merge parameter into /etc/kernel/cmdline as a single line
+display_ensure_cmdline_param() {
+    local cmdline_file="$1"
+    local param="$2"
+    local current
+
+    current=$(tr '\n' ' ' < "$cmdline_file" 2>/dev/null | sed 's/[[:space:]]\+/ /g; s/^ //; s/ $//' || true)
+    if [[ "$current" == *"$param"* ]]; then
+        return 1
+    fi
+
+    if [[ -n "$current" ]]; then
+        printf '%s %s\n' "$current" "$param" > "$cmdline_file"
+    else
+        printf '%s\n' "$param" > "$cmdline_file"
+    fi
+
+    return 0
+}
+
 # Apply PSR-SU disable fix (idempotent)
 # Returns: 0 on success
 display_apply_psr_su_fix() {
@@ -149,8 +169,13 @@ display_apply_psr_su_fix() {
             display_merge_dcdebugmask_file /etc/default/grub || true
         else
             info "Adding amdgpu.dcdebugmask=0xe12 to GRUB..."
-            # Add new parameter (before the closing quote)
-            sed -i 's/\(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*\)"/\1 amdgpu.dcdebugmask=0xe12"/' /etc/default/grub 2>/dev/null || true
+            if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub; then
+                sed -i 's/^\(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*\)"/\1 amdgpu.dcdebugmask=0xe12"/' /etc/default/grub 2>/dev/null || true
+            elif grep -q '^GRUB_CMDLINE_LINUX=' /etc/default/grub; then
+                sed -i 's/^\(GRUB_CMDLINE_LINUX="[^"]*\)"/\1 amdgpu.dcdebugmask=0xe12"/' /etc/default/grub 2>/dev/null || true
+            else
+                echo 'GRUB_CMDLINE_LINUX="amdgpu.dcdebugmask=0xe12"' >> /etc/default/grub
+            fi
         fi
 
         # Regenerate GRUB config
@@ -173,12 +198,7 @@ display_apply_psr_su_fix() {
             display_merge_dcdebugmask_file /etc/kernel/cmdline || true
         else
             info "Adding amdgpu.dcdebugmask=0xe12 to systemd-boot..."
-            # Check if file is empty or needs new line
-            if [[ -s /etc/kernel/cmdline ]]; then
-                echo " amdgpu.dcdebugmask=0xe12" >> /etc/kernel/cmdline
-            else
-                echo "amdgpu.dcdebugmask=0xe12" > /etc/kernel/cmdline
-            fi
+            display_ensure_cmdline_param /etc/kernel/cmdline "amdgpu.dcdebugmask=0xe12" || true
 
             # Regenerate boot entries (only if mkinitcpio hasn't run yet this session)
             if command -v mkinitcpio >/dev/null 2>&1 && [[ "${GZ302_MKINITCPIO_DONE:-false}" != "true" ]]; then

@@ -144,6 +144,17 @@ sudo modprobe -r hid_asus && sudo modprobe hid_asus
 | No audio | Apply audio quirk | Apply audio quirk | Native |
 | GPU crashes | Apply GTT fix | Should be stable | Native |
 | Suspend fails | Apply MMC fix | Apply MMC fix | Apply MMC fix |
+| Intermittent OLED artifacts/flicker while scrolling | Apply display fix (`dcdebugmask`) | Ensure `amdgpu.dcdebugmask=0xe12` is present in a **single-line** `/etc/kernel/cmdline` (systemd-boot) or GRUB cmdline | Same as 6.17+ |
+
+### Display Fix Validation (Kernel 7.0+)
+
+On systemd-boot systems, `/etc/kernel/cmdline` must be a single line. If display parameters were appended on a separate line by older tooling, the fix may not apply reliably.
+
+```bash
+cat /etc/kernel/cmdline
+# Expected to include (same line):
+# ... amdgpu.dcdebugmask=0xe12 ...
+```
 
 ---
 
