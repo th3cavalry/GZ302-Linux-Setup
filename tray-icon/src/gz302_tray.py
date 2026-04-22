@@ -214,8 +214,10 @@ class GZ302TrayApp(QSystemTrayIcon):
         """Set display refresh rate via rrcfg."""
         import subprocess
         try:
+            # Use sudo -n for rrcfg as it requires elevated privileges for sysfs writes
+            # and is configured with NOPASSWD in the sudoers policy by install-policy.sh
             result = subprocess.run(
-                ["/usr/local/bin/rrcfg", rate],
+                ["sudo", "-n", "/usr/local/bin/rrcfg", rate],
                 capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:

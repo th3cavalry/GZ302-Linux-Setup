@@ -147,7 +147,8 @@ gpu_ppfeaturemask_configured() {
     if [[ -f /etc/modprobe.d/amdgpu.conf ]]; then
         if grep -q "ppfeaturemask=0xffff7fff" /etc/modprobe.d/amdgpu.conf 2>/dev/null && \
            grep -q "abmlevel=0" /etc/modprobe.d/amdgpu.conf 2>/dev/null && \
-           grep -q "sg_display=0" /etc/modprobe.d/amdgpu.conf 2>/dev/null; then
+           grep -q "sg_display=0" /etc/modprobe.d/amdgpu.conf 2>/dev/null && \
+           grep -q "cwsr_enable=0" /etc/modprobe.d/amdgpu.conf 2>/dev/null; then
             return 0
         fi
     fi
@@ -280,6 +281,10 @@ options amdgpu abmlevel=0
 # Kernel doc: "Set to 0 to disable if you experience flickering or other
 # issues under memory pressure" — directly applies to GZ302 OLED flicker.
 options amdgpu sg_display=0
+# cwsr_enable=0: disable Compute Wavefront Save-Restore.
+# Prevents GPU hangs and graphical artifacts on Strix Halo (RDNA 3.5)
+# caused by register file synchronization issues in early 2026 kernels.
+options amdgpu cwsr_enable=0
 EOF
     
     # Verify creation

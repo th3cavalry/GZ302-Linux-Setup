@@ -100,7 +100,20 @@ This creates a launcher in `~/.local/share/applications` and an autostart entry 
 5. No password prompts (after sudoers is configured) - changes happen instantly!
 6. Battery/AC status is shown in the tooltip; the icon updates when on AC vs Battery
 
-### Enable Autostart
+## Troubleshooting
+
+### Blank or Missing Icon
+If the tray icon is missing or appears as a blank space:
+
+- **GNOME Users**: You **must** install the "AppIndicator and KStatusNotifierItem Support" extension. GNOME does not support system tray icons natively.
+- **Missing SVG Support**: Ensure you have the SVG library for PyQt6 installed (see [Step 1](#step-1-install-python-dependencies)). Without it, the application cannot render the `.svg` icons and they will appear blank.
+
+### Refresh Rate Changes Fail
+If changing the refresh rate from the menu doesn't work:
+- Ensure `rrcfg` is installed.
+- Ensure you have run `sudo ./install-policy.sh` in the `tray-icon` directory to allow password-less execution.
+
+## Enable Autostart
 
 You can enable autostart from the tray menu (Enable Autostart) or manually:
 

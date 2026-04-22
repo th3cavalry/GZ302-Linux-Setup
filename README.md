@@ -104,7 +104,7 @@ The scripts automatically detect your kernel and adapt:
 
 **Issue:** Purple/green color artifacts during scrolling, intermittent corruption during idle, or color-shift fringing on the built-in OLED panel (not external monitors).
 **Cause:** Multiple DC power-save features active on the internal eDP panel: PSR, PSR-SU, Panel Replay (DCN 3.5 / Strix Halo), IPS (Idle Power Save), DRAM stutter, and scatter-gather display on APU. ABM (Adaptive Backlight Management) also causes colour-shift artifacts on OLED.
-**Fix:** `amdgpu.dcdebugmask=0xe12` + modprobe options `abmlevel=0` and `sg_display=0` — applied automatically by the installer.
+**Fix:** `amdgpu.dcdebugmask=0xe12` + modprobe options `abmlevel=0`, `sg_display=0`, and `cwsr_enable=0` — applied automatically by the installer.
 
 ---
 
