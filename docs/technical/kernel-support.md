@@ -1,7 +1,7 @@
 # GZ302 Kernel Support Guide
 
 **Target Hardware:** ASUS ROG Flow Z13 (GZ302EA-XS99/XS98/XS96) with AMD Ryzen AI MAX+ 395  
-**Last Updated:** February 2026  
+**Last Updated:** April 2026  
 **Kernel Range:** 6.14 - 7.0+
 
 ---
@@ -90,6 +90,7 @@ amdgpu.gttsize=131072 amd_iommu=off
 ### What Still Needs Fixes
 - ⚠️ Suspend/MMC timeout (see fix below)
 - ⚠️ Audio (CS35L41 quirk) - Only for kernel < 6.19
+- ⚠️ Internal OLED artifacts on some systems - keep `amdgpu.dcdebugmask=0xe12` plus `sg_display=0` and `cwsr_enable=0`; if `/etc/modprobe.d/amdgpu.conf` changes, regenerate initramfs before reboot so early-loaded `amdgpu` picks up the new parameters
 
 ---
 

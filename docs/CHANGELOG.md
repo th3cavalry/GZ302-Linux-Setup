@@ -2,6 +2,14 @@
 
 All notable changes to GZ302-Linux-Setup will be documented in this file.
 
+## [5.1.3] - 2026-04-22
+
+### Fixed
+- **Intermittent graphical artifacts after install/reboot (Issue #161)**: GPU setup now regenerates initramfs after writing `/etc/modprobe.d/amdgpu.conf`, ensuring `amdgpu` module parameters such as `sg_display=0` and `cwsr_enable=0` actually take effect on early-loaded drivers used by Arch, CachyOS, and other initramfs-based setups.
+
+### Changed
+- **Display troubleshooting docs**: Clarified that current Strix Halo OLED artifact workarounds still apply on newer kernels and must be present in initramfs-backed `amdgpu` loads.
+
 ## [5.1.2] - 2026-04-17
 
 ### Fixed
@@ -115,4 +123,3 @@ All notable changes to GZ302-Linux-Setup will be documented in this file.
 - Major refactor from monolithic script to modular library architecture
 - Optional modules (gaming, LLM, hypervisor) downloaded on demand
 - RGB control split into keyboard (C binary) and lightbar (Python)
-

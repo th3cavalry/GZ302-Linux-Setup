@@ -4,7 +4,7 @@ set -euo pipefail
 
 # ==============================================================================
 # GZ302 GPU Manager Library
-# Version: 5.1.2
+# Version: 5.1.3
 #
 # This library manages AMD Radeon 8060S (RDNA 3.5) integrated GPU configuration
 # for the GZ302 (Strix Halo platform).
@@ -291,8 +291,56 @@ EOF
     if [[ ! -f /etc/modprobe.d/amdgpu.conf ]]; then
         return 1
     fi
+
+    if ! gpu_regenerate_initramfs; then
+        return 1
+    fi
     
     return 0
+}
+
+# Regenerate initramfs when amdgpu module parameters change
+# Returns: 0 on success, 1 on failure
+gpu_regenerate_initramfs() {
+    if [[ "${GZ302_GPU_INITRAMFS_DONE:-false}" == "true" ]]; then
+        return 0
+    fi
+
+    echo "Regenerating initramfs to apply AMDGPU module parameters..."
+
+    if command -v mkinitcpio >/dev/null 2>&1; then
+        if mkinitcpio -P; then
+            export GZ302_MKINITCPIO_DONE=true
+            export GZ302_GPU_INITRAMFS_DONE=true
+            return 0
+        fi
+
+        echo "WARNING: Failed to regenerate initramfs with mkinitcpio. Please run 'sudo mkinitcpio -P' manually."
+        return 1
+    fi
+
+    if command -v update-initramfs >/dev/null 2>&1; then
+        if update-initramfs -u -k all; then
+            export GZ302_GPU_INITRAMFS_DONE=true
+            return 0
+        fi
+
+        echo "WARNING: Failed to regenerate initramfs with update-initramfs. Please run 'sudo update-initramfs -u -k all' manually."
+        return 1
+    fi
+
+    if command -v dracut >/dev/null 2>&1; then
+        if dracut --regenerate-all -f; then
+            export GZ302_GPU_INITRAMFS_DONE=true
+            return 0
+        fi
+
+        echo "WARNING: Failed to regenerate initramfs with dracut. Please run 'sudo dracut --regenerate-all -f' manually."
+        return 1
+    fi
+
+    echo "WARNING: No initramfs regeneration tool found. Please rebuild your initramfs manually so AMDGPU module parameters take effect on reboot."
+    return 1
 }
 
 # Apply GPU configuration (modprobe only)
@@ -450,12 +498,12 @@ gpu_print_status() {
 # --- Library Information ---
 
 gpu_lib_version() {
-    echo "3.0.0"
+    echo "5.1.3"
 }
 
 gpu_lib_help() {
     cat <<'HELP'
-GZ302 GPU Manager Library v3.0.0
+GZ302 GPU Manager Library v5.1.3
 
 Detection Functions (read-only):
   gpu_detect_hardware           - Check if Radeon 8060S present
