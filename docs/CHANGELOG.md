@@ -2,6 +2,12 @@
 
 All notable changes to GZ302-Linux-Setup will be documented in this file.
 
+## [5.1.3] - 2026-04-22
+
+### Fixed
+- **Blank tray icon on Linux desktops**: Rasterized the command-center SVG assets before handing them to `QSystemTrayIcon`, which keeps the tray icon visible on Plasma/Wayland and similar environments that leave SVG tray icons blank.
+- **Tray icon resilience**: Added a built-in raster fallback icon so the tray remains visible even if SVG rendering support is unavailable at runtime.
+
 ## [5.1.2] - 2026-04-17
 
 ### Fixed
