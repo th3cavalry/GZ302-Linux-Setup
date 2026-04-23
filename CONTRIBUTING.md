@@ -319,8 +319,8 @@ For new features:
 - Fixed a bug? → PATCH: `5.1.1` → `5.1.2`
 - Added a new module? → MINOR: `5.1.2` → `5.2.0`
 - Changed installer architecture? → MAJOR: `5.2.0` → `6.0.0`
-- Updated documentation only? → PATCH: `5.1.2` → `5.1.3`
-- Fixed typo in comments? → PATCH: `5.1.3` → `5.1.4`
+- Updated documentation only? → PATCH: `5.1.2` → `5.1.4`
+- Fixed typo in comments? → PATCH: `5.1.4` → `5.1.4`
 
 **NO exceptions** - every merged change must increment the version number.
 

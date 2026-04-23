@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 5.1.3
+# Version: 5.1.4
 #
 # This module installs LLM backends for the ASUS ROG Flow Z13 (GZ302)
 # Uses official installation methods - no custom builds
@@ -59,7 +59,7 @@ fi
 
 
 # --- Configuration ---
-LLM_VERSION="5.1.3"
+LLM_VERSION="5.1.4"
 OLLAMA_ENV_FILE="/etc/systemd/system/ollama.service.d/gz302.conf"
 LMSTUDIO_APPIMAGE="${HOME}/Applications/LMStudio.AppImage"
 VLLM_VENV="/opt/gz302-vllm"
