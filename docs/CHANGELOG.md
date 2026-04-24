@@ -6,9 +6,11 @@ All notable changes to GZ302-Linux-Setup will be documented in this file.
 
 ### Added
 - **GZ302 Dashboard**: Completely rewritten the command-center from a tray-only menu into a robust, G-Helper inspired GUI application.
+- **Enhanced Tray Menu**: Reintroduced and expanded the right-click tray menu with quick-access controls for all 8 Power Profiles, RGB Lighting (brightness/effects), Battery Charge Limits, and Auto-Switching toggles.
 - **Improved Wayland Reliability**: The new Dashboard window provides a stable control interface that bypasses the input-serial and popup-window bugs common in KDE/GNOME Wayland system trays.
 - **Enhanced UI**: Added a compact, dark-themed Dashboard with real-time APU temperature and fan speed monitoring.
 - **Integrated Controls**: Single-window access to Power Profiles, TDP limits, Display Refresh Rates, and RGB Lighting.
+- **Dynamic Tray States**: The tray menu now dynamically updates checkmarks and profile states using the `aboutToShow` signal for high reliability.
 
 ### Changed
 - **Tray Icon Behavior**: Left-clicking the tray icon now toggles the Dashboard visibility instead of attempting to open a fragile QMenu.

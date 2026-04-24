@@ -69,10 +69,10 @@ The installer creates `pwrcfg` and `gz302-rgb` wrappers that map to z13ctl:
 
 | Command | Maps to |
 | :--- | :--- |
-| `pwrcfg balanced` | `z13ctl profile --set balanced` |
-| `pwrcfg tdp --set 50` | `z13ctl tdp --set 50` |
-| `gz302-rgb static red` | `z13ctl apply --mode static --color red` |
-| `gz302-rgb rainbow` | `z13ctl apply --mode rainbow` |
+| `z13ctl status` | `z13ctl status` |
+| `z13ctl profile --set quiet` | `z13ctl profile --set quiet` |
+| `z13ctl tdp --set 50` | `z13ctl tdp --set 50` |
+| `z13ctl apply --mode rainbow` | `z13ctl apply --mode rainbow` |
 
 ---
 
@@ -80,9 +80,13 @@ The installer creates `pwrcfg` and `gz302-rgb` wrappers that map to z13ctl:
 
 After installation, look for **"ASUS ROG Flow Z13 (GZ302) Command Center"** in your system tray.
 
-- **Right-click:** Quick profile switching (Quiet, Balanced, Performance)
-- **Middle-click:** Toggle RGB on/off
-- **Hover:** Real-time power and battery status
+- **Left-click:** Toggle Dashboard Window (Monitoring, Fan Curves, AI Status)
+- **Right-click:** Quick access menu:
+  - **⚡ Profiles:** Switch between all 8 performance modes (10W-90W)
+  - **🌈 RGB Lighting:** Adjust brightness and animation effects
+  - **🔋 Battery Limit:** Set 60/80/100% charge caps
+  - **🔄 Auto Switch:** Toggle automatic AC/Battery profile switching
+- **Hover:** Real-time temperature, profile, and power status
 
 ---
 

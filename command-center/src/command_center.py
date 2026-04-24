@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QComboBox, QSlider, QProgressBar, QStackedWidget, QListWidget,
     QLineEdit, QScrollArea
 )
-from PyQt6.QtGui import QIcon, QAction, QColor, QFont, QPainter, QPixmap
+from PyQt6.QtGui import QIcon, QAction, QActionGroup, QColor, QFont, QPainter, QPixmap
 from PyQt6.QtCore import QTimer, Qt, QProcess, QSize
 
 try:
@@ -237,6 +237,7 @@ class CommandCenterApp(QSystemTrayIcon):
         self.dashboard = DashboardWindow(self.power, self.rgb, self.config, self.notifier)
         
         self.menu = QMenu()
+        self.menu.aboutToShow.connect(self.setup_menu)
         self.setup_menu()
         self.setContextMenu(self.menu)
         
@@ -254,11 +255,64 @@ class CommandCenterApp(QSystemTrayIcon):
         self.menu.clear()
         self.menu.addAction("🖥️ Open Dashboard").triggered.connect(self.dashboard.show)
         self.menu.addSeparator()
+
+        # --- Power Profiles ---
         profiles_menu = self.menu.addMenu("⚡ Profiles")
-        for n, c in [("Silent", "quiet"), ("Balanced", "balanced"), ("Turbo", "performance")]:
+        profile_group = QActionGroup(profiles_menu)
+        for n, c in [
+            ("Emergency (10W)", "emergency"),
+            ("Battery (18W)", "battery"),
+            ("Efficient (30W)", "efficient"),
+            ("Silent (Quiet)", "quiet"),
+            ("Balanced (40W)", "balanced"),
+            ("Turbo (55W)", "performance"),
+            ("Gaming (70W)", "gaming"),
+            ("Maximum (90W)", "maximum")
+        ]:
             a = QAction(n, self)
+            a.setCheckable(True)
+            a.setChecked(self.power.current_profile == c)
             a.triggered.connect(lambda _, code=c: self.power.set_profile(code))
             profiles_menu.addAction(a)
+            profile_group.addAction(a)
+
+        # --- Battery Limit ---
+        limit_menu = self.menu.addMenu("🔋 Battery Limit")
+        for lim in [60, 80, 100]:
+            a = QAction(f"Limit to {lim}%", self)
+            a.triggered.connect(lambda _, l=lim: self.power.set_charge_limit(l))
+            limit_menu.addAction(a)
+
+        self.menu.addSeparator()
+
+        # --- RGB Lighting ---
+        rgb_menu = self.menu.addMenu("🌈 RGB Lighting")
+        
+        # Brightness Submenu
+        bright_menu = rgb_menu.addMenu("💡 Brightness")
+        for label, val in [("Off", 0), ("Low", 1), ("Medium", 2), ("High", 3)]:
+            a = QAction(label, self)
+            a.triggered.connect(lambda _, v=val: self.rgb.set_keyboard_brightness(v))
+            bright_menu.addAction(a)
+            
+        # Effects Submenu
+        effects_menu = rgb_menu.addMenu("✨ Effects")
+        for label, effect in [("Rainbow", "rainbow"), ("Color Cycle", "colorcycle"), ("Breathing", "breathing")]:
+            a = QAction(label, self)
+            a.triggered.connect(lambda _, e=effect: self.rgb.set_keyboard_animation(e))
+            effects_menu.addAction(a)
+            
+        rgb_menu.addAction("❌ Turn Off All").triggered.connect(self.rgb.turn_off)
+
+        self.menu.addSeparator()
+
+        # --- Auto Settings ---
+        auto_action = QAction("🔄 Auto Settings Adjust", self)
+        auto_action.setCheckable(True)
+        auto_action.setChecked(self.power.is_auto_enabled())
+        auto_action.triggered.connect(lambda checked: self.power.set_auto(checked))
+        self.menu.addAction(auto_action)
+
         self.menu.addSeparator()
         self.menu.addAction("❌ Quit").triggered.connect(self.app.quit)
 

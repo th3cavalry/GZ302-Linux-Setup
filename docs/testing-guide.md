@@ -1,577 +1,97 @@
-# GZ302 Testing Guide
+# GZ302 Testing Guide — Strix Halo Edition
 
-**Date:** December 9, 2025  
-**Version:** 4.0.0-dev  
-**Status:** Testing Framework
+**Current Version:** 6.2.0  
+**Status:** Unified Testing Framework for GZ302 & Strix Halo Platform
 
 ---
 
 ## Overview
 
-This guide provides comprehensive testing procedures for the GZ302-Linux-Setup project, covering both v3.0.0 (production) and v4.0.0 (development) scripts and libraries.
+This guide provides comprehensive testing procedures for the GZ302-Linux-Setup project (v6.x). It covers core hardware enablement scripts and the PyQt6-based Command Center.
 
 ---
 
 ## Test Environments
 
-### Supported Test Platforms
-
-1. **Real Hardware (Preferred)**
-   - ASUS ROG Flow Z13 (GZ302EA)
-   - Various kernel versions (6.14, 6.16, 6.17, 6.18+)
-   - All supported distributions
-
-2. **Virtual Machines (Functional Testing)**
-   - VirtualBox / VMware / QEMU/KVM
-   - Limited hardware emulation
-   - Good for basic script validation
-
-3. **Containers (Unit Testing)**
-   - Docker / Podman
-   - Library function testing
-   - Syntax and shellcheck validation
-
-### Kernel Version Matrix
-
-| Kernel | WiFi Workaround | Input Workaround | Status |
-|--------|-----------------|------------------|--------|
-| < 6.14 | Required | Required | Unsupported |
-| 6.14-6.16 | Required | Required | Supported |
-| 6.17+ | Not needed | Not needed | Recommended |
+### Supported Platforms
+1. **ASUS ROG Flow Z13 (GZ302)**: Primary reference hardware.
+2. **Generic Strix Halo Devices**: HP ZBook Ultra, Framework ITX, etc.
+3. **Kernels**: 6.14 (Minimum), 6.17+ (Recommended/Native).
 
 ---
 
-## Quick Validation
+## 1. Command Center (GUI) Testing
 
-### Syntax Validation
+The Command Center is the most visible component and requires rigorous UI/UX validation.
 
+### System Tray Menu
+- [ ] **Dynamic Updates**: Right-click the tray icon multiple times. Verify that checkmarks correctly follow the active power profile.
+- [ ] **Power Profiles**: Select each of the 8 profiles (Emergency to Maximum). Use `z13ctl status` to verify the profile and TDP apply correctly.
+- [ ] **RGB Lighting**: 
+    - Test each brightness level (Off, Low, Medium, High).
+    - Test animation effects (Rainbow, Color Cycle, Breathing).
+    - Verify "Turn Off All" kills both keyboard and lightbar LEDs.
+- [ ] **Battery Limit**: Select 60%, 80%, and 100%. Verify via `z13ctl status`.
+- [ ] **Auto Switch Toggle**: Enable/Disable. Verify state is saved in `~/.config/gz302/auto.conf`.
+
+### Dashboard Window
+- [ ] **Visibility**: Left-click tray icon to show/hide.
+- [ ] **Real-time Stats**: Verify APU temperature and CPU load update every 3 seconds.
+- [ ] **Fan Curves**: Apply a custom curve. Verify `z13ctl status` shows the new curve points.
+- [ ] **AI/NPU Status**: Confirm the "AI & NPU" tab correctly identifies the Ryzen AI NPU state.
+
+---
+
+## 2. Core Script Testing (z13ctl & Helpers)
+
+### Installation & Idempotency
+- [ ] **Fresh Install**: Run `sudo ./gz302-setup.sh` on a clean system.
+- [ ] **Idempotency**: Run the script a second time. It should complete in < 5 seconds without re-downloading or re-applying static fixes.
+- [ ] **Status Mode**: Run `sudo ./gz302-setup.sh --status`. Verify it accurately reflects which components are "Applied".
+
+### Hardware Enablement
+- [ ] **WiFi (MT7925)**: Verify connectivity and absence of "deauthentication" loops in `dmesg`.
+- [ ] **GPU (Radeon 8060S)**: Run `vulkaninfo` or `glxinfo` to verify driver initialization on gfx1151.
+- [ ] **Audio (CS35L41)**: Verify both speakers are active and balanced.
+- [ ] **Suspend/Resume**: Verify system wakes correctly without GPU hangs or WiFi dropouts.
+
+---
+
+## 3. Automated Validation
+
+### Syntax & Linting
 ```bash
 # Validate all scripts
-for script in gz302-*.sh; do
-    bash -n "$script" && echo "✓ $script" || echo "✗ $script FAILED"
-done
+for script in gz302-*.sh; do bash -n "$script" && echo "✓ $script"; done
 
-# Validate all libraries
-for lib in gz302-lib/*.sh; do
-    bash -n "$lib" && echo "✓ $lib" || echo "✗ $lib FAILED"
-done
+# Shellcheck (Critical for logic errors)
+shellcheck gz302-setup.sh gz302-lib/*.sh
 ```
 
-### Shellcheck Validation
-
+### Python/PyQt6 Sanity
 ```bash
-# Check all scripts
-shellcheck gz302-*.sh
-
-# Check all libraries
-shellcheck gz302-lib/*.sh
-
-# Expected: Zero warnings for production code
-```
-
-### Version Consistency
-
-```bash
-# Check version numbers match
-grep "^# Version:" gz302-*.sh gz302-lib/*.sh
-# All should show consistent version (3.0.0 or 4.0.0-dev)
+# Check for import errors or syntax issues
+python3 -m py_compile command-center/src/command_center.py
+python3 -m py_compile command-center/src/modules/*.py
 ```
 
 ---
 
-## Library Testing
-
-### Unit Tests (Individual Functions)
-
-```bash
-#!/bin/bash
-# test-libraries.sh
-
-source gz302-lib/kernel-compat.sh
-
-echo "=== Testing kernel-compat.sh ==="
-
-# Test 1: Version detection
-version=$(kernel_get_version_num)
-echo "Kernel version number: $version"
-[[ $version -gt 600 ]] && echo "✓ Version detection works" || echo "✗ FAILED"
-
-# Test 2: Minimum check
-if kernel_meets_minimum; then
-    echo "✓ Kernel meets minimum"
-else
-    echo "✗ Kernel below minimum"
-fi
-
-# Test 3: Status function
-echo "Kernel status:"
-kernel_get_status
-
-echo
-echo "=== Testing wifi-manager.sh ==="
-
-source gz302-lib/wifi-manager.sh
-
-# Test 4: Hardware detection
-if wifi_detect_hardware >/dev/null 2>&1; then
-    echo "✓ WiFi hardware detected"
-else
-    echo "⚠ WiFi hardware not detected (normal in VM)"
-fi
-
-# Test 5: State functions
-if wifi_aspm_workaround_applied; then
-    echo "ASPM workaround currently applied"
-else
-    echo "ASPM workaround not applied"
-fi
-
-# Add more tests...
-```
-
-### Integration Tests (Library Combinations)
-
-```bash
-#!/bin/bash
-# test-integration.sh
-
-echo "=== Library Integration Test ==="
-
-# Load all libraries
-for lib in gz302-lib/*.sh; do
-    source "$lib" && echo "✓ Loaded $(basename $lib)" || echo "✗ FAILED $(basename $lib)"
-done
-
-# Test state management
-state_init && echo "✓ State initialized" || echo "✗ State init failed"
-
-# Test kernel compatibility
-kernel_ver=$(kernel_get_version_num)
-echo "Detected kernel: $kernel_ver"
-
-# Test conditional logic
-if kernel_requires_wifi_workaround; then
-    echo "WiFi workaround required (kernel < 6.17)"
-else
-    echo "WiFi workaround not required (kernel >= 6.17)"
-fi
-
-echo "Integration test complete"
-```
-
----
-
-## Script Testing
-
-### v4.0.0 Minimal Script
-
-```bash
-# Test 1: Syntax
-bash -n gz302-setup.sh && echo "✓ Syntax OK"
-
-# Test 2: Help mode (no root needed)
-./gz302-setup.sh --help
-
-# Test 3: Status mode (requires root)
-sudo ./gz302-setup.sh --status
-
-# Test 4: Dry-run (check what would be done)
-# Use status mode to see what state the system is in
-sudo ./gz302-setup.sh --status
-
-# Test 5: Actual run (first time)
-sudo ./gz302-setup.sh
-
-# Test 6: Idempotency (second run should be faster)
-time sudo ./gz302-setup.sh
-# Should complete in ~5 seconds (vs ~30 seconds first run)
-
-# Test 7: Force mode
-sudo ./gz302-setup.sh --force
-# Should re-apply everything
-```
-
-### v4.0.0 Main Script
-
-```bash
-# Test 1: Syntax
-bash -n gz302-setup.sh && echo "✓ Syntax OK"
-
-# Test 2: Status mode
-sudo ./gz302-setup.sh --status
-
-# Test 3: Actual run
-sudo ./gz302-setup.sh
-```
-
----
-
-## Hardware Testing
-
-### WiFi Testing
-
-```bash
-# Check WiFi hardware
-lspci | grep -i "network\|wifi"
-
-# Check WiFi module
-lsmod | grep mt7925
-
-# Check WiFi interface
-ip link show
-
-# Test connectivity
-ping -c 4 8.8.8.8
-
-# Check for errors
-dmesg | grep -i "mt7925\|wifi" | tail -20
-
-# Library status
-sudo ./gz302-setup.sh --status | grep -A 10 "WiFi"
-```
-
-### GPU Testing
-
-```bash
-# Check GPU hardware
-lspci | grep -i "vga\|display"
-
-# Check GPU module
-lsmod | grep amdgpu
-
-# Check firmware
-ls /lib/firmware/amdgpu/gc_11_5*
-
-# Test GPU
-glxinfo | grep -i "renderer\|version"
-
-# Library status
-sudo ./gz302-setup.sh --status | grep -A 10 "GPU"
-```
-
-### Input Device Testing
-
-```bash
-# Check touchpad
-libinput list-devices | grep -i touchpad
-
-# Check keyboard
-libinput list-devices | grep -i keyboard
-
-# Test touchpad gestures
-# Try swiping, pinching, etc.
-
-# Library status
-sudo ./gz302-setup.sh --status | grep -A 10 "Input"
-```
-
-### Audio Testing
-
-```bash
-# Check audio cards
-cat /proc/asound/cards
-
-# Check for CS35L41
-dmesg | grep -i cs35l41
-
-# Test audio
-speaker-test -c 2 -t wav
-
-# Library status
-sudo ./gz302-setup.sh --status | grep -A 10 "Audio"
-```
-
----
-
-## State Management Testing
-
-### State Tracking
-
-```bash
-# Initialize state
-sudo bash -c 'source gz302-lib/state-manager.sh && state_init'
-
-# Mark something as applied
-sudo bash -c 'source gz302-lib/state-manager.sh && state_mark_applied "test" "component" "metadata"'
-
-# Check if applied
-sudo bash -c 'source gz302-lib/state-manager.sh && state_is_applied "test" "component" && echo "Applied" || echo "Not applied"'
-
-# List state
-ls -la /var/lib/gz302/state/
-
-# View state file
-cat /var/lib/gz302/state/test.state
-
-# Check backups
-ls -la /var/backups/gz302/
-
-# Check logs
-tail /var/log/gz302/state.log
-```
-
-### Idempotency Testing
-
-```bash
-# Run script twice, measure time difference
-echo "First run:"
-time sudo ./gz302-setup.sh
-
-echo "Second run (should be much faster):"
-time sudo ./gz302-setup.sh
-
-# First run: ~30 seconds
-# Second run: ~5 seconds (6x faster)
-```
-
----
-
-## Performance Testing
-
-### Execution Time
-
-```bash
-# Measure script execution time
-time sudo ./gz302-setup.sh
-
-# Expected times:
-# - First run: 20-40 seconds
-# - Second run: 3-7 seconds
-# - Status mode: 1-3 seconds
-```
-
-### Resource Usage
-
-```bash
-# Monitor during execution
-watch -n 1 'ps aux | grep gz302'
-
-# Check memory usage
-/usr/bin/time -v sudo ./gz302-setup.sh 2>&1 | grep -i "maximum resident"
-
-# Typical: < 50MB RAM usage
-```
-
----
-
-## Distribution Testing
-
-### Test Matrix
-
-| Distribution | Arch | Ubuntu | Fedora | OpenSUSE |
-|--------------|------|--------|--------|----------|
-| **v3.0.0 main** | ✅ | ✅ | ✅ | ✅ |
-| **v3.0.0 minimal** | ✅ | ✅ | ✅ | ✅ |
-| **v4.0.0 minimal** | ⏳ | ⏳ | ⏳ | ⏳ |
-| **v4.0.0 main** | ⏳ | ⏳ | ⏳ | ⏳ |
-
-### Per-Distribution Tests
-
-```bash
-# Arch-based
-sudo ./gz302-setup.sh  # Should detect "arch"
-
-# Ubuntu-based
-sudo ./gz302-setup.sh  # Should detect "ubuntu"
-
-# Fedora-based
-sudo ./gz302-setup.sh  # Should detect "fedora"
-
-# OpenSUSE-based
-sudo ./gz302-setup.sh  # Should detect "opensuse"
-
-# Check detection
-sudo ./gz302-setup.sh --status | grep "Detected"
-```
-
----
-
-## Regression Testing
-
-### Ensure v3 Still Works
-
-```bash
-# v3.0.0 scripts should be unaffected by v4 development
-sudo ./gz302-setup.sh
-sudo ./gz302-setup.sh
-
-# Check TDP control (v3 only)
-pwrcfg list
-pwrcfg balanced
-
-# Check refresh rate (v3 only)
-rrcfg list
-rrcfg balanced
-```
-
-### Backward Compatibility
-
-```bash
-# v4 should not break v3 configurations
-sudo ./gz302-setup.sh       # Apply v3
-sudo ./gz302-setup.sh # Apply v4
-sudo ./gz302-setup.sh       # Re-apply v3
-
-# All should work without conflicts
-```
-
----
-
-## Automated Testing
-
-### CI/CD Pipeline
-
-```yaml
-# .github/workflows/test.yml
-name: Test GZ302 Scripts
-
-on: [push, pull_request]
-
-jobs:
-  syntax-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Syntax validation
-        run: |
-          for script in gz302-*.sh; do
-            bash -n "$script"
-          done
-          
-      - name: Library syntax
-        run: |
-          for lib in gz302-lib/*.sh; do
-            bash -n "$lib"
-          done
-
-  shellcheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install shellcheck
-        run: sudo apt-get install -y shellcheck
-        
-      - name: Run shellcheck
-        run: |
-          shellcheck gz302-*.sh
-          shellcheck gz302-lib/*.sh
-
-  version-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Check version consistency
-        run: |
-          grep "^# Version:" gz302-*.sh gz302-lib/*.sh
-```
-
----
-
-## Test Reporting
-
-### Test Report Template
-
-```markdown
-## Test Report
-
-**Date:** YYYY-MM-DD
-**Tester:** Name
-**System:** GZ302EA-XS99
-**Kernel:** 6.17.4
-**Distribution:** Arch Linux
-
-### Tests Performed
-
-1. **Syntax Validation**
-   - gz302-setup.sh: ✅ Pass
-   - gz302-setup.sh: ✅ Pass
-   - All libraries: ✅ Pass
-
-2. **Shellcheck**
-   - All scripts: ✅ Pass (0 warnings)
-
-3. **Functional Tests**
-   - Installation: ✅ Pass
-   - Idempotency: ✅ Pass (5s second run)
-   - Status mode: ✅ Pass
-   - Hardware detection: ✅ Pass
-
-4. **Hardware Verification**
-   - WiFi: ✅ Working
-   - GPU: ✅ Working
-   - Input: ✅ Working
-   - Audio: ✅ Working
-
-5. **Issues Found**
-   - None
-
-### Recommendations
-- Ready for release
-
-### Attachments
-- Screenshots
-- Log files
-- Performance metrics
-```
+## 4. Regression Testing
+
+### Migration from v5.x
+- [ ] Verify that old `pwrcfg` configs are correctly handled or migrated by the new `z13ctl` logic.
+- [ ] Ensure `sudo ./install-policy.sh` updates the sudoers entries for the new binary names.
 
 ---
 
 ## Troubleshooting Tests
 
-### Common Issues
-
-**Issue: Script hangs**
-```bash
-# Kill and check logs
-sudo pkill -f gz302
-tail /var/log/gz302/state.log
-```
-
-**Issue: Permission denied**
-```bash
-# Ensure running as root
-sudo ./gz302-setup.sh
-```
-
-**Issue: Libraries not found**
-```bash
-# Check library directory
-ls -la gz302-lib/
-
-# Manual download
-mkdir -p gz302-lib
-cd gz302-lib
-for lib in kernel-compat state-manager wifi-manager gpu-manager input-manager audio-manager; do
-    curl -O "https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz302-lib/${lib}.sh"
-done
-chmod +x *.sh
-```
+- **Missing Icons**: Verify `python-pyqt6-svg` is installed.
+- **Permission Denied**: Check `/etc/sudoers.d/gz302-command-center`.
+- **z13ctl Timeout**: Ensure the daemon is running: `systemctl status z13ctl`.
 
 ---
 
-## Summary
-
-**Testing Checklist:**
-- [ ] Syntax validation (all scripts)
-- [ ] Shellcheck (zero warnings)
-- [ ] Library unit tests
-- [ ] Script integration tests
-- [ ] Hardware verification
-- [ ] State management
-- [ ] Idempotency
-- [ ] Performance benchmarks
-- [ ] Multi-distribution tests
-- [ ] Regression tests (v3)
-- [ ] Documentation review
-
-**Test Coverage:**
-- ✅ v3.0.0: Fully tested, production-ready
-- ✅ v4.0.0 libraries: Validated, functional
-- ✅ v4.0.0 minimal: Complete, tested
-- ⏳ v4.0.0 main: In development, partial
-
----
-
-**Document Version:** 1.0  
-**Last Updated:** December 9, 2025  
-**Status:** Living document, updated with test results
+**Last Updated:** 2026-04-23  
+**Status:** Updated for Command Center v6.2.0 features.
