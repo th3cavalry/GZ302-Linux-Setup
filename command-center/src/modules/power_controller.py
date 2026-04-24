@@ -45,7 +45,7 @@ class PowerController:
         # Fall back to z13ctl status (returns 3-tier: quiet/balanced/performance)
         try:
             result = subprocess.run(
-                ["z13ctl", "status"],
+                ["sudo", "-n", "z13ctl", "status"],
                 capture_output=True, text=True, timeout=5,
             )
             if result.returncode == 0:
@@ -129,7 +129,7 @@ class PowerController:
         """Return (spl, sppt, fppt) wattages parsed from z13ctl status."""
         try:
             result = subprocess.run(
-                ["z13ctl", "status"],
+                ["sudo", "-n", "z13ctl", "status"],
                 capture_output=True, text=True, timeout=5,
             )
             if result.returncode == 0:
@@ -233,7 +233,7 @@ class PowerController:
     def get_status(self):
         try:
             result = subprocess.run(
-                ["z13ctl", "status"],
+                ["sudo", "-n", "z13ctl", "status"],
                 capture_output=True, text=True, timeout=10,
             )
             return result.stdout.strip() if result.returncode == 0 else "Unknown"

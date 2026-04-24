@@ -2,23 +2,23 @@
 
 All notable changes to GZ302-Linux-Setup will be documented in this file.
 
+## [6.0.0] - 2026-04-23
+
+### Added
+- **GZ302 Dashboard**: Completely rewritten the command-center from a tray-only menu into a robust, G-Helper inspired GUI application.
+- **Improved Wayland Reliability**: The new Dashboard window provides a stable control interface that bypasses the input-serial and popup-window bugs common in KDE/GNOME Wayland system trays.
+- **Enhanced UI**: Added a compact, dark-themed Dashboard with real-time APU temperature and fan speed monitoring.
+- **Integrated Controls**: Single-window access to Power Profiles, TDP limits, Display Refresh Rates, and RGB Lighting.
+
+### Changed
+- **Tray Icon Behavior**: Left-clicking the tray icon now toggles the Dashboard visibility instead of attempting to open a fragile QMenu.
+
 ## [5.1.4] - 2026-04-22
 
 ### Fixed
 - **Intermittent graphical artifacts after install/reboot (Issue #161)**: GPU setup now regenerates initramfs after writing `/etc/modprobe.d/amdgpu.conf`, ensuring `amdgpu` module parameters such as `sg_display=0` and `cwsr_enable=0` actually take effect on early-loaded drivers used by Arch, CachyOS, and other initramfs-based setups.
+- **Limine Support**: Added manual `amdgpu.dcdebugmask=0xe12` injection for systems using the Limine bootloader.
 
-### Changed
-- **GPU initramfs regeneration logging**: Switched the new GPU initramfs regeneration path to the shared logging helpers when available and documented its shared mkinitcpio guard usage with the display-fix flow.
-- **Display troubleshooting docs**: Clarified that current Strix Halo OLED artifact workarounds still apply on newer kernels and must be present in initramfs-backed `amdgpu` loads.
-
-## [5.1.3] - 2026-04-22
-
-### Fixed
-- **Blank tray icon on Linux desktops**: Rasterized the command-center SVG assets before handing them to `QSystemTrayIcon`, which keeps the tray icon visible on Plasma/Wayland and similar environments that leave SVG tray icons blank.
-- **Tray icon resilience**: Added a built-in raster fallback icon so the tray remains visible even if SVG rendering support is unavailable at runtime.
-- **Intermittent graphical artifacts on kernel 7.0 (Issue #161)**: `display-fix.sh` now writes `/etc/kernel/cmdline` as a single normalized line when adding `amdgpu.dcdebugmask=0xe12`, fixing cases where systemd-boot did not reliably consume parameters appended on a new line.
-- **Display fix mask merge robustness**: `display_merge_dcdebugmask_file()` and mask detection now accept both hexadecimal (`0x...`) and decimal `amdgpu.dcdebugmask` values so existing boot parameters are always merged correctly.
-- **GRUB compatibility**: Display fix insertion now supports both `GRUB_CMDLINE_LINUX_DEFAULT` and `GRUB_CMDLINE_LINUX`, with fallback creation when neither key exists.
 
 ## [5.1.2] - 2026-04-17
 

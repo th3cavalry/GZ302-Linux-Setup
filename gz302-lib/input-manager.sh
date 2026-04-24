@@ -4,7 +4,7 @@ set -euo pipefail
 
 # ==============================================================================
 # GZ302 Input Manager Library
-# Version: 5.1.4
+# Version: 6.0.0
 #
 # This library manages ASUS HID devices (keyboard, touchpad) and tablet mode
 # functionality for the GZ302.
@@ -358,7 +358,7 @@ input_apply_rgb_udev_rule() {
     
     cat > /etc/udev/rules.d/99-gz302-keyboard.rules <<'EOF'
 # GZ302 Keyboard RGB Control - Allow unprivileged USB access
-# ASUS ROG Flow Z13 keyboard (USB 0b05.1.40)
+# ASUS ROG Flow Z13 keyboard (USB 0b06.0.00)
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1a30", TAG+="uaccess"
 EOF
     

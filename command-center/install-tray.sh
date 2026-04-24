@@ -95,7 +95,7 @@ fi
 
 # Use python3 explicitly in Exec line for better compatibility across desktop environments
 # Respect APP_NAME setting from /etc/gz302/tray.conf if present
-APP_NAME_DEFAULT="GZ302 Command Center"
+APP_NAME_DEFAULT="GZ302 Dashboard"
 APP_NAME="$APP_NAME_DEFAULT"
 if [[ -f /etc/gz302/tray.conf ]]; then
   # shellcheck disable=SC1091
@@ -111,7 +111,7 @@ fi
 DESKTOP_FILE_CONTENT="[Desktop Entry]
 Type=Application
 Name=$APP_NAME
-Comment=Power profile, RGB, and hardware control for ASUS ROG Flow Z13 (GZ302)
+Comment=G-Helper inspired Dashboard for ASUS ROG Flow Z13 (GZ302)
 Exec=python3 $APP_PY
 Icon=$ICON_NAME
 Terminal=false
