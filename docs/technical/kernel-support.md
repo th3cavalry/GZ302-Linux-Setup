@@ -150,6 +150,16 @@ sudo modprobe -r hid_asus && sudo modprobe hid_asus
 
 On systemd-boot systems, `/etc/kernel/cmdline` must be a single line. If display parameters were appended on a separate line by older tooling, the fix may not apply reliably.
 
+If an older `amdgpu.dcdebugmask=` value already exists, the installer now merges in the required bits and regenerates boot artifacts automatically. If you changed cmdline manually, rebuild once yourself:
+
+```bash
+# Arch/CachyOS (mkinitcpio)
+sudo mkinitcpio -P
+
+# Fedora/OpenSUSE style (dracut)
+sudo dracut --regenerate-all -f
+```
+
 ```bash
 cat /etc/kernel/cmdline
 # Expected to include (same line):

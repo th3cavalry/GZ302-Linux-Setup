@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 LLM/AI Software Module
-# Version: 6.0.0
+# Version: 6.2.1
 #
 # This module installs LLM backends for the ASUS ROG Flow Z13 (GZ302)
 # Uses official installation methods - no custom builds
