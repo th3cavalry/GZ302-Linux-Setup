@@ -2,6 +2,14 @@
 
 All notable changes to GZ302-Linux-Setup will be documented in this file.
 
+## [6.2.1] - 2026-04-27
+
+### Fixed
+- **Intermittent OLED artifacts persisting after "successful" display fix (Issue #160)**: `display_apply_psr_su_fix()` now regenerates boot artifacts when it merges an existing `amdgpu.dcdebugmask=` value in `/etc/kernel/cmdline` (systemd-boot path). This ensures updated `dcdebugmask` bits are not only written but also applied on reboot for UKI/initramfs-based setups (notably Arch/CachyOS).
+
+### Changed
+- **Version synchronization**: Bumped project version to `6.2.1` and synchronized version markers across installer, libraries, modules, command-center, package metadata, and README badge.
+
 ## [6.0.0] - 2026-04-23
 
 ### Added

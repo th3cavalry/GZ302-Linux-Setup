@@ -4,7 +4,7 @@ set -euo pipefail
 
 # ==============================================================================
 # GZ302 Display Fix Library
-# Version: 6.0.0
+# Version: 6.2.1
 #
 # This library provides display-specific fixes for OLED panels on GZ302.
 # Focuses on all eDP power-saving features that can cause display artifacts.
@@ -157,6 +157,35 @@ display_ensure_cmdline_param() {
     return 0
 }
 
+display_regenerate_boot_artifacts() {
+    # On Arch/CachyOS with systemd-boot + UKI, cmdline changes require a rebuild.
+    if command -v mkinitcpio >/dev/null 2>&1; then
+        if [[ "${GZ302_MKINITCPIO_DONE:-false}" == "true" ]]; then
+            return 0
+        fi
+
+        if mkinitcpio -P 2>/dev/null; then
+            export GZ302_MKINITCPIO_DONE=true
+            return 0
+        fi
+
+        warning "Failed to regenerate initramfs with mkinitcpio - manual update may be required"
+        return 1
+    fi
+
+    if command -v dracut >/dev/null 2>&1; then
+        if dracut --regenerate-all -f 2>/dev/null; then
+            return 0
+        fi
+
+        warning "Failed to regenerate initramfs with dracut - manual update may be required"
+        return 1
+    fi
+
+    warning "No initramfs regeneration tool found - manual update may be required"
+    return 1
+}
+
 # Apply PSR-SU disable fix (idempotent)
 # Returns: 0 on success
 display_apply_psr_su_fix() {
@@ -193,19 +222,28 @@ display_apply_psr_su_fix() {
     
     # Add to systemd-boot if present
     if [[ -f /etc/kernel/cmdline ]]; then
+        local cmdline_updated=false
+
         if grep -q "amdgpu.dcdebugmask=" /etc/kernel/cmdline 2>/dev/null; then
-            info "Merging display fix bits into existing systemd-boot dcdebugmask..."
-            display_merge_dcdebugmask_file /etc/kernel/cmdline || true
+            if display_has_psr_su_disable_bit /etc/kernel/cmdline; then
+                info "systemd-boot cmdline already has display fix bits"
+            else
+                info "Merging display fix bits into existing systemd-boot dcdebugmask..."
+                if display_merge_dcdebugmask_file /etc/kernel/cmdline; then
+                    cmdline_updated=true
+                fi
+            fi
         else
             info "Adding amdgpu.dcdebugmask=0xe12 to systemd-boot..."
-            display_ensure_cmdline_param /etc/kernel/cmdline "amdgpu.dcdebugmask=0xe12" || true
+            if display_ensure_cmdline_param /etc/kernel/cmdline "amdgpu.dcdebugmask=0xe12"; then
+                cmdline_updated=true
+            fi
+        fi
 
-            # Regenerate boot entries (only if mkinitcpio hasn't run yet this session)
-            if command -v mkinitcpio >/dev/null 2>&1 && [[ "${GZ302_MKINITCPIO_DONE:-false}" != "true" ]]; then
-                mkinitcpio -P 2>/dev/null || true
-                export GZ302_MKINITCPIO_DONE=true
-            elif command -v dracut >/dev/null 2>&1; then
-                dracut --regenerate-all -f 2>/dev/null || true
+        if [[ "$cmdline_updated" == "true" ]]; then
+            info "Regenerating boot artifacts for updated systemd-boot cmdline..."
+            if display_regenerate_boot_artifacts; then
+                success "Boot artifacts regenerated"
             fi
         fi
 
@@ -379,12 +417,12 @@ display_print_psr_su_status() {
 # --- Library Information ---
 
 display_fix_lib_version() {
-    echo "6.0.0"
+    echo "6.2.1"
 }
 
 display_fix_lib_help() {
     cat <<'HELP'
-GZ302 Display Fix Library v5.0.2
+GZ302 Display Fix Library v6.2.1
 
 PSR/Replay/IPS Detection Functions:
   display_psr_su_enabled        - Check if display fix bits are set
