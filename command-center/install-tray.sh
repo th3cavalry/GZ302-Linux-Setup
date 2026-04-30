@@ -204,7 +204,7 @@ fi
 
 # Notify running tray processes using SIGUSR1 so they reload UI strings
 pids=()
-for name in "command_center.py" "gz302_tray" "gz302-tray"; do
+for name in "command_center.py"; do
   while read -r p; do
     [[ -n "$p" ]] && pids+=("$p")
   done < <(pgrep -f "$name" 2>/dev/null || true)

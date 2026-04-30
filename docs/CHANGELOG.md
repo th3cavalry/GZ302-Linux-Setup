@@ -2,6 +2,69 @@
 
 All notable changes to GZ302-Linux-Setup will be documented in this file.
 
+## [6.3.5] - 2026-04-29
+
+### Fixed
+- **KWin dashboard helper unload race**: Stopped unloading the temporary KWin placement helper on tray app exit, which could race against a fast restart and leave the new tray process without the bottom-right placement hook.
+- **Reliable KDE Wayland placement helper persistence**: The command center now refreshes the helper on startup only, so the active instance keeps the bottom-right positioning script loaded while it is running.
+
+## [6.3.4] - 2026-04-29
+
+### Fixed
+- **Tray left-click regression on KDE Plasma Wayland**: Removed the `QMenu`/`QWidgetAction` dashboard popup path that could not be created from tray activation and restored the reliable top-level dashboard window flow.
+- **G-Helper-style bottom-right placement on KDE Wayland**: Added a small KWin scripting hook that snaps the dashboard window to the bottom-right work area after it is shown, instead of relying on Wayland client-side window moves.
+- **Dashboard identity for compositor placement**: The dashboard now exposes a stable window title and window role so the KWin placement helper can target it consistently.
+
+## [6.3.3] - 2026-04-29
+
+### Changed
+- **Dashboard popup now uses a Wayland-friendly menu surface**: Replaced the centered top-level dashboard tool window with a custom `QMenu` + `QWidgetAction` popup so the compact G-Helper-style panel can be shown as a real popup surface near the screen edge.
+- **Bottom-right dashboard placement**: The tray dashboard now calculates its position from `QMenu.sizeHint()` and opens in the bottom-right corner of the active screen instead of relying on compositor-controlled top-level placement.
+- **Popup close behavior**: The dashboard close button now hides the popup menu container, preserving the single-surface popup behavior.
+
+## [6.3.2] - 2026-04-29
+
+### Fixed
+- **Dashboard would not appear on KDE Plasma Wayland**: Replaced the `Qt.Popup` dashboard window with a frameless `Qt.Tool` window after Qt reported `Failed to create grabbing popup` without a valid transient parent from tray activation.
+- **Dashboard placement timing**: The dashboard is now positioned after `show()` using the real window handle so the compositor has a concrete surface to place.
+- **Popup-style dismissal restored**: Brought back focus-loss auto-hide so the frameless tool window still closes when you click away.
+
+## [6.3.1] - 2026-04-29
+
+### Fixed
+- **Tray clicks on KDE Plasma Wayland**: Restored the native attached tray context menu so right-click works reliably again through the status notifier integration.
+- **Primary tray activation**: Expanded dashboard-open handling to also accept `ActivationReason.Unknown`, which some tray implementations emit for primary activation instead of `Trigger`.
+- **Dashboard launcher action**: The tray menu's "Open Dashboard" action now uses the same deferred popup path as left-click so it opens in the intended bottom-right position.
+
+## [6.3.0] - 2026-04-29
+
+### Changed
+- **Dashboard redesigned as G-Helper-style compact popup**: Replaced the 650×500 sidebar+tab window with a frameless, compact floating panel (~480px wide) that:
+  - Appears **positioned near the system tray icon** on left-click (above or below depending on screen edge)
+  - **Closes automatically on focus loss** (click anywhere outside = dismiss)
+  - Shows all **8 performance profiles as tiled buttons** at the top (like G-Helper's mode tiles), with the active profile highlighted in ROG red
+  - Displays a **live stats bar** (APU temp, fan RPM, active mode, battery %, CPU load) always visible
+  - Provides compact **Battery Limit**, **RGB Lighting**, and **Fan Curve** sections in a single scrollable panel — no sidebar navigation
+  - Has a **footer** with Auto Switch toggle and version label
+- Removed `QStackedWidget`/`QListWidget` sidebar layout and all individual tab methods
+- Updated `_on_activated()` to call `popup_near_tray()` + `update_ui_states()` before showing
+
+## [6.2.2] - 2026-04-29
+
+### Fixed
+- **Blank tray icon after v6.2.0 upgrade**: Autostart entry was still pointing to the stale `/home/brandon/command-center/src/gz302_tray.py` (old pre-v6.2.0 install). Re-running `install-tray.sh` now correctly sets the autostart to `command_center.py`.
+- **`update_icon()` never-blank fallback**: Added a QPainter-drawn colored circle+letter icon as fallback so the tray is never blank if SVG rendering is unavailable.
+
+### Removed
+- **`legacy/` directory**: Deleted `gz302-kbd-backlight-listener.py` and `gz302-kbd-backlight-listener.service` — fully superseded by z13ctl.
+- **Stale `/home/brandon/command-center/` install**: Removed root-owned copy of old `gz302_tray.py` that caused the autostart regression.
+- **Dead `tray-icon → command-center` migration block** in `gz302-setup.sh`: Migration completed in v5.x; code was unreachable.
+- **`python-pyqt6-svg` package** from Arch install commands and `requirements.txt`: Does not exist as a separate package on Arch/CachyOS — SVG support is bundled in `python-pyqt6`.
+- **Old `gz302_tray`/`gz302-tray` pgrep targets** in `install-tray.sh`: Only `command_center.py` is current.
+
+### Changed
+- **`.github/copilot-instructions.md`**: Updated `tray-icon/` references to `command-center/` throughout.
+
 ## [6.2.1] - 2026-04-27
 
 ### Fixed

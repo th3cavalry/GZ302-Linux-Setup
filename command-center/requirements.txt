@@ -1,5 +1,4 @@
 PyQt6>=6.0.0
-PyQt6-SVG>=6.0.0
 psutil>=5.9
 # Optional: For richer desktop notifications via DBus (will use Qt fallback if not available)
 dbus-python>=1.2.0

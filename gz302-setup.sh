@@ -3,7 +3,7 @@
 # ==============================================================================
 # ASUS ROG Flow Z13 (GZ302) Linux Setup — Unified Installer
 # Author: th3cavalry using Copilot
-# Version: 6.2.1
+# Version: 6.3.5
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -41,7 +41,7 @@ while [[ $# -gt 0 ]]; do
         --no-modules)    SKIP_MODULES=true; shift ;;
         -h|--help)
             cat << 'EOF'
-ASUS ROG Flow Z13 (GZ302) Linux Setup — Unified Installer v6.2.1
+ASUS ROG Flow Z13 (GZ302) Linux Setup — Unified Installer v6.3.5
 
 Usage: sudo ./gz302-setup.sh [OPTIONS]
 
@@ -290,14 +290,22 @@ apply_hardware_fixes() {
     # Audio: SOF firmware + CS35L41 ASoC configuration.
     info "Configuring audio..."
     if declare -f audio_apply_configuration >/dev/null 2>&1; then
-        audio_apply_configuration "$distro" && success "Audio configured" || warning "Audio configuration had issues"
+        if audio_apply_configuration "$distro"; then
+            success "Audio configured"
+        else
+            warning "Audio configuration had issues"
+        fi
     fi
 
     # Display: PSR-SU OLED scrolling artifact fix.
     info "Checking OLED display PSR-SU configuration..."
     if declare -f display_psr_su_enabled >/dev/null 2>&1 && display_psr_su_enabled 2>/dev/null; then
         info "PSR-SU is enabled — applying fix for scrolling artifacts..."
-        display_apply_psr_su_fix && success "PSR-SU fix applied" || warning "PSR-SU fix issues"
+        if display_apply_psr_su_fix; then
+            success "PSR-SU fix applied"
+        else
+            warning "PSR-SU fix issues"
+        fi
     else
         success "PSR-SU already disabled"
     fi
@@ -317,13 +325,21 @@ install_suspend_fix() {
     info "Installing suspend/resume fix..."
     local fix_script="${SCRIPT_DIR}/scripts/fix-suspend.sh"
     if [[ -f "$fix_script" ]]; then
-        bash "$fix_script" && success "Suspend fix installed" || warning "Suspend fix issues"
+        if bash "$fix_script"; then
+            success "Suspend fix installed"
+        else
+            warning "Suspend fix issues"
+        fi
     else
         info "Suspend fix script not found, downloading..."
         local tmp
         tmp=$(mktemp /tmp/gz302-fix-suspend.XXXXXX)
         if curl -fsSL "${GITHUB_RAW_URL}/scripts/fix-suspend.sh" -o "$tmp" 2>/dev/null; then
-            bash "$tmp" && success "Suspend fix installed" || warning "Suspend fix issues"
+            if bash "$tmp"; then
+                success "Suspend fix installed"
+            else
+                warning "Suspend fix issues"
+            fi
             rm -f "$tmp"
         else
             warning "Could not download suspend fix"
@@ -508,9 +524,11 @@ EOF
 
     # Enable and start as the real user
     sudo -u "$real_user" systemctl --user daemon-reload 2>/dev/null || true
-    sudo -u "$real_user" systemctl --user enable --now z13ctl.socket z13ctl.service 2>/dev/null \
-        && success "z13ctl daemon enabled" \
-        || warning "z13ctl daemon setup may need manual enable after login"
+    if sudo -u "$real_user" systemctl --user enable --now z13ctl.socket z13ctl.service 2>/dev/null; then
+        success "z13ctl daemon enabled"
+    else
+        warning "z13ctl daemon setup may need manual enable after login"
+    fi
 }
 
 z13ctl_generate_wrappers() {
@@ -681,15 +699,6 @@ install_tray_app() {
     local distro="$1"
     info "Installing ASUS ROG Flow Z13 (GZ302) Command Center..."
 
-    # Migration: Handle rename from 'tray-icon' to 'command-center'
-    if [[ -d "${SCRIPT_DIR}/tray-icon" && ! -d "${SCRIPT_DIR}/command-center" ]]; then
-        info "Migrating tray-icon to command-center..."
-        mv "${SCRIPT_DIR}/tray-icon" "${SCRIPT_DIR}/command-center"
-        # Clean up old desktop entries to prevent duplicates
-        rm -f "$HOME/.local/share/applications/gz302-tray.desktop" 2>/dev/null || true
-        rm -f "$HOME/.config/autostart/gz302-tray.desktop" 2>/dev/null || true
-    fi
-
     local tray_dir="${SCRIPT_DIR}/command-center"
     if [[ ! -d "$tray_dir" ]]; then
         info "Downloading tray app..."
@@ -707,7 +716,7 @@ install_tray_app() {
     # Install Python dependencies (including SVG support for tray icons)
     case "$distro" in
         arch)
-            pacman -S --noconfirm --needed python-pyqt6 python-pyqt6-svg python-psutil python-dbus 2>/dev/null || true
+            pacman -S --noconfirm --needed python-pyqt6 python-psutil python-dbus 2>/dev/null || true
             ;;
         debian|ubuntu)
             apt install -y python3-pyqt6 python3-pyqt6.qtsvg python3-psutil python3-dbus 2>/dev/null || true

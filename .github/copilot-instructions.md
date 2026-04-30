@@ -16,8 +16,8 @@ Hardware optimization toolkit for ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MA
        - `gz302-setup.sh` (header comment `# Version:` + help text)
        - All `gz302-lib/*.sh` files (header comment `# Version:`)
        - All `modules/*.sh` files (header comment `# Version:`)
-       - `tray-icon/VERSION`
-       - `tray-icon/src/gz302_tray.py` (in About dialog)
+       - `command-center/VERSION`
+       - `command-center/src/command_center.py` (VERSION constant)
        - `pkg/arch/PKGBUILD` (`pkgver=`)
        - `README.md` (version badge/references)
        - `docs/CHANGELOG.md` (add entry describing changes)
@@ -46,7 +46,7 @@ Hardware optimization toolkit for ASUS ROG Flow Z13 (GZ302) with AMD Ryzen AI MA
 | `gz302-lib/` | **Core Logic (Managers)**: wifi, gpu, input, audio, display, state, distro |
 | `modules/` | Optional features: gaming, llm, hypervisor |
 | `scripts/` | Uninstall, suspend hooks |
-| `tray-icon/` | PyQt6 system tray (z13ctl backend) |
+| `command-center/` | PyQt6 command center and system tray (z13ctl backend) |
 | `legacy/` | Deprecated/replaced scripts |
 
 ## Bash Conventions
@@ -75,6 +75,6 @@ bash -n gz302-setup.sh && shellcheck gz302-setup.sh
 
 # Verify version synchronization across all files
 grep -rn "Version:" gz302-setup.sh gz302-lib/ modules/ | grep -v "Kernel Version"
-cat VERSION tray-icon/VERSION
+cat VERSION command-center/VERSION
 grep "pkgver=" pkg/arch/PKGBUILD
 ```
