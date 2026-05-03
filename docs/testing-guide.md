@@ -1,6 +1,6 @@
 # GZ302 Testing Guide — Strix Halo Edition
 
-**Current Version:** 6.2.0  
+**Current Version:** 6.3.6  
 **Status:** Unified Testing Framework for GZ302 & Strix Halo Platform
 
 ---
@@ -88,8 +88,8 @@ python3 -m py_compile command-center/src/modules/*.py
 ## Troubleshooting Tests
 
 - **Missing Icons**: On Arch, SVG is bundled in `python-pyqt6`. On Debian/Fedora, install `python3-pyqt6.qtsvg` / `python3-qt6-qtsvg`.
-- **Permission Denied**: Check `/etc/sudoers.d/gz302-command-center`.
-- **z13ctl Timeout**: Ensure the daemon is running: `systemctl status z13ctl`.
+- **Permission Denied**: Check `/etc/sudoers.d/gz302` and confirm the current user is in the `users` group.
+- **z13ctl Timeout**: Ensure the daemon is running: `systemctl --user status z13ctl.service`.
 
 ---
 

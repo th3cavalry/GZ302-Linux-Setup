@@ -3,7 +3,7 @@
 # ==============================================================================
 # ASUS ROG Flow Z13 (GZ302) Linux Setup — Unified Installer
 # Author: th3cavalry using Copilot
-# Version: 6.3.5
+# Version: 6.3.6
 #
 # Supported Models:
 # - GZ302EA-XS99 (128GB RAM)
@@ -41,7 +41,7 @@ while [[ $# -gt 0 ]]; do
         --no-modules)    SKIP_MODULES=true; shift ;;
         -h|--help)
             cat << 'EOF'
-ASUS ROG Flow Z13 (GZ302) Linux Setup — Unified Installer v6.3.5
+ASUS ROG Flow Z13 (GZ302) Linux Setup — Unified Installer v6.3.6
 
 Usage: sudo ./gz302-setup.sh [OPTIONS]
 
@@ -129,7 +129,6 @@ load_library() {
         wget -q "${GITHUB_RAW_URL}/gz302-lib/${lib_name}" -O "$lib_path" || return 1
     else
         error "curl or wget not found."
-        return 1
     fi
 
     # shellcheck source=/dev/null
@@ -457,8 +456,46 @@ z13ctl_install_from_release() {
     rm -rf "$tmp_dir"
 }
 
+z13ctl_get_binary() {
+    command -v z13ctl 2>/dev/null || true
+}
+
+z13ctl_ensure_group_membership() {
+    local real_user
+    real_user=$(get_real_user)
+
+    if [[ -z "$real_user" || "$real_user" == "root" ]]; then
+        warning "Could not determine a non-root user for z13ctl group membership"
+        return 1
+    fi
+
+    if ! getent group users >/dev/null 2>&1; then
+        if command -v groupadd >/dev/null 2>&1; then
+            groupadd -f users
+        else
+            warning "System has no 'users' group and groupadd is unavailable"
+            return 1
+        fi
+    fi
+
+    if id -nG "$real_user" | tr ' ' '\n' | grep -qx users; then
+        info "User '$real_user' already belongs to the 'users' group"
+        return 0
+    fi
+
+    if usermod -aG users "$real_user" >/dev/null 2>&1; then
+        success "Added '$real_user' to the 'users' group for direct z13ctl access"
+        warning "Log out and back in (or run 'newgrp users') to use the new group in existing sessions"
+        return 0
+    fi
+
+    warning "Could not add '$real_user' to the 'users' group"
+    return 1
+}
+
 z13ctl_setup_permissions() {
     info "Running z13ctl setup (udev rules + permissions)..."
+    z13ctl_ensure_group_membership || true
     z13ctl setup 2>/dev/null || warning "z13ctl setup reported issues"
 }
 
@@ -468,6 +505,9 @@ z13ctl_enable_daemon() {
     real_user=$(get_real_user)
     local real_home
     real_home=$(eval echo "~${real_user}")
+    local z13ctl_bin
+    z13ctl_bin=$(z13ctl_get_binary)
+    [[ -n "$z13ctl_bin" ]] || z13ctl_bin="/usr/local/bin/z13ctl"
 
     # Install systemd user units if not present
     local user_systemd="${real_home}/.config/systemd/user"
@@ -500,7 +540,7 @@ SocketMode=0660
 [Install]
 WantedBy=sockets.target
 EOF
-            cat > "${user_systemd}/z13ctl.service" << 'EOF'
+            cat > "${user_systemd}/z13ctl.service" <<EOF
 [Unit]
 Description=z13ctl daemon
 Requires=z13ctl.socket
@@ -508,7 +548,7 @@ After=z13ctl.socket
 
 [Service]
 Type=notify
-ExecStart=/usr/local/bin/z13ctl daemon
+ExecStart=${z13ctl_bin} daemon
 Restart=on-failure
 RestartSec=5
 ProtectHome=yes
@@ -639,9 +679,12 @@ esac
 RGBWRAP
     chmod 755 /usr/local/bin/gz302-rgb
 
-    # Sudoers for wrappers (passwordless for the real user)
+    # Sudoers for wrappers and the resolved z13ctl binary
     local real_user
     real_user=$(get_real_user)
+    local z13ctl_bin
+    z13ctl_bin=$(z13ctl_get_binary)
+    [[ -n "$z13ctl_bin" ]] || z13ctl_bin="/usr/local/bin/z13ctl"
     # Clean up old sudoers fragments from v3/v4
     rm -f /etc/sudoers.d/gz302-pwrcfg /etc/sudoers.d/gz302-rgb 2>/dev/null || true
 
@@ -653,7 +696,7 @@ RGBWRAP
 # GZ302 Linux Setup — passwordless access for hardware control
 ${real_user} ALL=(ALL) NOPASSWD: /usr/local/bin/pwrcfg
 ${real_user} ALL=(ALL) NOPASSWD: /usr/local/bin/gz302-rgb
-${real_user} ALL=(ALL) NOPASSWD: /usr/local/bin/z13ctl
+${real_user} ALL=(ALL) NOPASSWD: ${z13ctl_bin}
 EOF
     if visudo -c -f "$sudoers_tmp" >/dev/null 2>&1; then
         mv "$sudoers_tmp" "$sudoers_file"

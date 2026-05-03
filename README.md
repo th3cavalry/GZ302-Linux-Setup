@@ -1,6 +1,6 @@
 # ASUS ROG Flow Z13 (GZ302) Linux Toolkit
 
-![Version](https://img.shields.io/badge/version-6.3.5-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-6.3.6-blue?style=for-the-badge)
 ![Kernel](https://img.shields.io/badge/Kernel-6.14%2B-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Device-ASUS%20ROG%20Flow%20Z13-red?style=for-the-badge)
@@ -20,6 +20,8 @@ curl -L https://raw.githubusercontent.com/th3cavalry/GZ302-Linux-Setup/main/gz30
 chmod +x gz302-setup.sh
 sudo ./gz302-setup.sh
 ```
+
+The installer aligns `z13ctl` access for both CLI and GUI use. If it adds your account to the `users` group during setup, log out and back in once so existing desktop sessions pick up the new membership.
 
 The installer prompts for four sections:
 

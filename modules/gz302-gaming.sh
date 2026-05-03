@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # GZ302 Gaming Software Module
-# Version: 6.3.5
+# Version: 6.3.6
 #
 # This module installs gaming software for the ASUS ROG Flow Z13 (GZ302)
 # Includes: Steam, Lutris, MangoHUD, GameMode, Wine, and performance tools
@@ -28,8 +28,10 @@ SCRIPT_DIR="${SCRIPT_DIR:-$(resolve_script_dir)}"
 
 # --- Load Shared Utilities ---
 if [[ -f "${SCRIPT_DIR}/../gz302-lib/utils.sh" ]]; then
+    # shellcheck source=/dev/null
     source "${SCRIPT_DIR}/../gz302-lib/utils.sh"
 elif [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
+    # shellcheck source=/dev/null
     source "${SCRIPT_DIR}/gz302-utils.sh"
 else
     echo "gz302-utils.sh not found. Downloading..."
@@ -46,6 +48,7 @@ else
     
     if [[ -f "${SCRIPT_DIR}/gz302-utils.sh" ]]; then
         chmod +x "${SCRIPT_DIR}/gz302-utils.sh"
+        # shellcheck source=/dev/null
         source "${SCRIPT_DIR}/gz302-utils.sh"
     else
         echo "Error: Failed to download gz302-utils.sh"

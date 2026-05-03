@@ -59,6 +59,7 @@ sudo ./install-policy.sh
 ```
 
 This configures `z13ctl` permissions to allow the GUI to make changes without password prompts.
+If you installed through the main `gz302-setup.sh` workflow, the installer already handles the `users` group and the GUI sudoers fallback.
 
 ### Step 3: Install Desktop Launcher + Autostart
 
@@ -89,7 +90,8 @@ This creates a launcher in your application menu and sets the command center to 
 - **Missing SVG Support**: On Arch, SVG is bundled in `python-pyqt6`. On Debian/Fedora, install `python3-pyqt6.qtsvg` or `python3-qt6-qtsvg`.
 
 ### Changes Don't Apply
-- Ensure the `z13ctl` daemon is active: `systemctl status z13ctl`
+- Ensure the `z13ctl` daemon is active: `systemctl --user status z13ctl.service`
+- If the installer just added your account to the `users` group, log out and back in once.
 - Try running `sudo z13ctl setup` to ensure udev rules and sockets are correctly configured.
 
 ---

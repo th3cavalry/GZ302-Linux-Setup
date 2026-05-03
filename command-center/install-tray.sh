@@ -204,11 +204,9 @@ fi
 
 # Notify running tray processes using SIGUSR1 so they reload UI strings
 pids=()
-for name in "command_center.py"; do
-  while read -r p; do
-    [[ -n "$p" ]] && pids+=("$p")
-  done < <(pgrep -f "$name" 2>/dev/null || true)
-done
+while read -r p; do
+  [[ -n "$p" ]] && pids+=("$p")
+done < <(pgrep -f "command_center.py" 2>/dev/null || true)
 
 if [[ ${#pids[@]} -gt 0 ]]; then
   for pid in "${pids[@]}"; do

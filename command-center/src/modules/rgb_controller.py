@@ -49,7 +49,14 @@ class RGBController:
                         capture_output=True,
                         timeout=2
                     )
-                    return result.returncode == 0
+                    if result.returncode == 0:
+                        return True
+                    sudo_result = subprocess.run(
+                        ["sudo", "-n", "z13ctl", "status"],
+                        capture_output=True,
+                        timeout=2,
+                    )
+                    return sudo_result.returncode == 0
             return False
         except Exception:
             return False

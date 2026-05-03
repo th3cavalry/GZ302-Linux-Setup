@@ -1,7 +1,7 @@
 # GZ302 Kernel Support Guide
 
 **Target Hardware:** ASUS ROG Flow Z13 (GZ302EA-XS99/XS98/XS96) with AMD Ryzen AI MAX+ 395  
-**Last Updated:** February 2026  
+**Last Updated:** May 2026  
 **Kernel Range:** 6.14 - 7.0+
 
 ---
@@ -57,7 +57,7 @@ uname -r  # Example: 6.19.0-2-cachyos
 | **Fedora 43** | 6.17+ | ✅ Excellent |
 | **OpenSUSE TW** | 6.18+ | ✅ Excellent |
 | **Ubuntu 24.04.4** | 6.17 (HWE) | ✅ Excellent |
-| **Ubuntu 26.04** | 7.0+ | ✅ Excellent |
+| **Ubuntu 26.04** | 6.19+ | ✅ Excellent |
 
 ### Ubuntu Kernel Upgrade
 ```bash
@@ -71,7 +71,7 @@ sudo apt-get install linux-generic-hwe-24.04  # Gets 6.17+
 
 ### Required Kernel Parameters
 ```
-amd_pstate=guided amdgpu.ppfeaturemask=0xffffffff
+amd_pstate=guided amdgpu.ppfeaturemask=0xffff7fff
 ```
 
 ### AI/LLM Workloads (Optional)
@@ -106,11 +106,12 @@ This is a known kernel MMC driver issue. Apply the fix:
 # Quick fix
 bash scripts/fix-suspend.sh
 
-# Or reinstall RGB setup (includes updated suspend hook)
-bash scripts/gz302-rgb-install.sh
+# Or rerun the main installer (reinstalls the suspend hook)
+sudo bash gz302-setup.sh --fixes-only
 ```
 
 The fix unbinds the MMC device before suspend and rebinds it on resume.
+The suspend hook works without `amd_pmc.enable_stb=1`; this toolkit no longer recommends that parameter as a general Strix Halo requirement.
 
 ---
 
@@ -146,7 +147,7 @@ sudo modprobe -r hid_asus && sudo modprobe hid_asus
 | Suspend fails | Apply MMC fix | Apply MMC fix | Apply MMC fix |
 | Intermittent OLED artifacts/flicker while scrolling | Apply display fix (`dcdebugmask`) | Ensure `amdgpu.dcdebugmask=0xe12` is present in a **single-line** `/etc/kernel/cmdline` (systemd-boot) or GRUB cmdline | Same as 6.17+ |
 
-### Display Fix Validation (Kernel 7.0+)
+### Display Fix Validation (Kernel 6.19+)
 
 On systemd-boot systems, `/etc/kernel/cmdline` must be a single line. If display parameters were appended on a separate line by older tooling, the fix may not apply reliably.
 

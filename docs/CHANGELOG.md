@@ -2,6 +2,14 @@
 
 All notable changes to GZ302-Linux-Setup will be documented in this file.
 
+## [6.3.6] - 2026-05-03
+
+### Fixed
+- **z13ctl permission alignment**: `gz302-setup.sh` now ensures the active user is in the `users` group before running `z13ctl setup`, resolves the installed `z13ctl` path when writing sudoers and fallback user units, and keeps command-center power and fan actions on the same direct-or-sudo execution path used by RGB controls.
+- **Debian-family detection for Kali**: `detect_distribution()` now treats `ID=kali` as Debian-based so Kali follows the expected Debian package path for the core installer.
+- **Suspend helper recommendations**: `scripts/fix-suspend.sh` now suggests the current `amdgpu.dcdebugmask=0xe12` mask and stops recommending `amd_pmc.enable_stb=1` as a general Strix Halo tuning parameter.
+- **Ubuntu support documentation**: Aligned the repo docs around Ubuntu 26.04 on kernel 6.19+, removed the stale `gz302-rgb-install.sh` reinstall reference, and corrected the documented sudoers path for command-center troubleshooting.
+
 ## [6.3.5] - 2026-04-29
 
 ### Fixed

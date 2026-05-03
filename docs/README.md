@@ -6,12 +6,12 @@ Documentation for the ASUS ROG Flow Z13 (GZ302) Linux Setup project.
 
 | Document | Description |
 |----------|-------------|
-| [Kernel Support](kernel-support.md) | Kernel compatibility matrix, troubleshooting |
-| [AI/ML Packages](ai-ml-packages.md) | ROCm, Ollama, PyTorch setup |
-| [ROCm Support](rocm-support.md) | ROCm 7.1.1 configuration |
+| [Kernel Support](technical/kernel-support.md) | Kernel compatibility matrix, troubleshooting |
+| [AI/ML Packages](technical/ai-ml-packages.md) | ROCm, Ollama, PyTorch setup |
+| [ROCm Support](technical/rocm-support.md) | ROCm 7.1.1 configuration |
 | [Testing Guide](testing-guide.md) | How to test changes |
 | [Changelog](CHANGELOG.md) | Version history |
-| [Obsolescence Analysis](obsolescence-analysis.md) | Component lifecycle status |
+| [Obsolescence Analysis](technical/obsolescence-analysis.md) | Component lifecycle status |
 
 ## Hardware Specifications
 
@@ -31,13 +31,16 @@ Documentation for the ASUS ROG Flow Z13 (GZ302) Linux Setup project.
 | CachyOS | 6.18+ | ✅ Full |
 | Fedora 43 | 6.17+ | ✅ Full |
 | OpenSUSE TW | 6.17+ | ✅ Full |
-| Ubuntu 25.10 | 6.11+ | ⚠️ Upgrade HWE |
+| Ubuntu 26.04 | 6.19+ | ✅ Full |
+
+> [!NOTE]
+> Ubuntu 24.04.4 remains usable with the 6.17 HWE kernel. See [Kernel Support](technical/kernel-support.md) for the full Ubuntu matrix.
 
 ## Repository Structure
 
 ```text
 GZ302-Linux-Setup/
-├── gz302-setup.sh         # Unified installer (v6.0.0)
+├── gz302-setup.sh         # Unified installer (v6.3.6)
 ├── gz302-lib/             # Shared bash libraries
 ├── modules/               # Optional modules (gaming, AI, hypervisor)
 ├── scripts/               # Standalone tools & utilities

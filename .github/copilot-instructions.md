@@ -64,7 +64,7 @@ info "msg"; success "done"; error "fail"   # Use logging helpers
 ## Hardware Context
 
 - **CPU**: AMD Ryzen AI MAX+ 395 (Strix Halo) — `amd_pstate=guided`
-- **GPU**: Radeon 8060S integrated — `amdgpu.ppfeaturemask=0xffffffff`
+- **GPU**: Radeon 8060S integrated — `amdgpu.ppfeaturemask=0xffff7fff`
 - **No discrete GPU**: 100% AMD system.
 - **Controls**: Powered by [z13ctl](https://github.com/dahui/z13ctl) for RGB, power, TDP, and battery.
 

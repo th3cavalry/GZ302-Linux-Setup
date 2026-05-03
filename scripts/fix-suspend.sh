@@ -261,10 +261,7 @@ CMDLINE=$(cat /proc/cmdline 2>/dev/null)
 SUGGEST_PARAMS=""
 
 if ! echo "$CMDLINE" | grep -q "amdgpu.dcdebugmask"; then
-    SUGGEST_PARAMS+="  amdgpu.dcdebugmask=0x10    # Prevent GPU display hang on resume\n"
-fi
-if ! echo "$CMDLINE" | grep -q "amd_pmc.enable_stb"; then
-    SUGGEST_PARAMS+="  amd_pmc.enable_stb=1        # Enable Smart Trace Buffer for debug\n"
+    SUGGEST_PARAMS+="  amdgpu.dcdebugmask=0xe12   # Current OLED/display stability mask\n"
 fi
 if ! echo "$CMDLINE" | grep -q "rtc_cmos.use_acpi_alarm"; then
     SUGGEST_PARAMS+="  rtc_cmos.use_acpi_alarm=1   # Fix RTC wakeup via ACPI\n"
@@ -278,6 +275,9 @@ else
     echo "  All recommended parameters already present."
 fi
 
+echo ""
+echo "Note: This suspend hook does not require amd_pmc.enable_stb=1."
+echo "      Leave Smart Trace Buffer disabled unless you are collecting kernel debug data."
 echo ""
 echo "=== What This Fix Does ==="
 echo ""

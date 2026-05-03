@@ -202,15 +202,21 @@ amd_iommu=off          # Disable IOMMU for lower latency
 
 ---
 
-### Ubuntu 25.10 (Kernel 6.17)
-**Similar to Fedora 43**
+### Ubuntu 26.04 (Kernel 6.19+)
+**Obsolete Components:**
+- ✅ WiFi workarounds (native support)
+- ✅ Tablet mode daemon (native support)
+- ✅ Input forcing (native support)
+- ✅ Audio quirks (native CS35L41 support)
+
+**Required Components:**
+- ✅ Power management tools (valuable)
+- ✅ AI optimizations (if using LLMs)
 
 **Additional Consideration:**
-- `linux-firmware` package may lag behind
-- Verify firmware version: `modinfo mt7925e | grep firmware`
-- Update if < September 2025 date
+- Verify `linux-firmware` is current if MT7925 behavior lags your kernel rollout
 
-**Secure Boot:** Custom modules require manual signing/MOK enrollment
+**Recommendation:** Toolkit utilities only (pwrcfg, rrcfg, RGB)
 
 ---
 

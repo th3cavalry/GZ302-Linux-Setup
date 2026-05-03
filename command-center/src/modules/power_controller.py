@@ -32,6 +32,39 @@ class PowerController:
         self._last_plugged = None
         self._load_auto_config()
 
+    def _run_z13ctl(self, args, timeout=10):
+        last_result = None
+        for cmd in (args, ["sudo", "-n"] + args):
+            try:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
+            except Exception:
+                continue
+            last_result = result
+            if result.returncode == 0:
+                return result
+        return last_result
+
+    def _result_error(self, result):
+        if result is None:
+            return "Unable to execute z13ctl"
+        detail = result.stderr.strip() or result.stdout.strip() or "Unknown error"
+        lowered = detail.lower()
+        if (
+            "permission" in lowered
+            or "password is required" in lowered
+            or "not permitted" in lowered
+        ):
+            detail = (
+                f"{detail}\n"
+                "Log out and back in if the installer just added your account to the 'users' group."
+            )
+        return detail
+
     def _read_current_profile(self):
         # Check saved tray profile first — preserves 7-tier names like gaming/maximum
         # and avoids a slow z13ctl call during startup
@@ -44,11 +77,8 @@ class PowerController:
             pass
         # Fall back to z13ctl status (returns 3-tier: quiet/balanced/performance)
         try:
-            result = subprocess.run(
-                ["sudo", "-n", "z13ctl", "status"],
-                capture_output=True, text=True, timeout=5,
-            )
-            if result.returncode == 0:
+            result = self._run_z13ctl(["z13ctl", "status"], timeout=5)
+            if result and result.returncode == 0:
                 for line in result.stdout.splitlines():
                     low = line.lower()
                     if "profile" in low and ":" in line:
@@ -128,11 +158,8 @@ class PowerController:
     def get_profile_details(self):
         """Return (spl, sppt, fppt) wattages parsed from z13ctl status."""
         try:
-            result = subprocess.run(
-                ["sudo", "-n", "z13ctl", "status"],
-                capture_output=True, text=True, timeout=5,
-            )
-            if result.returncode == 0:
+            result = self._run_z13ctl(["z13ctl", "status"], timeout=5)
+            if result and result.returncode == 0:
                 for line in result.stdout.splitlines():
                     if "tdp" in line.lower() and "pl1" in line.lower():
                         vals = [int(m) for m in re.findall(r'(\d+)W', line)]
@@ -157,11 +184,8 @@ class PowerController:
                 z13_profile = profile
 
             # Call z13ctl directly (daemon mode handles permissions)
-            result = subprocess.run(
-                ["z13ctl", "profile", "--set", z13_profile],
-                capture_output=True, text=True, timeout=30,
-            )
-            if result.returncode == 0:
+            result = self._run_z13ctl(["z13ctl", "profile", "--set", z13_profile], timeout=30)
+            if result and result.returncode == 0:
                 self.notifier.notify_profile_change(profile, result.stdout.strip())
                 self.current_profile = profile
                 # Persist tray-level profile name (survives restarts)
@@ -176,21 +200,10 @@ class PowerController:
                     tdp_cmd = ["z13ctl", "tdp", "--set", str(tdp_val)]
                     if tdp_val > 75:
                         tdp_cmd.append("--force")
-                    res = subprocess.run(
-                        tdp_cmd,
-                        capture_output=True, text=True, timeout=10,
-                    )
-                    # Fallback to sudo -n if z13ctl daemon can't set TDP directly
-                    if res.returncode != 0:
-                        sudo_cmd = ["sudo", "-n"] + tdp_cmd
-                        subprocess.run(
-                            sudo_cmd,
-                            capture_output=True, text=True, timeout=10,
-                        )
+                    self._run_z13ctl(tdp_cmd, timeout=10)
                 return True
             else:
-                err = result.stderr.strip()
-                self.notifier.notify_error("Profile Change Failed", err)
+                self.notifier.notify_error("Profile Change Failed", self._result_error(result))
                 return False
         except Exception as e:
             self.notifier.notify_error("Profile Change Failed", str(e))
@@ -198,33 +211,39 @@ class PowerController:
 
     def set_tdp(self, watts):
         try:
-            result = subprocess.run(
-                ["sudo", "-n", "z13ctl", "tdp", "--set", str(watts)],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode == 0:
+            result = self._run_z13ctl(["z13ctl", "tdp", "--set", str(watts)], timeout=10)
+            if result and result.returncode == 0:
                 self.notifier.notify("Power", f"TDP set to {watts}W", "success", 2000)
                 return True
             else:
-                self.notifier.notify_error("TDP Failed", result.stderr.strip())
+                self.notifier.notify_error("TDP Failed", self._result_error(result))
                 return False
+        except Exception as e:
+            self.notifier.notify_error("Error", str(e))
+            return False
+
+    def set_fan_curve(self, curve):
+        try:
+            result = self._run_z13ctl(["z13ctl", "fancurve", "--set", curve], timeout=10)
+            if result and result.returncode == 0:
+                self.notifier.notify("Fans", "Custom curve applied", "success", 2000)
+                return True
+            self.notifier.notify_error("Fan Curve Failed", self._result_error(result))
+            return False
         except Exception as e:
             self.notifier.notify_error("Error", str(e))
             return False
 
     def set_charge_limit(self, limit):
         try:
-            result = subprocess.run(
-                ["z13ctl", "batterylimit", "--set", str(limit)],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode == 0:
+            result = self._run_z13ctl(["z13ctl", "batterylimit", "--set", str(limit)], timeout=10)
+            if result and result.returncode == 0:
                 self.notifier.notify(
                     "Battery", f"Charge limit set to {limit}%", "success", 2000
                 )
                 return True
             else:
-                self.notifier.notify_error("Charge Limit Failed", result.stderr.strip())
+                self.notifier.notify_error("Charge Limit Failed", self._result_error(result))
                 return False
         except Exception as e:
             self.notifier.notify_error("Error", str(e))
@@ -232,11 +251,8 @@ class PowerController:
 
     def get_status(self):
         try:
-            result = subprocess.run(
-                ["sudo", "-n", "z13ctl", "status"],
-                capture_output=True, text=True, timeout=10,
-            )
-            return result.stdout.strip() if result.returncode == 0 else "Unknown"
+            result = self._run_z13ctl(["z13ctl", "status"], timeout=10)
+            return result.stdout.strip() if result and result.returncode == 0 else "Unknown"
         except Exception:
             return "Unknown"
 

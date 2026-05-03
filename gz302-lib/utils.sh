@@ -9,7 +9,7 @@ set -euo pipefail
 
 # ==============================================================================
 # GZ302 Shared Utilities Library
-# Version: 6.3.5
+# Version: 6.3.6
 #
 # This library contains shared functions for the GZ302 Linux Setup scripts.
 # It is sourced by gz302-setup.sh and all optional modules.
@@ -330,8 +330,8 @@ detect_distribution() {
         # First, be more specific for ubuntu and its derivatives
         elif [[ "${ID:-}" == "ubuntu" || "${ID:-}" == "pop" || "${ID:-}" == "linuxmint" || "${ID_LIKE:-}" == *"ubuntu"* ]]; then
             distro="ubuntu"
-        # fallback to debian based systems
-        elif [[ "${ID:-}" == "debian" || "${ID_LIKE:-}" == *"debian"* ]]; then
+        # fallback to debian based systems (including Kali)
+        elif [[ "${ID:-}" == "debian" || "${ID:-}" == "kali" || "${ID_LIKE:-}" == *"debian"* ]]; then
             distro="debian"
         # Detect Fedora-based systems
         elif [[ "${ID:-}" == "fedora" || "${ID_LIKE:-}" == *"fedora"* ]]; then
